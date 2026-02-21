@@ -301,11 +301,10 @@ const ActivitesList = () => {
                 <button
                   key={item.type}
                   onClick={() => setFilterType(item.type)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${
-                    filterType === item.type
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${filterType === item.type
                       ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
                       : 'bg-white border-slate-200/60 text-slate-500 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -321,7 +320,7 @@ const ActivitesList = () => {
               <select
                 value={selectedTier}
                 onChange={(e) => setSelectedTier(e.target.value)}
-                className="input-modern w-full h-10 text-xs"
+                className="input-modern w-full text-xs"
               >
                 <option value="">Tous les clients</option>
                 {tiers.map(t => (
@@ -337,7 +336,7 @@ const ActivitesList = () => {
               <select
                 value={selectedProjet}
                 onChange={(e) => setSelectedProjet(e.target.value)}
-                className="input-modern w-full h-10 text-xs"
+                className="input-modern w-full text-xs"
               >
                 <option value="">Tous les projets</option>
                 {filteredProjetsForFilters.map(p => (
@@ -353,7 +352,7 @@ const ActivitesList = () => {
               <select
                 value={selectedCommercial}
                 onChange={(e) => setSelectedCommercial(e.target.value)}
-                className="input-modern w-full h-10 text-xs"
+                className="input-modern w-full text-xs"
               >
                 <option value="">Tous les commerciaux</option>
                 {commerciaux.map(c => (
@@ -371,14 +370,14 @@ const ActivitesList = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="input-modern h-10 text-xs"
+                  className="input-modern text-xs"
                   placeholder="Du"
                 />
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="input-modern h-10 text-xs"
+                  className="input-modern text-xs"
                   placeholder="Au"
                 />
               </div>

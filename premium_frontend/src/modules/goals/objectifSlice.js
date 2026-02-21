@@ -10,8 +10,11 @@ const initialState = {
 export const fetchObjectifs = createAsyncThunk(
     'objectifs/fetchObjectifs',
     async (filters = {}) => {
-        const response = await axios.get('/objectifs', { params: filters });
-        return response.data;
+        const response = await axios.get('/objectifs', {
+            params: { ...filters, _: Date.now() }
+        });
+        // L'intercepteur axios retourne déjà response.data, donc response = {status, count, data}
+        return response;
     }
 );
 
@@ -19,7 +22,8 @@ export const createObjectif = createAsyncThunk(
     'objectifs/createObjectif',
     async (data) => {
         const response = await axios.post('/objectifs', data);
-        return response.data;
+        // L'intercepteur axios retourne déjà response.data, donc response = {status, message, data}
+        return response;
     }
 );
 
@@ -27,7 +31,8 @@ export const updateObjectif = createAsyncThunk(
     'objectifs/updateObjectif',
     async ({ id, data }) => {
         const response = await axios.put(`/objectifs/${id}`, data);
-        return response.data;
+        // L'intercepteur axios retourne déjà response.data
+        return response;
     }
 );
 
@@ -42,7 +47,7 @@ const objectifSlice = createSlice({
             })
             .addCase(fetchObjectifs.fulfilled, (state, action) => {
                 state.loading = false;
-                state.objectifs = action.payload.data;
+                state.objectifs = action.payload.data || [];
             })
             .addCase(fetchObjectifs.rejected, (state, action) => {
                 state.loading = false;

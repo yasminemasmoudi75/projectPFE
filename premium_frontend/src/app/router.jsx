@@ -330,6 +330,14 @@ const routes = [
                 <ObjectifForm />
               </SuspenseWrapper>
             ),
+          },
+          {
+            path: 'edit/:id',
+            element: (
+              <SuspenseWrapper>
+                <ObjectifForm />
+              </SuspenseWrapper>
+            ),
           }
         ]
       },
@@ -422,7 +430,14 @@ const router = createBrowserRouter(routes, {
 /**
  * Composant AppRouter pour le support HMR et l'encapsulation du RouterProvider
  */
-export const AppRouter = () => <RouterProvider router={router} />;
+export const AppRouter = () => (
+  <RouterProvider
+    router={router}
+    future={{
+      v7_startTransition: true,
+    }}
+  />
+);
 
 // Export nommé du router pour accès direct si nécessaire (ex: tests, slice)
 export { router };
