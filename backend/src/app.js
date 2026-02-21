@@ -14,6 +14,12 @@ const errorHandler = require('./middleware/errorHandler');
 // Créer l'application Express
 const app = express();
 
+// Middlewares globaux
+app.use(cors({
+  origin: CORS_ORIGIN,
+  credentials: true,
+}));
+
 // 1. Sécurité HTTP (Headers)
 app.use(helmet());
 
@@ -41,12 +47,6 @@ const loginLimiter = rateLimit({
   message: 'Trop de tentatives de connexion, réessayez dans 15 minutes.'
 });
 app.use('/api/auth/login', loginLimiter);
-
-// Middlewares globaux
-app.use(cors({
-  origin: CORS_ORIGIN,
-  credentials: true,
-}));
 
 app.use(express.json({ limit: '10kb' })); // Limite la taille du body pour éviter les attaques DoS
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));

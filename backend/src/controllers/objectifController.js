@@ -1,4 +1,4 @@
-const { Objectif, User } = require('../models');
+const { Objectif, User, Tiers, Projet } = require('../models');
 const { sanitizeDate } = require('../utils/helpers');
 
 /**
@@ -15,7 +15,9 @@ exports.createObjectif = async (req, res, next) => {
             DateFin,
             MontantCible,
             Montant_Realise_Actuel,
-            TypeObjectif
+            TypeObjectif,
+            Libelle_Indicateur,
+            Statut
         } = req.body;
 
         // Validation
@@ -34,12 +36,14 @@ exports.createObjectif = async (req, res, next) => {
             ID_Utilisateur: ID_Utilisateur,
             Mois: parseInt(Mois),
             Annee: parseInt(Annee),
-            Semaine: Semaine ? parseInt(Semaine) : null,
+            Semaine: Semaine || null,
             DateDebut: sanitizedDateDebut,
             DateFin: sanitizedDateFin,
             MontantCible,
             Montant_Realise_Actuel: Montant_Realise_Actuel || 0,
-            TypeObjectif
+            TypeObjectif,
+            Libelle_Indicateur,
+            Statut
         });
 
         res.status(201).json({
@@ -57,7 +61,7 @@ exports.createObjectif = async (req, res, next) => {
  */
 exports.getAllObjectifs = async (req, res, next) => {
     try {
-        const { userId, mois, annee, semaine } = req.query;
+        const { userId, mois, annee, semaine, tiersId, projetId } = req.query;
         const where = {};
         if (userId) where.ID_Utilisateur = userId;
         if (mois) where.Mois = mois;
@@ -132,7 +136,9 @@ exports.updateObjectif = async (req, res, next) => {
             DateFin,
             MontantCible,
             Montant_Realise_Actuel,
-            TypeObjectif
+            TypeObjectif,
+            Libelle_Indicateur,
+            Statut
         } = req.body;
 
         const objectif = await Objectif.findByPk(id);
@@ -151,12 +157,14 @@ exports.updateObjectif = async (req, res, next) => {
         await objectif.update({
             Mois: Mois !== undefined ? parseInt(Mois) : objectif.Mois,
             Annee: Annee !== undefined ? parseInt(Annee) : objectif.Annee,
-            Semaine: Semaine !== undefined ? parseInt(Semaine) : objectif.Semaine,
+            Semaine: Semaine !== undefined ? Semaine : objectif.Semaine,
             DateDebut: sanitizedDateDebut,
             DateFin: sanitizedDateFin,
             MontantCible: MontantCible || objectif.MontantCible,
             Montant_Realise_Actuel: Montant_Realise_Actuel !== undefined ? Montant_Realise_Actuel : objectif.Montant_Realise_Actuel,
-            TypeObjectif: TypeObjectif || objectif.TypeObjectif
+            TypeObjectif: TypeObjectif || objectif.TypeObjectif,
+            Libelle_Indicateur: Libelle_Indicateur !== undefined ? Libelle_Indicateur : objectif.Libelle_Indicateur,
+            Statut: Statut !== undefined ? Statut : objectif.Statut
         });
 
         res.status(200).json({

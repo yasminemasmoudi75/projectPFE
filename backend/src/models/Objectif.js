@@ -32,12 +32,12 @@ const Objectif = sequelize.define('TabObjectifs', {
     field: 'Annee'
   },
   MontantCible: {
-    type: DataTypes.FLOAT,
+    type: DataTypes.DECIMAL(18, 2),
     allowNull: true,
     field: 'MontantCible'
   },
   Montant_Realise_Actuel: {
-    type: DataTypes.FLOAT,
+    type: DataTypes.DECIMAL(18, 2),
     allowNull: true,
     defaultValue: 0,
     field: 'Montant_Realise_Actuel'
@@ -48,27 +48,29 @@ const Objectif = sequelize.define('TabObjectifs', {
     field: 'TypeObjectif'
   },
   Semaine: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.STRING(50),
     allowNull: true,
     field: 'Semaine'
   },
   DateDebut: {
-    type: DataTypes.STRING(25),
+    type: DataTypes.DATE,
     allowNull: true,
-    field: 'DateDebut',
-    get() {
-      const value = this.getDataValue('DateDebut');
-      return value ? new Date(value) : null;
-    }
+    field: 'DateDebut'
   },
   DateFin: {
-    type: DataTypes.STRING(25),
+    type: DataTypes.DATE,
     allowNull: true,
-    field: 'DateFin',
-    get() {
-      const value = this.getDataValue('DateFin');
-      return value ? new Date(value) : null;
-    }
+    field: 'DateFin'
+  },
+  Libelle_Indicateur: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'Libelle_Indicateur'
+  },
+  Statut: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'Statut'
   }
 }, {
   tableName: 'TabObjectifs',
