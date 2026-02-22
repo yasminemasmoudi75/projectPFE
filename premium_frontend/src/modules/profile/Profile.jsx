@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import useAuth from '../../hooks/useAuth';
 import authService from '../../auth/authService';
 import { toast } from 'react-hot-toast';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const Profile = () => {
   const { user, login } = useAuth(); // login is used to update the user in context/storage
@@ -32,7 +33,7 @@ const Profile = () => {
       });
       // Set preview to current profile picture
       if (user.PhotoProfil) {
-        setPreviewUrl(user.PhotoProfil); // Use relative path, Vite proxy will handle it
+        setPreviewUrl(getImageUrl(user.PhotoProfil));
       }
     }
   }, [user]);

@@ -24,6 +24,7 @@ const ActiviteForm = lazy(() => import('../modules/activities/ActiviteForm'));
 const ActiviteDetail = lazy(() => import('../modules/activities/ActiviteDetail'));
 const ProductsList = lazy(() => import('../modules/products/ProductsList'));
 const ProductForm = lazy(() => import('../modules/products/ProductForm'));
+const ProductDetail = lazy(() => import('../modules/products/ProductDetail'));
 const ClaimsList = lazy(() => import('../modules/claims/ClaimsList'));
 const ClaimDetail = lazy(() => import('../modules/claims/ClaimDetail'));
 const ClaimForm = lazy(() => import('../modules/claims/ClaimForm'));
@@ -270,6 +271,14 @@ const routes = [
             element: (
               <SuspenseWrapper>
                 <ProductForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: ':id',
+            element: (
+              <SuspenseWrapper>
+                <ProductDetail />
               </SuspenseWrapper>
             ),
           }

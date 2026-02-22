@@ -1,72 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-// import axios from '../../app/axios'; // Désactivé pour mode sans backend
-
-// Mock Data
-const MOCK_DEVIS = [
-  {
-    Guid: 'd1',
-    Prfx: 'DV',
-    Nf: 20240001,
-    DatUser: '2024-01-15T10:00:00',
-    LibTiers: 'Société ABC',
-    CodTiers: 'CLI001',
-    Adresse: '123 Rue de Paris',
-    Ville: 'Tunis',
-    TotHT: 1500.00,
-    TotTva: 285.00,
-    TotRem: 0,
-    NetHT: 1500.00,
-    Timbre: 1.000,
-    TotTTC: 1786.00,
-    Valid: true,
-    IsConverted: false,
-    IA_Probabilite: 85,
-    Remarq: 'Projet CRM complet',
-    DesRepres: 'Ahmed Ben Ali'
-  },
-  {
-    Guid: 'd2',
-    Prfx: 'DV',
-    Nf: 20240002,
-    DatUser: '2024-02-01T14:30:00',
-    LibTiers: 'Tech Solutions',
-    CodTiers: 'CLI002',
-    Adresse: 'zone industrielle',
-    Ville: 'Sfax',
-    TotHT: 5000.00,
-    TotTva: 950.00,
-    TotRem: 200.00,
-    NetHT: 4800.00,
-    Timbre: 1.000,
-    TotTTC: 5751.00,
-    Valid: false,
-    IsConverted: false,
-    IA_Probabilite: 45,
-    Remarq: 'Maintenance annuelle',
-    DesRepres: 'Sarah Mansour'
-  },
-  {
-    Guid: 'd3',
-    Prfx: 'DV',
-    Nf: 20240003,
-    DatUser: '2024-02-05T09:15:00',
-    LibTiers: 'Global Import',
-    CodTiers: 'CLI003',
-    Adresse: 'Av. Habib Bourguiba',
-    Ville: 'Sousse',
-    TotHT: 12000.00,
-    TotTva: 2280.00,
-    TotRem: 0,
-    NetHT: 12000.00,
-    Timbre: 1.000,
-    TotTTC: 14281.00,
-    Valid: true,
-    IsConverted: true,
-    IA_Probabilite: 98,
-    Remarq: 'Installation réseau',
-    DesRepres: 'Ahmed Ben Ali'
-  }
-];
+import axios from '../../app/axios';
 
 // État initial
 const initialState = {
@@ -77,61 +10,54 @@ const initialState = {
   pagination: {
     page: 1,
     limit: 10,
-    total: 3,
+    total: 0,
     totalPages: 1,
   },
 };
 
-// Actions asynchrones (MOCK)
+// Actions asynchrones
+// Note: axiosInstance (dans ../../app/axios) retourne déjà response.data via un intercepteur
 export const fetchDevis = createAsyncThunk(
   'devis/fetchDevis',
-  async ({ page = 1, limit = 10, filters = {} }) => {
-    // Simulation réseau
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      data: MOCK_DEVIS,
-      pagination: {
-        page: 1,
-        limit: 10,
-        total: MOCK_DEVIS.length,
-        totalPages: 1
-      }
-    };
+  async ({ page = 1, limit = 100, search = '', status = '' }) => {
+    const response = await axios.get('/devis', {
+      params: { page, limit, search, status }
+    });
+    // response est ici { status: 'success', data: [...], pagination: {...} }
+    return response;
   }
 );
 
 export const fetchDevisById = createAsyncThunk('devis/fetchDevisById', async (id) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const devis = MOCK_DEVIS.find(d => d.Guid === id);
-  if (!devis) throw new Error('Devis non trouvé');
-  return devis;
+  const response = await axios.get(`/devis/${id}`);
+  // response est { status: 'success', data: { ... } }
+  return response.data;
 });
 
-export const createDevis = createAsyncThunk('devis/createDevis', async (data) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { ...data, Guid: 'mock-' + Date.now(), DatUser: new Date().toISOString() };
+export const createDevis = createAsyncThunk('devis/createDevis', async (payload) => {
+  const response = await axios.post('/devis', payload);
+  // response est { status: 'success', message: '...', data: { ... } }
+  return response.data;
 });
 
-export const updateDevis = createAsyncThunk('devis/updateDevis', async ({ id, data }) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { ...data, Guid: id };
+export const updateDevis = createAsyncThunk('devis/updateDevis', async ({ id, payload }) => {
+  const response = await axios.put(`/devis/${id}`, payload);
+  return response.data;
 });
 
 export const deleteDevis = createAsyncThunk('devis/deleteDevis', async (id) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await axios.delete(`/devis/${id}`);
   return id;
 });
 
 export const validateDevis = createAsyncThunk('devis/validateDevis', async (id) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const devis = MOCK_DEVIS.find(d => d.Guid === id);
-  return { ...devis, Valid: true };
+  const response = await axios.patch(`/devis/${id}/validate`);
+  return response.data;
 });
 
 export const convertDevis = createAsyncThunk('devis/convertDevis', async (id) => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const devis = MOCK_DEVIS.find(d => d.Guid === id);
-  return { ...devis, Valid: true, IsConverted: true };
+  const response = await axios.patch(`/devis/${id}/convert`);
+  return response.data;
 });
 
 // Slice
@@ -154,8 +80,8 @@ const devisSlice = createSlice({
       })
       .addCase(fetchDevis.fulfilled, (state, action) => {
         state.loading = false;
-        state.devis = action.payload.data;
-        state.pagination = action.payload.pagination;
+        state.devis = action.payload?.data || [];
+        state.pagination = action.payload?.pagination || initialState.pagination;
       })
       .addCase(fetchDevis.rejected, (state, action) => {
         state.loading = false;
@@ -177,11 +103,14 @@ const devisSlice = createSlice({
 
       // Create Devis
       .addCase(createDevis.fulfilled, (state, action) => {
-        state.devis.unshift(action.payload);
+        if (action.payload) {
+          state.devis.unshift(action.payload);
+        }
       })
 
       // Update Devis
       .addCase(updateDevis.fulfilled, (state, action) => {
+        if (!action.payload) return;
         const index = state.devis.findIndex((d) => d.Guid === action.payload.Guid);
         if (index !== -1) {
           state.devis[index] = action.payload;
@@ -198,6 +127,7 @@ const devisSlice = createSlice({
 
       // Validate Devis
       .addCase(validateDevis.fulfilled, (state, action) => {
+        if (!action.payload) return;
         const index = state.devis.findIndex((d) => d.Guid === action.payload.Guid);
         if (index !== -1) {
           state.devis[index] = action.payload;
@@ -209,6 +139,7 @@ const devisSlice = createSlice({
 
       // Convert Devis
       .addCase(convertDevis.fulfilled, (state, action) => {
+        if (!action.payload) return;
         const index = state.devis.findIndex((d) => d.Guid === action.payload.Guid);
         if (index !== -1) {
           state.devis[index] = action.payload;
@@ -222,4 +153,3 @@ const devisSlice = createSlice({
 
 export const { clearCurrentDevis, clearError } = devisSlice.actions;
 export default devisSlice.reducer;
-

@@ -48,9 +48,7 @@ const authService = {
   updateProfile: async (data) => {
     // If data contains a file, send as FormData, otherwise as JSON
     const isFormData = data instanceof FormData;
-    const response = await axios.put('/auth/profile', data, {
-      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
-    });
+    const response = await axios.put('/auth/profile', data);
     return response.data;
   },
 

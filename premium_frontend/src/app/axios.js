@@ -6,10 +6,7 @@ import toast from 'react-hot-toast';
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   timeout: 15000,
-  withCredentials: true, // Crucial pour envoyer/recevoir les cookies HttpOnly
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
 });
 
 export const setupAxiosInterceptors = (store) => {

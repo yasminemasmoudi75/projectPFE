@@ -49,7 +49,7 @@ const ObjectifForm = () => {
                 const [usersRes] = await Promise.all([
                     axios.get('/users')
                 ]);
-                setUsers(usersRes.data || []);
+                setUsers(usersRes?.data ?? usersRes ?? []);
 
                 // If we didn't have an ID_Utilisateur yet, try to set it from the fetched users
                 if (!formData.ID_Utilisateur && usersRes.data?.length > 0) {

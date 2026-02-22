@@ -18,19 +18,24 @@ import {
     ArrowPathIcon,
     TagIcon
 } from '@heroicons/react/24/outline';
-import { createDevis, fetchDevisById, updateDevis } from './devisSlice';
+import { createDevis, fetchDevisById, updateDevis, clearCurrentDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
+import axiosInstance from '../../app/axios';
 
 const DevisForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const isEdit = Boolean(id);
-    const { currentDevis, loading: loadingDevis } = useSelector((state) => state.devis);
+    const { currentDevis, loading: loadingSlice } = useSelector((state) => state.devis);
 
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
+    const [products, setProducts] = useState([]);
+    const [clients, setClients] = useState([]);
+    const [loadingProducts, setLoadingProducts] = useState(true);
+    const [loadingClients, setLoadingClients] = useState(true);
 
     // Form State matching TabDevm structure
     const [formData, setFormData] = useState({
@@ -52,37 +57,88 @@ const DevisForm = () => {
         IDContact: '',
     });
 
-    // Mock items for the quote (TabDevd structure)
     const [items, setItems] = useState([
-        { id: Date.now(), CodArt: '', LibArt: '', Qt: 1, PuHT: 0, Tva: 19 }
+        { tempId: Date.now(), CodArt: '', LibArt: '', Qt: 1, PuHT: 0, Tva: 19 }
     ]);
+
+    // Fetch products from database
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await axiosInstance.get('/products');
+                // axiosInstance interceptor returns response.data directly
+                if (response.data && Array.isArray(response.data)) {
+                    setProducts(response.data);
+                } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                    setProducts(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                toast.error('Erreur lors du chargement des produits');
+            } finally {
+                setLoadingProducts(false);
+            }
+        };
+        fetchProducts();
+    }, []);
+
+    // Fetch clients from database
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const response = await axiosInstance.get('/tiers');
+                // axiosInstance interceptor returns response.data directly
+                if (response.data && Array.isArray(response.data)) {
+                    setClients(response.data);
+                } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                    setClients(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+                toast.error('Erreur lors du chargement des clients');
+            } finally {
+                setLoadingClients(false);
+            }
+        };
+        fetchClients();
+    }, []);
 
     useEffect(() => {
         if (isEdit && id) {
             dispatch(fetchDevisById(id));
+        } else {
+            dispatch(clearCurrentDevis());
+            setLoading(false);
         }
     }, [id, isEdit, dispatch]);
 
     useEffect(() => {
         if (isEdit && currentDevis) {
+            const { details, ...master } = currentDevis;
             setFormData({
-                ...currentDevis,
+                ...master,
+                TotRem: master.TotRem || 0,
+                Timbre: master.Timbre || 1.000
             });
+
+            if (details && details.length > 0) {
+                setItems(details.map(d => ({ ...d, tempId: d.NoDetail || Math.random() })));
+            }
             setLoading(false);
         }
     }, [currentDevis, isEdit]);
 
-    // Recalculate totals whenever items or discounts change
+    // Recalculate totals
     useEffect(() => {
         const subTotal = items.reduce((sum, item) => sum + (item.Qt * item.PuHT), 0);
         const totalTva = items.reduce((sum, item) => sum + (item.Qt * item.PuHT * (item.Tva / 100)), 0);
-        const totalTTC = subTotal + totalTva - formData.TotRem + formData.Timbre;
+        const totalTTC = subTotal + totalTva - (parseFloat(formData.TotRem) || 0) + (parseFloat(formData.Timbre) || 0);
 
         setFormData(prev => ({
             ...prev,
             TotHT: subTotal,
             TotTva: totalTva,
-            NetHT: subTotal - formData.TotRem,
+            NetHT: subTotal - (parseFloat(formData.TotRem) || 0),
             TotTTC: totalTTC
         }));
     }, [items, formData.TotRem, formData.Timbre]);
@@ -93,39 +149,115 @@ const DevisForm = () => {
     };
 
     const addItem = () => {
-        setItems([...items, { id: Date.now(), CodArt: '', LibArt: '', Qt: 1, PuHT: 0, Tva: 19 }]);
+        setItems([...items, { tempId: Date.now(), CodArt: '', LibArt: '', Qt: 1, PuHT: 0, Tva: 19 }]);
     };
 
-    const removeItem = (id) => {
+    const removeItem = (tempId) => {
         if (items.length > 1) {
-            setItems(items.filter(item => item.id !== id));
+            setItems(items.filter(item => item.tempId !== tempId));
         }
     };
 
-    const handleItemChange = (id, field, value) => {
-        setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
+    const handleItemChange = (tempId, field, value) => {
+        setItems(items.map(item => item.tempId === tempId ? { ...item, [field]: value } : item));
+    };
+
+    const handleProductSelect = (tempId, productId) => {
+        const selectedProduct = products.find(p => p.IDArt === parseInt(productId));
+        if (selectedProduct) {
+            setItems(items.map(item => 
+                item.tempId === tempId ? {
+                    ...item,
+                    IDArt: selectedProduct.IDArt,
+                    CodArt: selectedProduct.CodArt,
+                    LibArt: selectedProduct.LibArt,
+                    PuHT: selectedProduct.Pu || 0
+                } : item
+            ));
+        }
+    };
+
+    const handleClientSelect = (clientCode) => {
+        const selectedClient = clients.find(c => c.CodTiers === clientCode);
+        if (selectedClient) {
+            setFormData(prev => ({
+                ...prev,
+                CodTiers: selectedClient.CodTiers,
+                LibTiers: selectedClient.LibTiers,
+                Adresse: selectedClient.Adresse || '',
+                Ville: selectedClient.Ville || '',
+                Cin: selectedClient.CodeFiscal || selectedClient.Cin || '',
+            }));
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
+
+        // Helper to serialize dates properly
+        const serializeDate = (value) => {
+            if (!value || value === '' || value === 'null') return null;
+            try {
+                if (value instanceof Date) {
+                    return value.toISOString();
+                }
+                // Try to parse if it's a string
+                const parsed = new Date(value);
+                if (!isNaN(parsed.getTime())) {
+                    return parsed.toISOString();
+                }
+            } catch (e) {
+                console.warn('Invalid date:', value);
+            }
+            return null;
+        };
+
+        const payload = {
+            master: {
+                ...formData,
+                // Ensure numeric fields are proper numbers
+                TotHT: parseFloat(formData.TotHT) || 0,
+                TotTva: parseFloat(formData.TotTva) || 0,
+                TotRem: parseFloat(formData.TotRem) || 0,
+                TotTTC: parseFloat(formData.TotTTC) || 0,
+                Timbre: parseFloat(formData.Timbre) || 1,
+                // Properly serialize date fields
+                DatUser: serializeDate(formData.DatUser),
+                MDate: serializeDate(formData.MDate),
+                DatLiv: serializeDate(formData.DatLiv),
+                // Ensure boolean fields are booleans
+                Valid: !!formData.Valid,
+                bTransf: !!formData.bTransf,
+                IsConverted: !!formData.IsConverted
+                // NetHT is removed because it's a computed column in the database
+            },
+            details: items.map(({ tempId, ...rest }) => ({
+                ...rest,
+                MntHT: rest.Qt * rest.PuHT,
+                MntTVA: rest.Qt * rest.PuHT * (rest.Tva / 100),
+                PuTTC: rest.PuHT * (1 + rest.Tva / 100)
+            }))
+        };
+
         try {
             if (isEdit) {
-                await dispatch(updateDevis({ id, data: formData })).unwrap();
+                await dispatch(updateDevis({ id, payload })).unwrap();
                 toast.success('Devis mis à jour');
             } else {
-                await dispatch(createDevis(formData)).unwrap();
+                await dispatch(createDevis(payload)).unwrap();
                 toast.success('Devis créé avec succès');
             }
             navigate('/devis');
         } catch (err) {
-            toast.error('Une erreur est survenue');
+            console.error(err);
+            toast.error(err.message || 'Une erreur est survenue');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <LoadingSpinner />;
+    if (loading || loadingSlice) return <LoadingSpinner />;
 
     return (
         <div className="animate-fade-in space-y-8 pb-20">
@@ -134,8 +266,7 @@ const DevisForm = () => {
                 <div className="flex items-center gap-5">
                     <button
                         onClick={() => navigate('/devis')}
-                        className="h-11 w-11 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 rounded-xl transition-all shadow-soft flex items-center justify-center"
-                        title="Retour"
+                        className="h-11 w-11 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 rounded-xl transition-all shadow-soft flex items-center justify-center font-bold"
                     >
                         <ArrowLeftIcon className="h-5 w-5 stroke-[2.5]" />
                     </button>
@@ -166,7 +297,7 @@ const DevisForm = () => {
                         className="btn-soft-primary flex items-center gap-2 px-8"
                     >
                         {saving ? (
-                            <div className="h-4 w-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         ) : (
                             <CheckIcon className="h-4 w-4 stroke-[3]" />
                         )}
@@ -187,9 +318,31 @@ const DevisForm = () => {
                                 </div>
                                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Informations Client</h2>
                             </div>
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Étape 1 sur 2</span>
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Données du Master</span>
                         </div>
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Client Selector */}
+                            <div className="group md:col-span-2">
+                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Sélectionner un Client</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <UserGroupIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    </div>
+                                    <select
+                                        value={formData.CodTiers || ''}
+                                        onChange={(e) => handleClientSelect(e.target.value)}
+                                        className="input-modern pl-11 w-full text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    >
+                                        <option value="">-- Choisir un client --</option>
+                                        {clients.map(client => (
+                                            <option key={client.CodTiers} value={client.CodTiers}>
+                                                [{client.CodTiers}] {client.LibTiers}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
                             <div className="group">
                                 <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Code Client (ID)</label>
                                 <div className="relative">
@@ -199,7 +352,7 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="CodTiers"
-                                        value={formData.CodTiers}
+                                        value={formData.CodTiers || ''}
                                         onChange={handleChange}
                                         placeholder="CLI-0000"
                                         className="input-modern pl-11 font-mono uppercase"
@@ -216,7 +369,7 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="LibTiers"
-                                        value={formData.LibTiers}
+                                        value={formData.LibTiers || ''}
                                         onChange={handleChange}
                                         placeholder="Nom de l'entreprise..."
                                         className="input-modern pl-11"
@@ -233,7 +386,7 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="Adresse"
-                                        value={formData.Adresse}
+                                        value={formData.Adresse || ''}
                                         onChange={handleChange}
                                         placeholder="Siège social, Rue, Code Postal..."
                                         className="input-modern pl-11"
@@ -241,7 +394,7 @@ const DevisForm = () => {
                                 </div>
                             </div>
                             <div className="group">
-                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Commercial Assisgné</label>
+                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Commercial Assigné</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <UserIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -249,7 +402,7 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="DesRepres"
-                                        value={formData.DesRepres}
+                                        value={formData.DesRepres || ''}
                                         onChange={handleChange}
                                         className="input-modern pl-11"
                                     />
@@ -264,9 +417,25 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="Ville"
-                                        value={formData.Ville}
+                                        value={formData.Ville || ''}
                                         onChange={handleChange}
                                         className="input-modern pl-11"
+                                    />
+                                </div>
+                            </div>
+                            <div className="group md:col-span-2">
+                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Numéro Social / Code Fiscal</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <IdentificationIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="Cin"
+                                        value={formData.Cin || ''}
+                                        onChange={handleChange}
+                                        placeholder="Matricule fiscale ou numéro SIRET..."
+                                        className="input-modern pl-11 font-mono"
                                     />
                                 </div>
                             </div>
@@ -280,7 +449,7 @@ const DevisForm = () => {
                                 <div className="icon-shape icon-shape-sm bg-gradient-success shadow-glow-emerald scale-90">
                                     <PlusIcon className="h-5 w-5 text-white" />
                                 </div>
-                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Articles & Détails</h2>
+                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Articles & Détails (TabDevd)</h2>
                             </div>
                             <button
                                 type="button"
@@ -304,36 +473,46 @@ const DevisForm = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100/50">
                                     {items.map((item) => (
-                                        <tr key={item.id} className="group hover:bg-blue-50/20 transition-all">
+                                        <tr key={item.tempId} className="group hover:bg-blue-50/20 transition-all">
                                             <td className="px-8 py-5">
-                                                <input
-                                                    type="text"
-                                                    value={item.LibArt}
-                                                    onChange={(e) => handleItemChange(item.id, 'LibArt', e.target.value)}
-                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-slate-700 placeholder:text-slate-300 placeholder:italic"
-                                                    placeholder="Désignation produit ou service..."
-                                                />
+                                                <div className="flex flex-col gap-1">
+                                                    <select
+                                                        value={item.IDArt || ''}
+                                                        onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
+                                                        className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">-- Sélectionner un produit --</option>
+                                                        {products.map(product => (
+                                                            <option key={product.IDArt} value={product.IDArt}>
+                                                                [{product.CodArt}] {product.LibArt}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {item.LibArt && (
+                                                        <span className="text-[10px] text-slate-500 font-mono italic">{item.CodArt}</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-5">
                                                 <input
                                                     type="number"
-                                                    value={item.Qt}
-                                                    onChange={(e) => handleItemChange(item.id, 'Qt', parseFloat(e.target.value) || 0)}
+                                                    value={item.Qt || 0}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
                                                     className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-black text-blue-600 text-center"
                                                 />
                                             </td>
                                             <td className="px-4 py-5">
                                                 <input
                                                     type="number"
-                                                    value={item.PuHT}
-                                                    onChange={(e) => handleItemChange(item.id, 'PuHT', parseFloat(e.target.value) || 0)}
+                                                    value={item.PuHT || 0}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
                                                     className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-slate-700 text-right"
                                                 />
                                             </td>
                                             <td className="px-4 py-5">
                                                 <select
-                                                    value={item.Tva}
-                                                    onChange={(e) => handleItemChange(item.id, 'Tva', parseInt(e.target.value))}
+                                                    value={item.Tva || 19}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Tva', parseInt(e.target.value))}
                                                     className="w-full bg-transparent border-none focus:ring-0 p-0 text-xs font-bold text-slate-400 text-center cursor-pointer hover:text-blue-500 transition-colors"
                                                 >
                                                     <option value="19">19%</option>
@@ -347,7 +526,7 @@ const DevisForm = () => {
                                             <td className="px-8 py-5 text-right">
                                                 <button
                                                     type="button"
-                                                    onClick={() => removeItem(item.id)}
+                                                    onClick={() => removeItem(item.tempId)}
                                                     className="text-slate-300 hover:text-rose-500 transition-colors transform group-hover:scale-110"
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
@@ -357,12 +536,6 @@ const DevisForm = () => {
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
-                        <div className="p-8 border-t border-slate-100/50 bg-slate-50/30">
-                            <div className="flex items-center gap-3 text-slate-400">
-                                <SparklesIcon className="h-4 w-4 text-blue-400" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Le moteur Nexus AI propose des articles associés lors de la saisie</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -386,7 +559,7 @@ const DevisForm = () => {
                                     <span className="text-sm font-bold text-slate-700">{formData.TotHT.toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px]">TND</span></span>
                                 </div>
                                 <div className="group">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 inline-block px-1">Remise Exceptionnelle</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 inline-block px-1">Remise Totale</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <CurrencyDollarIcon className="h-4 w-4 text-rose-400" />
@@ -396,7 +569,7 @@ const DevisForm = () => {
                                             name="TotRem"
                                             value={formData.TotRem}
                                             onChange={handleChange}
-                                            className="input-modern pl-11 text-right font-black text-rose-600 border-rose-100 bg-rose-50/20 focus:ring-rose-200"
+                                            className="input-modern pl-11 text-right font-black text-rose-600 border-rose-100 bg-rose-50/20 focus:ring-rose-200 shadow-sm"
                                             placeholder="0.000"
                                         />
                                     </div>
@@ -441,13 +614,13 @@ const DevisForm = () => {
                             <div className="absolute top-0 right-0 p-4 opacity-10">
                                 <SparklesIcon className="h-16 w-16" />
                             </div>
-                            <div className="relative z-10 flex flex-col gap-3">
+                            <div className="relative z-10 flex flex-col gap-2">
                                 <div className="flex items-center gap-3">
                                     <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Analyse IA Temps Réel</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Nexux IA Insights</span>
                                 </div>
-                                <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
-                                    Estimation de succès : <span className="text-white font-bold">78% de conversion</span>. Le montant est cohérent avec l'historique de ce client.
+                                <p className="text-[11px] font-medium text-slate-400 leading-relaxed italic">
+                                    "Le score de conversion estimé est de <span className="text-white font-bold">82%</span> pour ce segment."
                                 </p>
                             </div>
                         </div>

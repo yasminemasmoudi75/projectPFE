@@ -6,30 +6,62 @@ import {
     ExclamationTriangleIcon,
     ArrowPathIcon,
     PencilIcon,
-    SparklesIcon
+    SparklesIcon,
+    PhotoIcon,
+    TrashIcon,
+    EyeIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
-
-const MOCK_PRODUCTS = [
-    { id: '1', ref: 'ART-001', name: 'Ordinateur Portable Dell Latitude', category: 'Informatique', price: 2450.000, stock: 15, minStock: 5 },
-    { id: '2', ref: 'ART-002', name: 'Écran 24" Full HD Samsung', category: 'Périphériques', price: 420.000, stock: 3, minStock: 10 },
-    { id: '3', ref: 'ART-003', name: 'Imprimante HP LaserJet', category: 'Bureautique', price: 890.000, stock: 0, minStock: 2 },
-    { id: '4', ref: 'ART-004', name: 'Clavier Mécanique RGB', category: 'Périphériques', price: 180.000, stock: 45, minStock: 10 },
-    { id: '5', ref: 'ART-005', name: 'Switch Cisco 24 Ports', category: 'Réseau', price: 1250.000, stock: 8, minStock: 3 },
-];
+import axios from '../../app/axios';
+import toast from 'react-hot-toast';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const ProductsList = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        setTimeout(() => {
-            setProducts(MOCK_PRODUCTS);
+        const timeoutId = setTimeout(() => {
+            fetchProducts(searchTerm);
+        }, 500); // 500ms debounce
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm]);
+
+    const fetchProducts = async (search = '') => {
+        setLoading(true);
+        try {
+            const response = await axios.get('/products', {
+                params: { search }
+            });
+            // Handle both { data: [...] } and directly [...]
+            const productData = response?.data || response;
+            setProducts(Array.isArray(productData) ? productData : []);
+        } catch (error) {
+            console.error("Error fetching products:", error);
+            // toast.error("Impossible de charger les produits");
+        } finally {
             setLoading(false);
-        }, 600);
-    }, []);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+            try {
+                await axios.delete(`/products/${id}`);
+                setProducts(products.filter(p => p.IDArt !== id));
+                toast.success('Produit supprimé avec succès');
+            } catch (error) {
+                console.error("Error deleting product:", error);
+                toast.error("Erreur lors de la suppression");
+            }
+        }
+    };
+
+    // Removal of local filtering
+    const filteredProducts = products;
 
     if (loading) return <LoadingSpinner />;
 
@@ -75,7 +107,7 @@ const ProductsList = () => {
                     <div>
                         <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Alertes Stock</p>
                         <p className="text-2xl font-black text-rose-500">
-                            {products.filter(p => p.stock <= p.minStock && p.stock > 0).length}
+                            {products.filter(p => p.Qte <= 5 && p.Qte > 0).length}
                         </p>
                     </div>
                     <div className="icon-shape shadow-soft" style={{ backgroundImage: 'linear-gradient(310deg, #ea0606 0%, #ff667c 100%)' }}>
@@ -86,7 +118,7 @@ const ProductsList = () => {
                     <div>
                         <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Ruptures</p>
                         <p className="text-2xl font-black text-rose-600 font-mono">
-                            {products.filter(p => p.stock === 0).length}
+                            {products.filter(p => p.Qte === 0).length}
                         </p>
                     </div>
                     <div className="icon-shape shadow-soft bg-gradient-dark">
@@ -98,6 +130,7 @@ const ProductsList = () => {
             {/* Main Table Card */}
             <div className="card-luxury p-0 overflow-hidden">
                 <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+
                     <h3 className="text-[11px] font-black text-[#344767] uppercase tracking-widest">Registre Catalogue</h3>
                     <div className="relative group min-w-[300px]">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -106,6 +139,8 @@ const ProductsList = () => {
                         <input
                             type="text"
                             placeholder="Rechercher référence ou nom..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-[#344767] focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all"
                         />
                     </div>
@@ -124,45 +159,81 @@ const ProductsList = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {products.map((product) => (
-                                <tr key={product.id} className="group hover:bg-slate-50/50 transition-all cursor-pointer">
+                            {filteredProducts.map((product) => (
+                                <tr
+                                    key={product.IDArt}
+                                    className="group hover:bg-slate-50/50 transition-all cursor-pointer"
+                                    onClick={() => navigate(`/products/${product.IDArt}`)}
+                                >
                                     <td className="px-8 py-5">
-                                        <span className="text-[11px] font-black text-slate-400 bg-slate-100/50 px-2 py-0.5 rounded uppercase">{product.ref}</span>
+                                        <span className="text-[11px] font-black text-slate-400 bg-slate-100/50 px-2 py-0.5 rounded uppercase">{product.CodArt}</span>
                                     </td>
                                     <td className="px-8 py-5">
-                                        <div className="text-sm font-black text-[#344767] group-hover:text-[#2152ff] transition-colors">{product.name}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase italic">{product.category}</div>
+                                        <div className="flex items-center gap-3">
+                                            {product.urlimg ? (
+                                                <img
+                                                    src={getImageUrl(product.urlimg)}
+                                                    alt={product.LibArt}
+                                                    className="w-10 h-10 rounded-lg object-cover bg-slate-100"
+                                                />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                    <PhotoIcon className="h-5 w-5 text-slate-300" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div className="text-sm font-black text-[#344767] group-hover:text-[#2152ff] transition-colors">{product.LibArt}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase italic">{product.Collection}</div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="px-8 py-5">
                                         <span className="text-sm font-black text-[#344767]">
-                                            {product.price.toLocaleString('fr-TN', { minimumFractionDigits: 3 })}
+                                            {Number(product.PrixVente).toLocaleString('fr-TN', { minimumFractionDigits: 3 })}
                                         </span>
                                         <span className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-tighter">TND</span>
                                     </td>
                                     <td className="px-8 py-5">
                                         <div className="flex flex-col">
-                                            <span className={`text-sm font-black ${product.stock === 0 ? 'text-rose-600' : product.stock <= product.minStock ? 'text-amber-500' : 'text-[#344767]'}`}>
-                                                {product.stock} <span className="text-[10px] text-slate-400 uppercase font-black">Utés</span>
+                                            <span className={`text-sm font-black ${product.Qte === 0 ? 'text-rose-600' : product.Qte <= 5 ? 'text-amber-500' : 'text-[#344767]'}`}>
+                                                {product.Qte} <span className="text-[10px] text-slate-400 uppercase font-black">Utés</span>
                                             </span>
-                                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Seuil alerte: {product.minStock}</span>
+                                            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Seuil alerte: 5</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-5">
-                                        {product.stock === 0 ? (
+                                        {product.Qte === 0 ? (
                                             <span className="inline-flex px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100 italic">En Reliquat</span>
-                                        ) : product.stock <= product.minStock ? (
+                                        ) : product.Qte <= 5 ? (
                                             <span className="inline-flex px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-100">Stock Critique</span>
                                         ) : (
                                             <span className="inline-flex px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-100">Disponible</span>
                                         )}
                                     </td>
                                     <td className="px-8 py-5 text-right">
-                                        <button
-                                            onClick={() => navigate(`/products/edit/${product.id}`)}
-                                            className="h-9 w-9 bg-slate-50 text-[#67748e] rounded-xl flex items-center justify-center hover:bg-gradient-soft-blue hover:text-white shadow-soft transition-all"
-                                        >
-                                            <PencilIcon className="h-4 w-4 stroke-[3]" />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/products/${product.IDArt}`); }}
+                                                className="h-9 w-9 bg-slate-50 text-[#67748e] rounded-xl flex items-center justify-center hover:bg-emerald-500 hover:text-white shadow-soft transition-all"
+                                                title="Détails"
+                                            >
+                                                <EyeIcon className="h-4 w-4 stroke-[3]" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/products/edit/${product.IDArt}`); }}
+                                                className="h-9 w-9 bg-slate-50 text-[#67748e] rounded-xl flex items-center justify-center hover:bg-gradient-soft-blue hover:text-white shadow-soft transition-all"
+                                                title="Modifier"
+                                            >
+                                                <PencilIcon className="h-4 w-4 stroke-[3]" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(product.IDArt); }}
+                                                className="h-9 w-9 bg-slate-50 text-[#67748e] rounded-xl flex items-center justify-center hover:bg-rose-500 hover:text-white shadow-soft transition-all"
+                                                title="Supprimer"
+                                            >
+                                                <TrashIcon className="h-4 w-4 stroke-[3]" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

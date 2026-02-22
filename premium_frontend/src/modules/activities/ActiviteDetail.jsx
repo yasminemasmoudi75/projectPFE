@@ -85,8 +85,12 @@ const ActiviteDetail = () => {
           <button
             onClick={() => {
               const fromClientId = location.state?.fromClientId;
+              const fromCalendar = location.state?.from === 'calendar';
+              
               if (fromClientId) {
                 navigate(`/clients/${fromClientId}`);
+              } else if (fromCalendar) {
+                navigate('/calendar');
               } else {
                 navigate('/activites');
               }
@@ -108,7 +112,7 @@ const ActiviteDetail = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`)}
+            onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`, { state: location.state })}
             className="btn-soft-primary flex items-center gap-2"
           >
             <PencilSquareIcon className="h-4 w-4 stroke-[3]" />

@@ -41,6 +41,7 @@ import toast from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchObjectifs, updateObjectif } from './objectifSlice';
 import axios from '../../app/axios';
+import { getImageUrl } from '../../utils/imageUrl';
 
 // Icon Map helper
 const ICON_MAP = {
@@ -157,7 +158,7 @@ const Objectifs = () => {
         const fetchUsers = async () => {
             try {
                 const res = await axios.get('/users');
-                const usersData = res.data || [];
+                const usersData = res?.data ?? res ?? [];
                 setUsers(usersData);
             } catch (error) {
                 console.error('Error fetching users:', error);
@@ -187,7 +188,7 @@ const Objectifs = () => {
 
                 const res = await axios.get('/objectifs', { params });
                 console.log('📊 Objectifs chargés depuis la base:', res);
-                setAllObjectifs(res.data || []);
+                setAllObjectifs(res?.data ?? res ?? []);
             } catch (error) {
                 console.error('Erreur lors du chargement des objectifs:', error);
                 setAllObjectifs([]);
@@ -241,7 +242,7 @@ const Objectifs = () => {
             if (selectedUserId !== 'all') params.userId = selectedUserId;
 
             const res = await axios.get('/objectifs', { params });
-            setAllObjectifs(res.data || []);
+            setAllObjectifs(res?.data ?? res ?? []);
         } catch (error) {
             console.error('Erreur lors de la mise à jour:', error);
             toast.error(error.response?.data?.message || "Erreur lors de la mise à jour");
@@ -707,7 +708,7 @@ const Objectifs = () => {
                                                 <div className="flex items-center gap-3">
                                                     {item.user?.PhotoProfil ? (
                                                         <img
-                                                            src={item.user.PhotoProfil}
+                                                            src={getImageUrl(item.user.PhotoProfil)}
                                                             alt={item.user.FullName}
                                                             className="w-10 h-10 rounded-full object-cover"
                                                         />

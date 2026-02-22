@@ -132,7 +132,7 @@ const DevisList = () => {
       <div className="card-luxury p-0 overflow-hidden">
         <div className="px-8 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/50 to-transparent flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-800">Liste des Propositions Commerciales</h3>
-          <span className="text-xs font-medium text-slate-500">{devis.length} documents trouvés</span>
+          <span className="text-xs font-medium text-slate-500">{(devis?.length || 0)} documents trouvés</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -147,7 +147,7 @@ const DevisList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50">
-              {devis.length === 0 ? (
+              {(!devis || devis.length === 0) ? (
                 <tr>
                   <td colSpan="6" className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">

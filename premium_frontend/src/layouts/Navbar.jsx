@@ -24,6 +24,7 @@ import clsx from 'clsx';
 import useAuth from '../hooks/useAuth';
 import { logout } from '../auth/authSlice';
 import toast from 'react-hot-toast';
+import { getImageUrl } from '../utils/imageUrl';
 
 const Navbar = ({ setSidebarOpen }) => {
   const dispatch = useDispatch();
@@ -171,8 +172,12 @@ const Navbar = ({ setSidebarOpen }) => {
           <Menu as="div" className="relative">
             <Menu.Button className="flex items-center gap-4 p-1 rounded-2xl bg-white border border-slate-100 hover:border-[#3477f2]/30 hover:shadow-soft transition-all outline-none group pr-3">
               <div className="relative">
-                <div className="h-10 w-10 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-black text-sm shadow-glow-blue transition-transform duration-500 group-hover:scale-110">
-                  {user?.FullName?.charAt(0) || 'U'}
+                <div className="h-10 w-10 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-black text-sm shadow-glow-blue transition-transform duration-500 group-hover:scale-110 overflow-hidden">
+                  {user?.PhotoProfil ? (
+                    <img src={getImageUrl(user.PhotoProfil)} alt={user.FullName} className="w-full h-full object-cover" />
+                  ) : (
+                    user?.FullName?.charAt(0) || 'U'
+                  )}
                 </div>
                 <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
               </div>
@@ -202,8 +207,12 @@ const Navbar = ({ setSidebarOpen }) => {
               <Menu.Items className="absolute right-0 z-50 mt-4 w-72 origin-top-right p-2 bg-white rounded-[2rem] shadow-soft-xl border border-slate-100 focus:outline-none overflow-hidden">
                 <div className="p-4 mb-2 bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-[1.5rem] border border-blue-100/30">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-black text-lg">
-                      {user?.FullName?.charAt(0)}
+                    <div className="h-12 w-12 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-black text-lg overflow-hidden">
+                      {user?.PhotoProfil ? (
+                        <img src={getImageUrl(user.PhotoProfil)} alt={user.FullName} className="w-full h-full object-cover" />
+                      ) : (
+                        user?.FullName?.charAt(0)
+                      )}
                     </div>
                     <div>
                       <p className="text-base font-black text-slate-800 leading-none">{user?.FullName}</p>

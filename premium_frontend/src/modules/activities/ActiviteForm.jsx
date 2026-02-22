@@ -218,7 +218,12 @@ const ActiviteForm = () => {
         await axios.post('/activites', formData);
         toast.success('Activité créée avec succès');
       }
-      navigate('/activites');
+      
+      if (location.state?.from === 'calendar') {
+        navigate('/calendar');
+      } else {
+        navigate('/activites');
+      }
     } catch (error) {
       console.error('Error saving activite:', error);
       const message = error.response?.data?.message || "Erreur lors de l'enregistrement";
@@ -255,7 +260,7 @@ const ActiviteForm = () => {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => navigate('/activites')}
+            onClick={() => location.state?.from === 'calendar' ? navigate('/calendar') : navigate('/activites')}
             className="btn-outline"
           >
             Annuler

@@ -32,6 +32,7 @@ const menuItems = [
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS },
   { type: 'section', name: 'Opérations' },
   { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },
+  { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },
   { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK },
   { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.SAV },
   { type: 'section', name: 'Intelligence' },

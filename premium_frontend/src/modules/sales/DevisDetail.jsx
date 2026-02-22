@@ -5,11 +5,13 @@ import {
   ArrowLeftIcon,
   PrinterIcon,
   CheckCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 import { fetchDevisById, validateDevis, convertDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
+import { getImageUrl } from '../../utils/imageUrl';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
@@ -132,17 +134,12 @@ const DevisDetail = () => {
           </div>
 
           {/* Client Info Card */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Informations Client</h2>
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4 font-sans uppercase tracking-widest text-xs">Informations Client</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-gray-500 text-sm">Client</p>
-                <button
-                  onClick={() => navigate(`/clients/1`)}
-                  className="font-bold text-primary-600 text-lg hover:underline transition-all"
-                >
-                  {devis.LibTiers}
-                </button>
+                <p className="font-bold text-slate-800 text-lg">{devis.LibTiers}</p>
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Code Tiers</p>
@@ -156,8 +153,73 @@ const DevisDetail = () => {
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Matricule Fiscale / CIN</p>
-                <p className="font-medium text-slate-800">{devis.Cin || '1234567/A/M/000'}</p>
+                <p className="font-medium text-slate-800">{devis.Cin || 'Non renseigné'}</p>
               </div>
+            </div>
+          </div>
+
+          {/* Line Items Table */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-50 bg-slate-50/50">
+              <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Articles du Devis</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <th className="px-6 py-3">Désignation</th>
+                    <th className="px-6 py-3 text-center">Qté</th>
+                    <th className="px-6 py-3 text-right">P.U HT</th>
+                    <th className="px-6 py-3 text-center">TVA</th>
+                    <th className="px-6 py-3 text-right">Total HT</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {devis?.details && devis.details.length > 0 ? (
+                    devis.details.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-blue-50/20 transition-all font-sans">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            {item.product?.urlimg ? (
+                              <img
+                                src={getImageUrl(item.product.urlimg)}
+                                alt={item.LibArt}
+                                className="h-10 w-10 rounded object-cover bg-slate-100"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded bg-slate-100 flex items-center justify-center">
+                                <PhotoIcon className="h-5 w-5 text-slate-300" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-bold text-slate-700">{item.LibArt}</p>
+                              <p className="text-[10px] text-slate-400 font-mono italic">{item.CodArt}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{item.Qt}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm font-medium text-slate-600">
+                          {Number(item.PuHT).toLocaleString(undefined, { minimumFractionDigits: 3 })}
+                        </td>
+                        <td className="px-6 py-4 text-center text-[11px] font-black text-slate-400">
+                          {item.Tva || 19}%
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm font-black text-slate-800">
+                          {(item.Qt * item.PuHT).toLocaleString(undefined, { minimumFractionDigits: 3 })}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-8 text-center text-slate-400 italic text-sm">
+                        Aucun article associé à ce devis.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
