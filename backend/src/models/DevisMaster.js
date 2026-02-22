@@ -80,7 +80,6 @@ const Devis = sequelize.define('TabDevm', {
   NetHT: {
     type: DataTypes.FLOAT,
     allowNull: true,
-    defaultValue: 0,
     field: 'NetHT'
   },
   Valid: {
@@ -179,6 +178,68 @@ const Devis = sequelize.define('TabDevm', {
       fields: ['IA_Probabilite']
     }
   ]
+});
+
+// Helper function to parse and validate dates
+const parseDate = (dateValue) => {
+  if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null) {
+    return null;
+  }
+  
+  try {
+    // If it's already a Date object, return it
+    if (dateValue instanceof Date) {
+      return isNaN(dateValue.getTime()) ? null : dateValue;
+    }
+    
+    // Try to parse string
+    const parsed = new Date(dateValue);
+    if (isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed;
+  } catch (e) {
+    console.error('⚠️  Invalid date value:', dateValue, e.message);
+    return null;
+  }
+};
+
+// Hooks to handle computed column NetHT and date fields
+Devis.beforeCreate((devis) => {
+  // Remove NetHT before insert as it's a computed column in SQL Server
+  if (devis.dataValues.hasOwnProperty('NetHT')) {
+    delete devis.dataValues.NetHT;
+  }
+  
+  // Parse and clean date fields
+  const dateFields = ['DatUser', 'MDate', 'DatLiv'];
+  dateFields.forEach(field => {
+    if (devis.dataValues.hasOwnProperty(field)) {
+      const parsed = parseDate(devis.dataValues[field]);
+      devis.dataValues[field] = parsed || (field === 'DatUser' ? new Date() : null);
+    }
+  });
+  
+  // Ensure DatUser has a value
+  if (!devis.dataValues.DatUser) {
+    devis.dataValues.DatUser = new Date();
+  }
+});
+
+Devis.beforeUpdate((devis) => {
+  // Remove NetHT before update as it's a computed column in SQL Server
+  if (devis.dataValues.hasOwnProperty('NetHT')) {
+    delete devis.dataValues.NetHT;
+  }
+  
+  // Parse and clean date fields
+  const dateFields = ['DatUser', 'MDate', 'DatLiv'];
+  dateFields.forEach(field => {
+    if (devis.dataValues.hasOwnProperty(field)) {
+      const parsed = parseDate(devis.dataValues[field]);
+      devis.dataValues[field] = parsed || (field === 'DatUser' ? new Date() : null);
+    }
+  });
 });
 
 module.exports = Devis;

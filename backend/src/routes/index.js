@@ -10,6 +10,8 @@ const projetsRoutes = require('./projets.routes');
 const activitesRoutes = require('./activites.routes');
 const messagesRoutes = require('./messages.routes');
 const tiersRoutes = require('./tiers.routes');
+const productsRoutes = require('./products.routes');
+const categoriesRoutes = require('./categories.routes');
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -20,6 +22,8 @@ router.use('/projets', projetsRoutes);
 router.use('/activites', activitesRoutes);
 router.use('/messages', messagesRoutes);
 router.use('/tiers', tiersRoutes);
+router.use('/products', productsRoutes);
+router.use('/categories', categoriesRoutes);
 
 // Route de base de l'API
 router.get('/', (req, res) => {

@@ -7,6 +7,8 @@ router.get('/', devisController.getAllDevis);
 router.get('/:id', devisController.getDevisById);
 router.post('/', devisController.createDevis);
 router.put('/:id', devisController.updateDevis);
+router.patch('/:id/validate', devisController.validateDevis);
+router.patch('/:id/convert', devisController.convertDevis);
 router.delete('/:id', devisController.deleteDevis);
 
 module.exports = router;

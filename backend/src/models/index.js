@@ -3,14 +3,66 @@ const { sequelize } = require('../config/database');
 // Import des modèles
 const User = require('./User');
 const Message = require('./Message');
-const Devis = require('./Devis');
 const Projet = require('./Projet');
 const Activite = require('./Activite');
 const Objectif = require('./Objectif');
 const LogConnexion = require('./LogConnexion');
 const Tiers = require('./Tiers');
+const Product = require('./Product');
+const Category = require('./Category');
+const Collection = require('./Collection');
+const DevisMaster = require('./DevisMaster');
+const DevisDetail = require('./DevisDetail');
 
 // Définition des relations
+
+// Devis Master - Detail (1:N)
+DevisMaster.hasMany(DevisDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+DevisDetail.belongsTo(DevisMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
+
+// DevisDetail - Product (N:1) - Pour récupérer l'image du produit
+DevisDetail.belongsTo(Product, {
+  foreignKey: 'IDArt',
+  targetKey: 'IDArt',
+  as: 'product'
+});
+Product.hasMany(DevisDetail, {
+  foreignKey: 'IDArt',
+  sourceKey: 'IDArt',
+  as: 'devisDetails'
+});
+
+// Tiers - DevisMaster (1:N)
+Tiers.hasMany(DevisMaster, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'devis'
+});
+DevisMaster.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'tiers'
+});
+
+// Product - Collection
+Product.belongsTo(Collection, {
+  foreignKey: 'Collection',
+  targetKey: 'Collection',
+  as: 'collectionDetail'
+});
+Collection.hasMany(Product, {
+  foreignKey: 'Collection',
+  sourceKey: 'Collection',
+  as: 'products'
+});
 
 // User - Message (1:N)
 User.hasMany(Message, {
@@ -95,10 +147,14 @@ module.exports = {
   sequelize,
   User,
   Message,
-  Devis,
+  DevisMaster,
+  DevisDetail,
   Projet,
   Activite,
   Objectif,
   LogConnexion,
-  Tiers
+  Tiers,
+  Product,
+  Category,
+  Collection
 };

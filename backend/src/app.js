@@ -20,8 +20,19 @@ app.use(cors({
   credentials: true,
 }));
 
-// 1. Sécurité HTTP (Headers)
-app.use(helmet());
+// 1. Sécurité HTTP (Headers) - On configure Helmet pour autoriser les images et les blobs
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "http://localhost:3066"],
+      connectSrc: ["'self'", "http://localhost:3066"],
+    },
+  },
+}));
 
 // 2. Protection contre les attaques XSS (Nettoyage des entrées)
 app.use(xss());
@@ -35,7 +46,7 @@ app.use(cookieParser());
 // 5. Rate Limiting (Protection Brute Force)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limite chaque IP à 100 requêtes par fenêtre
+  max: 1000, // Limite chaque IP à 1000 requêtes par fenêtre (augmenté pour dev)
   message: 'Trop de requêtes effectuées depuis cette adresse IP, réessayez plus tard.'
 });
 app.use('/api', limiter);
