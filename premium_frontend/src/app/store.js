@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../auth/authSlice';
 import devisReducer from '../modules/sales/devisSlice';
+import ordersReducer from '../modules/sales/ordersSlice';
 import projetReducer from '../modules/crm/projetSlice';
 import activiteReducer from '../modules/activities/activiteSlice';
 import objectifReducer from '../modules/goals/objectifSlice';
@@ -11,6 +12,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     devis: devisReducer,
+    orders: ordersReducer,
     projets: projetReducer,
     activites: activiteReducer,
     objectifs: objectifReducer,

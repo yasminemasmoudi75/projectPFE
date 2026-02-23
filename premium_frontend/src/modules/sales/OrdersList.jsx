@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
     DocumentCheckIcon,
@@ -9,24 +10,26 @@ import {
     SparklesIcon,
     ArrowPathIcon,
     ShoppingBagIcon,
-    ArrowUpRightIcon
+    ArrowUpRightIcon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
+import { fetchOrders } from './ordersSlice';
 import clsx from 'clsx';
 
-const MOCK_ORDERS = [
-    { Guid: 'o1', Prfx: 'BC', Nf: 240001, Client: 'Société ABC', Date: '2024-02-05', Total: 1786.000, Statut: 'En préparation', Source: 'Devis DV240001' },
-    { Guid: 'o2', Prfx: 'BC', Nf: 240002, Client: 'Global Import', Date: '2024-02-06', Total: 14281.000, Statut: 'Livré', Source: 'Devis DV240003' },
-];
-
 const OrdersList = () => {
+    const dispatch = useDispatch();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
+    const { orders, loading } = useSelector((state) => state.orders);
+
+    const refreshData = () => {
+        dispatch(fetchOrders({ page: 1, limit: 100 }));
+    };
 
     useEffect(() => {
-        setTimeout(() => setLoading(false), 600);
-    }, []);
+        refreshData();
+    }, [dispatch]);
 
     if (loading) return <LoadingSpinner />;
 
@@ -48,7 +51,7 @@ const OrdersList = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setLoading(true) || setTimeout(() => setLoading(false), 500)}
+                        onClick={refreshData}
                         className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all shadow-soft"
                     >
                         <ArrowPathIcon className="h-5 w-5" />
@@ -66,7 +69,7 @@ const OrdersList = () => {
                     <div className="p-6 flex items-center justify-between">
                         <div>
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Commandes en cours</p>
-                            <p className="text-2xl font-extrabold text-slate-800">18 Documents</p>
+                            <p className="text-2xl font-extrabold text-slate-800">{orders.length} Documents</p>
                         </div>
                         <div className="icon-shape bg-gradient-blue shadow-glow-blue">
                             <ShoppingBagIcon className="h-5 w-5 text-white" />
@@ -77,8 +80,10 @@ const OrdersList = () => {
                 <div className="card-luxury p-0 overflow-hidden">
                     <div className="p-6 flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Volume Expédié</p>
-                            <p className="text-2xl font-extrabold text-slate-800">142,8k <span className="text-xs text-slate-400 font-bold">TND</span></p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Volume Total</p>
+                            <p className="text-2xl font-extrabold text-slate-800">
+                                {formatCurrency(orders.reduce((sum, order) => sum + (order.TotTTC || 0), 0))}
+                            </p>
                         </div>
                         <div className="icon-shape bg-gradient-success shadow-glow-emerald">
                             <ArrowDownTrayIcon className="h-5 w-5 text-white" />
@@ -122,48 +127,84 @@ const OrdersList = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/50">
-                            {MOCK_ORDERS.map((order) => (
-                                <tr key={order.Guid} className="group hover:bg-blue-50/30 transition-all cursor-pointer">
-                                    <td className="px-8 py-5">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-blue-600 font-mono tracking-tight group-hover:underline">{order.Prfx}{order.Nf}</span>
-                                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">{order.Source}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-9 w-9 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                                                {order.Client.charAt(0)}
+                            {!orders || orders.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="px-8 py-16 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <DocumentTextIcon className="h-8 w-8" />
                                             </div>
-                                            <p className="text-sm font-bold text-slate-800 uppercase truncate max-w-[150px]">{order.Client}</p>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className="text-xs font-bold text-slate-500 uppercase">{formatDate(order.Date)}</span>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className="text-sm font-extrabold text-slate-800">{formatCurrency(order.Total)}</span>
-                                    </td>
-                                    <td className="px-8 py-5">
-                                        <span className={clsx(
-                                            "inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider",
-                                            order.Statut === 'Livré' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                                        )}>
-                                            {order.Statut}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <button className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all" title="Imprimer">
-                                                <PrinterIcon className="h-5 w-5" />
-                                            </button>
-                                            <button className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all" title="Voir">
-                                                <ArrowUpRightIcon className="h-5 w-5" />
-                                            </button>
+                                            <p className="text-slate-500 font-medium">Aucun bon de commande trouvé</p>
+                                            <p className="text-xs text-slate-400">Les devis convertis apparaîtront ici</p>
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                orders.map((order) => (
+                                    <tr
+                                        key={order.Guid}
+                                        className="group hover:bg-blue-50/30 transition-all cursor-pointer"
+                                        onClick={() => navigate(`/devis/${order.Guid}`)}
+                                    >
+                                        <td className="px-8 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-blue-600 font-mono tracking-tight group-hover:underline">
+                                                    BC{order.Nf}
+                                                </span>
+                                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">
+                                                    Devis {order.Prfx}{order.Nf}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-xl bg-gradient-blue flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                                                    {order.LibTiers?.charAt(0) || 'C'}
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-800 uppercase truncate max-w-[150px]">
+                                                    {order.LibTiers || order.tiers?.Raisoc || 'Client'}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="text-xs font-bold text-slate-500 uppercase">
+                                                {formatDate(order.DatUser)}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="text-sm font-extrabold text-slate-800">
+                                                {formatCurrency(order.TotTTC || 0)}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">
+                                                Converti
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <div className="flex justify-end gap-1">
+                                                <button
+                                                    className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                                                    title="Imprimer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <PrinterIcon className="h-5 w-5" />
+                                                </button>
+                                                <button
+                                                    className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                                                    title="Voir"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/devis/${order.Guid}`);
+                                                    }}
+                                                >
+                                                    <ArrowUpRightIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

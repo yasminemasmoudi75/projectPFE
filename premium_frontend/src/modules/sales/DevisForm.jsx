@@ -44,18 +44,23 @@ const DevisForm = () => {
         LibTiers: '',
         Adresse: '',
         Ville: '',
-        Cin: '',
         Remarq: '',
         TotHT: 0,
         TotTva: 0,
         TotRem: 0,
-        Timbre: 1.000,
         TotTTC: 0,
-        Devise: 'TND',
-        Cours: 1,
         DesRepres: '',
         IDContact: '',
+        DatUser: null,
+        MDate: null,
+        DatLiv: null,
+        Valid: false,
+        bTransf: false,
+        IsConverted: false
     });
+
+    // Cin is stored separately - it's a Tiers field, not part of DevisMaster
+    const [clientCin, setClientCin] = useState('');
 
     const [items, setItems] = useState([
         { tempId: Date.now(), CodArt: '', LibArt: '', Qt: 1, PuHT: 0, Tva: 19 }
@@ -118,7 +123,15 @@ const DevisForm = () => {
             setFormData({
                 ...master,
                 TotRem: master.TotRem || 0,
-                Timbre: master.Timbre || 1.000
+                TotHT: master.TotHT || 0,
+                TotTva: master.TotTva || 0,
+                TotTTC: master.TotTTC || 0,
+                DatUser: master.DatUser || null,
+                MDate: master.MDate || null,
+                DatLiv: master.DatLiv || null,
+                Valid: master.Valid || false,
+                bTransf: master.bTransf || false,
+                IsConverted: master.IsConverted || false
             });
 
             if (details && details.length > 0) {
@@ -130,18 +143,29 @@ const DevisForm = () => {
 
     // Recalculate totals
     useEffect(() => {
-        const subTotal = items.reduce((sum, item) => sum + (item.Qt * item.PuHT), 0);
-        const totalTva = items.reduce((sum, item) => sum + (item.Qt * item.PuHT * (item.Tva / 100)), 0);
-        const totalTTC = subTotal + totalTva - (parseFloat(formData.TotRem) || 0) + (parseFloat(formData.Timbre) || 0);
+        const subTotal = items.reduce((sum, item) => {
+            const qt = parseFloat(item.Qt) || 0;
+            const puHT = parseFloat(item.PuHT) || 0;
+            return sum + (qt * puHT);
+        }, 0);
+
+        const totalTva = items.reduce((sum, item) => {
+            const qt = parseFloat(item.Qt) || 0;
+            const puHT = parseFloat(item.PuHT) || 0;
+            const tva = parseFloat(item.Tva) || 0;
+            return sum + (qt * puHT * (tva / 100));
+        }, 0);
+
+        const totalRem = parseFloat(formData.TotRem) || 0;
+        const totalTTC = subTotal + totalTva - totalRem;
 
         setFormData(prev => ({
             ...prev,
             TotHT: subTotal,
             TotTva: totalTva,
-            NetHT: subTotal - (parseFloat(formData.TotRem) || 0),
             TotTTC: totalTTC
         }));
-    }, [items, formData.TotRem, formData.Timbre]);
+    }, [items, formData.TotRem]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -163,15 +187,16 @@ const DevisForm = () => {
     };
 
     const handleProductSelect = (tempId, productId) => {
-        const selectedProduct = products.find(p => p.IDArt === parseInt(productId));
+        const selectedProduct = products.find(p => String(p.IDArt) === String(productId));
         if (selectedProduct) {
-            setItems(items.map(item => 
+            setItems(items.map(item =>
                 item.tempId === tempId ? {
                     ...item,
                     IDArt: selectedProduct.IDArt,
                     CodArt: selectedProduct.CodArt,
                     LibArt: selectedProduct.LibArt,
-                    PuHT: selectedProduct.Pu || 0
+                    PuHT: selectedProduct.PrixVente || 0,   // PrixVente est le champ prix dans TabStock
+                    Tva: selectedProduct.Tva || 19
                 } : item
             ));
         }
@@ -183,11 +208,12 @@ const DevisForm = () => {
             setFormData(prev => ({
                 ...prev,
                 CodTiers: selectedClient.CodTiers,
-                LibTiers: selectedClient.LibTiers,
+                LibTiers: selectedClient.Raisoc || '',   // Tiers uses Raisoc, DevisMaster stores it as LibTiers
                 Adresse: selectedClient.Adresse || '',
                 Ville: selectedClient.Ville || '',
-                Cin: selectedClient.CodeFiscal || selectedClient.Cin || '',
             }));
+            // Cin belongs to Tiers model, not DevisMaster - keep separate
+            setClientCin(selectedClient.Cin || '');
         }
     };
 
@@ -213,15 +239,16 @@ const DevisForm = () => {
             return null;
         };
 
+        // Build master - only include fields that exist in TabDevm
+        const { Cin, Devise, Cours, NetHT, Timbre, ...masterFields } = formData;
         const payload = {
             master: {
-                ...formData,
+                ...masterFields,
                 // Ensure numeric fields are proper numbers
                 TotHT: parseFloat(formData.TotHT) || 0,
                 TotTva: parseFloat(formData.TotTva) || 0,
                 TotRem: parseFloat(formData.TotRem) || 0,
                 TotTTC: parseFloat(formData.TotTTC) || 0,
-                Timbre: parseFloat(formData.Timbre) || 1,
                 // Properly serialize date fields
                 DatUser: serializeDate(formData.DatUser),
                 MDate: serializeDate(formData.MDate),
@@ -230,15 +257,22 @@ const DevisForm = () => {
                 Valid: !!formData.Valid,
                 bTransf: !!formData.bTransf,
                 IsConverted: !!formData.IsConverted
-                // NetHT is removed because it's a computed column in the database
+                // NetHT excluded - computed column in SQL Server
+                // Timbre excluded - not a column in TabDevm
             },
             details: items.map(({ tempId, ...rest }) => ({
-                ...rest,
-                MntHT: rest.Qt * rest.PuHT,
-                MntTVA: rest.Qt * rest.PuHT * (rest.Tva / 100),
-                PuTTC: rest.PuHT * (1 + rest.Tva / 100)
+                CodArt: rest.CodArt || '',
+                LibArt: rest.LibArt || '',
+                IDArt: rest.IDArt || null,
+                Qt: parseFloat(rest.Qt) || 0,
+                PuHT: parseFloat(rest.PuHT) || 0,
+                Tva: parseFloat(rest.Tva) || 19,  // Sequelize maps Tva → MntTVA column
+                // MntHT excluded - computed column in TabDevd (Qt * PuHT)
+                PuTTC: parseFloat(rest.PuHT) * (1 + (parseFloat(rest.Tva) || 19) / 100),
+                MntRem: 0
             }))
         };
+        console.log('📤 Payload envoyé:', JSON.stringify(payload, null, 2));
 
         try {
             if (isEdit) {
@@ -250,8 +284,10 @@ const DevisForm = () => {
             }
             navigate('/devis');
         } catch (err) {
-            console.error(err);
-            toast.error(err.message || 'Une erreur est survenue');
+            console.error('❌ Erreur complète:', err);
+            console.error('❌ Réponse serveur:', err?.response?.data || err?.data || 'Pas de réponse détaillée');
+            const msg = err?.response?.data?.message || err?.message || 'Une erreur est survenue';
+            toast.error(msg);
         } finally {
             setSaving(false);
         }
@@ -336,7 +372,7 @@ const DevisForm = () => {
                                         <option value="">-- Choisir un client --</option>
                                         {clients.map(client => (
                                             <option key={client.CodTiers} value={client.CodTiers}>
-                                                [{client.CodTiers}] {client.LibTiers}
+                                                [{client.CodTiers}] {client.Raisoc}
                                             </option>
                                         ))}
                                     </select>
@@ -432,10 +468,11 @@ const DevisForm = () => {
                                     <input
                                         type="text"
                                         name="Cin"
-                                        value={formData.Cin || ''}
-                                        onChange={handleChange}
-                                        placeholder="Matricule fiscale ou numéro SIRET..."
-                                        className="input-modern pl-11 font-mono"
+                                        value={clientCin}
+                                        onChange={(e) => setClientCin(e.target.value)}
+                                        placeholder="Sélectionnez un client..."
+                                        className="input-modern pl-11 font-mono bg-slate-50 cursor-not-allowed"
+                                        readOnly
                                     />
                                 </div>
                             </div>
@@ -556,7 +593,7 @@ const DevisForm = () => {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100 border-dashed">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base HT</span>
-                                    <span className="text-sm font-bold text-slate-700">{formData.TotHT.toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px]">TND</span></span>
+                                    <span className="text-sm font-bold text-slate-700">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px]">TND</span></span>
                                 </div>
                                 <div className="group">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 inline-block px-1">Remise Totale</label>
@@ -576,11 +613,7 @@ const DevisForm = () => {
                                 </div>
                                 <div className="flex justify-between items-center px-4">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TVA Consolidée</span>
-                                    <span className="text-sm font-bold text-slate-600">{formData.TotTva.toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
-                                </div>
-                                <div className="flex justify-between items-center px-4">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Droit de Timbre</span>
-                                    <span className="text-sm font-bold text-slate-600">{formData.Timbre.toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
+                                    <span className="text-sm font-bold text-slate-600">{(formData.TotTva || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
                                 </div>
                             </div>
 
@@ -588,7 +621,7 @@ const DevisForm = () => {
                                 <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">Net à Payer (TTC)</span>
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                                        {formData.TotTTC.toLocaleString(undefined, { minimumFractionDigits: 3 })}
+                                        {(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}
                                     </span>
                                     <span className="text-sm font-black text-slate-400 uppercase">TND</span>
                                 </div>
