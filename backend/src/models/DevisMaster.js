@@ -89,13 +89,12 @@ const Devis = sequelize.define('TabDevm', {
     field: 'Valid'
   },
   DatUser: {
-    type: DataTypes.DATE,
+    type: DataTypes.STRING(30),
     allowNull: true,
-    defaultValue: DataTypes.NOW,
     field: 'DatUser'
   },
   MDate: {
-    type: DataTypes.DATE,
+    type: DataTypes.STRING(30),
     allowNull: true,
     field: 'MDate'
   },
@@ -115,7 +114,7 @@ const Devis = sequelize.define('TabDevm', {
     field: 'DesRepres'
   },
   DatLiv: {
-    type: DataTypes.DATE,
+    type: DataTypes.STRING(30),
     allowNull: true,
     field: 'DatLiv'
   },
@@ -139,7 +138,7 @@ const Devis = sequelize.define('TabDevm', {
     field: 'IsConverted'
   },
   DateDerniereRelance: {
-    type: DataTypes.DATE,
+    type: DataTypes.STRING(30),
     allowNull: true,
     field: 'DateDerniereRelance'
   },
@@ -185,59 +184,64 @@ const parseDate = (dateValue) => {
   if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null) {
     return null;
   }
-  
+
   try {
-    // If it's already a Date object, return it
+    let date;
     if (dateValue instanceof Date) {
-      return isNaN(dateValue.getTime()) ? null : dateValue;
+      date = isNaN(dateValue.getTime()) ? null : dateValue;
+    } else {
+      // Strip timezone offset - SQL Server DATETIME doesn't support it
+      const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
+      date = new Date(cleaned);
+      if (isNaN(date.getTime())) return null;
     }
-    
-    // Try to parse string
-    const parsed = new Date(dateValue);
-    if (isNaN(parsed.getTime())) {
-      return null;
-    }
-    return parsed;
+
+    // Format as SQL Server-compatible datetime string (no timezone)
+    const pad = (n) => String(n).padStart(2, '0');
+    const pad3 = (n) => String(n).padStart(3, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
   } catch (e) {
     console.error('⚠️  Invalid date value:', dateValue, e.message);
     return null;
   }
 };
 
+const nowForSQL = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const pad3 = (n) => String(n).padStart(3, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
+};
+
 // Hooks to handle computed column NetHT and date fields
 Devis.beforeCreate((devis) => {
-  // Remove NetHT before insert as it's a computed column in SQL Server
   if (devis.dataValues.hasOwnProperty('NetHT')) {
     delete devis.dataValues.NetHT;
   }
-  
-  // Parse and clean date fields
+
   const dateFields = ['DatUser', 'MDate', 'DatLiv'];
   dateFields.forEach(field => {
     if (devis.dataValues.hasOwnProperty(field)) {
       const parsed = parseDate(devis.dataValues[field]);
-      devis.dataValues[field] = parsed || (field === 'DatUser' ? new Date() : null);
+      devis.dataValues[field] = parsed || (field === 'DatUser' ? nowForSQL() : null);
     }
   });
-  
-  // Ensure DatUser has a value
+
   if (!devis.dataValues.DatUser) {
-    devis.dataValues.DatUser = new Date();
+    devis.dataValues.DatUser = nowForSQL();
   }
 });
 
 Devis.beforeUpdate((devis) => {
-  // Remove NetHT before update as it's a computed column in SQL Server
   if (devis.dataValues.hasOwnProperty('NetHT')) {
     delete devis.dataValues.NetHT;
   }
-  
-  // Parse and clean date fields
+
   const dateFields = ['DatUser', 'MDate', 'DatLiv'];
   dateFields.forEach(field => {
     if (devis.dataValues.hasOwnProperty(field)) {
       const parsed = parseDate(devis.dataValues[field]);
-      devis.dataValues[field] = parsed || (field === 'DatUser' ? new Date() : null);
+      devis.dataValues[field] = parsed || (field === 'DatUser' ? nowForSQL() : null);
     }
   });
 });

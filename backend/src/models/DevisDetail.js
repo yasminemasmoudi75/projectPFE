@@ -44,16 +44,20 @@ const DevisDetail = sequelize.define('TabDevd', {
         defaultValue: 0,
         field: 'PuTTC'
     },
+    // MntHT is a computed column in SQL Server (Qt * PuHT)
+    // We mark it as VIRTUAL so Sequelize doesn't try to insert/update it
     MntHT: {
-        type: DataTypes.FLOAT,
-        defaultValue: 0,
-        field: 'MntHT'
+        type: DataTypes.VIRTUAL(DataTypes.FLOAT),
+        get() {
+            return this.getDataValue('Qt') * this.getDataValue('PuHT');
+        }
     },
     MntRem: {
         type: DataTypes.FLOAT,
         defaultValue: 0,
         field: 'MntRem'
     },
+    // Taux TVA (%) - stored in MntTVA column
     Tva: {
         type: DataTypes.FLOAT,
         defaultValue: 19,
@@ -69,3 +73,4 @@ const DevisDetail = sequelize.define('TabDevd', {
 });
 
 module.exports = DevisDetail;
+

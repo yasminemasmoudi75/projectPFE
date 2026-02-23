@@ -10,6 +10,10 @@ exports.getAllDevis = async (req, res, next) => {
     const offset = (page - 1) * limit;
 
     const where = {};
+
+    // Exclude converted devis (bTransf = true)
+    where.bTransf = { [Op.ne]: true };
+
     if (search) {
       where[Op.or] = [
         { Nf: { [Op.like]: `%${search}%` } },
@@ -97,27 +101,29 @@ exports.getDevisById = async (req, res, next) => {
  * Helper function to parse and format dates for SQL Server
  */
 const formatDateForSQL = (dateValue) => {
-  // Handle null, undefined, empty string, or 'null' string
   if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
     return null;
   }
-  
+
   try {
-    // If already a Date object, validate it
+    let date;
     if (dateValue instanceof Date) {
-      return isNaN(dateValue.getTime()) ? null : dateValue;
+      date = dateValue;
+    } else {
+      // Remove timezone offset before parsing (SQL Server DATETIME doesn't support it)
+      const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
+      date = new Date(cleaned);
     }
-    
-    // Parse string to date
-    const date = new Date(dateValue);
-    
-    // Check if date is valid
+
     if (isNaN(date.getTime())) {
       console.warn('⚠️  Invalid date value received:', dateValue);
       return null;
     }
-    
-    return date;
+
+    // Return formatted string without timezone for SQL Server DATETIME compatibility
+    const pad = (n) => String(n).padStart(2, '0');
+    const pad3 = (n) => String(n).padStart(3, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
   } catch (e) {
     console.warn('⚠️  Error parsing date:', dateValue, e.message);
     return null;
@@ -129,24 +135,34 @@ const formatDateForSQL = (dateValue) => {
  */
 const sanitizeMasterData = (masterData) => {
   const sanitized = { ...masterData };
-  
+
   // Remove computed columns
   delete sanitized.NetHT;
-  
+
+  // Helper: format JS Date to SQL Server DATETIME string (no timezone offset)
+  const toSQLDate = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const pad3 = (n) => String(n).padStart(3, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
+  };
+
   // Parse and validate all date fields
   const dateFields = ['DatUser', 'MDate', 'DatLiv'];
   dateFields.forEach(field => {
-    if (sanitized.hasOwnProperty(field)) {
-      const parsed = formatDateForSQL(sanitized[field]);
-      sanitized[field] = parsed;
+    const val = sanitized[field];
+    if (!val || val === '' || val === 'null' || val === null) {
+      sanitized[field] = (field === 'DatUser') ? toSQLDate(new Date()) : null;
+    } else {
+      const parsed = formatDateForSQL(val);
+      sanitized[field] = parsed || (field === 'DatUser' ? toSQLDate(new Date()) : null);
     }
   });
-  
-  // Ensure DatUser is set
+
+  // Ensure DatUser is always set
   if (!sanitized.DatUser) {
-    sanitized.DatUser = new Date();
+    sanitized.DatUser = toSQLDate(new Date());
   }
-  
+
   // Ensure numeric fields are valid
   const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem'];
   numericFields.forEach(field => {
@@ -155,7 +171,7 @@ const sanitizeMasterData = (masterData) => {
       sanitized[field] = isNaN(num) ? 0 : num;
     }
   });
-  
+
   // Ensure boolean fields are valid
   const booleanFields = ['Valid', 'bTransf', 'IsConverted'];
   booleanFields.forEach(field => {
@@ -163,7 +179,7 @@ const sanitizeMasterData = (masterData) => {
       sanitized[field] = !!sanitized[field];
     }
   });
-  
+
   return sanitized;
 };
 
@@ -198,16 +214,16 @@ exports.createDevis = async (req, res, next) => {
 
     // 3. Créer les détails
     if (details && Array.isArray(details) && details.length > 0) {
-      const detailsWithNf = details.map((d, index) => {
-        // Remove any computed columns that shouldn't be inserted
+      const detailsWithNf = details.map((d) => {
         const detail = { ...d };
-        delete detail.NetHT;
-        delete detail.Guid; // If Guid exists, remove it for new details
+        delete detail.NetHT;  // Computed column in TabDevm
+        delete detail.MntHT;  // Computed column in TabDevd
+        delete detail.Guid;
+        delete detail.NoDetail; // autoIncrement - SQL Server generates it
         return {
           ...detail,
           NF: newDevis.Nf,
           ID: newDevis.Nf,
-          NoDetail: index + 1
         };
       });
       await DevisDetail.bulkCreate(detailsWithNf, { transaction });
@@ -235,7 +251,11 @@ exports.createDevis = async (req, res, next) => {
         console.error('❌ Error rolling back transaction:', rollbackError.message);
       }
     }
-    console.error('❌ Error createDevis:', error);
+    console.error('❌ Error createDevis:', error.message);
+    console.error('❌ SQL Error details:', error.original?.message || error.parent?.message || 'No SQL details');
+    console.error('❌ SQL:', error.sql || 'N/A');
+    console.error('❌ Parameters:', JSON.stringify(error.parameters || []));
+    console.error('❌ Full error:', JSON.stringify({ name: error.name, message: error.message, fields: error.fields }));
     next(error);
   }
 };
@@ -276,11 +296,12 @@ exports.updateDevis = async (req, res, next) => {
     if (details && Array.isArray(details)) {
       await DevisDetail.destroy({ where: { NF: devis.Nf }, transaction });
       if (details.length > 0) {
-        const detailsWithNf = details.map((d, index) => {
-          // Remove any computed columns that shouldn't be inserted
+        const detailsWithNf = details.map((d) => {
           const detail = { ...d };
-          delete detail.NetHT;
-          delete detail.Guid; // If Guid exists, remove it for new details
+          delete detail.NetHT;  // Computed column in TabDevm
+          delete detail.MntHT;  // Computed column in TabDevd
+          delete detail.Guid;
+          delete detail.NoDetail; // autoIncrement - let SQL Server generate it
           return {
             ...detail,
             NF: devis.Nf,
@@ -388,7 +409,8 @@ exports.convertDevis = async (req, res, next) => {
       return res.status(404).json({ status: 'error', message: 'Devis non trouvé' });
     }
 
-    await devis.update({ IsConverted: true });
+    // Set bTransf to true to mark as converted to bon de commande
+    await devis.update({ bTransf: true, IsConverted: true });
 
     res.status(200).json({
       status: 'success',
@@ -397,6 +419,54 @@ exports.convertDevis = async (req, res, next) => {
     });
   } catch (error) {
     console.error('❌ Error convertDevis:', error);
+    next(error);
+  }
+};
+
+/**
+ * Récupérer tous les bons de commande (devis convertis)
+ */
+exports.getAllOrders = async (req, res, next) => {
+  try {
+    const { search, page = 1, limit = 100 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+
+    // Only get converted devis (bTransf = true)
+    where.bTransf = true;
+
+    if (search) {
+      where[Op.or] = [
+        { Nf: { [Op.like]: `%${search}%` } },
+        { LibTiers: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows } = await DevisMaster.findAndCountAll({
+      where,
+      include: [{
+        model: Tiers,
+        as: 'tiers',
+        attributes: ['Raisoc', 'CodTiers', 'Ville']
+      }],
+      order: [['DatUser', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error getAllOrders:', error);
     next(error);
   }
 };
