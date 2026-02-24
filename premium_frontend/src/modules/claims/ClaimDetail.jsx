@@ -16,6 +16,8 @@ import {
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate } from '../../utils/format';
 import toast from 'react-hot-toast';
+import axios from '../../app/axios';
+import { USER_ROLES } from '../../utils/constants';
 
 const ClaimDetail = () => {
     const { id } = useParams();
@@ -23,56 +25,81 @@ const ClaimDetail = () => {
     const [loading, setLoading] = useState(true);
     const [claim, setClaim] = useState(null);
     const [assigning, setAssigning] = useState(false);
-
-    // Mock techniciens pour la démonstration
-    const TECHNICIENS = [
-        { id: 101, name: 'Sami Technicien' },
-        { id: 102, name: 'Amine Expert' },
-        { id: 103, name: 'Youssef Maintenance' }
-    ];
+    const [techniciens, setTechniciens] = useState([]);
 
     useEffect(() => {
-        // Simulation chargement depuis API
-        setTimeout(() => {
-            setClaim({
-                NumBon: id,
-                DateBon: new Date().toISOString(),
-                CodTiers: 'CLI001',
-                LibTiers: 'Société ABC',
-                Objet: 'Problème réseau après installation',
-                Description: 'Depuis l installation de la nouvelle baie informatique mardi dernier, nous constatons des micro-coupures sur le réseau local. Le serveur de fichiers est inaccessible par intermittence.',
-                Statut: 'Ouvert',
-                Priorite: 'Haute',
-                IDTechnicien: null,
-                NomTechnicien: 'Non assigné',
-                TypeReclamation: 'Technique'
-            });
-            setLoading(false);
-        }, 800);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const [claimRes, usersRes] = await Promise.all([
+                    axios.get(`/reclamations/${id}`),
+                    axios.get('/users')
+                ]);
+
+                if (claimRes?.status === 'success') {
+                    setClaim(claimRes.data);
+                }
+
+                if (usersRes?.status === 'success' && Array.isArray(usersRes.data)) {
+                    const techs = usersRes.data
+                        .filter((u) => String(u.UserRole || '').toLowerCase() === USER_ROLES.TECHNICIEN.toLowerCase())
+                        .map((u) => ({
+                            id: u.UserID,
+                            name: u.FullName || u.LoginName || `Technicien ${u.UserID}`
+                        }));
+                    setTechniciens(techs);
+                }
+            } catch (error) {
+                console.error('Error loading claim details:', error);
+                toast.error('Impossible de charger la réclamation');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
     }, [id]);
 
-    const handleAssign = (tech) => {
+    const handleAssign = async (tech) => {
         setAssigning(true);
-        // Simulation API PUT /api/reclamations/:id/assign
-        setTimeout(() => {
-            setClaim(prev => ({
-                ...prev,
-                IDTechnicien: tech.id,
-                NomTechnicien: tech.name,
-                Statut: 'En cours'
-            }));
-            toast.success(`Affecté à ${tech.name}`);
+        try {
+            const response = await axios.patch(`/reclamations/${id}/assign-technician`, {
+                technicienID: tech.id
+            });
+
+            if (response?.status === 'success') {
+                setClaim(response.data);
+                toast.success(`Affecté à ${tech.name}`);
+            } else {
+                toast.error('Affectation échouée');
+            }
+        } catch (error) {
+            console.error('Error assigning technician:', error);
+            const message = error.response?.data?.message || 'Erreur lors de l’affectation';
+            toast.error(message);
+        } finally {
             setAssigning(false);
-        }, 1000);
+        }
     };
 
-    const handleStatusUpdate = (newStatus) => {
-        // Simulation API PUT /api/reclamations/:id/status
-        setClaim(prev => ({ ...prev, Statut: newStatus }));
-        toast.success(`Statut mis à jour : ${newStatus}`);
+    const handleStatusUpdate = async (newStatus) => {
+        try {
+            const response = await axios.patch(`/reclamations/${id}/statut`, { statut: newStatus });
+            if (response?.status === 'success') {
+                setClaim(response.data);
+                toast.success(`Statut mis à jour : ${newStatus}`);
+            } else {
+                toast.error('Mise à jour du statut échouée');
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+            const message = error.response?.data?.message || 'Erreur lors de la mise à jour du statut';
+            toast.error(message);
+        }
     };
 
     if (loading) return <LoadingSpinner />;
+    if (!claim) return null;
 
     return (
         <div className="animate-fade-in space-y-6 max-w-6xl mx-auto pb-12">
@@ -104,7 +131,7 @@ const ClaimDetail = () => {
                         <div className="p-8">
                             <div className="flex items-center justify-between mb-6">
                                 <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full font-mono text-xs font-bold">
-                                    Ticket: {claim.NumBon}
+                                    Ticket: {claim.NumTicket || claim.ID}
                                 </span>
                                 <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${claim.Priorite === 'Urgente' ? 'bg-red-100 text-red-700' :
                                     claim.Priorite === 'Haute' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-primary-700'
@@ -118,7 +145,7 @@ const ClaimDetail = () => {
                             </h1>
                             <p className="text-gray-500 font-medium mb-8 flex items-center gap-2">
                                 <UserCircleIcon className="h-5 w-5 text-primary-400" />
-                                Client : <span className="text-slate-800 font-bold">{claim.LibTiers}</span>
+                                Client : <span className="text-slate-800 font-bold">{claim.LibTiers || claim.CodTiers}</span>
                             </p>
 
                             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
@@ -141,9 +168,9 @@ const ClaimDetail = () => {
                                     <PlusIcon className="h-4 w-4" />
                                 </span>
                                 <p className="text-sm font-bold text-slate-800 leading-none">Ticket créé par le système</p>
-                                <p className="text-xs text-gray-500 mt-1">{formatDate(claim.DateBon)}</p>
+                                <p className="text-xs text-gray-500 mt-1">{formatDate(claim.DateOuverture)}</p>
                             </div>
-                            {claim.NomTechnicien !== 'Non assigné' && (
+                            {claim.NomTechnicien && (
                                 <div className="relative pl-10">
                                     <span className="absolute left-0 top-0 h-8 w-8 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center ring-4 ring-white">
                                         <WrenchScrewdriverIcon className="h-4 w-4" />
@@ -175,7 +202,7 @@ const ClaimDetail = () => {
 
                         <div className="mb-4">
                             <p className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest">Affectation Technicien</p>
-                            {claim.NomTechnicien !== 'Non assigné' ? (
+                            {claim.NomTechnicien ? (
                                 <div className="p-4 bg-gray-50 rounded-2xl flex items-center gap-3 border border-gray-100">
                                     <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm">
                                         <UserCircleIcon className="h-6 w-6" />
@@ -199,18 +226,36 @@ const ClaimDetail = () => {
                                 <p className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2">
                                     <UserPlusIcon className="h-3 w-3" /> Affecter un Technicien
                                 </p>
-                                <div className="space-y-2">
-                                    {TECHNICIENS.map(tech => (
-                                        <button
-                                            key={tech.id}
-                                            onClick={() => handleAssign(tech)}
-                                            disabled={assigning}
-                                            className="w-full p-3 text-left bg-white border border-gray-100 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all flex items-center justify-between group"
-                                        >
-                                            <span className="text-xs font-bold text-gray-600 group-hover:text-primary-700">{tech.name}</span>
-                                            <div className="h-2 w-2 rounded-full bg-gray-200 group-hover:bg-primary-500"></div>
-                                        </button>
-                                    ))}
+                                <div className="space-y-3">
+                                    {techniciens.length === 0 ? (
+                                        <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 text-xs font-bold text-gray-500">
+                                            Aucun technicien disponible
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm"
+                                                defaultValue=""
+                                                onChange={(e) => {
+                                                    const selected = techniciens.find((t) => String(t.id) === e.target.value);
+                                                    if (selected) handleAssign(selected);
+                                                }}
+                                                disabled={assigning}
+                                            >
+                                                <option value="" disabled>
+                                                    Sélectionner un technicien
+                                                </option>
+                                                {techniciens.map((tech) => (
+                                                    <option key={tech.id} value={tech.id}>
+                                                        {tech.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {assigning && (
+                                                <div className="text-[11px] font-bold text-gray-500">Affectation en cours...</div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -222,7 +267,7 @@ const ClaimDetail = () => {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <span className="opacity-60 flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Ouverture</span>
-                                <span className="font-bold">{formatDate(claim.DateBon)}</span>
+                                <span className="font-bold">{formatDate(claim.DateOuverture)}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="opacity-60 flex items-center gap-2"><TagIcon className="h-4 w-4" /> Type</span>

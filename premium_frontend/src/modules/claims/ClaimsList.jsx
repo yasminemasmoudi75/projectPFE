@@ -10,13 +10,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate } from '../../utils/format';
-
-const MOCK_CLAIMS = [
-    { id: 'REC-24-001', ticket: 'REC-24-001', client: 'Société ABC', object: 'Problème réseau après installation', date: '2024-02-01T10:00:00', priority: 'Haute', status: 'En cours', assignedTo: 'Mehdi (Technicien)' },
-    { id: 'REC-24-002', ticket: 'REC-24-002', client: 'Tech Solutions', object: 'Écran défectueux au déballage', date: '2024-02-03T15:30:00', priority: 'Moyenne', status: 'Nouveau', assignedTo: 'Non assigné' },
-    { id: 'REC-24-003', ticket: 'REC-24-003', client: 'Global Import', object: 'Retard de livraison sur commande #BC0024', date: '2024-01-28T09:15:00', priority: 'Basse', status: 'Résolu', assignedTo: 'Sami (Commercial)' },
-    { id: 'REC-24-004', ticket: 'REC-24-004', client: 'Société ABC', object: 'Facturation erronée', date: '2024-02-05T11:45:00', priority: 'Urgente', status: 'Urgent', assignedTo: 'Administrateur' },
-];
+import axios from '../../app/axios';
+import toast from 'react-hot-toast';
 
 const ClaimsList = () => {
     const navigate = useNavigate();
@@ -24,11 +19,47 @@ const ClaimsList = () => {
     const [claims, setClaims] = useState([]);
 
     useEffect(() => {
-        setTimeout(() => {
-            setClaims(MOCK_CLAIMS);
-            setLoading(false);
-        }, 600);
+        const fetchClaims = async () => {
+            try {
+                setLoading(true);
+                const response = await axios.get('/reclamations');
+                const list = response?.data ?? response ?? [];
+                const mapped = (Array.isArray(list) ? list : []).map((rec) => ({
+                    id: rec.ID,
+                    ticket: rec.NumTicket,
+                    client: rec.LibTiers || rec.CodTiers || 'Client non défini',
+                    object: rec.Objet || 'Sans objet',
+                    date: rec.DateOuverture || rec.createdAt,
+                    priority: rec.Priorite || 'Moyenne',
+                    status: rec.Statut || 'Ouvert',
+                    assignedTo: rec.NomTechnicien || 'Non assigné'
+                }));
+                setClaims(mapped);
+            } catch (error) {
+                console.error('Error fetching reclamations:', error);
+                toast.error('Impossible de charger les réclamations');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchClaims();
     }, []);
+
+    const stats = claims.reduce(
+        (acc, claim) => {
+            const status = String(claim.status || '').toLowerCase();
+            const priority = String(claim.priority || '').toLowerCase();
+
+            if (status === 'résolu' || status === 'resolu') acc.resolved += 1;
+            if (status === 'en cours') acc.inProgress += 1;
+            if (status === 'ouvert' || status === 'nouveau') acc.new += 1;
+            if (priority === 'urgente' || status === 'urgent') acc.urgent += 1;
+
+            return acc;
+        },
+        { new: 0, inProgress: 0, urgent: 0, resolved: 0 }
+    );
 
     if (loading) return <LoadingSpinner />;
 
@@ -51,10 +82,10 @@ const ClaimsList = () => {
             {/* Grid of Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { name: 'Nouveaux', count: 1, color: 'bg-primary-50 text-primary-700 border-blue-100', icon: ChatBubbleLeftEllipsisIcon },
-                    { name: 'En cours', count: 1, color: 'bg-orange-50 text-orange-700 border-orange-100', icon: WrenchScrewdriverIcon },
-                    { name: 'Urgents', count: 1, color: 'bg-red-50 text-red-700 border-red-100', icon: ClockIcon },
-                    { name: 'Résolus', count: 1, color: 'bg-green-50 text-green-700 border-green-100', icon: CheckCircleIcon },
+                    { name: 'Nouveaux', count: stats.new, color: 'bg-primary-50 text-primary-700 border-blue-100', icon: ChatBubbleLeftEllipsisIcon },
+                    { name: 'En cours', count: stats.inProgress, color: 'bg-orange-50 text-orange-700 border-orange-100', icon: WrenchScrewdriverIcon },
+                    { name: 'Urgents', count: stats.urgent, color: 'bg-red-50 text-red-700 border-red-100', icon: ClockIcon },
+                    { name: 'Résolus', count: stats.resolved, color: 'bg-green-50 text-green-700 border-green-100', icon: CheckCircleIcon },
                 ].map((item) => (
                     <div key={item.name} className={`p-5 rounded-3xl border ${item.color} flex items-center justify-between shadow-sm transition-transform hover:scale-[1.02] cursor-default`}>
                         <div className="flex items-center gap-4">

@@ -7,6 +7,7 @@ import activiteReducer from '../modules/activities/activiteSlice';
 import objectifReducer from '../modules/goals/objectifSlice';
 import messageReducer from '../modules/messaging/messageSlice';
 import iaReducer from '../modules/ai-engine/iaSlice';
+import bcvReducer from '../modules/sales/bcvSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     objectifs: objectifReducer,
     messages: messageReducer,
     ia: iaReducer,
+    bcv: bcvReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

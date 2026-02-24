@@ -16,7 +16,8 @@ import {
   CubeIcon,
   UserGroupIcon,
   LifebuoyIcon,
-  ArrowTopRightOnSquareIcon
+  ArrowTopRightOnSquareIcon,
+  ShoppingBagIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import useAuth from '../hooks/useAuth';
@@ -29,6 +30,7 @@ const menuItems = [
   { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS },
   { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Commandes', href: '/devis/orders', icon: DocumentCheckIcon, moduleCode: MODULE_CODES.DEVIS },
+  { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS },
   { type: 'section', name: 'Opérations' },
   { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },

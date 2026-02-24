@@ -11,19 +11,13 @@ import {
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
+import axios from '../../app/axios';
 
 const ClaimForm = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-
-    // Simulation de données clients (Tiers)
-    const CLIENTS = [
-        { CodTiers: 'CLI001', LibTiers: 'Société ABC' },
-        { CodTiers: 'CLI002', LibTiers: 'Tech Solutions' },
-        { CodTiers: 'CLI003', LibTiers: 'Global Import' },
-        { CodTiers: 'CLI004', LibTiers: 'Pharma Plus' }
-    ];
+    const [clients, setClients] = useState([]);
 
     const [formData, setFormData] = useState({
         CodTiers: '',
@@ -34,30 +28,62 @@ const ClaimForm = () => {
         TypeReclamation: 'Technique'
     });
 
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                setLoading(true);
+                const response = await axios.get('/tiers');
+                const list = response?.data ?? response ?? [];
+                const normalized = (Array.isArray(list) ? list : []).map((client) => ({
+                    ...client,
+                    LibTiers: client.LibTiers || client.Raisoc || client.CodTiers
+                }));
+                setClients(normalized);
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+                toast.error('Impossible de charger la liste des clients');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchClients();
+    }, []);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
 
         if (name === 'CodTiers') {
-            const client = CLIENTS.find(c => c.CodTiers === value);
+            const client = clients.find(c => c.CodTiers === value);
             setFormData(prev => ({
                 ...prev,
                 CodTiers: value,
-                LibTiers: client ? client.LibTiers : ''
+                LibTiers: client ? (client.LibTiers || client.Raisoc || '') : ''
             }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
-        // Simulation API POST /api/reclamations
-        setTimeout(() => {
-            toast.success('Réclamation enregistrée avec succès');
+
+        try {
+            const response = await axios.post('/reclamations', formData);
+            if (response?.status === 'success') {
+                toast.success('Réclamation enregistrée avec succès');
+                navigate('/claims');
+            } else {
+                toast.error('Création de la réclamation échouée');
+            }
+        } catch (error) {
+            console.error('Error creating reclamation:', error);
+            const message = error.response?.data?.message || 'Erreur lors de la création de la réclamation';
+            toast.error(message);
+        } finally {
             setSaving(false);
-            navigate('/claims');
-        }, 1000);
+        }
     };
 
     if (loading) return <LoadingSpinner />;
@@ -96,7 +122,7 @@ const ClaimForm = () => {
                                 required
                             >
                                 <option value="">--- Choisir un client ---</option>
-                                {CLIENTS.map(c => (
+                                {clients.map(c => (
                                     <option key={c.CodTiers} value={c.CodTiers}>{c.LibTiers} ({c.CodTiers})</option>
                                 ))}
                             </select>

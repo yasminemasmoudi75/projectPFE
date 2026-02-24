@@ -16,6 +16,8 @@ const DevisList = lazy(() => import('../modules/sales/DevisList'));
 const DevisDetail = lazy(() => import('../modules/sales/DevisDetail'));
 const DevisForm = lazy(() => import('../modules/sales/DevisForm'));
 const OrdersList = lazy(() => import('../modules/sales/OrdersList'));
+const BcvList = lazy(() => import('../modules/sales/BcvList'));
+const BcvDetail = lazy(() => import('../modules/sales/BcvDetail'));
 const ProjetsList = lazy(() => import('../modules/crm/ProjetsList'));
 const ProjetDetail = lazy(() => import('../modules/crm/ProjetDetail'));
 const ProjetForm = lazy(() => import('../modules/crm/ProjetForm'));
@@ -168,6 +170,27 @@ const routes = [
             element: (
               <SuspenseWrapper>
                 <DevisDetail />
+              </SuspenseWrapper>
+            ),
+          },
+        ],
+      },
+      {
+        path: 'bcv',
+        children: [
+          {
+            index: true,
+            element: (
+              <SuspenseWrapper>
+                <BcvList />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: ':id',
+            element: (
+              <SuspenseWrapper>
+                <BcvDetail />
               </SuspenseWrapper>
             ),
           },
