@@ -1,6 +1,6 @@
 require('dotenv').config();
 const app = require('./src/app');
-const { testConnection } = require('./src/config/database');
+const { testConnection, sequelize } = require('./src/config/database');
 const { PORT } = require('./src/config/constants');
 
 // Fonction pour démarrer le serveur
@@ -12,6 +12,16 @@ const startServer = async () => {
     if (!isConnected) {
       console.error('❌ Impossible de démarrer le serveur sans connexion à la base de données');
       process.exit(1);
+    }
+
+    // Synchroniser les modèles avec la base de données
+    try {
+      console.log('🔄 Synchronisation des modèles avec la base de données...');
+      await sequelize.sync({ alter: false });
+      console.log('✅ Synchronisation réussie');
+    } catch (syncError) {
+      console.warn('⚠️ Erreur lors de la synchronisation:', syncError.message);
+      // Ne pas arrêter le serveur, les tables peuvent déjà exister
     }
 
     // Démarrer le serveur Express

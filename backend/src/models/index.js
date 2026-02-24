@@ -13,8 +13,25 @@ const Category = require('./Category');
 const Collection = require('./Collection');
 const DevisMaster = require('./DevisMaster');
 const DevisDetail = require('./DevisDetail');
+const BcvMaster = require('./BcvMaster');
+const BcvDetail = require('./BcvDetail');
+const Reclamation = require('./Reclamation');
+const TabDI = require('./TabDI');
+const TabBT = require('./TabBT');
 
 // Définition des relations
+
+// BCV Master - Detail (1:N)
+BcvMaster.hasMany(BcvDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+BcvDetail.belongsTo(BcvMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
 
 // Devis Master - Detail (1:N)
 DevisMaster.hasMany(DevisDetail, {
@@ -142,6 +159,16 @@ Activite.belongsTo(Projet, {
   as: 'projet'
 });
 
+// User - Reclamation (1:N) - Un technicien peut avoir plusieurs réclamations
+User.hasMany(Reclamation, {
+  foreignKey: 'TechnicienID',
+  as: 'reclamations'
+});
+Reclamation.belongsTo(User, {
+  foreignKey: 'TechnicienID',
+  as: 'technicien'
+});
+
 // Export des modèles et de la connexion
 module.exports = {
   sequelize,
@@ -149,6 +176,9 @@ module.exports = {
   Message,
   DevisMaster,
   DevisDetail,
+  BcvMaster,
+  BcvDetail,
+  Reclamation,
   Projet,
   Activite,
   Objectif,
@@ -156,5 +186,7 @@ module.exports = {
   Tiers,
   Product,
   Category,
-  Collection
+  Collection,
+  TabDI,
+  TabBT
 };

@@ -1,4 +1,4 @@
-const { sequelize, QueryTypes } = require('sequelize');
+con st { sequelize, QueryTypes } = require('sequelize');
 const db = require('./src/config/database');
 
 (async () => {

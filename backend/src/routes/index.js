@@ -12,6 +12,8 @@ const messagesRoutes = require('./messages.routes');
 const tiersRoutes = require('./tiers.routes');
 const productsRoutes = require('./products.routes');
 const categoriesRoutes = require('./categories.routes');
+const bcvRoutes = require('./bcv.routes');
+const reclamationsRoutes = require('./reclamations.routes');
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -24,6 +26,8 @@ router.use('/messages', messagesRoutes);
 router.use('/tiers', tiersRoutes);
 router.use('/products', productsRoutes);
 router.use('/categories', categoriesRoutes);
+router.use('/bcv', bcvRoutes);
+router.use('/reclamations', reclamationsRoutes);
 
 // Route de base de l'API
 router.get('/', (req, res) => {
