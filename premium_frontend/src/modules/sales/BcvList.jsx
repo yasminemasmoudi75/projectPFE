@@ -221,16 +221,21 @@ const BcvList = () => {
                                     <tr
                                         key={item.Guid}
                                         className="group hover:bg-blue-50/30 transition-all cursor-pointer"
-                                        onClick={() => navigate(`/bcv/${item.Guid}`)}
+                                        onClick={() => {
+                                            // Si c'est un devis converti, rediriger vers /devis/:id
+                                            // Sinon, rediriger vers /bcv/:id
+                                            const path = item._source === 'TabDevm' ? `/devis/${item.Guid}` : `/bcv/${item.Guid}`;
+                                            navigate(path);
+                                        }}
                                     >
                                         {/* N° BC */}
                                         <td className="px-6 py-5">
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-bold text-blue-600 font-mono tracking-tight">
-                                                    {item.Prfx || ''}{item.Nf}
+                                                    {item.Prfx || 'BC'}{item.Nf}
                                                 </span>
                                                 <span className="text-[10px] font-medium text-slate-400 uppercase">
-                                                    {item.type || '—'}
+                                                    {item._source === 'TabDevm' ? '📄 Devis converti' : (item.type || 'BC Standard')}
                                                 </span>
                                             </div>
                                         </td>
@@ -294,7 +299,11 @@ const BcvList = () => {
                                         {/* Action */}
                                         <td className="px-6 py-5">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); navigate(`/bcv/${item.Guid}`); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const path = item._source === 'TabDevm' ? `/devis/${item.Guid}` : `/bcv/${item.Guid}`;
+                                                    navigate(path);
+                                                }}
                                                 className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
                                                 title="Voir le détail"
                                             >

@@ -522,13 +522,31 @@ const Objectifs = () => {
                 ))}
             </div>
 
-            {/* Grid Layout for Objectifs - Similar to Projects */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {reduxLoading && filteredObjectifs.length === 0 ? (
-                    <div className="col-span-full py-20 flex justify-center">
-                        <LoadingSpinner />
-                    </div>
-                ) : filteredObjectifs.length > 0 ? filteredObjectifs.map((goal) => {
+            {/* Section Objectifs Mensuels */}
+            <div className="card-luxury p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-extrabold text-slate-800">Objectif Mensuelle</h2>
+                    <button
+                        onClick={() => navigate('/objectifs/new', {
+                            state: {
+                                typePeriode: 'Mensuel',
+                                selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
+                                selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
+                                selectedYear: parseInt(selectedYear)
+                            }
+                        })}
+                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                    >
+                        <PlusIcon className="h-4 w-4" /> Ajouter Objectif
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {reduxLoading && filteredObjectifs.filter(o => o.TypePeriode === 'Mensuel' || !o.TypePeriode).length === 0 ? (
+                        <div className="col-span-full py-20 flex justify-center">
+                            <LoadingSpinner />
+                        </div>
+                    ) : filteredObjectifs.filter(o => o.TypePeriode === 'Mensuel' || !o.TypePeriode).length > 0 ? filteredObjectifs.filter(o => o.TypePeriode === 'Mensuel' || !o.TypePeriode).map((goal) => {
                             const progress = Math.min(((goal.Montant_Realise_Actuel || 0) / (goal.MontantCible || 1)) * 100, 100);
                             const visuals = getGoalVisuals(goal.TypeObjectif);
                             const config = COLOR_MAP[visuals.color] || COLOR_MAP.blue;
@@ -655,6 +673,110 @@ const Objectifs = () => {
                         </div>
                     </button>
                 )}
+                </div>
+            </div>
+
+            {/* Section Objectifs Hebdomadaires */}
+            <div className="card-luxury p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-extrabold text-slate-800">Objectif hebdomadaire</h2>
+                    <button
+                        onClick={() => navigate('/objectifs/new', {
+                            state: {
+                                typePeriode: 'Hebdomadaire',
+                                selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
+                                selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
+                                selectedYear: parseInt(selectedYear)
+                            }
+                        })}
+                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                    >
+                        <PlusIcon className="h-4 w-4" /> Ajouter Période
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {reduxLoading && filteredObjectifs.filter(o => o.TypePeriode === 'Hebdomadaire').length === 0 ? (
+                        <div className="col-span-full py-20 flex justify-center">
+                            <LoadingSpinner />
+                        </div>
+                    ) : filteredObjectifs.filter(o => o.TypePeriode === 'Hebdomadaire').length > 0 ? filteredObjectifs.filter(o => o.TypePeriode === 'Hebdomadaire').map((goal) => {
+                            const progress = Math.min(((goal.Montant_Realise_Actuel || 0) / (goal.MontantCible || 1)) * 100, 100);
+                            const visuals = getGoalVisuals(goal.TypeObjectif);
+                            const config = COLOR_MAP[visuals.color] || COLOR_MAP.blue;
+                            const Icon = visuals.icon;
+
+                            return (
+                                <div key={goal.ID_Objectif} className={`card-luxury p-6 group flex flex-col ${config.border}`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className={`icon-shape icon-shape-sm shadow-soft ${config.bg}`}>
+                                            <CalendarIcon className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
+                                                    state: { objectif: goal }
+                                                })}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
+                                                title="Modifier l'objectif"
+                                            >
+                                                <EyeIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <h4 className="text-sm font-bold text-slate-800 mb-2">{goal.Semaine || 'Semaine non définie'}</h4>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <CalendarIcon className="h-3 w-3" />
+                                            <span>
+                                                {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr-FR') : '...'}
+                                                {' → '}
+                                                {goal.DateFin ? new Date(goal.DateFin).toLocaleDateString('fr-FR') : '...'}
+                                            </span>
+                                        </div>
+                                        {goal.utilisateur && (
+                                            <p className="text-xs text-slate-400 mt-1">
+                                                {goal.utilisateur.FullName || goal.utilisateur.LoginName}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-auto">
+                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-1000 ${config.bg}`}
+                                                style={{ width: `${progress}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-bold text-slate-600">{Math.round(progress)}%</span>
+                                            <span className="text-slate-400">
+                                                {goal.Montant_Realise_Actuel || 0} / {goal.MontantCible || 0}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="col-span-full py-12 text-center">
+                                <div className="inline-flex flex-col items-center gap-3">
+                                    <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+                                        <CalendarIcon className="h-8 w-8" />
+                                    </div>
+                                    <p className="text-slate-500 font-medium">Aucun objectif hebdomadaire trouvé</p>
+                                    <button
+                                        onClick={() => navigate('/objectifs/new', {
+                                            state: { typePeriode: 'Hebdomadaire' }
+                                        })}
+                                        className="btn-soft-primary text-xs"
+                                    >
+                                        Créer un objectif hebdomadaire
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                </div>
             </div>
 
             {/* Classement Performance Équipe - Liste de tous les commerciaux classés par avancement */}
