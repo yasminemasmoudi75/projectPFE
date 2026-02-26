@@ -16,16 +16,27 @@ exports.createObjectif = async (req, res, next) => {
             MontantCible,
             Montant_Realise_Actuel,
             TypeObjectif,
+            TypePeriode,
             Libelle_Indicateur,
-            Statut
+            Statut,
+            ID_Objectif_Parent
         } = req.body;
 
-        // Validation
-        if (!ID_Utilisateur || !Mois || !Annee || !MontantCible) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'L\'utilisateur, le mois, l\'année et le montant cible sont obligatoires'
-            });
+        // Validation selon le type de période
+        if (TypePeriode === 'Mensuel') {
+            if (!ID_Utilisateur || !Mois || !Annee || !MontantCible) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'L\'utilisateur, le mois, l\'année et le montant cible sont obligatoires pour un objectif mensuel'
+                });
+            }
+        } else if (TypePeriode === 'Hebdomadaire') {
+            if (!ID_Utilisateur || !Semaine || !DateDebut || !DateFin) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'L\'utilisateur, la semaine, la date de début et la date de fin sont obligatoires pour un objectif hebdomadaire'
+                });
+            }
         }
 
         // Sanitize dates
@@ -34,16 +45,18 @@ exports.createObjectif = async (req, res, next) => {
 
         const newObjectif = await Objectif.create({
             ID_Utilisateur: ID_Utilisateur,
-            Mois: parseInt(Mois),
-            Annee: parseInt(Annee),
+            Mois: Mois ? parseInt(Mois) : null,
+            Annee: Annee ? parseInt(Annee) : null,
             Semaine: Semaine || null,
             DateDebut: sanitizedDateDebut,
             DateFin: sanitizedDateFin,
-            MontantCible,
+            MontantCible: MontantCible || 0,
             Montant_Realise_Actuel: Montant_Realise_Actuel || 0,
-            TypeObjectif,
+            TypeObjectif: TypeObjectif || null,
+            TypePeriode: TypePeriode || 'Mensuel',
             Libelle_Indicateur,
-            Statut
+            Statut: Statut || 'En cours',
+            ID_Objectif_Parent: ID_Objectif_Parent || null
         });
 
         res.status(201).json({
@@ -61,12 +74,13 @@ exports.createObjectif = async (req, res, next) => {
  */
 exports.getAllObjectifs = async (req, res, next) => {
     try {
-        const { userId, mois, annee, semaine, tiersId, projetId } = req.query;
+        const { userId, mois, annee, semaine, tiersId, projetId, typePeriode } = req.query;
         const where = {};
         if (userId) where.ID_Utilisateur = userId;
         if (mois) where.Mois = mois;
         if (annee) where.Annee = annee;
         if (semaine) where.Semaine = semaine;
+        if (typePeriode) where.TypePeriode = typePeriode;
 
         const objectifs = await Objectif.findAll({
             where,
@@ -77,7 +91,12 @@ exports.getAllObjectifs = async (req, res, next) => {
                     attributes: ['UserID', 'FullName', 'LoginName']
                 }
             ],
-            order: [['Annee', 'DESC'], ['Mois', 'DESC'], ['Semaine', 'DESC']]
+            order: [
+                ['TypePeriode', 'ASC'], // Mensuel d'abord
+                ['Annee', 'DESC'],
+                ['Mois', 'DESC'],
+                ['DateDebut', 'DESC']
+            ]
         });
 
         res.status(200).json({

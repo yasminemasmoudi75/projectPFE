@@ -47,6 +47,13 @@ const Objectif = sequelize.define('TabObjectifs', {
     allowNull: true,
     field: 'TypeObjectif'
   },
+  TypePeriode: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    defaultValue: 'Mensuel',
+    field: 'TypePeriode',
+    comment: 'Mensuel ou Hebdomadaire'
+  },
   Semaine: {
     type: DataTypes.STRING(50),
     allowNull: true,
@@ -71,6 +78,12 @@ const Objectif = sequelize.define('TabObjectifs', {
     type: DataTypes.STRING(50),
     allowNull: true,
     field: 'Statut'
+  },
+  ID_Objectif_Parent: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'ID_Objectif_Parent',
+    comment: 'Référence vers l\'objectif mensuel parent pour les objectifs hebdomadaires'
   }
 }, {
   tableName: 'TabObjectifs',

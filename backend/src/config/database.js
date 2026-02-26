@@ -34,7 +34,14 @@ const sequelize = new Sequelize(
     define: {
       timestamps: false
     },
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    // Désactiver les logs SQL sauf pour les erreurs
+    logging: false,
+    // Alternative: afficher seulement les requêtes importantes
+    // logging: (msg) => {
+    //   if (!msg.includes('INFORMATION_SCHEMA') && !msg.includes('sp_helpindex')) {
+    //     console.log(msg);
+    //   }
+    // },
   }
 );
 

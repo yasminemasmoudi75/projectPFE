@@ -2,9 +2,6 @@ const express = require('express');
 const router = express.Router();
 const devisController = require('../controllers/devisController');
 
-// Route for orders (converted devis) - MUST BE BEFORE /:id route
-router.get('/orders/all', devisController.getAllOrders);
-
 // Routes devis
 router.get('/', devisController.getAllDevis);
 router.get('/:id', devisController.getDevisById);

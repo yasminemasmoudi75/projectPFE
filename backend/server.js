@@ -14,7 +14,9 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Synchroniser les modèles avec la base de données
+    // Synchroniser les modèles avec la base de données (désactivé car tables déjà créées)
+    // Si vous avez besoin de synchroniser, décommentez le code ci-dessous
+    /*
     try {
       console.log('🔄 Synchronisation des modèles avec la base de données...');
       await sequelize.sync({ alter: false });
@@ -23,6 +25,7 @@ const startServer = async () => {
       console.warn('⚠️ Erreur lors de la synchronisation:', syncError.message);
       // Ne pas arrêter le serveur, les tables peuvent déjà exister
     }
+    */
 
     // Démarrer le serveur Express
     app.listen(PORT, () => {
