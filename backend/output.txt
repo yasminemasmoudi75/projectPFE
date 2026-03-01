@@ -1,0 +1,27 @@
+Starting...
+DB Connected.
+Objective found: 43
+Request object created.
+Invoking updateObjectif...
+Response Status: 200
+Response Data: {
+  "status": "success",
+  "message": "Objectif mis à jour avec succès",
+  "data": {
+    "Avancement": 87,
+    "ID_Objectif": 43,
+    "ID_Utilisateur": 6,
+    "Mois": 10,
+    "Annee": null,
+    "MontantCible": 3211.36,
+    "Montant_Realise_Actuel": 2794.96,
+    "TypeObjectif": "Chiffre d'affaires",
+    "TypePeriode": "Hebdomadaire",
+    "Semaine": "42",
+    "DateDebut": "2024-10-14T00:00:00.000Z",
+    "DateFin": "2024-10-20T00:00:00.000Z",
+    "Libelle_Indicateur": "Updated Libelle via Script",
+    "Statut": "En Cours",
+    "ID_Objectif_Parent": 999999
+  }
+}

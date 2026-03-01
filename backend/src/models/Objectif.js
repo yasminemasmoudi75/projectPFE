@@ -84,6 +84,15 @@ const Objectif = sequelize.define('TabObjectifs', {
     allowNull: true,
     field: 'ID_Objectif_Parent',
     comment: 'Référence vers l\'objectif mensuel parent pour les objectifs hebdomadaires'
+  },
+  Avancement: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const cible = this.getDataValue('MontantCible');
+      const realise = this.getDataValue('Montant_Realise_Actuel');
+      if (!cible || cible === 0) return 0;
+      return Math.min(Math.round((realise / cible) * 100), 100);
+    }
   }
 }, {
   tableName: 'TabObjectifs',

@@ -1,5 +1,6 @@
 const { Objectif, User, Tiers, Projet } = require('../models');
 const { sanitizeDate } = require('../utils/helpers');
+const { sequelize } = require('../config/database');
 
 /**
  * Créer un nouvel objectif
@@ -24,7 +25,7 @@ exports.createObjectif = async (req, res, next) => {
 
         // Validation selon le type de période
         if (TypePeriode === 'Mensuel') {
-            if (!ID_Utilisateur || !Mois || !Annee || !MontantCible) {
+            if (!ID_Utilisateur || !Mois || !Annee || MontantCible === undefined || MontantCible === null) {
                 return res.status(400).json({
                     status: 'error',
                     message: 'L\'utilisateur, le mois, l\'année et le montant cible sont obligatoires pour un objectif mensuel'
@@ -50,8 +51,8 @@ exports.createObjectif = async (req, res, next) => {
             Semaine: Semaine || null,
             DateDebut: sanitizedDateDebut,
             DateFin: sanitizedDateFin,
-            MontantCible: MontantCible || 0,
-            Montant_Realise_Actuel: Montant_Realise_Actuel || 0,
+            MontantCible: MontantCible !== undefined ? parseFloat(MontantCible) : 0,
+            Montant_Realise_Actuel: Montant_Realise_Actuel !== undefined ? parseFloat(Montant_Realise_Actuel) : 0,
             TypeObjectif: TypeObjectif || null,
             TypePeriode: TypePeriode || 'Mensuel',
             Libelle_Indicateur,
@@ -65,6 +66,7 @@ exports.createObjectif = async (req, res, next) => {
             data: newObjectif
         });
     } catch (error) {
+        console.error('❌ Erreur création objectif:', error);
         next(error);
     }
 };
@@ -88,14 +90,12 @@ exports.getAllObjectifs = async (req, res, next) => {
                 {
                     model: User,
                     as: 'utilisateur',
-                    attributes: ['UserID', 'FullName', 'LoginName']
+                    attributes: ['UserID', 'FullName', 'LoginName'],
+                    required: false // LEFT JOIN to avoid errors if user not found
                 }
             ],
             order: [
-                ['TypePeriode', 'ASC'], // Mensuel d'abord
-                ['Annee', 'DESC'],
-                ['Mois', 'DESC'],
-                ['DateDebut', 'DESC']
+                ['ID_Objectif', 'DESC'] // Tri simple par ID décroissant
             ]
         });
 
@@ -105,6 +105,7 @@ exports.getAllObjectifs = async (req, res, next) => {
             data: objectifs
         });
     } catch (error) {
+        console.error('❌ Erreur récupération objectifs:', error);
         next(error);
     }
 };
@@ -156,8 +157,10 @@ exports.updateObjectif = async (req, res, next) => {
             MontantCible,
             Montant_Realise_Actuel,
             TypeObjectif,
+            TypePeriode,
             Libelle_Indicateur,
-            Statut
+            Statut,
+            ID_Objectif_Parent
         } = req.body;
 
         const objectif = await Objectif.findByPk(id);
@@ -173,17 +176,26 @@ exports.updateObjectif = async (req, res, next) => {
         const sanitizedDateDebut = DateDebut !== undefined ? sanitizeDate(DateDebut) : objectif.DateDebut;
         const sanitizedDateFin = DateFin !== undefined ? sanitizeDate(DateFin) : objectif.DateFin;
 
+        // Helper to safely parse int or return null
+        const safeInt = (val) => {
+            if (val === null || val === undefined || val === '') return null;
+            const parsed = parseInt(val);
+            return isNaN(parsed) ? null : parsed;
+        };
+
         await objectif.update({
-            Mois: Mois !== undefined ? parseInt(Mois) : objectif.Mois,
-            Annee: Annee !== undefined ? parseInt(Annee) : objectif.Annee,
+            Mois: Mois !== undefined ? safeInt(Mois) : objectif.Mois,
+            Annee: Annee !== undefined ? safeInt(Annee) : objectif.Annee,
             Semaine: Semaine !== undefined ? Semaine : objectif.Semaine,
             DateDebut: sanitizedDateDebut,
             DateFin: sanitizedDateFin,
-            MontantCible: MontantCible || objectif.MontantCible,
+            MontantCible: MontantCible !== undefined ? MontantCible : objectif.MontantCible,
             Montant_Realise_Actuel: Montant_Realise_Actuel !== undefined ? Montant_Realise_Actuel : objectif.Montant_Realise_Actuel,
             TypeObjectif: TypeObjectif || objectif.TypeObjectif,
+            TypePeriode: TypePeriode || objectif.TypePeriode,
             Libelle_Indicateur: Libelle_Indicateur !== undefined ? Libelle_Indicateur : objectif.Libelle_Indicateur,
-            Statut: Statut !== undefined ? Statut : objectif.Statut
+            Statut: Statut !== undefined ? Statut : objectif.Statut,
+            ID_Objectif_Parent: ID_Objectif_Parent !== undefined ? safeInt(ID_Objectif_Parent) : objectif.ID_Objectif_Parent
         });
 
         res.status(200).json({
@@ -192,6 +204,7 @@ exports.updateObjectif = async (req, res, next) => {
             data: objectif
         });
     } catch (error) {
+        console.error('❌ Erreur updateObjectif:', error);
         next(error);
     }
 };
