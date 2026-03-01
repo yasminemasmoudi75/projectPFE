@@ -146,31 +146,13 @@ const Objectifs = () => {
         { id: 10, name: 'Octobre' }, { id: 11, name: 'Novembre' }, { id: 12, name: 'Décembre' }
     ];
 
-    const chartData = useMemo(() => {
-        if (!allObjectifs || allObjectifs.length === 0) return [];
-
-        const monthNames = ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
-        
-        // Initialiser les données pour tous les mois
-        const monthlyData = Array(12).fill(0).map((_, index) => ({
-            month: monthNames[index],
-            sales: 0,
-            originalIndex: index // Pour le tri
-        }));
-
-        allObjectifs.forEach(obj => {
-            if (obj.DateDebut) {
-                const date = new Date(obj.DateDebut);
-                const monthIndex = date.getMonth();
-                const realised = parseFloat(obj.Montant_Realise_Actuel) || 0;
-                monthlyData[monthIndex].sales += realised;
-            }
-        });
-
-        // Filtrer pour ne garder que les mois avec des données ou les X derniers mois
-        // Pour l'instant, on retourne tout ou on pourrait filtrer pour l'année en cours
-        return monthlyData.filter(d => d.sales > 0);
-    }, [allObjectifs]);
+    const chartData = [
+        { month: 'Oct', sales: 12000 },
+        { month: 'Nov', sales: 15000 },
+        { month: 'Déc', sales: 18000 },
+        { month: 'Jan', sales: 21500 },
+        { month: 'Fév', sales: 18450 },
+    ];
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -219,7 +201,7 @@ const Objectifs = () => {
     useEffect(() => {
         // Si on revient de la page de création avec un state
         if (location.state?.refresh) {
-            // Mettre à jour les filtres si nécessaire (le useEffect principal rechargera automatiquement)
+            // Mettre Ã  jour les filtres si nécessaire (le useEffect principal rechargera automatiquement)
             if (location.state.selectedUserId && location.state.selectedUserId !== selectedUserId) {
                 setSelectedUserId(location.state.selectedUserId);
             }
@@ -246,7 +228,7 @@ const Objectifs = () => {
                 data: { Montant_Realise_Actuel: parseFloat(val) }
             })).unwrap();
 
-            toast.success("Montant mis à jour avec succès");
+            toast.success("Montant mis Ã  jour avec succès");
 
             // Réinitialiser le champ input
             if (inputElement) {
@@ -262,8 +244,8 @@ const Objectifs = () => {
             const res = await axios.get('/objectifs', { params });
             setAllObjectifs(res?.data ?? res ?? []);
         } catch (error) {
-            console.error('Erreur lors de la mise à jour:', error);
-            toast.error(error.response?.data?.message || "Erreur lors de la mise à jour");
+            console.error('Erreur lors de la mise Ã  jour:', error);
+            toast.error(error.response?.data?.message || "Erreur lors de la mise Ã  jour");
         }
     };
 
@@ -382,7 +364,7 @@ const Objectifs = () => {
                     </div>
                     <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Objectifs Commerciaux</h1>
                     <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-                        Pilotage des indicateurs clés • Toutes les données de la base
+                        Pilotage des indicateurs clés â€¢ Toutes les données de la base
                     </p>
                 </div>
 
@@ -460,7 +442,7 @@ const Objectifs = () => {
                                 <option value="all">Tous les statuts</option>
                                 <option value="completed">Complétés (â‰¥100%)</option>
                                 <option value="in-progress">En cours (50-99%)</option>
-                                <option value="at-risk">À risque (&lt;50%)</option>
+                                <option value="at-risk">Ã€ risque (&lt;50%)</option>
                             </select>
                         </div>
 
@@ -519,8 +501,8 @@ const Objectifs = () => {
                 {[
                     { label: 'Atteinte Cible', value: `${Math.round(globalProgress)}%`, sub: 'Progress. Globale', color: 'blue', icon: ArrowTrendingUpIcon, gradient: 'bg-gradient-blue' },
                     { label: 'Objectif Mensuel', value: `${(totalTarget / 1000).toFixed(1)}k`, sub: 'TND / Période', color: 'cyan', icon: BanknotesIcon, gradient: 'bg-gradient-blue-cyan' },
-                    { label: 'Réalisé à date', value: `${(totalRealised / 1000).toFixed(1)}k`, sub: 'TND cumulés', color: 'emerald', icon: CheckCircleIcon, gradient: 'bg-gradient-success' },
-                    { label: 'Reste à faire', value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`, sub: 'Écart restant', color: 'amber', icon: FlagIcon, gradient: 'bg-gradient-warning' },
+                    { label: 'Réalisé Ã  date', value: `${(totalRealised / 1000).toFixed(1)}k`, sub: 'TND cumulés', color: 'emerald', icon: CheckCircleIcon, gradient: 'bg-gradient-success' },
+                    { label: 'Reste Ã  faire', value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`, sub: 'Écart restant', color: 'amber', icon: FlagIcon, gradient: 'bg-gradient-warning' },
                 ].map((kpi, i) => (
                     <div key={i} className="card-luxury p-0 overflow-hidden group">
                         <div className="p-6 flex items-start justify-between">
@@ -648,7 +630,7 @@ const Objectifs = () => {
                                                     handleUpdateProgress(goal.ID_Objectif, input.value, input);
                                                 }}
                                                 className={`h-10 w-10 shrink-0 flex items-center justify-center text-white rounded-xl shadow-soft transition-all active:scale-95 ${config.bg} hover:brightness-110`}
-                                                title="Mettre à jour le montant réalisé"
+                                                title="Mettre Ã  jour le montant réalisé"
                                             >
                                                 <PlusIcon className="h-4 w-4 stroke-[3]" />
                                             </button>
@@ -807,7 +789,7 @@ const Objectifs = () => {
                         <div>
                             <h2 className="text-lg font-black text-slate-800">Classement Performance Équipe</h2>
                             <p className="text-xs font-medium text-slate-500">
-                                Liste de tous les commerciaux classés par avancement • Toutes les données
+                                Liste de tous les commerciaux classés par avancement â€¢ Toutes les données
                             </p>
                         </div>
                     </div>

@@ -61,10 +61,21 @@ const ObjectifForm = () => {
         e.preventDefault();
         setSaving(true);
         try {
+            // Safe year calculation
+            let calculatedYear = null;
+            if (formData.TypePeriode === 'Mensuel') {
+                calculatedYear = parseInt(formData.Annee) || null;
+            } else if (formData.DateDebut) {
+                const d = new Date(formData.DateDebut);
+                if (!isNaN(d.getTime())) {
+                    calculatedYear = d.getFullYear();
+                }
+            }
+
             const objectifData = {
                 ...formData,
-                Mois: formData.TypePeriode === 'Mensuel' ? parseInt(formData.Mois) : null,
-                Annee: formData.TypePeriode === 'Mensuel' ? parseInt(formData.Annee) : null,
+                Mois: formData.TypePeriode === 'Mensuel' ? (parseInt(formData.Mois) || null) : null,
+                Annee: calculatedYear,
                 MontantCible: parseFloat(formData.MontantCible) || 0,
                 Montant_Realise_Actuel: parseFloat(formData.Montant_Realise_Actuel || 0)
             };
@@ -173,10 +184,10 @@ const ObjectifForm = () => {
                         <div className="p-8 grid grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-gray-600">Semaine / Période</label>
-                                <input type="text" name="Semaine" value={formData.Semaine} onChange={handleChange} placeholder="---" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" required />
+                                <input type="text" name="Semaine" value={formData.Semaine} onChange={handleChange} placeholder="Semaine 1" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" required />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-600">Date Debut</label>
+                                <label className="text-sm font-bold text-gray-600">Date Début</label>
                                 <input type="date" name="DateDebut" value={formData.DateDebut ? new Date(formData.DateDebut).toISOString().split('T')[0] : ''} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" required />
                             </div>
                             <div className="space-y-2">
@@ -187,25 +198,45 @@ const ObjectifForm = () => {
                     </div>
                 )}
 
-                {/* Objectifs - Seulement pour Mensuel */}
-                {formData.TypePeriode === 'Mensuel' && (
-                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-                        <div className="bg-gray-50 px-8 py-4 border-b border-gray-100 flex items-center gap-2">
-                            <FlagIcon className="h-5 w-5 text-primary-600" />
-                            <h2 className="font-bold text-gray-700 uppercase tracking-wider text-xs">Objectifs</h2>
+                {/* Objectifs */}
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="bg-gray-50 px-8 py-4 border-b border-gray-100 flex items-center gap-2">
+                        <FlagIcon className="h-5 w-5 text-primary-600" />
+                        <h2 className="font-bold text-gray-700 uppercase tracking-wider text-xs">
+                            {formData.TypePeriode === 'Mensuel' ? 'Objectifs Mensuels' : 'Objectifs Hebdomadaires'}
+                        </h2>
+                    </div>
+                    <div className="p-8 grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-600">Libellé de l'objectif</label>
+                            <input type="text" name="Libelle_Indicateur" value={formData.Libelle_Indicateur} onChange={handleChange} placeholder="Description de l'objectif" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" />
                         </div>
-                        <div className="p-8 grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-600">objectif</label>
-                                <input type="text" name="Libelle_Indicateur" value={formData.Libelle_Indicateur} onChange={handleChange} placeholder="---" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-600">Value de l'objectif</label>
-                                <input type="number" name="MontantCible" value={formData.MontantCible} onChange={handleChange} placeholder="0" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" required />
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-600">Montant Cible (DT)</label>
+                            <input type="number" step="0.01" name="MontantCible" value={formData.MontantCible} onChange={handleChange} placeholder="0.00" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" required />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-600">Montant Réalisé (DT)</label>
+                            <input type="number" step="0.01" name="Montant_Realise_Actuel" value={formData.Montant_Realise_Actuel} onChange={handleChange} placeholder="0.00" className="w-full px-4 py-3 rounded-xl border border-gray-200 font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-600">Avancement Estimé (%)</label>
+                            <div className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 font-bold text-gray-500 flex items-center justify-between">
+                                <span>
+                                    {formData.MontantCible && Number(formData.MontantCible) > 0 
+                                        ? Math.round((Number(formData.Montant_Realise_Actuel || 0) / Number(formData.MontantCible)) * 100)
+                                        : 0} %
+                                </span>
+                                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                     <div 
+                                        className="h-full bg-blue-500" 
+                                        style={{ width: `${Math.min((Number(formData.Montant_Realise_Actuel || 0) / Number(formData.MontantCible || 1)) * 100, 100)}%` }}
+                                     />
+                                </div>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 {/* Boutons */}
                 <div className="flex items-center justify-end gap-4 pt-6">
