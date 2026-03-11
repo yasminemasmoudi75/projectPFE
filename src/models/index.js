@@ -1,0 +1,199 @@
+const { sequelize } = require('../config/database');
+
+// Import des modèles
+const User = require('./User');
+const Message = require('./Message');
+const Projet = require('./Projet');
+const Activite = require('./Activite');
+const Objectif = require('./Objectif');
+const Tiers = require('./Tiers');
+const Product = require('./Product');
+const Category = require('./Category');
+const Collection = require('./Collection');
+const DevisMaster = require('./DevisMaster');
+const DevisDetail = require('./DevisDetail');
+const BcvMaster = require('./BcvMaster');
+const BcvDetail = require('./BcvDetail');
+const Reclamation = require('./Reclamation');
+const TabDI = require('./TabDI');
+const TabBT = require('./TabBT');
+
+// Définition des relations
+console.log('🔗 Setting up associations...');
+
+// BCV Master - Detail (1:N)
+BcvMaster.hasMany(BcvDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+BcvDetail.belongsTo(BcvMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
+
+// Devis Master - Detail (1:N)
+DevisMaster.hasMany(DevisDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+DevisDetail.belongsTo(DevisMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
+
+// DevisDetail - Product (N:1) - Pour récupérer l'image du produit
+DevisDetail.belongsTo(Product, {
+  foreignKey: 'IDArt',
+  targetKey: 'IDArt',
+  as: 'product'
+});
+Product.hasMany(DevisDetail, {
+  foreignKey: 'IDArt',
+  sourceKey: 'IDArt',
+  as: 'devisDetails'
+});
+
+// Tiers - DevisMaster (1:N)
+Tiers.hasMany(DevisMaster, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'devis'
+});
+DevisMaster.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'tiers'
+});
+
+// Product - Collection
+Product.belongsTo(Collection, {
+  foreignKey: 'Collection',
+  targetKey: 'Collection',
+  as: 'collectionDetail'
+});
+Collection.hasMany(Product, {
+  foreignKey: 'Collection',
+  sourceKey: 'Collection',
+  as: 'products'
+});
+
+// User - Message (1:N)
+User.hasMany(Message, {
+  foreignKey: 'SenderID',
+  sourceKey: 'UserID',
+  as: 'sentMessages'
+});
+User.hasMany(Message, {
+  foreignKey: 'RecipientID',
+  sourceKey: 'UserID',
+  as: 'receivedMessages'
+});
+Message.belongsTo(User, {
+  foreignKey: 'SenderID',
+  targetKey: 'UserID',
+  as: 'sender'
+});
+Message.belongsTo(User, {
+  foreignKey: 'RecipientID',
+  targetKey: 'UserID',
+  as: 'recipient'
+});
+
+// User - Activite (1:N)
+User.hasMany(Activite, {
+  foreignKey: 'User',
+  sourceKey: 'UserID',
+  as: 'activites'
+});
+Activite.belongsTo(User, {
+  foreignKey: 'User',
+  targetKey: 'UserID',
+  as: 'utilisateur'
+});
+
+// User - Objectif (1:N)
+User.hasMany(Objectif, {
+  foreignKey: 'IdCont',
+  sourceKey: 'GUID',
+  as: 'objectifs'
+});
+Objectif.belongsTo(User, {
+  foreignKey: 'IdCont',
+  targetKey: 'GUID',
+  as: 'utilisateur'
+});
+
+// Tiers - Projet (1:N)
+Tiers.hasMany(Projet, {
+  foreignKey: 'IDTiers', // Mapped to CodSoc in Projet.js
+  sourceKey: 'CodTiers',
+  as: 'projets'
+});
+Projet.belongsTo(Tiers, {
+  foreignKey: 'IDTiers',
+  targetKey: 'CodTiers',
+  as: 'client'
+});
+
+// Tiers - Activite (1:N)
+Tiers.hasMany(Activite, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'activites'
+});
+Activite.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'tiers'
+});
+
+// Projet - Activite (1:N)
+Projet.hasMany(Activite, {
+  foreignKey: 'Nf',
+  sourceKey: 'nf',
+  as: 'activites'
+});
+Activite.belongsTo(Projet, {
+  foreignKey: 'Nf',
+  targetKey: 'nf',
+  as: 'projet'
+});
+
+// User - Reclamation (1:N)
+User.hasMany(Reclamation, {
+  foreignKey: 'TechnicienID',
+  sourceKey: 'UserID',
+  as: 'reclamations'
+});
+Reclamation.belongsTo(User, {
+  foreignKey: 'TechnicienID',
+  targetKey: 'UserID',
+  as: 'technicien'
+});
+
+console.log('✅ Associations setup complete.');
+
+// Export des modèles et de la connexion
+module.exports = {
+  sequelize,
+  User,
+  Message,
+  DevisMaster,
+  DevisDetail,
+  BcvMaster,
+  BcvDetail,
+  Reclamation,
+  Projet,
+  Activite,
+  Objectif,
+  Tiers,
+  Product,
+  Category,
+  Collection,
+  TabDI,
+  TabBT
+};

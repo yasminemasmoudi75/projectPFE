@@ -1,0 +1,2028 @@
+{
+  "TabDevm": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "Prfx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Sufx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Nf",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDContact",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 40,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Adresse",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Remarq",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AssujTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTva",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NetHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Timbre",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NatReg",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NbrLett",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Valid",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntDebit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntCredit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Rest",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NFav",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntAv",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodCateg",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CUser",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MDate",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 5,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpB",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImp",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Frais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTotDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Devise",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodDev",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cours",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cin",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiersA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AdresseA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CinA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Ville",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "VilleA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "avanceforf",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bTransf",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatCreateUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bLivr",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "categ",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "type",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatLiv",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabDevd": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "NoDetail",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "ID",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NF",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "LibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "ExLibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 1000,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Qt",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumBL",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DateBL",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Codabar",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PvPub",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTaille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Taille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFrais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumImport",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImport",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabBcvm": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "Prfx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Sufx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Nf",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDContact",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 40,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Adresse",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Remarq",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AssujTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTva",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NetHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Timbre",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NatReg",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NbrLett",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Valid",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntDebit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntCredit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Rest",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NFav",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntAv",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodCateg",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CUser",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MDate",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 5,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpB",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImp",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Frais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTotDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Devise",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodDev",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cours",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cin",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiersA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AdresseA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CinA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Ville",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "VilleA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "avanceforf",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bTransf",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatCreateUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bLivr",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "categ",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "type",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatLiv",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DiffLiv",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "lat",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "long",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "UserCreate",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabBcvd": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "NoDetail",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "ID",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NF",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "LibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "ExLibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 1000,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Qt",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumBL",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DateBL",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Codabar",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PvPub",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTaille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Taille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFrais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumImport",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImport",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabBlvm": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "Prfx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Sufx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Nf",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDContact",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 40,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Adresse",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Remarq",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AssujTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTva",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NetHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Timbre",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NatReg",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NbrLett",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Valid",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntDebit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntCredit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Rest",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NFav",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntAv",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodCateg",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CUser",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MDate",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 5,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpB",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImp",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Frais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTotDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Devise",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodDev",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cours",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cin",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiersA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AdresseA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CinA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Ville",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "VilleA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "avanceforf",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bTransf",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatCreateUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bLivr",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatLiv",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabBlvd": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "NoDetail",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "ID",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NF",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "LibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "ExLibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 1000,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Qt",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumBL",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DateBL",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Codabar",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PvPub",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTaille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Taille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFrais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumImport",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImport",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabFavm": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "Prfx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Sufx",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Nf",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDContact",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 40,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Adresse",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 100,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Remarq",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AssujTiers",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTva",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NetHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Timbre",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NatReg",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NbrLett",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Valid",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntDebit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntCredit",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Rest",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NFav",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntAv",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodCateg",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CUser",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MDate",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesMag",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesRepres",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 5,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NImpB",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImp",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Frais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTotDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Devise",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodDev",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cours",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Cin",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 20,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "LibTiersA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "AdresseA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CinA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Ville",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "VilleA",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "avanceforf",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesChauff",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bTransf",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatCreateUser",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TotDTTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "bLivr",
+      "DATA_TYPE": "bit",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatLiv",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ],
+  "TabFavd": [
+    {
+      "COLUMN_NAME": "Guid",
+      "DATA_TYPE": "uniqueidentifier",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "NoDetail",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "ID",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NF",
+      "DATA_TYPE": "int",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "NO"
+    },
+    {
+      "COLUMN_NAME": "LibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 255,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "ExLibArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 1000,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Qt",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuTTC",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntRem",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntTVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntHT",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFodec",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumBL",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 30,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DateBL",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Codabar",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PvPub",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DesColor",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "CodTaille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "Taille",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 10,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "IDArt",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "PuDev",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "MntFrais",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "NumImport",
+      "DATA_TYPE": "varchar",
+      "CHARACTER_MAXIMUM_LENGTH": 50,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "DatImport",
+      "DATA_TYPE": "datetime",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "BaseTVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    },
+    {
+      "COLUMN_NAME": "TVA",
+      "DATA_TYPE": "float",
+      "CHARACTER_MAXIMUM_LENGTH": null,
+      "IS_NULLABLE": "YES"
+    }
+  ]
+}
