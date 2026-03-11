@@ -1,4 +1,4 @@
-const { Product, Collection, sequelize } = require('../models');
+const { Product, Collection, TabStockD, sequelize } = require('../models');
 const { randomUUID } = require('crypto');
 const { Op, QueryTypes, TableHints } = require('sequelize');
 const fs = require('fs');
@@ -25,8 +25,11 @@ const PRODUCT_UPDATE_COLUMN_MAP = {
     PrixVente: 'PrixVente',
     PrixAchat: 'PrixAvhat',
     Qte: 'Qte',
+    MinStk: 'MinStk',
     Collection: 'Collection',
     Marque: 'Marque',
+    LibFam: 'LibFam',
+    LibFour: 'LibFour',
     urlimg: 'urlimg',
     Tva: 'Tva',
     Unite: 'Unite',
@@ -51,8 +54,11 @@ exports.createProduct = async (req, res, next) => {
             PrixVente,
             PrixAchat,
             Qte,
+            MinStk,
             Collection: collectionName,
             Marque,
+            LibFam,
+            LibFour,
             urlimg,
             Tva,
             imgArt,
@@ -86,9 +92,12 @@ exports.createProduct = async (req, res, next) => {
             PrixVente: normalizeNumber(PrixVente),
             PrixAchat: normalizeNumber(PrixAchat),
             Qte: normalizeNumber(Qte),
+            MinStk: normalizeNumber(MinStk),
             Tva: normalizeNumber(Tva, 19),
             Collection: collectionName || 'DIVERS',
             Marque: Marque || null,
+            LibFam: LibFam || null,
+            LibFour: LibFour || null,
             urlimg: req.file ? `/uploads/products/${req.file.filename}` : (urlimg || null),
             imgArt: null,
             DateUser: now,
@@ -101,11 +110,11 @@ exports.createProduct = async (req, res, next) => {
         await sequelize.query(`
             INSERT INTO [TabStock] (
                 [IDArt], [CodArt], [LibArt], [ExLibArt], [PrixVente], [PrixAvhat],
-                [Qte], [Collection], [Marque], [urlimg], [Tva], [Unite],
+                [Qte], [MinStk], [Collection], [Marque], [LibFam], [LibFour], [urlimg], [Tva], [Unite],
                 [DateUser], [LastDateUpdate], [DateUpdate]
             ) VALUES (
                 :IDArt, :CodArt, :LibArt, :Description, :PrixVente, :PrixAchat,
-                :Qte, :Collection, :Marque, :urlimg, :Tva, :Unite,
+                :Qte, :MinStk, :Collection, :Marque, :LibFam, :LibFour, :urlimg, :Tva, :Unite,
                 :DateUser, :LastDateUpdate, :DateUpdate
             )
         `, {
@@ -170,8 +179,11 @@ exports.getAllProducts = async (req, res) => {
                     [PrixVente],
                     [PrixAvhat] AS [PrixAchat],
                     [Qte],
+                    [MinStk],
                     [Collection],
                     [Marque],
+                    [LibFam],
+                    [LibFour],
                     [urlimg],
                     [DateUser],
                     [LastDateUpdate],
@@ -290,6 +302,7 @@ exports.updateProduct = async (req, res) => {
         if (updateData.PrixVente !== undefined) updateData.PrixVente = normalizeNumber(updateData.PrixVente);
         if (updateData.PrixAchat !== undefined) updateData.PrixAchat = normalizeNumber(updateData.PrixAchat);
         if (updateData.Qte !== undefined) updateData.Qte = normalizeNumber(updateData.Qte);
+        if (updateData.MinStk !== undefined) updateData.MinStk = normalizeNumber(updateData.MinStk);
         if (updateData.Tva !== undefined) updateData.Tva = normalizeNumber(updateData.Tva, 19);
         updateData.LastDateUpdate = getCurrentMSSQLDate();
         updateData.DateUpdate = getCurrentMSSQLDate();
@@ -396,5 +409,81 @@ exports.deleteProduct = async (req, res) => {
             message: "Erreur lors de la suppression du produit",
             error: error.message
         });
+    }
+};
+
+/**
+ * Récupérer les variantes (TabStockD) d'un produit
+ */
+exports.getProductVariants = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const variants = await TabStockD.findAll({
+            where: { IDArt: id },
+            order: [['ID', 'ASC']]
+        });
+        res.json({ status: 'success', data: variants });
+    } catch (error) {
+        console.error('❌ getProductVariants error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
+ * Sauvegarder les variantes (TabStockD) d'un produit (remplace toutes les variantes)
+ */
+exports.saveProductVariants = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { variants } = req.body;
+
+        if (!Array.isArray(variants)) {
+            return res.status(400).json({ status: 'error', message: 'variants doit être un tableau' });
+        }
+
+        // Vérifier que le produit existe
+        const product = await Product.findByPk(id);
+        if (!product) {
+            return res.status(404).json({ status: 'error', message: 'Produit non trouvé' });
+        }
+
+        // Supprimer les anciennes variantes
+        await TabStockD.destroy({ where: { IDArt: id } });
+
+        // Créer les nouvelles variantes
+        const created = [];
+        for (const v of variants) {
+            if (!v.CodArtD && !v.CodColor && !v.Taille) continue; // Ignorer lignes vides
+            const row = await TabStockD.create({
+                IDArt: id,
+                CodArt: product.CodArt,
+                CodArtD: v.CodArtD || null,
+                CodColor: v.CodColor || null,
+                CodTaille: v.CodTaille || null,
+                Taille: v.Taille || null,
+                DesColor: v.DesColor || null,
+                Qte: Number(v.Qte) || 0
+            });
+            created.push(row);
+        }
+
+        res.json({ status: 'success', data: created, message: `${created.length} variante(s) sauvegardée(s)` });
+    } catch (error) {
+        console.error('❌ saveProductVariants error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+/**
+ * Supprimer une variante par ID
+ */
+exports.deleteProductVariant = async (req, res) => {
+    try {
+        const { variantId } = req.params;
+        await TabStockD.destroy({ where: { ID: variantId } });
+        res.json({ status: 'success', message: 'Variante supprimée' });
+    } catch (error) {
+        console.error('❌ deleteProductVariant error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
     }
 };

@@ -8,6 +8,8 @@ const Activite = require('./Activite');
 const Objectif = require('./Objectif');
 const Tiers = require('./Tiers');
 const Product = require('./Product');
+const Stock = require('./Stock');
+const TabStockD = require('./TabStockD');
 const Category = require('./Category');
 const Collection = require('./Collection');
 const DevisMaster = require('./DevisMaster');
@@ -175,6 +177,18 @@ Reclamation.belongsTo(User, {
   as: 'technicien'
 });
 
+// Product - TabStockD (1:N)
+Product.hasMany(TabStockD, {
+  foreignKey: 'IDArt',
+  sourceKey: 'IDArt',
+  as: 'variants'
+});
+TabStockD.belongsTo(Product, {
+  foreignKey: 'IDArt',
+  targetKey: 'IDArt',
+  as: 'product'
+});
+
 console.log('✅ Associations setup complete.');
 
 // Export des modèles et de la connexion
@@ -192,6 +206,8 @@ module.exports = {
   Objectif,
   Tiers,
   Product,
+  TabStockD,
+  Stock,
   Category,
   Collection,
   TabDI,

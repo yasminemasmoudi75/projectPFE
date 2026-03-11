@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const Product = sequelize.define('Product', {
+const Stock = sequelize.define('Stock', {
     IDArt: {
         type: DataTypes.UUID,
         primaryKey: true,
@@ -52,6 +52,14 @@ const Product = sequelize.define('Product', {
         type: DataTypes.STRING,
         field: 'Marque'
     },
+    LibFam: {
+        type: DataTypes.STRING,
+        field: 'LibFam'
+    },
+    LibFour: {
+        type: DataTypes.STRING,
+        field: 'LibFour'
+    },
     urlimg: {
         type: DataTypes.STRING,
         field: 'urlimg'
@@ -75,14 +83,6 @@ const Product = sequelize.define('Product', {
     Unite: {
         type: DataTypes.STRING,
         field: 'Unite'
-    },
-    LibFam: {
-        type: DataTypes.STRING,
-        field: 'LibFam'
-    },
-    LibFour: {
-        type: DataTypes.STRING,
-        field: 'LibFour'
     }
 }, {
     tableName: 'TabStock',
@@ -90,4 +90,4 @@ const Product = sequelize.define('Product', {
     freezeTableName: true
 });
 
-module.exports = Product;
+module.exports = Stock;
