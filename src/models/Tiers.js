@@ -48,6 +48,11 @@ const Tiers = sequelize.define('Tiers', {
     allowNull: true,
     field: 'Gsm'
   },
+  www: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'www'
+  },
   Adresse: {
     type: DataTypes.STRING(255),
     allowNull: true,
@@ -73,6 +78,71 @@ const Tiers = sequelize.define('Tiers', {
     allowNull: true,
     field: 'CodTva'
   },
+  Remise: {
+    type: DataTypes.DECIMAL(18, 3),
+    allowNull: true,
+    field: 'Remise'
+  },
+  Blockage: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Blockage'
+  },
+  Timbre: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Timbre'
+  },
+  Major: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Major'
+  },
+  Exonor: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Exonor'
+  },
+  TextExonor: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'TextExonor'
+  },
+  NbrCreditJour: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'NbrCreditJour'
+  },
+  Plafondcredit: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'Plafondcredit'
+  },
+  ModReg: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'ModReg'
+  },
+  DetailReg: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'DetailReg'
+  },
+  Banque: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'Banque'
+  },
+  RC: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'RC'
+  },
+  assujet: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'assujet'
+  },
   Cin: {
     type: DataTypes.STRING(10),
     allowNull: true,
@@ -92,6 +162,61 @@ const Tiers = sequelize.define('Tiers', {
     type: DataTypes.BOOLEAN,
     allowNull: true,
     field: 'Actif'
+  },
+  Fictif: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Fictif'
+  },
+  Pub: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'Pub'
+  },
+  AdresseMaps: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'AdresseMaps'
+  },
+  MapsVille: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'MapsVille'
+  },
+  MapsPays: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'MapsPays'
+  },
+  MapsDistrict: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'MapsDistrict'
+  },
+  MapsRegion: {
+    type: DataTypes.STRING(70),
+    allowNull: true,
+    field: 'MapsRegion'
+  },
+  MapsSubRegion: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'MapsSubRegion'
+  },
+  gouvernorat: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'gouvernorat'
+  },
+  lat: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'lat'
+  },
+  long: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'long'
   },
   codRepresTiers: {
     type: DataTypes.STRING(50),

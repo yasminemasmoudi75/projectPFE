@@ -7,6 +7,8 @@ const Projet = require('./Projet');
 const Activite = require('./Activite');
 const Objectif = require('./Objectif');
 const Tiers = require('./Tiers');
+const TiersContact = require('./TiersContact');
+const TiersAdr = require('./TiersAdr');
 const Product = require('./Product');
 const Stock = require('./Stock');
 const TabStockD = require('./TabStockD');
@@ -153,6 +155,30 @@ Activite.belongsTo(Tiers, {
   as: 'tiers'
 });
 
+// Tiers - Contacts (1:N)
+Tiers.hasMany(TiersContact, {
+  foreignKey: 'IDTiers',
+  sourceKey: 'IDTiers',
+  as: 'contacts'
+});
+TiersContact.belongsTo(Tiers, {
+  foreignKey: 'IDTiers',
+  targetKey: 'IDTiers',
+  as: 'tiers'
+});
+
+// Tiers - Adresses (1:N)
+Tiers.hasMany(TiersAdr, {
+  foreignKey: 'IDTiers',
+  sourceKey: 'IDTiers',
+  as: 'addresses'
+});
+TiersAdr.belongsTo(Tiers, {
+  foreignKey: 'IDTiers',
+  targetKey: 'IDTiers',
+  as: 'tiers'
+});
+
 // Projet - Activite (1:N)
 Projet.hasMany(Activite, {
   foreignKey: 'Nf',
@@ -205,6 +231,8 @@ module.exports = {
   Activite,
   Objectif,
   Tiers,
+  TiersContact,
+  TiersAdr,
   Product,
   TabStockD,
   Stock,

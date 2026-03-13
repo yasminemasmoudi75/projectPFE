@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Tiers, User, sequelize } = require('../models');
+const { Tiers, TiersContact, TiersAdr, User, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
@@ -12,6 +12,31 @@ const MAX_USER_LOGIN_LENGTH = 30;
 const MAX_USER_FULLNAME_LENGTH = 40;
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
+const normalizeNullableString = (value) => {
+    const normalized = normalizeString(value);
+    return normalized === '' ? null : normalized;
+};
+const normalizeNullableNumber = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+};
+const normalizeNullableInt = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const n = Number.parseInt(value, 10);
+    return Number.isInteger(n) ? n : null;
+};
+const normalizeNullableBool = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const v = value.trim().toLowerCase();
+        if (['1', 'true', 'yes', 'oui'].includes(v)) return true;
+        if (['0', 'false', 'no', 'non'].includes(v)) return false;
+    }
+    return null;
+};
 
 const resolveTiersNiveau = (payload = {}) => {
     const rawNiveau = payload.Niveau ?? payload.niveau;
@@ -52,6 +77,116 @@ const resolveUserFullName = (rawRaisoc) => {
     return normalizedRaisoc.slice(0, MAX_USER_FULLNAME_LENGTH);
 };
 
+const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } = {}) => {
+    const niveau = resolveTiersNiveau(payload);
+
+    const mapped = {
+        Niveau: niveau,
+        Raisoc: normalizeNullableString(payload.Raisoc),
+        Email: normalizeNullableString(payload.Email),
+        Tel: normalizeNullableString(payload.Tel),
+        Fax: normalizeNullableString(payload.Fax),
+        Gsm: normalizeNullableString(payload.Gsm),
+        www: normalizeNullableString(payload.www),
+        Adresse: normalizeNullableString(payload.Adresse),
+        Ville: normalizeNullableString(payload.Ville),
+        Pays: normalizeNullableString(payload.Pays),
+        Cp: normalizeNullableString(payload.CodePostal ?? payload.Cp),
+        CodTva: normalizeNullableString(payload.MatriculeFiscale ?? payload.CodTva),
+        Cin: normalizeNullableString(payload.Cin),
+        Remise: normalizeNullableNumber(payload.Remise),
+        Blockage: normalizeNullableBool(payload.Blockage),
+        Timbre: normalizeNullableBool(payload.Timbre),
+        Major: normalizeNullableBool(payload.Major),
+        Exonor: normalizeNullableBool(payload.Exonor),
+        TextExonor: normalizeNullableString(payload.TextExonor),
+        NbrCreditJour: normalizeNullableInt(payload.NbrCreditJour),
+        Plafondcredit: normalizeNullableNumber(payload.Plafondcredit),
+        ModReg: normalizeNullableString(payload.ModReg),
+        DetailReg: normalizeNullableString(payload.DetailReg),
+        Banque: normalizeNullableString(payload.Banque),
+        RC: normalizeNullableString(payload.RC),
+        assujet: normalizeNullableBool(payload.assujet),
+        Actif: normalizeNullableBool(payload.Actif),
+        Fictif: normalizeNullableBool(payload.Fictif),
+        Pub: normalizeNullableBool(payload.Pub),
+        AdresseMaps: normalizeNullableString(payload.AdresseMaps),
+        MapsVille: normalizeNullableString(payload.MapsVille),
+        MapsPays: normalizeNullableString(payload.MapsPays),
+        MapsDistrict: normalizeNullableString(payload.MapsDistrict),
+        MapsRegion: normalizeNullableString(payload.MapsRegion),
+        MapsSubRegion: normalizeNullableString(payload.MapsSubRegion),
+        gouvernorat: normalizeNullableString(payload.gouvernorat),
+        lat: normalizeNullableNumber(payload.lat),
+        long: normalizeNullableNumber(payload.long),
+        codRepresTiers: normalizeNullableString(payload.Commercial ?? payload.codRepresTiers)
+    };
+
+    if (forCreate) {
+        mapped.Actif = mapped.Actif ?? true;
+        mapped.UserCreate = createdBy || null;
+        mapped.SaveDate = new Date();
+    }
+
+    return mapped;
+};
+
+const normalizeContacts = (payload = {}) => {
+    const raw = payload.contacts ?? payload.Contacts ?? payload.tiersContacts;
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+        .map((item) => ({
+            Responsable: normalizeNullableString(item?.Responsable),
+            Tel: normalizeNullableString(item?.Tel)
+        }))
+        .filter((item) => item.Responsable || item.Tel);
+};
+
+const normalizeAddresses = (payload = {}) => {
+    const raw = payload.addresses ?? payload.Addresses ?? payload.tiersAddresses;
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+        .map((item) => ({
+            Adresse: normalizeNullableString(item?.Adresse)
+        }))
+        .filter((item) => item.Adresse);
+};
+
+const replaceTiersChildren = async ({ tierId, contacts, addresses, transaction }) => {
+    if (!tierId) return;
+
+    if (Array.isArray(contacts)) {
+        await TiersContact.destroy({ where: { IDTiers: tierId }, transaction });
+        if (contacts.length > 0) {
+            await TiersContact.bulkCreate(
+                contacts.map((item, index) => ({
+                    IDTiers: tierId,
+                    ID: index + 1,
+                    Responsable: item.Responsable,
+                    Tel: item.Tel
+                })),
+                { transaction }
+            );
+        }
+    }
+
+    if (Array.isArray(addresses)) {
+        await TiersAdr.destroy({ where: { IDTiers: tierId }, transaction });
+        if (addresses.length > 0) {
+            await TiersAdr.bulkCreate(
+                addresses.map((item, index) => ({
+                    IDTiers: tierId,
+                    ID: index + 1,
+                    Adresse: item.Adresse
+                })),
+                { transaction }
+            );
+        }
+    }
+};
+
 /**
  * Générer un mot de passe aléatoire sécurisé (Fort)
  */
@@ -83,26 +218,16 @@ exports.createTiers = async (req, res, next) => {
     console.log('Transaction started');
 
     try {
-        const {
-            Raisoc,
-            Email,
-            CodTiers,
-            Tel,
-            Fax,
-            Adresse,
-            Ville,
-            Pays,
-            Cin,
-            CodePostal,
-            MatriculeFiscale,
-            Commercial
-        } = req.body;
-
-        const normalizedRaisoc = normalizeString(Raisoc);
-        const normalizedEmail = normalizeString(Email);
-        const niveau = resolveTiersNiveau(req.body);
-        const resolvedCodTiers = resolveCodTiers(CodTiers);
+        const tiersPayload = mapTiersPayload(req.body, {
+            forCreate: true,
+            createdBy: req.user.LoginName
+        });
+        const normalizedRaisoc = normalizeString(tiersPayload.Raisoc);
+        const normalizedEmail = normalizeString(tiersPayload.Email);
+        const resolvedCodTiers = resolveCodTiers(req.body.CodTiers);
         const userFullName = resolveUserFullName(normalizedRaisoc);
+        const contacts = normalizeContacts(req.body);
+        const addresses = normalizeAddresses(req.body);
 
         // 1. Validation de base
         if (!normalizedRaisoc || !normalizedEmail) {
@@ -153,22 +278,18 @@ exports.createTiers = async (req, res, next) => {
         // 3. Créer le Tiers (Société)
         console.time('Create-Tiers-DB');
         const newTiers = await Tiers.create({
-            Niveau: niveau,
-            Raisoc: normalizedRaisoc,
-            Email: normalizedEmail,
             CodTiers: resolvedCodTiers,
-            Tel,
-            Fax,
-            Adresse,
-            Ville,
-            Pays,
-            Cin,
-            Cp: CodePostal,
-            CodTva: MatriculeFiscale,
-            codRepresTiers: Commercial,
-            Actif: true,
-            UserCreate: req.user.LoginName
+            ...tiersPayload,
+            Raisoc: normalizedRaisoc,
+            Email: normalizedEmail
         }, { transaction: t });
+
+        await replaceTiersChildren({
+            tierId: newTiers.IDTiers,
+            contacts,
+            addresses,
+            transaction: t
+        });
         console.timeEnd('Create-Tiers-DB');
 
         // 4. Préparer le compte utilisateur pour le client
@@ -288,7 +409,17 @@ exports.getTiersById = async (req, res, next) => {
         if (!tiers) {
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
-        res.status(200).json({ status: 'success', data: tiers });
+
+        const [contacts, addresses] = await Promise.all([
+            TiersContact.findAll({ where: { IDTiers: tiers.IDTiers }, order: [['ID', 'ASC']] }),
+            TiersAdr.findAll({ where: { IDTiers: tiers.IDTiers }, order: [['ID', 'ASC']] })
+        ]);
+
+        const plainTiers = tiers.toJSON();
+        plainTiers.contacts = contacts.map((c) => c.toJSON());
+        plainTiers.addresses = addresses.map((a) => a.toJSON());
+
+        res.status(200).json({ status: 'success', data: plainTiers });
     } catch (error) {
         next(error);
     }
@@ -298,34 +429,36 @@ exports.getTiersById = async (req, res, next) => {
  * Mettre à jour un client
  */
 exports.updateTiers = async (req, res, next) => {
+    const t = await sequelize.transaction();
     try {
-        const tiers = await Tiers.findByPk(req.params.id);
+        const tiers = await Tiers.findByPk(req.params.id, { transaction: t });
         if (!tiers) {
+            await t.rollback();
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
 
-        // Protection contre le "Mass Assignment"
-        // On ne met à jour QUE les champs autorisés
-        const allowedUpdates = {
-            Niveau: req.body.Niveau,
-            Raisoc: req.body.Raisoc,
-            Email: req.body.Email,
-            Tel: req.body.Tel,
-            Fax: req.body.Fax,
-            Adresse: req.body.Adresse,
-            Ville: req.body.Ville,
-            Pays: req.body.Pays,
-            Cin: req.body.Cin,
-            Cp: req.body.CodePostal,
-            CodTva: req.body.MatriculeFiscale,
-            codRepresTiers: req.body.Commercial,
-            // Ne jamais inclure CodTiers ou UserCreate ici
-        };
+        const allowedUpdates = mapTiersPayload(req.body, { forCreate: false });
+        Object.keys(allowedUpdates).forEach((key) => {
+            if (allowedUpdates[key] === undefined) {
+                delete allowedUpdates[key];
+            }
+        });
 
-        // Filtrer les valeurs undefined (pour ne pas écraser avec null)
-        Object.keys(allowedUpdates).forEach(key => allowedUpdates[key] === undefined && delete allowedUpdates[key]);
+        await tiers.update(allowedUpdates, { transaction: t });
 
-        await tiers.update(allowedUpdates);
+        const contactsProvided = Array.isArray(req.body.contacts) || Array.isArray(req.body.Contacts) || Array.isArray(req.body.tiersContacts);
+        const addressesProvided = Array.isArray(req.body.addresses) || Array.isArray(req.body.Addresses) || Array.isArray(req.body.tiersAddresses);
+
+        if (contactsProvided || addressesProvided) {
+            await replaceTiersChildren({
+                tierId: tiers.IDTiers,
+                contacts: contactsProvided ? normalizeContacts(req.body) : null,
+                addresses: addressesProvided ? normalizeAddresses(req.body) : null,
+                transaction: t
+            });
+        }
+
+        await t.commit();
 
         res.status(200).json({
             status: 'success',
@@ -336,6 +469,9 @@ exports.updateTiers = async (req, res, next) => {
         // Audit Log
         await logAction(req.user.UserID, 'UPDATE', 'Tiers', tiers.CodTiers, `Mise à jour client : ${Object.keys(allowedUpdates).join(', ')}`);
     } catch (error) {
+        if (t && !t.finished) {
+            await t.rollback().catch(() => { });
+        }
         next(error);
     }
 };

@@ -1,4 +1,5 @@
-const { Activite, User, Tiers, Projet } = require('../models');
+const { QueryTypes, Op } = require('sequelize');
+const { Activite, User, Tiers, Projet, sequelize } = require('../models');
 const { sanitizeDate } = require('../utils/helpers');
 
 const ACTIVITE_INCLUDE = [
@@ -19,6 +20,8 @@ const ACTIVITE_INCLUDE = [
   }
 ];
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const normalizeReference = (value) => (typeof value === 'string' ? value.trim() : value);
 
 const serializeActivite = (activite) => {
@@ -30,6 +33,8 @@ const serializeActivite = (activite) => {
 
   return {
     ...plainActivite,
+    Valide: Number(plainActivite.Valide || 0),
+    Statut: Number(plainActivite.Valide || 0) === 1 ? 'Terminé' : (plainActivite.Statut || 'Planifié'),
     ID_Utilisateur: plainActivite.utilisateur?.UserID ?? plainActivite.User ?? null,
     IDTiers: plainActivite.tiers?.IDTiers ?? null,
     CodTiers: plainActivite.CodTiers ?? plainActivite.tiers?.CodTiers ?? null,
@@ -45,10 +50,14 @@ const resolveTierReference = async (tierReference) => {
     return null;
   }
 
-  let tier = await Tiers.findOne({
-    where: { IDTiers: normalizedReference },
-    attributes: ['IDTiers', 'CodTiers', 'Raisoc']
-  });
+  let tier = null;
+
+  if (UUID_PATTERN.test(String(normalizedReference))) {
+    tier = await Tiers.findOne({
+      where: { IDTiers: normalizedReference },
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc']
+    });
+  }
 
   if (!tier) {
     tier = await Tiers.findOne({
@@ -82,15 +91,77 @@ const resolveProjetReference = async (projetReference) => {
   return projet;
 };
 
+const resolveUserReference = async (userReference) => {
+  const normalizedReference = normalizeReference(userReference);
+
+  if (!normalizedReference) {
+    return null;
+  }
+
+  const user = await User.findByPk(normalizedReference, {
+    attributes: ['UserID', 'FullName', 'LoginName']
+  });
+
+  return user;
+};
+
+const resolveSecUserId = async (userReference) => {
+  const normalizedReference = normalizeReference(userReference);
+
+  if (!normalizedReference) {
+    return null;
+  }
+
+  const rows = await sequelize.query(
+    'SELECT TOP 1 UserID FROM Sec_Users WHERE UserID = :userId',
+    {
+      replacements: { userId: normalizedReference },
+      type: QueryTypes.SELECT
+    }
+  );
+
+  return rows[0]?.UserID ?? null;
+};
+
 const buildInvalidReferenceError = (message) => {
   const error = new Error(message);
   error.statusCode = 400;
   return error;
 };
 
-const loadActiviteById = async (id) => Activite.findByPk(id, {
-  include: ACTIVITE_INCLUDE
-});
+const loadActiviteById = async (id) => {
+  const activite = await Activite.findByPk(id, {
+    include: ACTIVITE_INCLUDE
+  });
+
+  if (!activite) {
+    return null;
+  }
+
+  const plainActivite = activite.toJSON();
+
+  // Some legacy rows link project through TabActivite.Nf but the eager association can be empty.
+  if (!plainActivite.projet && plainActivite.Nf != null) {
+    const projectAttributes = ['ID_Projet', 'Nom_Projet', 'Code_Pro', 'nf'];
+    let fallbackProjet = await Projet.findOne({
+      where: { nf: plainActivite.Nf },
+      attributes: projectAttributes
+    });
+
+    if (!fallbackProjet) {
+      fallbackProjet = await Projet.findOne({
+        where: { ID_Projet: String(plainActivite.Nf) },
+        attributes: projectAttributes
+      });
+    }
+
+    if (fallbackProjet) {
+      plainActivite.projet = fallbackProjet.toJSON();
+    }
+  }
+
+  return plainActivite;
+};
 
 /**
  * Créer une nouvelle activité
@@ -98,7 +169,6 @@ const loadActiviteById = async (id) => Activite.findByPk(id, {
 exports.createActivite = async (req, res, next) => {
   try {
     const {
-      ID_Utilisateur,
       IDTiers,
       CodTiers,
       ID_Projet,
@@ -106,7 +176,8 @@ exports.createActivite = async (req, res, next) => {
       Type_Activite,
       Description,
       Date_Activite,
-      Statut
+      Statut,
+      Valide
     } = req.body;
 
     // Validation
@@ -127,10 +198,12 @@ exports.createActivite = async (req, res, next) => {
 
     const tierReference = IDTiers ?? CodTiers;
     const projetReference = ID_Projet ?? Nf;
+    const assignedUserReference = req.user ? req.user.UserID : null;
 
-    const [tier, projet] = await Promise.all([
+    const [tier, projet, assignedUser] = await Promise.all([
       resolveTierReference(tierReference),
-      resolveProjetReference(projetReference)
+      resolveProjetReference(projetReference),
+      resolveUserReference(assignedUserReference)
     ]);
 
     if (tierReference && !tier) {
@@ -141,14 +214,22 @@ exports.createActivite = async (req, res, next) => {
       throw buildInvalidReferenceError('Projet introuvable pour l\'activité');
     }
 
+    if (!assignedUserReference || !assignedUser) {
+      throw buildInvalidReferenceError('Utilisateur introuvable pour l\'activité');
+    }
+
+    const secUserId = await resolveSecUserId(assignedUser.UserID);
+
     const newActivite = await Activite.create({
-      User: ID_Utilisateur || (req.user ? req.user.UserID : null),
+      User: secUserId,
+      Destinataire: assignedUser?.FullName || assignedUser?.LoginName || null,
       CodTiers: tier?.CodTiers || null,
       Nf: projet?.nf || null,
       Type_Activite,
       Description,
       Date_Activite: sanitizedDate,
-      Statut: Statut || 'Planifié'
+      Statut: Statut || 'Planifié',
+      Valide: Number(Valide) === 1 || Statut === 'Terminé' ? 1 : 0
     });
 
     const createdActivite = await loadActiviteById(newActivite.Guid);
@@ -168,11 +249,44 @@ exports.createActivite = async (req, res, next) => {
  */
 exports.getAllActivites = async (req, res, next) => {
   try {
-    const { userId, projetId, tierId, type } = req.query;
+    const { userId, projetId, tierId, type, valide } = req.query;
     const where = {};
 
     // Filtres optionnels pour Postman
-    if (userId) where.User = userId;
+    if (userId) {
+      const requestedUser = await resolveUserReference(userId);
+
+      if (!requestedUser) {
+        return res.status(200).json({
+          status: 'success',
+          count: 0,
+          data: []
+        });
+      }
+
+      const secUserId = await resolveSecUserId(requestedUser.UserID);
+      const possibleDestinataires = [requestedUser.FullName, requestedUser.LoginName]
+        .filter(Boolean)
+        .map((value) => String(value).trim())
+        .filter(Boolean);
+
+      if (secUserId && possibleDestinataires.length > 0) {
+        where[Op.or] = [
+          { User: secUserId },
+          { Destinataire: { [Op.in]: possibleDestinataires } }
+        ];
+      } else if (secUserId) {
+        where.User = secUserId;
+      } else if (possibleDestinataires.length > 0) {
+        where.Destinataire = { [Op.in]: possibleDestinataires };
+      } else {
+        return res.status(200).json({
+          status: 'success',
+          count: 0,
+          data: []
+        });
+      }
+    }
 
     if (projetId) {
       const projet = await resolveProjetReference(projetId);
@@ -203,6 +317,10 @@ exports.getAllActivites = async (req, res, next) => {
     }
 
     if (type) where.Type_Activite = type;
+
+    if (valide !== undefined) {
+      where.Valide = ['1', 'true', 'yes'].includes(String(valide).toLowerCase()) ? 1 : 0;
+    }
 
     const activites = await Activite.findAll({
       where,
@@ -256,8 +374,18 @@ exports.updateActivite = async (req, res, next) => {
       updateData.Date_Activite = sanitizeDate(updateData.Date_Activite);
     }
 
+    if (Object.prototype.hasOwnProperty.call(updateData, 'Statut') && updateData.Statut === 'Terminé') {
+      updateData.Valide = 1;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'Valide')) {
+      updateData.Valide = Number(updateData.Valide) === 1 ? 1 : 0;
+    }
+
+    // Assignment is automatic from authenticated account on creation;
+    // manual reassignment is ignored on update.
     if (Object.prototype.hasOwnProperty.call(updateData, 'ID_Utilisateur')) {
-      updateData.User = updateData.ID_Utilisateur || null;
+      delete updateData.ID_Utilisateur;
     }
 
     if (
@@ -310,6 +438,28 @@ exports.updateActivite = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       message: 'Activité mise à jour',
+      data: serializeActivite(updatedActivite || activite)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.validateActivite = async (req, res, next) => {
+  try {
+    const activite = await Activite.findByPk(req.params.id);
+
+    if (!activite) {
+      return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
+    }
+
+    await activite.update({ Valide: 1 });
+
+    const updatedActivite = await loadActiviteById(req.params.id);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Activité validée avec succès',
       data: serializeActivite(updatedActivite || activite)
     });
   } catch (error) {

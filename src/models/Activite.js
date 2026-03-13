@@ -41,10 +41,20 @@ const Activite = sequelize.define('Activite', {
     allowNull: true,
     field: 'User'
   },
+  Destinataire: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'Destinataire'
+  },
   CodTiers: {
     type: DataTypes.STRING(30),
     allowNull: true,
     field: 'CodTiers'
+  },
+  Valide: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'Valide'
   },
   // --- VIRTUALS ---
   Statut: { type: DataTypes.VIRTUAL, defaultValue: 'Planifié' }

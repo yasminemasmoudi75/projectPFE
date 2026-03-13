@@ -9,6 +9,7 @@ router.use(protect);
 router.get('/', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getAllActivites);
 router.get('/:id', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getActiviteById);
 router.post('/', checkPermission(MODULES.ACTIVITES, 'create'), activiteController.createActivite);
+router.patch('/:id/validate', checkPermission(MODULES.ACTIVITES, 'update'), activiteController.validateActivite);
 router.put('/:id', checkPermission(MODULES.ACTIVITES, 'update'), activiteController.updateActivite);
 router.delete('/:id', checkPermission(MODULES.ACTIVITES, 'delete'), activiteController.deleteActivite);
 

@@ -4,6 +4,32 @@ const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
 
 console.log('✅ projetController.js loaded');
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const resolveTierReference = async (tierReference) => {
+  if (!tierReference) {
+    return null;
+  }
+
+  const normalizedReference = String(tierReference).trim();
+  let tier = null;
+
+  if (UUID_PATTERN.test(normalizedReference)) {
+    tier = await Tiers.findOne({
+      where: { IDTiers: normalizedReference },
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc']
+    });
+  }
+
+  if (!tier) {
+    tier = await Tiers.findOne({
+      where: { CodTiers: normalizedReference },
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc']
+    });
+  }
+
+  return tier;
+};
 /**
  * Créer un nouveau projet
  */
@@ -55,7 +81,14 @@ exports.createProjet = async (req, res, next) => {
 
     const dateEcheance = sanitizeDate(Date_Echeance);
     const dateCloture = sanitizeDate(Date_Cloture_Reelle);
-    const budgetValue = Budget_Alloue ?? CA_Estime ?? 0;
+    const budgetValue = Number(Budget_Alloue ?? CA_Estime ?? 0);
+
+    if (!Number.isFinite(budgetValue) || budgetValue < 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Le budget alloué ne peut pas être négatif'
+      });
+    }
 
     // Validation des dates
     if (dateEcheance && dateCloture && dateCloture > dateEcheance) {
@@ -66,21 +99,20 @@ exports.createProjet = async (req, res, next) => {
     }
 
     // Vérifier que le Tiers existe si fourni
-    if (IDTiers) {
-      const tiers = await Tiers.findByPk(IDTiers);
-      if (!tiers) {
-        return res.status(404).json({
-          status: 'error',
-          message: `Le client (Tiers) avec l'ID ${IDTiers} n'existe pas`
-        });
-      }
+    const tier = await resolveTierReference(IDTiers);
+
+    if (IDTiers && !tier) {
+      return res.status(404).json({
+        status: 'error',
+        message: `Le client (Tiers) avec l'identifiant ${IDTiers} n'existe pas`
+      });
     }
 
     console.log('📝 Attempting to create project in database...');
     const newProjet = await Projet.create({
       Code_Pro: finalCodePro,
       Nom_Projet: Nom_Projet.trim(),
-      IDTiers: IDTiers || null,
+      IDTiers: tier?.CodTiers || null,
       Budget_Alloue: budgetValue,
       Avancement: avancementNum,
       Phase: Phase || null,
@@ -170,15 +202,32 @@ exports.getProjetById = async (req, res, next) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Fetching projet with ID: ${id}`);
-    const projet = await Projet.findByPk(id, {
-      include: [
-        {
-          model: Tiers,
-          as: 'client',
-          attributes: ['IDTiers', 'Raisoc', 'CodTiers']
-        }
-      ]
+    const include = [
+      {
+        model: Tiers,
+        as: 'client',
+        attributes: ['IDTiers', 'Raisoc', 'CodTiers']
+      }
+    ];
+
+    let projet = await Projet.findByPk(id, {
+      include
     });
+
+    // Fallback: legacy links from activities may reference project via nf.
+    if (!projet && /^\d+$/.test(String(id))) {
+      projet = await Projet.findOne({
+        where: { nf: Number(id) },
+        include
+      });
+    }
+
+    if (!projet) {
+      projet = await Projet.findOne({
+        where: { Code_Pro: String(id) },
+        include
+      });
+    }
 
     if (!projet) {
       console.log(`⚠️ Projet ${id} not found`);
@@ -206,6 +255,7 @@ exports.updateProjet = async (req, res, next) => {
     const { id } = req.params;
     const {
       Nom_Projet,
+      IDTiers,
       CA_Estime,
       Budget_Alloue,
       Avancement,
@@ -255,11 +305,30 @@ exports.updateProjet = async (req, res, next) => {
       });
     }
 
+    const tier = IDTiers !== undefined ? await resolveTierReference(IDTiers) : null;
+
+    if (IDTiers !== undefined && IDTiers && !tier) {
+      return res.status(404).json({
+        status: 'error',
+        message: `Le client (Tiers) avec l'identifiant ${IDTiers} n'existe pas`
+      });
+    }
+
     // Préparer la mise à jour
     const updateData = {};
     if (Nom_Projet !== undefined) updateData.Nom_Projet = Nom_Projet.trim();
+    if (IDTiers !== undefined) updateData.IDTiers = tier?.CodTiers || null;
     if (Budget_Alloue !== undefined || CA_Estime !== undefined) {
-      updateData.Budget_Alloue = Budget_Alloue ?? CA_Estime ?? 0;
+      const budgetValue = Number(Budget_Alloue ?? CA_Estime ?? 0);
+
+      if (!Number.isFinite(budgetValue) || budgetValue < 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Le budget alloué ne peut pas être négatif'
+        });
+      }
+
+      updateData.Budget_Alloue = budgetValue;
     }
     if (Avancement !== undefined) updateData.Avancement = parseInt(Avancement);
 
