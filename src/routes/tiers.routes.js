@@ -7,7 +7,10 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 // Toutes les routes sont protégées
 router.use(protect);
 
-// Routes Tiers
+// Routes statiques d'abord
+router.get('/regions/list', checkPermission(MODULES.TIERS, 'read'), tiersController.getVilles);
+
+// Routes CRUD avec pattern /:id
 router.route('/')
     .get(checkPermission(MODULES.TIERS, 'read'), tiersController.getAllTiers)
     .post(checkPermission(MODULES.TIERS, 'create'), tiersController.createTiers);

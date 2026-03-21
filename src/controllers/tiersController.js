@@ -499,3 +499,45 @@ exports.deleteTiers = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Récupérer les gouvernorats distincts
+ */
+exports.getRegions = async (req, res, next) => {
+    try {
+        const [regions] = await sequelize.query(
+            `SELECT DISTINCT gouvernorat FROM Tiers WHERE gouvernorat IS NOT NULL AND gouvernorat != '' ORDER BY gouvernorat ASC`
+        );
+
+        const regionsList = regions.map(row => row.gouvernorat).filter(r => r && r.trim() !== '');
+
+        res.status(200).json({
+            status: 'success',
+            data: regionsList
+        });
+    } catch (error) {
+        console.error('Erreur getRegions:', error);
+        next(error);
+    }
+};
+
+/**
+ * Récupérer les villes/régions distinctes
+ */
+exports.getVilles = async (req, res, next) => {
+    try {
+        const [villes] = await sequelize.query(
+            `SELECT DISTINCT Ville FROM Tiers WHERE Ville IS NOT NULL AND Ville != '' ORDER BY Ville ASC`
+        );
+
+        const villesList = villes.map(row => row.Ville).filter(v => v && v.trim() !== '');
+
+        res.status(200).json({
+            status: 'success',
+            data: villesList
+        });
+    } catch (error) {
+        console.error('Erreur getVilles:', error);
+        next(error);
+    }
+};
