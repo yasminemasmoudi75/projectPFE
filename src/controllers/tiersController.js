@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Tiers, TiersContact, TiersAdr, User, sequelize } = require('../models');
+const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
@@ -116,9 +116,11 @@ const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } =
         MapsDistrict: normalizeNullableString(payload.MapsDistrict),
         MapsRegion: normalizeNullableString(payload.MapsRegion),
         MapsSubRegion: normalizeNullableString(payload.MapsSubRegion),
-        gouvernorat: normalizeNullableString(payload.gouvernorat),
+        gouvernorat: normalizeNullableInt(payload.gouvernorat),
         lat: normalizeNullableNumber(payload.lat),
         long: normalizeNullableNumber(payload.long),
+        Classe: normalizeNullableInt(payload.Classe),
+        Categorie: normalizeNullableInt(payload.Categorie),
         codRepresTiers: normalizeNullableString(payload.Commercial ?? payload.codRepresTiers)
     };
 
@@ -290,6 +292,14 @@ exports.createTiers = async (req, res, next) => {
             addresses,
             transaction: t
         });
+        await newTiers.reload({
+            include: [
+                { model: TiersClasse, as: 'tiersClasse' },
+                { model: TiersGouvernorat, as: 'region' },
+                { model: TiersCategorie, as: 'tiersCategorieObj' }
+            ],
+            transaction: t
+        });
         console.timeEnd('Create-Tiers-DB');
 
         // 4. Préparer le compte utilisateur pour le client
@@ -388,7 +398,12 @@ exports.getAllTiers = async (req, res, next) => {
             : [['Raisoc', 'ASC']];
 
         const tiers = await Tiers.findAll({
-            order
+            order,
+            include: [
+                { model: TiersClasse, as: 'tiersClasse' },
+                { model: TiersGouvernorat, as: 'region' },
+                { model: TiersCategorie, as: 'tiersCategorieObj' }
+            ]
         });
         res.status(200).json({
             status: 'success',
@@ -405,7 +420,13 @@ exports.getAllTiers = async (req, res, next) => {
  */
 exports.getTiersById = async (req, res, next) => {
     try {
-        const tiers = await Tiers.findByPk(req.params.id);
+        const tiers = await Tiers.findByPk(req.params.id, {
+            include: [
+                { model: TiersClasse, as: 'tiersClasse' },
+                { model: TiersGouvernorat, as: 'region' },
+                { model: TiersCategorie, as: 'tiersCategorieObj' }
+            ]
+        });
         if (!tiers) {
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
@@ -445,6 +466,13 @@ exports.updateTiers = async (req, res, next) => {
         });
 
         await tiers.update(allowedUpdates, { transaction: t });
+        await tiers.reload({
+            include: [
+                { model: TiersClasse, as: 'tiersClasse' },
+                { model: TiersGouvernorat, as: 'region' }
+            ],
+            transaction: t
+        });
 
         const contactsProvided = Array.isArray(req.body.contacts) || Array.isArray(req.body.Contacts) || Array.isArray(req.body.tiersContacts);
         const addressesProvided = Array.isArray(req.body.addresses) || Array.isArray(req.body.Addresses) || Array.isArray(req.body.tiersAddresses);
@@ -458,6 +486,14 @@ exports.updateTiers = async (req, res, next) => {
             });
         }
 
+        await tiers.reload({
+            include: [
+                { model: TiersClasse, as: 'tiersClasse' },
+                { model: TiersGouvernorat, as: 'region' },
+                { model: TiersCategorie, as: 'tiersCategorieObj' }
+            ],
+            transaction: t
+        });
         await t.commit();
 
         res.status(200).json({

@@ -1,0 +1,11 @@
+﻿­ƒöì Tentative de connexion - Host: DESKTOP-5IH4P20, Instance: SQL2019
+­ƒöù Setting up associations...
+Ô£à Associations setup complete.
+­ƒöì Checking TabBlvd columns for computed status...
+Computed Columns: [
+  {
+    "name": "MntHT",
+    "is_computed": true,
+    "definition": "([PUHT]*[QT])"
+  }
+]

@@ -1,5 +1,6 @@
-const { DevisMaster, DevisDetail, Tiers, Product, sequelize } = require('../models');
+const { DevisMaster, DevisDetail, Tiers, Product, TabSociete, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const PDFService = require('../services/pdfService');
 
 const RECENT_DEVIS_ORDER = [
   ['Nf', 'DESC'],
@@ -467,6 +468,47 @@ exports.getAllOrders = async (req, res, next) => {
     });
   } catch (error) {
     console.error('❌ Error getAllOrders:', error);
+    next(error);
+  }
+};
+
+/**
+ * Générer le PDF d'un devis
+ */
+exports.generateDevisPDF = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Récupérer les données du devis avec tous les détails
+    const devis = await DevisMaster.findByPk(id, {
+      include: [
+        {
+          model: DevisDetail,
+          as: 'details'
+        },
+        {
+          model: Tiers,
+          as: 'tiers'
+        }
+      ]
+    });
+
+    if (!devis) {
+      return res.status(404).json({ status: 'error', message: 'Devis non trouvé' });
+    }
+
+    // 2. Récupérer les infos société
+    const soc = await TabSociete.findOne();
+
+    // 3. Générer le PDF via le service
+    const pdfBuffer = await PDFService.generateCommercialPDF(devis, soc, 'DEVIS');
+
+    // 4. Envoyer le PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=devis_${devis.Prfx || 'DV'}${devis.Nf}.pdf`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('❌ Error generateDevisPDF:', error);
     next(error);
   }
 };

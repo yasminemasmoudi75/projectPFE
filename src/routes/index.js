@@ -16,6 +16,11 @@ const stockRoutes = require('./stock.routes');
 const categoriesRoutes = require('./categories.routes');
 const bcvRoutes = require('./bcv.routes');
 const reclamationsRoutes = require('./reclamations.routes');
+const tiersClasseRoutes = require('./tiersClasseRoutes');
+const tiersGouvernoratRoutes = require('./tiersGouvernoratRoutes');
+const tiersCategorieRoutes = require('./tiersCategorieRoutes');
+const blvRoutes = require('./blvRoutes');
+const favRoutes = require('./favRoutes');
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -32,13 +37,18 @@ router.use('/stock', stockRoutes);
 router.use('/categories', categoriesRoutes);
 router.use('/bcv', bcvRoutes);
 router.use('/reclamations', reclamationsRoutes);
+router.use('/tiers-classes', tiersClasseRoutes);
+router.use('/tiers-gouvernorats', tiersGouvernoratRoutes);
+router.use('/tiers-categories', tiersCategorieRoutes);
+router.use('/blv', blvRoutes);
+router.use('/fav', favRoutes);
 
 // Route de base de l'API
 router.get('/', (req, res) => {
   res.json({
     status: 'success',
     message: 'API Backend PFE',
-    version: '1.0.1',
+    version: '1.0.3',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',

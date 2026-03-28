@@ -1,30 +1,15 @@
-const { sequelize } = require('./src/config/database');
+const { sequelize } = require('./src/models');
 
-async function check() {
+const checkTable = async () => {
     try {
-        const tableName = 'Objectif';
-        const [res] = await sequelize.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}'`);
-        console.log(`${tableName} Columns:`);
-        res.forEach(r => console.log(`- ${r.COLUMN_NAME}`));
-
-        const [data] = await sequelize.query(`SELECT TOP 1 * FROM ${tableName}`);
-        console.log(`\n${tableName} Sample Data:`);
-        console.log(data);
-
-        const tableName2 = 'TabLogConnexion';
-        const [res2] = await sequelize.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName2}'`);
-        if (res2.length > 0) {
-            console.log(`\n${tableName2} Columns:`);
-            res2.forEach(r => console.log(`- ${r.COLUMN_NAME}`));
-        } else {
-            console.log(`\n${tableName2} non trouvée.`);
-        }
-
-    } catch (e) {
-        console.error(e.message);
+        console.log('🔍 Checking TabBcvd structure...');
+        const [results] = await sequelize.query("EXEC sp_help 'TabBcvd'");
+        console.log('Table Info:', JSON.stringify(results, null, 2));
+    } catch (error) {
+        console.error('❌ Error:', error);
     } finally {
         await sequelize.close();
     }
-}
+};
 
-check();
+checkTable();

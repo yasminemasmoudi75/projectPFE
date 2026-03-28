@@ -14,6 +14,24 @@ const Tiers = sequelize.define('Tiers', {
     defaultValue: 0,
     field: 'Niveau'
   },
+  Classe: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'Classe',
+    references: {
+      model: 'tiersClasse',
+      key: 'id'
+    }
+  },
+  Categorie: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'Categorie',
+    references: {
+      model: 'tiersCategorie',
+      key: 'id'
+    }
+  },
   CodTiers: {
     type: DataTypes.STRING(20),
     primaryKey: true,
@@ -204,9 +222,13 @@ const Tiers = sequelize.define('Tiers', {
     field: 'MapsSubRegion'
   },
   gouvernorat: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.INTEGER,
     allowNull: true,
-    field: 'gouvernorat'
+    field: 'gouvernorat',
+    references: {
+      model: 'tiersGouvernorat',
+      key: 'id'
+    }
   },
   lat: {
     type: DataTypes.FLOAT,
@@ -228,5 +250,11 @@ const Tiers = sequelize.define('Tiers', {
   timestamps: false,
   freezeTableName: true
 });
+
+Tiers.associate = (models) => {
+  Tiers.belongsTo(models.TiersClasse, { foreignKey: 'Classe', as: 'tiersClasse' });
+  Tiers.belongsTo(models.TiersGouvernorat, { foreignKey: 'gouvernorat', as: 'region' });
+  Tiers.belongsTo(models.TiersCategorie, { foreignKey: 'Categorie', as: 'tiersCategorieObj' });
+};
 
 module.exports = Tiers;

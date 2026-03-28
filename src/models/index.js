@@ -21,6 +21,14 @@ const BcvDetail = require('./BcvDetail');
 const Reclamation = require('./Reclamation');
 const TabDI = require('./TabDI');
 const TabBT = require('./TabBT');
+const TiersClasse = require('./TiersClasse');
+const TiersGouvernorat = require('./TiersGouvernorat');
+const TiersCategorie = require('./TiersCategorie');
+const TabSociete = require('./TabSociete');
+const BlvMaster = require('./BlvMaster');
+const BlvDetail = require('./BlvDetail');
+const FavMaster = require('./FavMaster');
+const FavDetail = require('./FavDetail');
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -35,6 +43,18 @@ BcvDetail.belongsTo(BcvMaster, {
   foreignKey: 'NF',
   targetKey: 'Nf',
   as: 'master'
+});
+
+// BcvMaster - Tiers (N:1)
+BcvMaster.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'client'
+});
+Tiers.hasMany(BcvMaster, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'bcv'
 });
 
 // Devis Master - Detail (1:N)
@@ -71,6 +91,54 @@ DevisMaster.belongsTo(Tiers, {
   foreignKey: 'CodTiers',
   targetKey: 'CodTiers',
   as: 'tiers'
+});
+
+// BLV Master - Detail (1:N)
+BlvMaster.hasMany(BlvDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+BlvDetail.belongsTo(BlvMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
+
+// BlvMaster - Tiers (N:1)
+BlvMaster.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'client'
+});
+Tiers.hasMany(BlvMaster, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'blv'
+});
+
+// FAV Master - Detail (1:N)
+FavMaster.hasMany(FavDetail, {
+  foreignKey: 'NF',
+  sourceKey: 'Nf',
+  as: 'details'
+});
+FavDetail.belongsTo(FavMaster, {
+  foreignKey: 'NF',
+  targetKey: 'Nf',
+  as: 'master'
+});
+
+// FavMaster - Tiers (N:1)
+FavMaster.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'client'
+});
+Tiers.hasMany(FavMaster, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'fav'
 });
 
 // Product - Collection
@@ -179,6 +247,36 @@ TiersAdr.belongsTo(Tiers, {
   as: 'tiers'
 });
 
+// Tiers - TiersClasse (N:1)
+Tiers.belongsTo(TiersClasse, {
+  foreignKey: 'Classe',
+  targetKey: 'id',
+  as: 'tiersClasse'
+});
+TiersClasse.hasMany(Tiers, {
+  foreignKey: 'Classe',
+  sourceKey: 'id',
+  as: 'tiers'
+});
+
+// Tiers - TiersGouvernorat (N:1)
+Tiers.belongsTo(TiersGouvernorat, {
+  foreignKey: 'gouvernorat',
+  targetKey: 'id',
+  as: 'region'
+});
+
+Tiers.belongsTo(TiersCategorie, {
+  foreignKey: 'Categorie',
+  targetKey: 'id',
+  as: 'tiersCategorieObj'
+});
+TiersGouvernorat.hasMany(Tiers, {
+  foreignKey: 'gouvernorat',
+  sourceKey: 'id',
+  as: 'tiers'
+});
+
 // Projet - Activite (1:N)
 Projet.hasMany(Activite, {
   foreignKey: 'Nf',
@@ -239,5 +337,13 @@ module.exports = {
   Category,
   Collection,
   TabDI,
-  TabBT
+  TabBT,
+  TiersClasse,
+  TiersGouvernorat,
+  TiersCategorie,
+  TabSociete,
+  BlvMaster,
+  BlvDetail,
+  FavMaster,
+  FavDetail
 };
