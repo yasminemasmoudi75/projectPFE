@@ -20,10 +20,11 @@ import {
     TagIcon,
     ChevronDownIcon
 } from '@heroicons/react/24/outline';
-import { createDevis, fetchDevisById, updateDevis, clearCurrentDevis } from './devisSlice';
+import { updateDevis, createDevis, fetchDevisById, clearCurrentDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../app/axios';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const getProductName = (product = {}) => product.LibArt || product.Libelle || '';
 
@@ -71,6 +72,7 @@ const DevisForm = () => {
     const [loadingClients, setLoadingClients] = useState(true);
     const [expandedItems, setExpandedItems] = useState({});
     const [activeProductRowId, setActiveProductRowId] = useState(null);
+    const [currentStep, setCurrentStep] = useState(1);
 
     const toggleItemExpanded = (tempId) => {
         setExpandedItems(prev => ({
@@ -657,19 +659,38 @@ const DevisForm = () => {
                 </div>
             </div>
 
-            <form id="devis-form" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-sans">
-                {/* Left: General & Items */}
-                <div className="lg:col-span-8 space-y-8">
+            <form id="devis-form" onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-8 font-sans">
+                <div className="space-y-8">
+
+                    {/* Step 1: Client Info */}
+                    <AnimatePresence mode="wait">
+                    {currentStep === 1 && (
+                    <motion.div 
+                        key="step1"
+                        initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="space-y-8"
+                    >
                     {/* Client Info Card */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="icon-shape icon-shape-sm bg-gradient-blue shadow-glow-blue scale-90">
-                                    <UserGroupIcon className="h-5 w-5 text-white" />
+                    <div className="card-luxury p-0 overflow-hidden border-none shadow-soft-xl bg-white/60">
+                        <div className="px-8 py-6 border-b border-blue-50 bg-gradient-to-r from-white via-blue-50/20 to-white flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                    <UserGroupIcon className="h-6 w-6 text-white" />
                                 </div>
-                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Informations Client</h2>
+                                <div>
+                                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none mb-1.5">Informations Client</h2>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <span className="h-1 w-1 rounded-full bg-blue-400"></span> Étape 01 : Identification
+                                    </p>
+                                </div>
                             </div>
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Données du Master</span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Référentiel Tiers</span>
+                                {formData.CodTiers && <span className="text-[9px] font-mono text-slate-400">#{formData.CodTiers}</span>}
+                            </div>
                         </div>
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Client Selector */}
@@ -917,15 +938,40 @@ const DevisForm = () => {
                             </div>
                         </div>
                     </div>
+                    {/* Next Button for Step 1 */}
+                    <div className="flex justify-end pt-6">
+                        <button type="button" onClick={() => setCurrentStep(2)} className="group py-4 px-10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1 active:scale-95 transition-all">
+                            Suivant : Configuration <ArrowLeftIcon className="h-4 w-4 rotate-180 stroke-[3] group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
 
+                    {/* Step 2: Paramètres */}
+                    <AnimatePresence mode="wait">
+                    {currentStep === 2 && (
+                    <motion.div 
+                        key="step2"
+                        initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="space-y-8"
+                    >
                     {/* Master Configuration Card */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="icon-shape icon-shape-sm bg-gradient-indigo shadow-glow-indigo scale-90">
-                                    <DocumentTextIcon className="h-5 w-5 text-white" />
+                    <div className="card-luxury p-0 overflow-hidden border-none shadow-soft-xl bg-white/60">
+                        <div className="px-8 py-6 border-b border-blue-50 bg-gradient-to-r from-white via-blue-50/20 to-white flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                                    <DocumentTextIcon className="h-6 w-6 text-white" />
                                 </div>
-                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Configuration</h2>
+                                <div>
+                                    <h2 className="text-sm font-black text-slate-700 uppercase tracking-widest leading-none mb-1.5">Configuration Globale</h2>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <span className="h-1 w-1 rounded-full bg-indigo-400"></span> Étape 02 : Paramètres Master
+                                    </p>
+                                </div>
                             </div>
                         </div>
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1235,500 +1281,212 @@ const DevisForm = () => {
                             </div>
                         </div>
                     </div>
+                    {/* Navigation Buttons for Step 2 */}
+                    <div className="flex justify-between pt-6">
+                        <button type="button" onClick={() => setCurrentStep(1)} className="py-4 px-10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-white text-slate-600 border-2 border-slate-100 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95">
+                            <ArrowLeftIcon className="h-4 w-4 stroke-[3]" /> Retour au Client
+                        </button>
+                        <button type="button" onClick={() => setCurrentStep(3)} className="group py-4 px-10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1 active:scale-95 transition-all">
+                            Continuer : Articles <ArrowLeftIcon className="h-4 w-4 rotate-180 stroke-[3] group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
 
-                    {/* Line Items Card */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="icon-shape icon-shape-sm bg-gradient-success shadow-glow-emerald scale-90">
-                                    <PlusIcon className="h-5 w-5 text-white" />
-                                </div>
-                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Articles & Détails (TabDevd)</h2>
+                    {/* Step 3: Simplified Articles Management */}
+                    <AnimatePresence mode="wait">
+                    {currentStep === 3 && (
+                    <motion.div 
+                        key="step3"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-6"
+                    >
+                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                            {/* Simple Header */}
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Articles & Détails</h2>
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95"
+                                >
+                                    <PlusIcon className="h-4 w-4 stroke-[3]" /> Ajouter un article
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={addItem}
-                                className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all border border-blue-100 shadow-soft"
-                            >
-                                + Ajouter Ligne
-                            </button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        <th className="px-4 py-4 w-6 text-center"></th>
-                                        <th className="px-8 py-4 pl-8">Désignation</th>
-                                        <th className="px-4 py-4 w-20 text-center">Qté</th>
-                                        <th className="px-4 py-4 w-32 text-right">P.U HT</th>
-                                        <th className="px-4 py-4 w-24 text-center">TVA</th>
-                                        <th className="px-4 py-4 w-32 text-right">Total HT</th>
-                                        <th className="px-4 py-4 w-24 text-right">Remise</th>
-                                        <th className="px-8 py-4 w-10 pr-8"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100/50">
-                                    {items.map((item) => (
-                                        <React.Fragment key={item.tempId}>
-                                            <tr className="group hover:bg-blue-50/20 transition-all">
-                                                <td className="px-4 py-5 text-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleItemExpanded(item.tempId)}
-                                                        className="text-slate-400 hover:text-blue-600 transition-colors"
-                                                    >
+
+                            {/* Minimalist List */}
+                            <div className="divide-y divide-slate-100">
+                                {items.length === 0 && (
+                                    <div className="text-center py-12 text-slate-400 text-xs italic">
+                                        Aucun article ajouté. Utilisez le bouton ci-dessus pour commencer.
+                                    </div>
+                                )}
+                                {items.map((item, index) => (
+                                    <div key={item.tempId} className="p-4 hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                            {/* Index & Search */}
+                                            <div className="flex items-center gap-3 flex-1 w-full">
+                                                <span className="text-[10px] font-bold text-slate-300 w-4">{index + 1}</span>
+                                                <div className="flex-1">
+                                                    <input
+                                                        type="text"
+                                                        value={item.productSearch ?? (item.LibArt ? getProductSearchLabel(item) : '')}
+                                                        onFocus={() => setActiveProductRowId(item.tempId)}
+                                                        onChange={(e) => handleProductSearchChange(item.tempId, e.target.value)}
+                                                        placeholder="Rechercher article..."
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-400 transition-all"
+                                                    />
+                                                </div>
+                                                <select
+                                                    value={item.IDArt || ''}
+                                                    onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
+                                                    className="w-48 bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 focus:border-blue-400"
+                                                >
+                                                    <option value="">
+                                                        {loadingProducts && activeProductRowId === item.tempId ? 'Chargement...' : '-- Sélectionner --'}
+                                                    </option>
+                                                    {item.IDArt && <option value={item.IDArt}>{item.CodArt} - {item.LibArt}</option>}
+                                                    {productOptions.map(p => (
+                                                        <option key={p.IDArt} value={p.IDArt}>{p.CodArt} - {getProductName(p)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {/* Price & Qty Row */}
+                                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                                <div className="flex flex-col items-center">
+                                                    <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">Qté</label>
+                                                    <input type="number" min="0" value={item.Qt || 0} onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
+                                                        className="w-16 text-center border border-slate-200 rounded-lg py-1.5 text-xs font-bold text-blue-600" />
+                                                </div>
+                                                <div className="flex flex-col items-center">
+                                                    <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">P.U HT</label>
+                                                    <input type="number" min="0" value={item.PuHT || 0} onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
+                                                        className="w-24 text-right border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700" />
+                                                </div>
+                                                <div className="flex flex-col items-end min-w-[80px]">
+                                                    <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">Total HT</label>
+                                                    <span className="text-xs font-black text-slate-700">{(item.MntHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</span>
+                                                </div>
+                                                <div className="flex gap-1 ml-2">
+                                                    <button type="button" onClick={() => toggleItemExpanded(item.tempId)} className={`p-2 rounded-lg ${expandedItems[item.tempId] ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}>
                                                         <ChevronDownIcon className={`h-4 w-4 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
                                                     </button>
-                                                </td>
-                                                <td className="px-8 py-5">
-                                                    <div className="flex flex-col gap-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.productSearch ?? (item.LibArt ? getProductSearchLabel(item) : '')}
-                                                            onFocus={() => setActiveProductRowId(item.tempId)}
-                                                            onChange={(e) => handleProductSearchChange(item.tempId, e.target.value)}
-                                                            placeholder="Rechercher code ou nom..."
-                                                            className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-xs font-semibold text-slate-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                                        />
-                                                        <div className="flex gap-2 items-stretch">
-                                                            <select
-                                                                value={item.IDArt || ''}
-                                                                onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
-                                                                className="flex-1 bg-white border border-slate-200 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                                            >
-                                                                <option value="">
-                                                                    {loadingProducts && activeProductRowId === item.tempId 
-                                                                        ? 'Recherche en cours...' 
-                                                                        : activeProductRowId === item.tempId && (item.productSearch || '').trim().length >= 2
-                                                                        ? `${productOptions.length} produit(s) trouvé(s)`
-                                                                        : productOptions.length > 0
-                                                                        ? `${productOptions.length} produit(s) disponible(s)`
-                                                                        : '-- Sélectionner un produit --'
-                                                                    }
-                                                                </option>
-                                                                {item.IDArt && item.LibArt && (
-                                                                    <option value={item.IDArt}>
-                                                                        {item.CodArt} - {item.LibArt}
-                                                                    </option>
-                                                                )}
-                                                                {productOptions.length > 0 && (
-                                                                    productOptions
-                                                                        .filter(product => String(product.IDArt) !== String(item.IDArt))
-                                                                        .slice(0, 100)
-                                                                        .map(product => (
-                                                                        <option key={product.IDArt} value={product.IDArt}>
-                                                                            {product.CodArt} - {getProductName(product)}
-                                                                        </option>
-                                                                    ))
-                                                                )}
-                                                                {productOptions.length === 0 && activeProductRowId !== item.tempId && (
-                                                                    <option value="" disabled>Chargement des produits...</option>
-                                                                )}
-                                                            </select>
-                                                            {productOptions.length === 0 && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => loadProductsList()}
-                                                                    className="px-3 py-2 text-[10px] bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-100 transition-colors font-semibold whitespace-nowrap"
-                                                                    title="Recharger la liste des produits"
-                                                                >
-                                                                    ⟲ Recharger
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                        {activeProductRowId === item.tempId && !loadingProducts && (item.productSearch || '').trim().length > 0 && (item.productSearch || '').trim().length < 2 && (
-                                                            <span className="text-[10px] text-amber-600 font-semibold">
-                                                                Saisissez au moins 2 caractères pour lancer la recherche.
-                                                            </span>
-                                                        )}
-                                                        {item.LibArt && (
-                                                            <span className="text-[10px] text-slate-500 font-mono italic">
-                                                                {item.CodArt} - {item.LibArt}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-5">
-                                                    <input
-                                                        type="number" min="0"
-                                                        value={item.Qt || 0}
-                                                        onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
-                                                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-black text-blue-600 text-center"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-5">
-                                                    <input
-                                                        type="number" min="0"
-                                                        value={item.PuHT || 0}
-                                                        onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
-                                                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-slate-700 text-right"
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-5">
-                                                    <select
-                                                        value={item.Tva || 19}
-                                                        onChange={(e) => handleItemChange(item.tempId, 'Tva', parseInt(e.target.value))}
-                                                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-xs font-bold text-slate-400 text-center cursor-pointer hover:text-blue-500 transition-colors"
-                                                    >
-                                                        <option value="19">19%</option>
-                                                        <option value="13">13%</option>
-                                                        <option value="7">7%</option>
-                                                    </select>
-                                                </td>
-                                                <td className="px-4 py-5 text-sm font-black text-slate-800 text-right">
-                                                    {(item.Qt * item.PuHT).toLocaleString(undefined, { minimumFractionDigits: 3 })}
-                                                </td>
-                                                <td className="px-4 py-5">
-                                                    <input
-                                                        type="number" min="0"
-                                                        value={item.MntRem || 0}
-                                                        onChange={(e) => handleItemChange(item.tempId, 'MntRem', parseFloat(e.target.value) || 0)}
-                                                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-rose-600 text-right"
-                                                        placeholder="0"
-                                                    />
-                                                </td>
-                                                <td className="px-8 py-5 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeItem(item.tempId)}
-                                                        className="text-slate-300 hover:text-rose-500 transition-colors transform group-hover:scale-110"
-                                                    >
+                                                    <button type="button" onClick={() => removeItem(item.tempId)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg">
                                                         <TrashIcon className="h-4 w-4" />
                                                     </button>
-                                                </td>
-                                            </tr>
-
-                                            {/* Expandable Detail Row */}
-                                            {expandedItems[item.tempId] && (
-                                                <tr className="bg-blue-50/20">
-                                                    <td colSpan="8" className="px-8 py-8">
-                                                        <div className="space-y-8">
-                                                            {/* Section: Description */}
-                                                            <div className="border-b border-slate-200 pb-6">
-                                                                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600"></span>
-                                                                    Description & Détails
-                                                                </h4>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                    <div className="group md:col-span-2">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Description Étendue</label>
-                                                                        <textarea
-                                                                            value={item.ExLibArt || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'ExLibArt', e.target.value)}
-                                                                            className="input-modern w-full min-h-[80px] resize-vertical text-sm"
-                                                                            maxLength="1000"
-                                                                            placeholder="Description détaillée du produit..."
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Code Barre</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.Codabar || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'Codabar', e.target.value)}
-                                                                            className="input-modern w-full text-sm font-mono text-slate-600"
-                                                                            maxLength="50"
-                                                                            placeholder="EAN-13"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Section: Attributes */}
-                                                            <div className="border-b border-slate-200 pb-6">
-                                                                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
-                                                                    Attributs (Couleur & Taille)
-                                                                </h4>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Code Couleur</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.CodColor || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'CodColor', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                            maxLength="10"
-                                                                            placeholder="Ex: BLU"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Couleur</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.DesColor || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'DesColor', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                            maxLength="50"
-                                                                            placeholder="Bleu foncé"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Code Taille</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.CodTaille || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'CodTaille', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                            maxLength="10"
-                                                                            placeholder="XL"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Taille</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.Taille || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'Taille', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                            maxLength="10"
-                                                                            placeholder="Extra Large"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Section: Pricing */}
-                                                            <div className="border-b border-slate-200 pb-6">
-                                                                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-600"></span>
-                                                                    Tarification
-                                                                </h4>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Prix Public (PvPub)</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.PvPub || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'PvPub', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-semibold text-slate-700"
-                                                                                step="0.001"
-                                                                                placeholder="0.000"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">P.U Devis</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.PuDev || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'PuDev', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-semibold text-blue-600"
-                                                                                step="0.001"
-                                                                                placeholder="0.000"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">P.U TTC</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.PuTTC || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'PuTTC', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-semibold text-slate-700 bg-slate-50"
-                                                                                step="0.001"
-                                                                                placeholder="0.000"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Section: Line Amounts */}
-                                                            <div className="border-b border-slate-200 pb-6">
-                                                                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-600"></span>
-                                                                    Montants de la Ligne
-                                                                </h4>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Montant HT</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.MntHT || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'MntHT', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-bold text-slate-700"
-                                                                                step="0.001"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Montant TVA (19%)</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.MntTVA || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'MntTVA', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-bold text-amber-600"
-                                                                                step="0.001"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Montant FODEC</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.MntFodec || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'MntFodec', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-bold text-emerald-600"
-                                                                                step="0.001"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Frais / Transport</label>
-                                                                        <div className="relative">
-                                                                            <input
-                                                                                type="number" min="0"
-                                                                                value={item.MntFrais || 0}
-                                                                                onChange={(e) => handleItemChange(item.tempId, 'MntFrais', parseFloat(e.target.value) || 0)}
-                                                                                className="input-modern w-full text-sm text-right font-bold text-slate-700"
-                                                                                step="0.001"
-                                                                            />
-                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">TND</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Section: Delivery & Import */}
-                                                            <div>
-                                                                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600"></span>
-                                                                    Livraison & Suivi
-                                                                </h4>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">N° Document Livraison</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.NumBL || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'NumBL', e.target.value)}
-                                                                            className="input-modern w-full text-sm font-mono"
-                                                                            maxLength="30"
-                                                                            placeholder="BL-2024-001"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Date Livraison</label>
-                                                                        <input
-                                                                            type="datetime-local"
-                                                                            value={item.DateBL ? new Date(item.DateBL).toISOString().slice(0, 16) : ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'DateBL', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">N° Import</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={item.NumImport || ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'NumImport', e.target.value)}
-                                                                            className="input-modern w-full text-sm font-mono"
-                                                                            maxLength="50"
-                                                                            placeholder="IMP-2024-001"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="group">
-                                                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Date Import</label>
-                                                                        <input
-                                                                            type="datetime-local"
-                                                                            value={item.DatImport ? new Date(item.DatImport).toISOString().slice(0, 16) : ''}
-                                                                            onChange={(e) => handleItemChange(item.tempId, 'DatImport', e.target.value)}
-                                                                            className="input-modern w-full text-sm"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right: Totals & Submit */}
-                <div className="lg:col-span-4 space-y-8">
-                    <div className="card-luxury p-0 overflow-hidden sticky top-8">
-                        <div className="px-8 py-6 border-b border-slate-100/50 bg-white">
-                            <div className="flex items-center gap-3">
-                                <div className="icon-shape icon-shape-sm bg-gradient-blue shadow-glow-blue scale-90">
-                                    <CalculatorIcon className="h-5 w-5 text-white" />
-                                </div>
-                                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest font-sans">Résumé Financier</h2>
-                            </div>
-                        </div>
-
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center bg-slate-50/50 p-4 rounded-2xl border border-slate-100 border-dashed">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base HT</span>
-                                    <span className="text-sm font-bold text-slate-700">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px]">TND</span></span>
-                                </div>
-                                <div className="group">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 inline-block px-1">Remise Totale</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <CurrencyDollarIcon className="h-4 w-4 text-rose-400" />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <input
-                                            type="number" min="0"
-                                            name="TotRem"
-                                            value={formData.TotRem}
-                                            onChange={handleChange}
-                                            className="input-modern pl-11 text-right font-black text-rose-600 border-rose-100 bg-rose-50/20 focus:ring-rose-200 shadow-sm"
-                                            placeholder="0.000"
-                                        />
+
+                                        {/* Simplified Expandable */}
+                                        <AnimatePresence>
+                                            {expandedItems[item.tempId] && (
+                                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50/30 rounded-lg mt-3">
+                                                    <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        <div>
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">TVA (%)</label>
+                                                            <input type="number" value={item.Tva || 19} onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Remise (%)</label>
+                                                            <input type="number" value={item.Remise || 0} onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" />
+                                                        </div>
+                                                        <div className="md:col-span-2">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Observation</label>
+                                                            <input type="text" value={item.Observation || ''} onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" maxLength="255" />
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Clean Totals Row */}
+                            {items.length > 0 && (
+                                <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{items.length} Article(s)</span>
+                                    <div className="flex gap-8">
+                                        <div className="text-right">
+                                            <p className="text-[8px] font-bold text-slate-400 uppercase">Total HT</p>
+                                            <p className="text-sm font-black text-slate-600">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[8px] font-bold text-blue-500 uppercase">Net TTC</p>
+                                            <p className="text-sm font-black text-blue-600">{(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center px-4">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TVA Consolidée</span>
-                                    <span className="text-sm font-bold text-slate-600">{(formData.TotTva || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
-                                </div>
+                            )}
+                        </div>
+
+                        {/* Navigation */}
+                        <div className="flex justify-between pt-4">
+                            <button type="button" onClick={() => setCurrentStep(2)} className="py-3 px-8 rounded-xl font-bold uppercase text-[10px] bg-white text-slate-500 border border-slate-200 hover:bg-slate-50">
+                                Précédent
+                            </button>
+                            <button type="button" onClick={() => setCurrentStep(4)} className="py-3 px-10 rounded-xl font-bold uppercase text-[10px] bg-blue-600 text-white shadow-md hover:bg-blue-700">
+                                Valider le Devis
+                            </button>
+                        </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
+
+                    {/* Step 4: Final Validation */}
+                    <AnimatePresence mode="wait">
+                    {currentStep === 4 && (
+                    <motion.div 
+                        key="step4"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="max-w-xl mx-auto space-y-6"
+                    >
+                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-8 space-y-8">
+                            <div className="text-center space-y-2">
+                                <h2 className="text-lg font-black text-slate-800">Résumé Final</h2>
+                                <p className="text-xs text-slate-400 font-medium">Vérifiez les montants avant de confirmer</p>
                             </div>
 
-                            <div className="pt-8 border-t border-slate-100 flex flex-col items-center gap-2">
-                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">Net à Payer (TTC)</span>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                                        {(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}
-                                    </span>
-                                    <span className="text-sm font-black text-slate-400 uppercase">TND</span>
+                            <div className="space-y-4 divide-y divide-slate-100">
+                                <div className="flex justify-between py-2">
+                                    <span className="text-xs font-medium text-slate-500">Total Hors Taxe</span>
+                                    <span className="text-xs font-bold text-slate-800">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
+                                </div>
+                                <div className="flex justify-between py-2">
+                                    <span className="text-xs font-medium text-slate-500">Total TVA</span>
+                                    <span className="text-xs font-bold text-slate-800">{(formData.TotTva || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
+                                </div>
+                                <div className="flex justify-between py-4">
+                                    <span className="text-sm font-black text-slate-900">NET À PAYER</span>
+                                    <span className="text-xl font-black text-blue-600">{(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} TND</span>
                                 </div>
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={saving}
-                                className="w-full py-5 bg-gradient-blue text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-glow-blue hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                             >
                                 {saving ? (
                                     <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                 ) : (
-                                    <>
-                                        <CheckIcon className="h-5 w-5 stroke-[3]" />
-                                        Confirmer & Enregistrer
-                                    </>
+                                    <>Confirmer l'enregistrement</>
                                 )}
                             </button>
+                            <button type="button" onClick={() => setCurrentStep(3)} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">
+                                Retour aux articles
+                            </button>
                         </div>
-                    </div>
+                    </motion.div>
+                    )}
+                    </AnimatePresence>
                 </div>
             </form>
         </div>
