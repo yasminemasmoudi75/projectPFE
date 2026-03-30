@@ -8,7 +8,7 @@ const { attachAccessToUser, upsertUserAccess } = require('../utils/userAccess');
 
 const DEFAULT_TIERS_NIVEAU = 0;
 const MAX_COD_TIERS_LENGTH = 20;
-const MAX_USER_LOGIN_LENGTH = 30;
+const MAX_USER_LOGIN_LENGTH = 100;
 const MAX_USER_FULLNAME_LENGTH = 40;
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
@@ -77,6 +77,21 @@ const resolveUserFullName = (rawRaisoc) => {
     return normalizedRaisoc.slice(0, MAX_USER_FULLNAME_LENGTH);
 };
 
+// Validation supplémentaire pour éviter les troncatures
+const validateUserFields = (email, fullName) => {
+    const errors = [];
+    
+    if (email && email.length > MAX_USER_LOGIN_LENGTH) {
+        errors.push(`L'email ne doit pas dépasser ${MAX_USER_LOGIN_LENGTH} caractères`);
+    }
+    
+    if (fullName && fullName.length > MAX_USER_FULLNAME_LENGTH) {
+        errors.push(`Le nom complet ne doit pas dépasser ${MAX_USER_FULLNAME_LENGTH} caractères`);
+    }
+    
+    return errors;
+};
+
 const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } = {}) => {
     const niveau = resolveTiersNiveau(payload);
 
@@ -127,7 +142,14 @@ const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } =
     if (forCreate) {
         mapped.Actif = mapped.Actif ?? true;
         mapped.UserCreate = createdBy || null;
-        mapped.SaveDate = new Date();
+        // Format sans timezone pour compatibilité SQL Server datetime
+        const now = new Date();
+        mapped.SaveDate = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0') + ' ' +
+            String(now.getHours()).padStart(2, '0') + ':' +
+            String(now.getMinutes()).padStart(2, '0') + ':' +
+            String(now.getSeconds()).padStart(2, '0');
     }
 
     return mapped;
@@ -240,11 +262,14 @@ exports.createTiers = async (req, res, next) => {
             });
         }
 
-        if (normalizedEmail.length > MAX_USER_LOGIN_LENGTH) {
+        // 2. Validation des champs utilisateur pour éviter les troncatures
+        const validationErrors = validateUserFields(normalizedEmail, userFullName);
+        if (validationErrors.length > 0) {
             await t.rollback();
             return res.status(400).json({
                 status: 'error',
-                message: `L'email ne doit pas dépasser ${MAX_USER_LOGIN_LENGTH} caractères pour la création du compte client`
+                message: 'Validation des champs utilisateur échouée',
+                errors: validationErrors
             });
         }
 
@@ -331,7 +356,6 @@ exports.createTiers = async (req, res, next) => {
         console.timeEnd('Commit-Transaction');
         console.log('Transaction committed');
 
-        // L'envoi d'email ne bloque pas la réponse si succès DB
         // L'envoi d'email ne bloque pas la réponse si succès DB
         console.time('Send-Email');
         sendClientCredentials(normalizedEmail, normalizedRaisoc, clearPassword).catch(err => console.error('Email send failed asynchronous:', err));
@@ -574,6 +598,104 @@ exports.getVilles = async (req, res, next) => {
         });
     } catch (error) {
         console.error('Erreur getVilles:', error);
+        next(error);
+    }
+};
+
+
+/**
+ * Envoyer les identifiants (email + nouveau mot de passe) à tous les clients existants
+ * Génère un nouveau mot de passe pour chaque client, met à jour le hash en base,
+ * puis envoie un email avec les nouveaux identifiants.
+ * Réservé aux administrateurs.
+ */
+exports.bulkSendCredentials = async (req, res, next) => {
+    try {
+        const { Op } = require('sequelize');
+
+        // 1. Récupérer tous les tiers (clients) qui ont un email
+        const allTiers = await Tiers.findAll({
+            where: {
+                Email: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] }
+            },
+            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Email']
+        });
+
+        if (!allTiers || allTiers.length === 0) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Aucun client avec email trouvé'
+            });
+        }
+
+        let sent = 0;
+        let skipped = 0;
+        let failed = 0;
+        const errors = [];
+
+        for (const tiers of allTiers) {
+            const email = normalizeString(tiers.Email);
+            if (!email) continue;
+
+            // Ignorer les emails trop longs pour le champ USER_NAME
+            if (email.length > MAX_USER_LOGIN_LENGTH) {
+                skipped++;
+                errors.push({ email, error: `Email trop long (${email.length} > ${MAX_USER_LOGIN_LENGTH} car.)` });
+                continue;
+            }
+
+            try {
+                const clearPassword = generateRandomPassword();
+                const hashedPassword = await bcrypt.hash(clearPassword, 10);
+
+                // 2. Vérifier si un compte utilisateur existe déjà pour ce client
+                let user = await User.findOne({ where: { EmailPro: email } });
+
+                if (user) {
+                    // Compte existant → mettre à jour le mot de passe
+                    await user.update({ Password: hashedPassword, MustChangePassword: true });
+                } else {
+                    // Pas de compte → en créer un (comme dans createTiers)
+                    const userFullName = (tiers.Raisoc || email).substring(0, MAX_USER_FULLNAME_LENGTH);
+                    
+                    // Validation supplémentaire pour éviter les troncatures
+                    const validationErrors = validateUserFields(email, userFullName);
+                    if (validationErrors.length > 0) {
+                        skipped++;
+                        errors.push({ email, error: validationErrors.join(', ') });
+                        continue;
+                    }
+                    
+                    const newUser = await User.create({
+                        UserID: await allocateNextUserId(),
+                        LoginName: email,
+                        EmailPro: email,
+                        FullName: userFullName,
+                        Password: hashedPassword,
+                        IsActive: true,
+                        Enabled: true,
+                        MustChangePassword: true
+                    });
+                    await upsertUserAccess(newUser.UserID, 'Client', { isActive: true });
+                }
+
+                // 3. Envoyer l'email avec les identifiants
+                await sendClientCredentials(email, tiers.Raisoc || email, clearPassword);
+                sent++;
+            } catch (err) {
+                console.error(`❌ Erreur envoi credentials pour ${email}:`, err.message);
+                failed++;
+                errors.push({ email, error: err.message });
+            }
+        }
+
+        return res.status(200).json({
+            status: 'success',
+            message: `Envoi terminé: ${sent} envoyés, ${skipped} ignorés, ${failed} échecs`,
+            data: { sent, skipped, failed, total: allTiers.length, errors: errors.slice(0, 20) }
+        });
+    } catch (error) {
+        console.error('❌ Error bulkSendCredentials:', error);
         next(error);
     }
 };

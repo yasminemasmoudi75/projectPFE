@@ -172,7 +172,7 @@ const Tiers = sequelize.define('Tiers', {
     field: 'UserCreate'
   },
   SaveDate: {
-    type: DataTypes.DATE,
+    type: 'DATETIME',
     allowNull: true,
     field: 'SaveDate'
   },

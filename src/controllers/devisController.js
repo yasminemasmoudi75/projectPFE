@@ -1,6 +1,7 @@
-const { DevisMaster, DevisDetail, Tiers, Product, TabSociete, sequelize } = require('../models');
+const { DevisMaster, DevisDetail, BcvMaster, BcvDetail, Tiers, Product, TabSociete, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PDFService = require('../services/pdfService');
+const { randomUUID } = require('crypto');
 
 const RECENT_DEVIS_ORDER = [
   ['Nf', 'DESC'],
@@ -399,75 +400,97 @@ exports.validateDevis = async (req, res, next) => {
 };
 
 /**
- * Convertir un devis en commande
+ * Convertir un devis en bon de commande (BCV)
+ * Crée un vrai enregistrement BcvMaster + BcvDetail dans TabBcvm/TabBcvd
+ * puis marque le devis source comme transféré (bTransf = true)
  */
 exports.convertDevis = async (req, res, next) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const devis = await DevisMaster.findByPk(id);
+    const devis = await DevisMaster.findByPk(id, {
+      include: [{ model: DevisDetail, as: 'details' }],
+      transaction: t
+    });
 
     if (!devis) {
+      await t.rollback();
       return res.status(404).json({ status: 'error', message: 'Devis non trouvé' });
     }
 
-    // Set bTransf to true to mark as converted to bon de commande
-    await devis.update({ bTransf: true, IsConverted: true });
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Devis converti avec succès',
-      data: devis
-    });
-  } catch (error) {
-    console.error('❌ Error convertDevis:', error);
-    next(error);
-  }
-};
-
-/**
- * Récupérer tous les bons de commande (devis convertis)
- */
-exports.getAllOrders = async (req, res, next) => {
-  try {
-    const { search, page = 1, limit = 100 } = req.query;
-    const offset = (page - 1) * limit;
-
-    const where = {};
-
-    // Only get converted devis (bTransf = true)
-    where.bTransf = true;
-
-    if (search) {
-      where[Op.or] = [
-        { Nf: { [Op.like]: `%${search}%` } },
-        { LibTiers: { [Op.like]: `%${search}%` } }
-      ];
+    if (devis.bTransf) {
+      await t.rollback();
+      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été converti en bon de commande' });
     }
 
-    const { count, rows } = await DevisMaster.findAndCountAll({
-      where,
-      include: [{
-        model: Tiers,
-        as: 'tiers',
-        attributes: ['Raisoc', 'CodTiers', 'Ville']
-      }],
-      order: RECENT_DEVIS_ORDER,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
+    const data = devis.toJSON();
+    const details = data.details || [];
+    const newGuid = randomUUID();
+
+    // Déterminer le prochain numéro BCV (Nf)
+    const maxNf = await BcvMaster.max('Nf', { transaction: t }) || 0;
+    const nextNf = maxNf + 1;
+
+    // Créer le BcvMaster
+    const masterData = {
+      Guid: newGuid,
+      Prfx: 'BC',
+      Nf: nextNf,
+      CodTiers: data.CodTiers,
+      LibTiers: data.LibTiers,
+      IDContact: data.IDContact,
+      Adresse: data.Adresse,
+      Remarq: data.Remarq,
+      AssujTiers: data.AssujTiers,
+      TotHT: data.TotHT,
+      TotTva: data.TotTva,
+      TotTTC: data.TotTTC,
+      TotRem: data.TotRem,
+      Timbre: data.Timbre,
+      MntDebit: data.MntDebit,
+      MntCredit: data.MntCredit,
+      CodMag: data.CodMag,
+      CodRepres: data.CodRepres,
+      CodDev: data.CodDev,
+      DatUser: sequelize.fn('GETDATE'),
+      Valid: false,
+      bTransf: false,
+      bLivr: false
+    };
+
+    await BcvMaster.create(masterData, { transaction: t });
+
+    // Créer les BcvDetail
+    if (details.length > 0) {
+      const newDetails = details.map(d => ({
+        Guid: randomUUID(),
+        NF: nextNf,
+        ID: nextNf,
+        CodArt: d.CodArt,
+        LibArt: d.LibArt,
+        Qt: d.Qt,
+        PuHT: d.PuHT,
+        PuTTC: d.PuTTC,
+        MntRem: d.MntRem,
+        Codabar: d.Codabar,
+        IDArt: d.IDArt
+      }));
+      await BcvDetail.bulkCreate(newDetails, { transaction: t });
+    }
+
+    // Marquer le devis source comme transféré
+    await devis.update({ bTransf: true }, { transaction: t });
+
+    await t.commit();
 
     res.status(200).json({
       status: 'success',
-      data: rows,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: count,
-        totalPages: Math.ceil(count / limit)
-      }
+      message: 'Devis converti en bon de commande avec succès',
+      data: { Guid: newGuid, Nf: nextNf }
     });
   } catch (error) {
-    console.error('❌ Error getAllOrders:', error);
+    if (t && !t.finished) await t.rollback();
+    console.error('❌ Error convertDevis:', error);
     next(error);
   }
 };

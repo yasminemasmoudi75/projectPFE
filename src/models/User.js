@@ -9,7 +9,7 @@ const User = sequelize.define('User', {
   },
   // Use EmailPro handles the App's requirement for that field name
   EmailPro: {
-    type: DataTypes.STRING(30),
+    type: DataTypes.STRING(100),
     allowNull: false,
     unique: true,
     field: 'USER_NAME' // This IS the liaison to ERP username

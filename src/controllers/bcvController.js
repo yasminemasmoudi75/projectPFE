@@ -1,11 +1,11 @@
-const { BcvMaster, BcvDetail, Tiers, DevisMaster, DevisDetail, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, sequelize } = require('../models');
+const { BcvMaster, BcvDetail, Tiers, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PDFService = require('../services/pdfService');
 const { randomUUID } = require('crypto');
 
 /**
  * Récupérer tous les bons de commande (master)
- * Inclut à la fois les BCV (TabBcvm) et les devis convertis (TabDevm avec bTransf = true)
+ * Ne consulte que TabBcvm — les devis convertis créent de vrais enregistrements BcvMaster
  */
 exports.getAllBcv = async (req, res, next) => {
     try {
@@ -13,8 +13,8 @@ exports.getAllBcv = async (req, res, next) => {
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
         const where = {
-            // Exclure les BCV déjà transférés (comme les devis transférés en BC)
-            bTransf: false
+            // Exclure les BCV déjà transférés en BLV/Facture
+            bTransf: { [Op.ne]: true }
         };
 
         if (search) {
@@ -24,54 +24,23 @@ exports.getAllBcv = async (req, res, next) => {
             ];
         }
 
-        // Récupérer les BCV de TabBcvm (non transférés)
-        const { count: bcvCount, rows: bcvRows } = await BcvMaster.findAndCountAll({
+        const { count, rows } = await BcvMaster.findAndCountAll({
             where,
+            include: [{ model: Tiers, as: 'client' }],
             order: [['DatUser', 'DESC']],
             limit: parseInt(limit),
             offset,
         });
-
-        // Récupérer les devis convertis de TabDevm (bTransf = true)
-        const devisWhere = { ...where, bTransf: true };
-        const { count: devisCount, rows: devisRows } = await DevisMaster.findAndCountAll({
-            where: devisWhere,
-            order: [['DatUser', 'DESC']],
-            limit: parseInt(limit),
-            offset,
-        });
-
-        // Combiner les deux listes et marquer la source
-        const bcvWithSource = bcvRows.map(bcv => ({
-            ...bcv.toJSON(),
-            _source: 'TabBcvm',
-            Prfx: bcv.Prfx || 'BC'
-        }));
-
-        const devisWithSource = devisRows.map(devis => ({
-            ...devis.toJSON(),
-            _source: 'TabDevm',
-            Prfx: 'BC' // Afficher comme BC au lieu de DV
-        }));
-
-        // Fusionner et trier par date
-        const allOrders = [...bcvWithSource, ...devisWithSource].sort((a, b) => {
-            const dateA = new Date(a.DatUser || 0);
-            const dateB = new Date(b.DatUser || 0);
-            return dateB - dateA; // Tri décroissant
-        });
-
-        const totalCount = bcvCount + devisCount;
 
         return res.status(200).json({
             status: 'success',
             pagination: {
-                total: totalCount,
+                total: count,
                 page: parseInt(page),
                 limit: parseInt(limit),
-                totalPages: Math.ceil(totalCount / parseInt(limit)),
+                totalPages: Math.ceil(count / parseInt(limit)),
             },
-            data: allOrders,
+            data: rows,
         });
     } catch (error) {
         console.error('❌ Error getAllBcv:', error);
@@ -86,39 +55,19 @@ exports.getBcvById = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        let bcv = await BcvMaster.findOne({
+        const bcv = await BcvMaster.findOne({
             where: { Guid: id },
             include: [
-                {
-                    model: BcvDetail,
-                    as: 'details',
-                },
+                { model: BcvDetail, as: 'details' },
+                { model: Tiers, as: 'client' }
             ],
         });
 
-        if (bcv) {
-            return res.status(200).json({ status: 'success', data: bcv.toJSON() });
+        if (!bcv) {
+            return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
         }
 
-        // 2. Si non trouvé dans TabBcvm, chercher dans TabDevm (devis convertis)
-        const devis = await DevisMaster.findOne({
-            where: { Guid: id },
-            include: [
-                {
-                    model: DevisDetail,
-                    as: 'details'
-                }
-            ]
-        });
-
-        if (devis && devis.bTransf) {
-            const bcvJson = devis.toJSON();
-            bcvJson._source = 'TabDevm';
-            bcvJson.Prfx = 'BC'; // Forcer le préfixe BC pour l'affichage
-            return res.status(200).json({ status: 'success', data: bcvJson });
-        }
-
-        return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
+        return res.status(200).json({ status: 'success', data: bcv.toJSON() });
     } catch (error) {
         console.error('❌ Error getBcvById:', error);
         next(error);
@@ -132,59 +81,26 @@ exports.generateBcvPDF = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        // 1. Chercher d'abord dans TabBcvm
-        let bcv = await BcvMaster.findOne({
+        const bcv = await BcvMaster.findOne({
             where: { Guid: id },
             include: [
-                {
-                    model: BcvDetail,
-                    as: 'details'
-                },
-                {
-                    model: Tiers,
-                    as: 'client'
-                }
+                { model: BcvDetail, as: 'details' },
+                { model: Tiers, as: 'client' }
             ]
         });
 
-        let docData = null;
-
-        if (bcv) {
-            docData = bcv.toJSON();
-        } else {
-            // 2. Si non trouvé, chercher dans TabDevm
-            const devis = await DevisMaster.findOne({
-                where: { Guid: id },
-                include: [
-                    {
-                        model: DevisDetail,
-                        as: 'details'
-                    },
-                    {
-                        model: Tiers,
-                        as: 'tiers'
-                    }
-                ]
-            });
-
-            if (devis && devis.bTransf) {
-                docData = devis.toJSON();
-                docData.client = docData.tiers; // Mapper tiers vers client pour le template
-                docData.Prfx = docData.Prfx || 'BC';
-            }
-        }
-
-        if (!docData) {
+        if (!bcv) {
             return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
         }
 
-        // 3. Récupérer les infos société
+        const docData = bcv.toJSON();
+
+        // Récupérer les infos société
         const soc = await TabSociete.findOne();
 
-        // 4. Générer le PDF via le service
+        // Générer le PDF via le service
         const pdfBuffer = await PDFService.generateCommercialPDF(docData, soc, 'BON DE COMMANDE');
 
-        // 5. Envoyer le PDF
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=bc_${docData.Prfx || 'BC'}${docData.Nf}.pdf`);
         res.send(pdfBuffer);
@@ -207,24 +123,20 @@ exports.transferBcv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Type de transfert invalide' });
         }
 
-        // 1. Chercher le BCV (soit dans TabBcvm, soit dans TabDevm)
-        let sourceData = await BcvMaster.findOne({
+        // 1. Chercher le BCV dans TabBcvm
+        const sourceData = await BcvMaster.findOne({
             where: { Guid: id },
             include: [{ model: BcvDetail, as: 'details' }]
         });
 
         if (!sourceData) {
-            const devis = await DevisMaster.findOne({
-                where: { Guid: id },
-                include: [{ model: DevisDetail, as: 'details' }]
-            });
-            if (devis && devis.bTransf) {
-                sourceData = devis;
-            }
+            await t.rollback();
+            return res.status(404).json({ status: 'error', message: 'Bon de commande source non trouvé' });
         }
 
-        if (!sourceData) {
-            return res.status(404).json({ status: 'error', message: 'Bon de commande source non trouvé' });
+        if (sourceData.bTransf) {
+            await t.rollback();
+            return res.status(400).json({ status: 'error', message: 'Ce bon de commande a déjà été transféré' });
         }
 
         const data = sourceData.toJSON();
@@ -297,7 +209,7 @@ exports.transferBcv = async (req, res, next) => {
         await DetailModel.bulkCreate(sanitizedDetails, { transaction: t });
 
         // 5. Marquer le BC source comme transféré (disparaît de la liste BC)
-        await sourceData.constructor.update(
+        await BcvMaster.update(
             { bTransf: true },
             { where: { Guid: id }, transaction: t }
         );

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const tiersController = require('../controllers/tiersController');
-const { protect } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 // Toutes les routes sont protégées
@@ -9,6 +9,9 @@ router.use(protect);
 
 // Routes statiques d'abord
 router.get('/regions/list', checkPermission(MODULES.TIERS, 'read'), tiersController.getVilles);
+
+// Envoi en masse des identifiants aux clients (admin uniquement)
+router.post('/bulk-send-credentials', restrictTo('Admin'), tiersController.bulkSendCredentials);
 
 // Routes CRUD avec pattern /:id
 router.route('/')
