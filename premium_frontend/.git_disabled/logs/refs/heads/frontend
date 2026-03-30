@@ -1,0 +1,6 @@
+0000000000000000000000000000000000000000 aa6190fdb815d07238e05358503f4e36b156c1f3 MedFeres <fekiferes281@gmail.com> 1774668007 +0100	branch: Created from HEAD
+aa6190fdb815d07238e05358503f4e36b156c1f3 8ee7fa807d14b38251058dc57a0a83c86619695e MedFeres <fekiferes281@gmail.com> 1774698670 +0100	reset: moving to HEAD~1
+8ee7fa807d14b38251058dc57a0a83c86619695e 8ee7fa807d14b38251058dc57a0a83c86619695e MedFeres <fekiferes281@gmail.com> 1774699692 +0100	Branch: renamed refs/heads/front to refs/heads/front
+8ee7fa807d14b38251058dc57a0a83c86619695e 79b61c3639d265d66900aab49944770a9e67fafc MedFeres <fekiferes281@gmail.com> 1774699692 +0100	commit: Initial frontend
+79b61c3639d265d66900aab49944770a9e67fafc 79b61c3639d265d66900aab49944770a9e67fafc MedFeres <fekiferes281@gmail.com> 1774724612 +0100	Branch: renamed refs/heads/front to refs/heads/frontend
+79b61c3639d265d66900aab49944770a9e67fafc 8777df95524c55461c636ce7e9d60ea0c5e4a5c2 MedFeres <fekiferes281@gmail.com> 1774818297 +0100	pull origin frontend: Fast-forward
