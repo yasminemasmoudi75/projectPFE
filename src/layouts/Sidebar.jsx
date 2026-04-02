@@ -18,7 +18,8 @@ import {
   LifebuoyIcon,
   ShoppingBagIcon,
   TruckIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import useAuth from '../hooks/useAuth';
@@ -33,6 +34,7 @@ const menuItems = [
   { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.DEVIS },
+  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS },
   { type: 'section', name: 'Opérations' },
   { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },

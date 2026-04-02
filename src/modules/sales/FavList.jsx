@@ -194,15 +194,6 @@ const FavList = () => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate('/fav/new')}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
-          >
-            <PlusIcon className="h-5 w-5 stroke-[3]" />
-            Nouvelle Facture
-          </motion.button>
         </div>
       </motion.div>
 

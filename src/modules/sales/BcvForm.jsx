@@ -24,6 +24,7 @@ import { updateBcv, createBcv, fetchBcvById, clearCurrentBcv } from './bcvSlice'
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../app/axios';
+import { useLookupTables } from '../../hooks/useLookupTables';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const getProductName = (product = {}) => product.LibArt || product.Libelle || '';
@@ -62,6 +63,9 @@ const BcvForm = () => {
     const dispatch = useDispatch();
     const isEdit = Boolean(id);
     const { currentBcv, loading: loadingSlice } = useSelector((state) => state.bcv);
+    
+    // Charger les tables de lookup (Classe, Gouvernorat, Catégorie)
+    const { tiersClasses, tiersGouvernorats, tiersCategories, loading: lookupsLoading } = useLookupTables();
 
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
@@ -784,15 +788,21 @@ const BcvForm = () => {
                                 <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Gouvernorat / Ville</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <TagIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                        <MapPinIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                     </div>
-                                    <input
-                                        type="text"
+                                    <select
                                         name="Ville"
                                         value={formData.Ville || ''}
                                         onChange={handleChange}
-                                        className="input-modern pl-11"
-                                    />
+                                        className="input-modern pl-11 text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    >
+                                        <option value="">-- Sélectionner --</option>
+                                        {tiersGouvernorats.map(gov => (
+                                            <option key={gov.id} value={gov.libelle}>
+                                                {gov.libelle}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="group">
@@ -808,9 +818,11 @@ const BcvForm = () => {
                                         className="input-modern pl-11 text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">-- Sélectionner --</option>
-                                        <option value="A">A</option>
-                                        <option value="B">B</option>
-                                        <option value="B+">B+</option>
+                                        {tiersClasses.map(classe => (
+                                            <option key={classe.id} value={classe.libelle}>
+                                                {classe.libelle}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -860,8 +872,11 @@ const BcvForm = () => {
                                         className="input-modern pl-11 text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">-- Sélectionner --</option>
-                                        <option value="Privé">Privé</option>
-                                        <option value="Étatique">Étatique</option>
+                                        {tiersCategories.map(cat => (
+                                            <option key={cat.id} value={cat.libelle}>
+                                                {cat.libelle}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

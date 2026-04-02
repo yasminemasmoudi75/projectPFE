@@ -195,15 +195,6 @@ const BlvList = () => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate('/blv/new')}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
-          >
-            <PlusIcon className="h-5 w-5 stroke-[3]" />
-            Nouvelle Livraison
-          </motion.button>
         </div>
       </motion.div>
 
@@ -448,11 +439,6 @@ const BlvList = () => {
                               : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
                           </p>
                         </div>
-                        {(!blv || blv.length === 0) && (
-                          <button onClick={() => navigate('/blv/new')} className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700">
-                            + Créer un Blv
-                          </button>
-                        )}
                       </motion.div>
                     </td>
                   </motion.tr>

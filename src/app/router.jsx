@@ -46,6 +46,7 @@ const UsersList = lazy(() => import('../modules/users/UsersList'));
 const UserForm = lazy(() => import('../modules/users/UserForm'));
 const UserDetail = lazy(() => import('../modules/users/UserDetail'));
 const Profile = lazy(() => import('../modules/profile/Profile'));
+const MouvementsPage = lazy(() => import('../modules/mouvements/MouvementsPage'));
 const NotFound = lazy(() => import('../components/feedback/NotFound'));
 
 
@@ -518,6 +519,15 @@ const routes = [
         element: (
           <SuspenseWrapper>
             <Profile />
+          </SuspenseWrapper>
+        ),
+      },
+
+      {
+        path: 'mouvements',
+        element: (
+          <SuspenseWrapper>
+            <MouvementsPage />
           </SuspenseWrapper>
         ),
       },
