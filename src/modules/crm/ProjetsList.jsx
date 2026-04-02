@@ -4,70 +4,32 @@ import {
   MapPinIcon,
   CurrencyDollarIcon,
   CalendarDaysIcon,
-  ArrowRightIcon,
   ChartBarIcon,
   BriefcaseIcon,
-  SparklesIcon,
   ArrowPathIcon,
   RocketLaunchIcon,
-  ArrowUpRightIcon
+  ArrowUpRightIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProjets } from './projetSlice';
-import axios from '../../app/axios';
-
-const MOCK_PROJETS = [
-  {
-    id: 1,
-    name: 'Mise à jour Infrastructure SI',
-    client: 'Société ABC',
-    budget: 45000,
-    progress: 75,
-    deadline: '2024-03-20',
-    status: 'En cours',
-    priority: 'Haute',
-    phase: 'Exécution',
-    avatar: 'IS'
-  },
-  {
-    id: 2,
-    name: 'Déploiement CRM Mobile',
-    client: 'Tech Solutions',
-    budget: 12000,
-    progress: 15,
-    deadline: '2024-05-15',
-    status: 'En cours',
-    priority: 'Moyenne',
-    phase: 'Prospection',
-    avatar: 'CR'
-  },
-  {
-    id: 3,
-    name: 'Maintenance Serveurs Annuelle',
-    client: 'Global Import',
-    budget: 8500,
-    progress: 100,
-    deadline: '2024-01-30',
-    status: 'Terminé',
-    priority: 'Basse',
-    phase: 'Clôture',
-    avatar: 'MS'
-  },
-];
 
 const ProjetsList = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { projets, loading, pagination } = useSelector((state) => state.projets);
   const [typeFilter, setTypeFilter] = useState('All');
+  const [search, setSearch] = useState('');
   const [commerciaux, setCommerciaux] = useState([]);
   const [selectedCommercial, setSelectedCommercial] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [tiersById, setTiersById] = useState({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const getProgressColor = (percentage) => {
     if (percentage < 30) return '#ef4444'; // Red
@@ -80,31 +42,15 @@ const ProjetsList = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const fetchTiers = async () => {
-      try {
-        const response = await axios.get('/tiers');
-        const data = response.data?.data || response.data || [];
-        const map = {};
-        data.forEach((t) => {
-          if (t.IDTiers) map[t.IDTiers] = t;
-        });
-        setTiersById(map);
-
-        const reps = Array.from(
-          new Set(
-            data
-              .map((t) => t.codRepresTiers)
-              .filter((v) => v && String(v).trim() !== '')
-          )
-        );
-        setCommerciaux(reps);
-      } catch (error) {
-        console.error('Error fetching tiers for projets filters:', error);
-      }
-    };
-
-    fetchTiers();
-  }, []);
+    const reps = Array.from(
+      new Set(
+        projets
+          .map((p) => p.client?.codRepresTiers)
+          .filter((v) => v && String(v).trim() !== '')
+      )
+    );
+    setCommerciaux(reps);
+  }, [projets]);
 
   const availableTypes = useMemo(() => {
     const phases = projets.map((p) => p.Phase).filter(Boolean);
@@ -113,11 +59,21 @@ const ProjetsList = () => {
 
   const filteredProjets = useMemo(() => {
     return projets.filter((projet) => {
+      const searchValue = search.trim().toLowerCase();
+
+      const tiers = projet.client;
+      const clientName = (tiers?.Raisoc || 'Client non spécifié').toLowerCase();
+
+      const matchesSearch =
+        !searchValue ||
+        (projet.Nom_Projet || '').toLowerCase().includes(searchValue) ||
+        clientName.includes(searchValue) ||
+        String(projet.ID_Projet || '').toLowerCase().includes(searchValue);
+
       const matchesType =
         typeFilter === 'All' ||
         (projet.Phase || '').toLowerCase() === typeFilter.toLowerCase();
 
-      const tiers = tiersById[projet.IDTiers] || projet.client;
       const repCode = tiers?.codRepresTiers;
       const matchesCommercial =
         !selectedCommercial || repCode === selectedCommercial;
@@ -130,9 +86,26 @@ const ProjetsList = () => {
       const toOk =
         !dateTo || (createdDate && createdDate <= new Date(dateTo));
 
-      return matchesType && matchesCommercial && fromOk && toOk;
+      return matchesSearch && matchesType && matchesCommercial && fromOk && toOk;
     });
-  }, [projets, typeFilter, selectedCommercial, dateFrom, dateTo, tiersById]);
+  }, [projets, typeFilter, selectedCommercial, dateFrom, dateTo, search]);
+
+  const stats = useMemo(() => {
+    const total = filteredProjets.length;
+    const totalBudget = filteredProjets.reduce((acc, p) => acc + (Number(p.Budget_Alloue) || 0), 0);
+    const avgProgress = total > 0
+      ? Math.round(filteredProjets.reduce((acc, p) => acc + (Number(p.Avancement) || 0), 0) / total)
+      : 0;
+    const dueSoon = filteredProjets.filter((p) => {
+      if (!p.Date_Echeance) return false;
+      const due = new Date(p.Date_Echeance);
+      if (Number.isNaN(due.getTime())) return false;
+      const diffDays = (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      return diffDays >= 0 && diffDays <= 14;
+    }).length;
+
+    return { total, totalBudget, avgProgress, dueSoon };
+  }, [filteredProjets]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -146,6 +119,10 @@ const ProjetsList = () => {
               <BriefcaseIcon className="h-3 w-3 mr-1" />
               Opérations CRM
             </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border border-slate-200">
+              <RocketLaunchIcon className="h-3.5 w-3.5" />
+              Projets
+            </span>
           </div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Projets & Opportunités</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
@@ -156,6 +133,7 @@ const ProjetsList = () => {
           <button
             onClick={() => dispatch(fetchProjets({ page: 1, limit: 12 }))}
             className="h-10 w-10 flex items-center justify-center bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-soft hover:shadow-glow-blue transition-all border border-slate-200"
+            title="Rafraîchir"
           >
             <ArrowPathIcon className="h-5 w-5" />
           </button>
@@ -169,89 +147,177 @@ const ProjetsList = () => {
         </div>
       </div>
 
-      {/* Filters: Type, Commercial, Date */}
+      {/* Quick stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="card-luxury p-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Résultats</p>
+          <p className="text-3xl font-extrabold text-slate-900">{stats.total}</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">projets visibles</p>
+        </div>
+        <div className="card-luxury p-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Budget (filtré)</p>
+          <p className="text-2xl font-extrabold text-slate-900">{formatCurrency(stats.totalBudget)}</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">total alloué</p>
+        </div>
+        <div className="card-luxury p-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Avancement</p>
+          <p className="text-2xl font-extrabold text-slate-900">{stats.avgProgress}%</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">moyenne</p>
+        </div>
+        <div className="card-luxury p-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Échéance</p>
+          <p className="text-2xl font-extrabold text-slate-900">{stats.dueSoon}</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">dans 14 jours</p>
+        </div>
+      </div>
+
+      {/* Search + Filters */}
       <div className="card-luxury p-0 overflow-hidden">
-        <div className="p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">
-              Filtres Projets
-            </h3>
-            <button
-              type="button"
-              onClick={() => {
-                setTypeFilter('All');
-                setSelectedCommercial('');
-                setDateFrom('');
-                setDateTo('');
-              }}
-              className="text-[11px] font-semibold text-slate-400 hover:text-blue-600 flex items-center gap-1"
-            >
-              Réinitialiser
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">
-                Type / Phase
-              </label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="input-modern h-9 text-xs w-full"
-              >
-                <option value="All">Toutes les phases</option>
-                {availableTypes.map((phase) => (
-                  <option key={phase} value={phase}>
-                    {phase}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">
-                Commercial
-              </label>
-              <select
-                value={selectedCommercial}
-                onChange={(e) => setSelectedCommercial(e.target.value)}
-                className="input-modern h-9 text-xs w-full"
-              >
-                <option value="">Tous les commerciaux</option>
-                {commerciaux.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">
-                Créé après
-              </label>
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
+            <div className="relative flex-1 w-full group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-transform group-focus-within:scale-110 group-focus-within:text-blue-500">
+                <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+              </div>
               <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="input-modern h-9 text-xs w-full"
+                type="text"
+                placeholder="Rechercher par projet, client, ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border-2 border-slate-100 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
               />
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">
-                Créé avant
-              </label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="input-modern h-9 text-xs w-full"
-              />
+
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFilters((v) => !v)}
+                className={`px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap border-2 active:scale-95 ${
+                  showFilters
+                    ? 'bg-slate-100 border-slate-300 text-slate-800'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                }`}
+              >
+                <FunnelIcon className="h-4 w-4" />
+                Filtres
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setTypeFilter('All');
+                  setSelectedCommercial('');
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap border-2 active:scale-95 bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600"
+                title="Réinitialiser"
+              >
+                <XMarkIcon className="h-4 w-4" />
+                Reset
+              </button>
             </div>
           </div>
+
+          {showFilters && (
+            <div className="pt-2 border-t border-slate-100/80">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                    Phase
+                  </label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="input-modern h-10 text-xs w-full"
+                  >
+                    <option value="All">Toutes les phases</option>
+                    {availableTypes.map((phase) => (
+                      <option key={phase} value={phase}>
+                        {phase}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                    Commercial
+                  </label>
+                  <select
+                    value={selectedCommercial}
+                    onChange={(e) => setSelectedCommercial(e.target.value)}
+                    className="input-modern h-10 text-xs w-full"
+                  >
+                    <option value="">Tous les commerciaux</option>
+                    {commerciaux.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                    Créé après
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="input-modern h-10 text-xs w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                    Créé avant
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="input-modern h-10 text-xs w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Grid Layout for Projects */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {filteredProjets.length === 0 && (
+          <div className="card-luxury p-10 md:col-span-2 lg:col-span-3 text-center">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-300">
+              <RocketLaunchIcon className="h-8 w-8" />
+            </div>
+            <h3 className="mt-4 text-lg font-extrabold text-slate-800">Aucun projet trouvé</h3>
+            <p className="mt-2 text-sm text-slate-500 font-medium">
+              Modifie ta recherche ou tes filtres, ou crée un nouveau projet.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setTypeFilter('All');
+                  setSelectedCommercial('');
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-bold text-xs shadow-sm"
+              >
+                Réinitialiser
+              </button>
+              <button
+                onClick={() => navigate('/projets/new')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs shadow-sm"
+              >
+                + Nouveau projet
+              </button>
+            </div>
+          </div>
+        )}
+
         {filteredProjets.map((projet) => (
           <div key={projet.ID_Projet} className="card-luxury p-0 overflow-hidden flex flex-col h-full group">
             <div className="p-8 flex-1">

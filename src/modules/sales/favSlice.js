@@ -18,7 +18,27 @@ export const fetchFav = createAsyncThunk('fav/fetchFav', async ({ page = 1, limi
 // Récupérer une facture par ID (avec détails)
 export const fetchFavById = createAsyncThunk('fav/fetchFavById', async (id) => {
     const response = await axios.get(`/fav/${id}`);
-    return response.data; // response.data = the 'data' field of the JSON body
+    // axios interceptor retourne déjà response.data (payload JSON complet)
+    // qui a la forme { status, data, ... }
+    return response;
+});
+
+// Créer une nouvelle facture
+export const createFav = createAsyncThunk('fav/createFav', async ({ master, details }) => {
+    const response = await axios.post('/fav', { master, details });
+    return response;
+});
+
+// Mettre à jour une facture
+export const updateFav = createAsyncThunk('fav/updateFav', async ({ id, master, details }) => {
+    const response = await axios.put(`/fav/${id}`, { master, details });
+    return response;
+});
+
+// Supprimer une facture
+export const deleteFav = createAsyncThunk('fav/deleteFav', async (id) => {
+    const response = await axios.delete(`/fav/${id}`);
+    return response;
 });
 
 const favSlice = createSlice({
@@ -40,7 +60,22 @@ const favSlice = createSlice({
 
             .addCase(fetchFavById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchFavById.fulfilled, (state, action) => { state.loading = false; state.currentFav = action.payload.data; })
-            .addCase(fetchFavById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
+            .addCase(fetchFavById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(createFav.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(createFav.fulfilled, (state) => { state.loading = false; })
+            .addCase(createFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(updateFav.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(updateFav.fulfilled, (state) => { state.loading = false; })
+            .addCase(updateFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(deleteFav.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(deleteFav.fulfilled, (state, action) => {
+                state.loading = false;
+                state.favList = state.favList.filter(f => f.Guid !== action.meta.arg);
+            })
+            .addCase(deleteFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
     },
 });
 

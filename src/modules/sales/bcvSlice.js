@@ -21,6 +21,18 @@ export const fetchBcvById = createAsyncThunk('bcv/fetchBcvById', async (id) => {
     return response.data;
 });
 
+// Créer un nouveau bon de commande
+export const createBcv = createAsyncThunk('bcv/createBcv', async (payload) => {
+    const response = await axios.post('/bcv', payload);
+    return response.data;
+});
+
+// Mettre à jour un bon de commande existant
+export const updateBcv = createAsyncThunk('bcv/updateBcv', async ({ id, payload }) => {
+    const response = await axios.put(`/bcv/${id}`, payload);
+    return response.data;
+});
+
 const bcvSlice = createSlice({
     name: 'bcv',
     initialState,
@@ -40,7 +52,15 @@ const bcvSlice = createSlice({
 
             .addCase(fetchBcvById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchBcvById.fulfilled, (state, action) => { state.loading = false; state.currentBcv = action.payload; })
-            .addCase(fetchBcvById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
+            .addCase(fetchBcvById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+            
+            .addCase(createBcv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(createBcv.fulfilled, (state, action) => { state.loading = false; })
+            .addCase(createBcv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(updateBcv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(updateBcv.fulfilled, (state, action) => { state.loading = false; })
+            .addCase(updateBcv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
     },
 });
 

@@ -18,7 +18,27 @@ export const fetchBlv = createAsyncThunk('blv/fetchBlv', async ({ page = 1, limi
 // Récupérer un bon de livraison par ID (avec détails)
 export const fetchBlvById = createAsyncThunk('blv/fetchBlvById', async (id) => {
     const response = await axios.get(`/blv/${id}`);
-    return response.data; // response.data = the 'data' field of the JSON body
+    // axios interceptor retourne déjà response.data (payload JSON complet)
+    // qui a la forme { status, data, ... }
+    return response;
+});
+
+// Créer un nouveau bon de livraison
+export const createBlv = createAsyncThunk('blv/createBlv', async ({ master, details }) => {
+    const response = await axios.post('/blv', { master, details });
+    return response;
+});
+
+// Mettre à jour un bon de livraison
+export const updateBlv = createAsyncThunk('blv/updateBlv', async ({ id, master, details }) => {
+    const response = await axios.put(`/blv/${id}`, { master, details });
+    return response;
+});
+
+// Supprimer un bon de livraison
+export const deleteBlv = createAsyncThunk('blv/deleteBlv', async (id) => {
+    const response = await axios.delete(`/blv/${id}`);
+    return response;
 });
 
 const blvSlice = createSlice({
@@ -40,7 +60,22 @@ const blvSlice = createSlice({
 
             .addCase(fetchBlvById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchBlvById.fulfilled, (state, action) => { state.loading = false; state.currentBlv = action.payload.data; })
-            .addCase(fetchBlvById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
+            .addCase(fetchBlvById.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(createBlv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(createBlv.fulfilled, (state) => { state.loading = false; })
+            .addCase(createBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(updateBlv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(updateBlv.fulfilled, (state) => { state.loading = false; })
+            .addCase(updateBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(deleteBlv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(deleteBlv.fulfilled, (state, action) => {
+                state.loading = false;
+                state.blvList = state.blvList.filter(b => b.Guid !== action.meta.arg);
+            })
+            .addCase(deleteBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
     },
 });
 

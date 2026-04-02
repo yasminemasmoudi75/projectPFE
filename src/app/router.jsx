@@ -17,10 +17,13 @@ const DevisDetail = lazy(() => import('../modules/sales/DevisDetail'));
 const DevisForm = lazy(() => import('../modules/sales/DevisForm'));
 const BcvList = lazy(() => import('../modules/sales/BcvList'));
 const BcvDetail = lazy(() => import('../modules/sales/BcvDetail'));
+const BcvForm = lazy(() => import('../modules/sales/BcvForm'));
 const BlvList = lazy(() => import('../modules/sales/BlvList'));
 const BlvDetail = lazy(() => import('../modules/sales/BlvDetail'));
+const BlvForm = lazy(() => import('../modules/sales/BlvForm'));
 const FavList = lazy(() => import('../modules/sales/FavList'));
 const FavDetail = lazy(() => import('../modules/sales/FavDetail'));
+const FavForm = lazy(() => import('../modules/sales/FavForm'));
 const ProjetsList = lazy(() => import('../modules/crm/ProjetsList'));
 const ProjetDetail = lazy(() => import('../modules/crm/ProjetDetail'));
 const ProjetForm = lazy(() => import('../modules/crm/ProjetForm'));
@@ -182,6 +185,22 @@ const routes = [
             ),
           },
           {
+            path: 'new',
+            element: (
+              <SuspenseWrapper>
+                <BcvForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'edit/:id',
+            element: (
+              <SuspenseWrapper>
+                <BcvForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
             path: ':id',
             element: (
               <SuspenseWrapper>
@@ -203,6 +222,22 @@ const routes = [
             ),
           },
           {
+            path: 'new',
+            element: (
+              <SuspenseWrapper>
+                <BlvForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'edit/:id',
+            element: (
+              <SuspenseWrapper>
+                <BlvForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
             path: ':id',
             element: (
               <SuspenseWrapper>
@@ -220,6 +255,22 @@ const routes = [
             element: (
               <SuspenseWrapper>
                 <FavList />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'new',
+            element: (
+              <SuspenseWrapper>
+                <FavForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'edit/:id',
+            element: (
+              <SuspenseWrapper>
+                <FavForm />
               </SuspenseWrapper>
             ),
           },

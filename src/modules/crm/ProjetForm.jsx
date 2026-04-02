@@ -9,7 +9,6 @@ import {
     CalendarIcon,
     CurrencyDollarIcon,
     ChartBarIcon,
-    FlagIcon,
     SparklesIcon,
     DocumentTextIcon
 } from '@heroicons/react/24/outline';
@@ -132,47 +131,58 @@ const ProjetForm = () => {
     if (loading || (isEdit && reduxLoading)) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in min-h-screen pb-16">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div className="flex items-center gap-5">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200/50 text-slate-500 hover:text-blue-600 hover:border-blue-200 rounded-2xl transition-all shadow-soft flex items-center justify-center"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
-                    </button>
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="badge badge-primary">
-                                <SparklesIcon className="h-3 w-3 mr-1" />
-                                Gestion Projets
-                            </span>
+        <div className="animate-fade-in min-h-screen pb-16 space-y-8">
+            <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/70 p-6 md:p-8 shadow-xl shadow-slate-200/40">
+                <div className="absolute -top-10 -right-8 h-36 w-36 rounded-full bg-blue-200/30 blur-2xl" />
+                <div className="absolute -bottom-10 left-10 h-28 w-28 rounded-full bg-indigo-200/30 blur-2xl" />
+
+                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200/50 text-slate-500 hover:text-blue-600 hover:border-blue-200 rounded-2xl transition-all shadow-soft flex items-center justify-center"
+                        >
+                            <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
+                        </button>
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="badge badge-primary">
+                                    <SparklesIcon className="h-3 w-3 mr-1" />
+                                    Gestion Projets
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest">
+                                    {isEdit ? 'Mode Edition' : 'Nouveau'}
+                                </span>
+                            </div>
+                            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                                {isEdit ? 'Modifier le Projet' : 'Nouvelle Initiative'}
+                            </h1>
+                            <p className="text-sm text-slate-500 font-medium mt-1">
+                                Renseignez les informations du projet pour un suivi optimal.
+                            </p>
                         </div>
-                        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-                            {isEdit ? 'Modifier le Projet' : 'Nouvelle Initiative'}
-                        </h1>
                     </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <button type="button" onClick={() => navigate('/projets')} className="btn-outline">Annuler</button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={saving}
-                        className="btn-soft-primary flex items-center gap-2"
-                    >
-                        {saving ? (
-                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        ) : (
-                            <CheckIcon className="h-4 w-4 stroke-[2.5]" />
-                        )}
-                        <span>{isEdit ? 'Enregistrer' : 'Lancer le Projet'}</span>
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button type="button" onClick={() => navigate('/projets')} className="btn-outline">Annuler</button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={saving}
+                            className="btn-soft-primary flex items-center gap-2"
+                        >
+                            {saving ? (
+                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <CheckIcon className="h-4 w-4 stroke-[2.5]" />
+                            )}
+                            <span>{isEdit ? 'Enregistrer' : 'Lancer le Projet'}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 space-y-8">
-                    <div className="card-luxury p-0 overflow-hidden">
+                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
                         <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-4">
                             <div className="icon-shape icon-shape-sm shadow-glow-primary">
                                 <BriefcaseIcon className="h-4 w-4 text-white" />
@@ -230,7 +240,7 @@ const ProjetForm = () => {
                         </div>
                     </div>
 
-                    <div className="card-luxury p-0 overflow-hidden">
+                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
                         <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-50/80 to-transparent flex items-center gap-4">
                             <div className="icon-shape icon-shape-sm shadow-glow-blue" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)' }}>
                                 <ChartBarIcon className="h-4 w-4 text-white" />
@@ -297,8 +307,8 @@ const ProjetForm = () => {
                     </div>
                 </div>
 
-                <div className="lg:col-span-4 space-y-8">
-                    <div className="card-luxury p-0 overflow-hidden">
+                <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-6 self-start">
+                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
                         <div className="px-6 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-3">
                             <div className="icon-shape icon-shape-sm bg-slate-800">
                                 <DocumentTextIcon className="h-4 w-4 text-white" />
@@ -315,22 +325,6 @@ const ProjetForm = () => {
                                 placeholder="Instructions internes, détails techniques..."
                             ></textarea>
                         </div>
-                    </div>
-
-                    <div className="card-glass p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <FlagIcon className="h-4 w-4 text-rose-500" />
-                                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Risques</h4>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="Alerte_IA_Risque" checked={formData.Alerte_IA_Risque} onChange={handleChange} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
-                            </label>
-                        </div>
-                        <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                            Cochez cette case si vous estimez que le projet présente des risques majeurs. L'IA surveillera les indicateurs de performance.
-                        </p>
                     </div>
                 </div>
             </form>

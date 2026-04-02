@@ -1,132 +1,231 @@
 import { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    ArrowLeftIcon,
-    TruckIcon,
-    UserIcon,
-    BuildingStorefrontIcon,
-    DocumentTextIcon,
-    MapPinIcon,
-} from '@heroicons/react/24/outline';
+import { useDispatch, useSelector } from 'react-redux';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { fetchBlvById, clearCurrentBlv } from './blvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
-import clsx from 'clsx';
-
-const InfoRow = ({ label, value }) =>
-    value ? (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-            <span className="text-sm font-semibold text-slate-700">{value}</span>
-        </div>
-    ) : null;
 
 const BlvDetail = () => {
-    const { id } = useParams();
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const { currentBlv: blv, loading } = useSelector((s) => s.blv);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { currentBlv: blv, loading, error } = useSelector((state) => state.blv);
 
-    useEffect(() => {
-        if (id) dispatch(fetchBlvById(id));
-        return () => dispatch(clearCurrentBlv());
-    }, [dispatch, id]);
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchBlvById(id));
+    }
+    return () => {
+      dispatch(clearCurrentBlv());
+    };
+  }, [dispatch, id]);
 
-    if (loading) return <LoadingSpinner />;
-    if (!blv) return (
-        <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-                <TruckIcon className="h-8 w-8" />
+  if (loading) return <LoadingSpinner />;
+  if (error) return <div className="text-center text-red-600 p-8">Erreur: {error}</div>;
+  if (!blv) return <div className="text-center text-gray-500 p-8">Bon de livraison non trouvé</div>;
+
+  const details = blv.details || [];
+
+  return (
+    <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-20 pt-10 px-4 font-sans">
+      {/* Action Buttons (Simple - Print Hidden) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+        <button
+          onClick={() => navigate('/blv')}
+          className="flex items-center text-slate-500 hover:text-blue-600 transition-colors font-semibold text-xs py-2"
+        >
+          <ArrowLeftIcon className="h-4 w-4 mr-2" />
+          Retour à la liste
+        </button>
+      </div>
+
+      {/* CLEAN DOCUMENT VIEW */}
+      <div className="bg-white rounded-lg border border-slate-100 p-12 shadow-sm min-h-[1000px] text-slate-700 print:shadow-none print:border-none print:p-0">
+        {/* Header Section */}
+        <div className="flex justify-between items-start mb-16">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">AMS-LABO</h1>
+            <div className="text-[11px] text-slate-500 font-medium leading-relaxed uppercase tracking-wider space-y-0.5">
+              <p>RUE TAHER KAMMOUN</p>
+              <p>3000 SFAX — TUNISIE</p>
+              <p className="pt-2">
+                Tel: <span className="text-slate-700">74 407 194</span>
+              </p>
+              <p>
+                Email: <span className="text-slate-700 lowercase">contact@amslabo.com</span>
+              </p>
             </div>
-            <p className="text-slate-500 font-medium">Bon de livraison introuvable.</p>
-            <button onClick={() => navigate('/blv')} className="btn-soft-primary">
-                <ArrowLeftIcon className="h-4 w-4" /> Retour à la liste
-            </button>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-bold text-slate-800 tracking-wider uppercase border-b border-slate-100 pb-1">
+              NEXUS
+            </h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1 italic">
+              Innovation
+            </p>
+          </div>
         </div>
-    );
 
-    const details = blv.details || [];
-
-    return (
-        <div className="animate-fade-in space-y-8 pb-12">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/blv')} className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all shadow-soft">
-                        <ArrowLeftIcon className="h-5 w-5" />
-                    </button>
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="badge badge-primary">
-                                <TruckIcon className="h-3 w-3 mr-1" />
-                                Bon de Livraison
-                            </span>
-                            <span className={clsx('inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider', blv.Valid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{blv.Valid ? '✓ Validé' : '⏳ En cours'}</span>
-                        </div>
-                        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight font-mono">BL {blv.Prfx || ''}{blv.Nf}</h1>
-                        <p className="text-sm font-medium text-slate-500 mt-0.5">Créé le {formatDate(blv.DatUser)}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="card-luxury p-6 space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="icon-shape-sm bg-gradient-blue shadow-glow-blue"><UserIcon className="h-4 w-4 text-white" /></div>
-                        <h3 className="text-sm font-bold text-slate-700">Client</h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <InfoRow label="Raison sociale" value={blv.LibTiers} />
-                        <InfoRow label="Code tiers" value={blv.CodTiers} />
-                        <InfoRow label="Adresse" value={blv.Adresse} />
-                    </div>
-                </div>
-                <div className="card-luxury p-6 space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="icon-shape-sm bg-gradient-success shadow-glow-emerald"><BuildingStorefrontIcon className="h-4 w-4 text-white" /></div>
-                        <h3 className="text-sm font-bold text-slate-700">Commercial</h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <InfoRow label="Magasin" value={blv.CodMag} />
-                        <InfoRow label="Représentant" value={blv.CodRepres} />
-                    </div>
-                </div>
-            </div>
-
-            <div className="card-luxury p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50/30 border-b border-slate-100/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th className="px-5 py-3">Code Art.</th>
-                                <th className="px-5 py-3">Désignation</th>
-                                <th className="px-5 py-3 text-right">Qté</th>
-                                <th className="px-5 py-3 text-right">PU HT</th>
-                                <th className="px-5 py-3 text-right">Total HT</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100/50">
-                            {details.map((d, i) => (
-                                <tr key={i} className="hover:bg-blue-50/20 transition-all">
-                                    <td className="px-5 py-4 text-xs font-bold text-blue-600 font-mono">{d.CodArt}</td>
-                                    <td className="px-5 py-4 text-sm font-semibold text-slate-800">{d.LibArt}</td>
-                                    <td className="px-5 py-4 text-sm font-bold text-slate-800 text-right">{d.Qt}</td>
-                                    <td className="px-5 py-4 text-sm text-slate-700 text-right">{formatCurrency(d.PuHT)}</td>
-                                    <td className="px-5 py-4 text-sm font-extrabold text-blue-700 text-right">{formatCurrency(d.MntHT)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr className="bg-blue-50/30 font-extrabold text-slate-800 border-t-2 border-blue-100">
-                                <td colSpan="4" className="px-5 py-3 text-right">TOTAL TTC</td>
-                                <td className="px-5 py-3 text-right text-blue-700">{formatCurrency(blv.TotTTC)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
+        {/* Big Centered Title */}
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-[0.3em] py-4 border-y border-slate-100">
+            Bon de Livraison
+          </h2>
         </div>
-    );
+
+        {/* Ref & Client Information */}
+        <div className="grid grid-cols-2 gap-20 mb-16">
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Détails Document
+              </p>
+              <div className="space-y-1 text-sm">
+                <p className="font-bold text-slate-800">
+                  Réf:{' '}
+                  <span className="text-blue-600 tracking-tight">
+                    {blv.Prfx}
+                    {blv.Nf}
+                  </span>
+                </p>
+                <p>
+                  Émis le: <span className="font-semibold">{formatDate(blv.DatUser)}</span>
+                </p>
+                <p>
+                  État:{' '}
+                  <span
+                    className={`font-semibold ${
+                      blv.Valid ? 'text-emerald-600' : 'text-amber-600'
+                    }`}
+                  >
+                    {blv.Valid ? 'Validé' : 'Brouillon'}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+              Destinataire
+            </p>
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-slate-900">{blv.LibTiers}</h3>
+              <div className="text-sm text-slate-500 leading-relaxed">
+                <p>{blv.Adresse}</p>
+                <p className="font-semibold text-slate-700">{blv.Ville}</p>
+              </div>
+              {blv.Cin && (
+                <p className="text-[10px] font-mono text-slate-400 mt-2 italic">
+                  ID: {blv.Cin}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Simple Articles Table */}
+        <div className="mb-16">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-32">
+                  Article
+                </th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  Désignation
+                </th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">
+                  P.U HT
+                </th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-24">
+                  Qté
+                </th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-40">
+                  Total HT
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {details.map((item, idx) => {
+                const lineTotal =
+                  Number.isFinite(Number(item.MntHT)) ? Number(item.MntHT) : (Number(item.Qt) || 0) * (Number(item.PuHT) || 0);
+
+                return (
+                  <tr key={idx} className="group">
+                    <td className="py-5 font-mono text-[11px] text-slate-400 italic">#{item.CodArt}</td>
+                    <td className="py-5">
+                      <p className="text-sm font-bold text-slate-800 leading-none mb-1">{item.LibArt}</p>
+                      <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg">{item.ExLibArt || '-'}</p>
+                    </td>
+                    <td className="py-5 text-sm font-medium text-slate-600 text-right tabular-nums">
+                      {formatCurrency(item.PuHT || 0).replace(' TND', '')}
+                    </td>
+                    <td className="py-5 text-sm font-bold text-slate-800 text-center tabular-nums">{item.Qt}</td>
+                    <td className="py-5 text-sm font-bold text-slate-900 text-right tabular-nums">
+                      {formatCurrency(lineTotal || 0).replace(' TND', '')}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {(!details || details.length === 0) && (
+            <div className="py-12 text-center text-slate-300 italic text-sm">
+              Aucun article présent.
+            </div>
+          )}
+        </div>
+
+        {/* Clean Financial Section */}
+        <div className="flex justify-end pt-8">
+          <div className="w-80 space-y-3">
+            <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+              <span className="font-semibold text-slate-400 uppercase tracking-widest">
+                Total Hors Taxe
+              </span>
+              <span className="font-bold text-slate-700 tabular-nums">
+                {formatCurrency(blv.TotHT || 0)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+              <span className="font-semibold text-slate-400 uppercase tracking-widest">
+                TVA (19%)
+              </span>
+              <span className="font-bold text-slate-700 tabular-nums">
+                {formatCurrency(blv.TotTva || 0)}
+              </span>
+            </div>
+            {blv.TotRem > 0 && (
+              <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50 text-rose-600">
+                <span className="font-semibold uppercase tracking-widest">Remise</span>
+                <span className="font-bold tabular-nums">
+                  -{formatCurrency(blv.TotRem || 0)}
+                </span>
+              </div>
+            )}
+            <div className="pt-6 mt-4 border-t-2 border-slate-100">
+              <div className="flex justify-between items-end">
+                <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">
+                  Total Net TTC
+                </span>
+                <div className="text-right">
+                  <span className="text-4xl font-black text-blue-600 tabular-nums">
+                    {formatCurrency(blv.TotTTC || 0).replace(' TND', '')}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 ml-2">TND</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page End Design */}
+        <div className="mt-32 border-t border-slate-50" />
+      </div>
+    </div>
+  );
 };
 
 export default BlvDetail;

@@ -130,7 +130,7 @@ const ProjetDetail = () => {
   if (!projet) return <div>Projet non trouvé</div>;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-6 pb-10">
       <button
         onClick={() => {
           const fromClientId = location.state?.fromClientId;
@@ -140,47 +140,45 @@ const ProjetDetail = () => {
             navigate('/projets');
           }
         }}
-        className="flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+        className="inline-flex items-center text-slate-500 hover:text-blue-600 transition-colors font-semibold"
       >
         <ArrowLeftIcon className="h-5 w-5 mr-1" />
         Retour
       </button>
 
-      {/* Header Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-        <div className="flex flex-col md:flex-row justify-between gap-6">
+      {/* Hero Card */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-blue-50/60 to-indigo-50/70 p-8 shadow-xl shadow-slate-200/40">
+        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-blue-200/30 blur-2xl" />
+        <div className="absolute -bottom-12 left-10 h-36 w-36 rounded-full bg-indigo-200/30 blur-2xl" />
+
+        <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-6">
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${projet.Phase === 'Clôture' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+            <div className="flex items-center flex-wrap gap-2">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${projet.Phase === 'Clôture' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                 {projet.Phase || 'Nouveau'}
               </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${projet.Priorite === 'Haute' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${projet.Priorite === 'Haute' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
                 {projet.Priorite || 'Normale'}
               </span>
+              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700">
+                {projet.Avancement || 0}% Avancement
+              </span>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-800">{projet.Nom_Projet}</h1>
-            <p className="text-gray-500 flex items-center gap-2">
-              <BriefcaseIcon className="h-5 w-5" />
-              Client: <span className="font-semibold text-slate-800">{projet.client?.Raisoc || 'N/A'}</span>
+
+            <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
+              {projet.Nom_Projet}
+            </h1>
+
+            <p className="text-slate-500 flex items-center gap-2 font-medium">
+              <BriefcaseIcon className="h-5 w-5 text-blue-500" />
+              Client: <span className="font-bold text-slate-800">{projet.client?.Raisoc || 'N/A'}</span>
             </p>
           </div>
-          <div className="flex flex-col items-center md:items-end gap-2">
-            <div className="relative h-24 w-24">
-              <svg className="h-full w-full rotate-[-90deg]" viewBox="0 0 36 36">
-                <path className="stroke-gray-100 stroke-[3]" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <path className="stroke-[3] transition-all duration-1000" fill="none"
-                  stroke={getProgressColor(projet.Avancement || 0)}
-                  strokeDasharray={`${projet.Avancement || 0}, 100`}
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <text x="18" y="20.35" className="text-[10px] font-black fill-slate-800 rotate-90 origin-center" textAnchor="middle" transform="rotate(90 18 18)">{projet.Avancement || 0}%</text>
-              </svg>
-            </div>
-            <span className="text-sm font-medium text-gray-500">Avancement Global</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
             <button
               onClick={() => navigate(`/projets/edit/${id}`)}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-blue-600 transition-all flex items-center gap-2 font-bold text-sm"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 font-bold text-sm"
             >
               <PencilSquareIcon className="h-4 w-4" />
               Modifier
@@ -194,18 +192,33 @@ const ProjetDetail = () => {
             </button>
           </div>
         </div>
+
+        <div className="relative mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget Alloué</p>
+            <p className="text-lg font-extrabold text-slate-900">{formatCurrency(projet.budget || 0)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Échéance</p>
+            <p className="text-lg font-extrabold text-slate-900">{formatDate(projet.deadline || projet.Date_Echeance)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phase Active</p>
+            <p className="text-lg font-extrabold text-slate-900">{projet.phase || projet.Phase || 'N/A'}</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main info */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Description du Projet</h2>
-            <p className="text-gray-600 leading-relaxed">{projet.Note_Privee || 'Aucune description disponible.'}</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-lg font-extrabold text-slate-800 mb-4">Description du Projet</h2>
+            <p className="text-slate-600 leading-relaxed">{projet.Note_Privee || 'Aucune description disponible.'}</p>
           </div>
 
           <div 
-            className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+            className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6"
             style={{
               '--tw-prose-body': 'rgb(30, 41, 59)'
             }}
@@ -222,7 +235,7 @@ const ProjetDetail = () => {
                 font-weight: 600;
               }
             `}</style>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <div className="h-9 w-9 rounded-xl bg-gradient-blue flex items-center justify-center text-white shadow-glow-blue">
                   <ChatBubbleLeftEllipsisIcon className="h-4 w-4" />
@@ -244,7 +257,7 @@ const ProjetDetail = () => {
                     },
                   })
                 }
-                className="btn-soft-primary text-xs px-4 py-2"
+                className="btn-soft-primary text-xs px-4 py-2 rounded-xl"
               >
                 Ajouter une activité
               </button>
@@ -301,7 +314,7 @@ const ProjetDetail = () => {
                   return (
                     <div
                       key={activite.ID_Activite}
-                      className="border border-slate-100 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 hover:border-blue-200 hover:bg-slate-50/60 transition-colors"
+                      className="border border-slate-100 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -384,7 +397,7 @@ const ProjetDetail = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
               <FlagIcon className="h-5 w-5 text-primary-600" />
               Étapes Clés (Milestones)
@@ -413,7 +426,7 @@ const ProjetDetail = () => {
 
         {/* Sidebar Info */}
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
             <h2 className="text-lg font-bold text-slate-800 mb-2">Finance & Temps</h2>
 
             <div className="flex items-start gap-4">
