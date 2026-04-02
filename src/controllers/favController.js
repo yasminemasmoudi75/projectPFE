@@ -1,5 +1,68 @@
-const { FavMaster, FavDetail, Tiers } = require('../models');
+const { FavMaster, FavDetail, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { randomUUID } = require('crypto');
+
+/**
+ * Helper function to parse dates for SQL Server through Sequelize
+ */
+const parseDateValue = (dateValue) => {
+    if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
+        return null;
+    }
+
+    try {
+        let date;
+        if (dateValue instanceof Date) {
+            date = dateValue;
+        } else {
+            const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
+            date = new Date(cleaned);
+        }
+
+        if (isNaN(date.getTime())) return null;
+        return date;
+    } catch (e) {
+        return null;
+    }
+};
+
+/**
+ * Helper function to sanitize fav master data
+ */
+const sanitizeMasterData = (masterData) => {
+    const sanitized = { ...masterData };
+    delete sanitized.NetHT;
+    delete sanitized.DatUser;
+    delete sanitized.DatCreateUser;
+
+    const dateFields = ['MDate', 'DatLiv'];
+    dateFields.forEach(field => {
+        const val = sanitized[field];
+        if (!val || val === '' || val === 'null' || val === null) {
+            sanitized[field] = null;
+        } else {
+            const parsed = parseDateValue(val);
+            sanitized[field] = parsed || null;
+        }
+    });
+
+    const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem', 'Timbre'];
+    numericFields.forEach(field => {
+        if (sanitized.hasOwnProperty(field)) {
+            const num = parseFloat(sanitized[field]);
+            sanitized[field] = isNaN(num) ? 0 : num;
+        }
+    });
+
+    const booleanFields = ['Valid', 'bTransf', 'bLivr'];
+    booleanFields.forEach(field => {
+        if (sanitized.hasOwnProperty(field)) {
+            sanitized[field] = !!sanitized[field];
+        }
+    });
+
+    return sanitized;
+};
 
 /**
  * Récupérer toutes les factures (master)
@@ -64,6 +127,136 @@ exports.getFavById = async (req, res, next) => {
         return res.status(200).json({ status: 'success', data: fav });
     } catch (error) {
         console.error('❌ Error getFavById:', error);
+        next(error);
+    }
+};
+
+/**
+ * Créer une nouvelle facture
+ */
+exports.createFav = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { master, details } = req.body;
+
+        if (!master) {
+            return res.status(400).json({ status: 'error', message: 'Master data is required' });
+        }
+
+        if (!master.Nf) {
+            const lastFav = await FavMaster.findOne({
+                order: [['Nf', 'DESC']],
+                transaction
+            });
+            master.Nf = (lastFav?.Nf || 0) + 1;
+        }
+
+        const masterData = sanitizeMasterData(master);
+        masterData.DatCreateUser = sequelize.literal('GETDATE()');
+        masterData.DatUser = sequelize.literal('GETDATE()');
+        masterData.Guid = randomUUID();
+
+        const newFav = await FavMaster.create(masterData, { transaction });
+
+        if (details && Array.isArray(details) && details.length > 0) {
+            const detailsWithNf = details.map((d) => ({
+                ...d,
+                NF: newFav.Nf,
+                ID: 'FA',
+                Guid: randomUUID()
+            }));
+            await FavDetail.bulkCreate(detailsWithNf, { transaction });
+        }
+
+        await transaction.commit();
+
+        const result = await FavMaster.findOne({
+            where: { Guid: newFav.Guid },
+            include: [{ model: FavDetail, as: 'details' }]
+        });
+
+        res.status(201).json({ status: 'success', data: result });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error createFav:', error);
+        next(error);
+    }
+};
+
+/**
+ * Mettre à jour une facture
+ */
+exports.updateFav = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+        const { master, details } = req.body;
+
+        const fav = await FavMaster.findOne({ where: { Guid: id }, transaction });
+        if (!fav) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
+        }
+
+        const masterData = sanitizeMasterData(master);
+        masterData.MDate = sequelize.literal('GETDATE()');
+
+        await fav.update(masterData, { transaction });
+
+        if (details && Array.isArray(details)) {
+            await FavDetail.destroy({ where: { NF: fav.Nf }, transaction });
+            if (details.length > 0) {
+                const detailsWithNf = details.map((d) => ({
+                    ...d,
+                    NF: fav.Nf,
+                    ID: 'FA',
+                    Guid: randomUUID()
+                }));
+                await FavDetail.bulkCreate(detailsWithNf, { transaction });
+            }
+        }
+
+        await transaction.commit();
+
+        const result = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: FavDetail, as: 'details' }]
+        });
+
+        res.status(200).json({ status: 'success', data: result });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error updateFav:', error);
+        next(error);
+    }
+};
+
+/**
+ * Supprimer une facture
+ */
+exports.deleteFav = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+        const fav = await FavMaster.findOne({ where: { Guid: id }, transaction });
+
+        if (!fav) {
+            await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
+        }
+
+        await FavDetail.destroy({ where: { NF: fav.Nf }, transaction });
+        await fav.destroy({ transaction });
+
+        await transaction.commit();
+
+        res.status(200).json({ status: 'success', message: 'Facture supprimée avec succès' });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error deleteFav:', error);
         next(error);
     }
 };

@@ -4,6 +4,75 @@ const PDFService = require('../services/pdfService');
 const { randomUUID } = require('crypto');
 
 /**
+ * Helper function to parse dates for SQL Server through Sequelize
+ */
+const parseDateValue = (dateValue) => {
+    if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
+        return null;
+    }
+
+    try {
+        let date;
+        if (dateValue instanceof Date) {
+            date = dateValue;
+        } else {
+            const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
+            date = new Date(cleaned);
+        }
+
+        if (isNaN(date.getTime())) return null;
+        return date;
+    } catch (e) {
+        return null;
+    }
+};
+
+/**
+ * Helper function to sanitize bcv master data
+ */
+const sanitizeMasterData = (masterData) => {
+    const sanitized = { ...masterData };
+
+    // Remove computed columns if any
+    delete sanitized.NetHT;
+
+    // Do not send audit dates through Sequelize for TabBcvm to avoid timezone issues with legacy DATETIME.
+    delete sanitized.DatUser;
+    delete sanitized.DatCreateUser;
+
+    // Parse and validate all date fields
+    const dateFields = ['MDate', 'DatLiv', 'DatImp'];
+    dateFields.forEach(field => {
+        const val = sanitized[field];
+        if (!val || val === '' || val === 'null' || val === null) {
+            sanitized[field] = null;
+        } else {
+            const parsed = parseDateValue(val);
+            sanitized[field] = parsed || null;
+        }
+    });
+
+    // Ensure numeric fields are valid
+    const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem', 'Frais', 'Timbre', 'avanceforf'];
+    numericFields.forEach(field => {
+        if (sanitized.hasOwnProperty(field)) {
+            const num = parseFloat(sanitized[field]);
+            sanitized[field] = isNaN(num) ? 0 : num;
+        }
+    });
+
+    // Ensure boolean fields are valid
+    const booleanFields = ['Valid', 'bTransf', 'bLivr', 'IsConverted'];
+    booleanFields.forEach(field => {
+        if (sanitized.hasOwnProperty(field)) {
+            sanitized[field] = !!sanitized[field];
+        }
+    });
+
+    return sanitized;
+};
+
+/**
  * Récupérer tous les bons de commande (master)
  * Ne consulte que TabBcvm — les devis convertis créent de vrais enregistrements BcvMaster
  */
@@ -229,6 +298,157 @@ exports.transferBcv = async (req, res, next) => {
     } catch (error) {
         if (t) await t.rollback();
         console.error('❌ Error transferBcv:', error);
+        next(error);
+    }
+};
+
+/**
+ * Créer un nouveau bon de commande
+ */
+exports.createBcv = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { master, details } = req.body;
+
+        if (!master) {
+            return res.status(400).json({ status: 'error', message: 'Master data is required' });
+        }
+
+        // 1. Déterminer le prochain numéro (Nf) si pas fourni
+        if (!master.Nf) {
+            const lastBcv = await BcvMaster.findOne({
+                order: [['Nf', 'DESC']],
+                transaction
+            });
+            master.Nf = (lastBcv?.Nf || 0) + 1;
+        }
+
+        const masterData = sanitizeMasterData(master);
+        masterData.DatCreateUser = sequelize.literal('GETDATE()');
+        masterData.DatUser = sequelize.literal('GETDATE()');
+        masterData.Guid = randomUUID();
+
+        // 2. Créer le master
+        const newBcv = await BcvMaster.create(masterData, { transaction });
+
+        // 3. Créer les détails
+        if (details && Array.isArray(details) && details.length > 0) {
+            const detailsWithNf = details.map((d) => {
+                const detail = { ...d };
+                delete detail.Guid;
+                delete detail.NoDetail;
+                return {
+                    ...detail,
+                    NF: newBcv.Nf,
+                    ID: newBcv.Nf,
+                    Guid: randomUUID()
+                };
+            });
+            await BcvDetail.bulkCreate(detailsWithNf, { transaction });
+        }
+
+        await transaction.commit();
+
+        const result = await BcvMaster.findOne({
+            where: { Guid: newBcv.Guid },
+            include: [{ model: BcvDetail, as: 'details' }]
+        });
+
+        res.status(201).json({
+            status: 'success',
+            message: 'Bon de commande créé avec succès',
+            data: result
+        });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error createBcv:', error);
+        next(error);
+    }
+};
+
+/**
+ * Mettre à jour un bon de commande
+ */
+exports.updateBcv = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+        const { master, details } = req.body;
+
+        if (!master) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Master data is required' });
+        }
+
+        const bcv = await BcvMaster.findOne({ where: { Guid: id }, transaction });
+        if (!bcv) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
+        }
+
+        const masterData = sanitizeMasterData(master);
+        masterData.MDate = sequelize.literal('GETDATE()');
+
+        await bcv.update(masterData, { transaction });
+
+        if (details && Array.isArray(details)) {
+            await BcvDetail.destroy({ where: { NF: bcv.Nf }, transaction });
+            if (details.length > 0) {
+                const detailsWithNf = details.map((d) => ({
+                    ...d,
+                    NF: bcv.Nf,
+                    ID: bcv.Nf,
+                    Guid: randomUUID()
+                }));
+                await BcvDetail.bulkCreate(detailsWithNf, { transaction });
+            }
+        }
+
+        await transaction.commit();
+
+        const result = await BcvMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: BcvDetail, as: 'details' }]
+        });
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Bon de commande mis à jour avec succès',
+            data: result
+        });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error updateBcv:', error);
+        next(error);
+    }
+};
+
+/**
+ * Supprimer un bon de commande
+ */
+exports.deleteBcv = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+        const bcv = await BcvMaster.findOne({ where: { Guid: id }, transaction });
+
+        if (!bcv) {
+            await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
+        }
+
+        await BcvDetail.destroy({ where: { NF: bcv.Nf }, transaction });
+        await bcv.destroy({ transaction });
+
+        await transaction.commit();
+
+        res.status(200).json({ status: 'success', message: 'Bon de commande supprimé avec succès' });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error deleteBcv:', error);
         next(error);
     }
 };

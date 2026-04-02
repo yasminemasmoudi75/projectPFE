@@ -8,5 +8,8 @@ router.use(protect);
 
 router.get('/', checkPermission(MODULES.BCV, 'read'), blvController.getAllBlv);
 router.get('/:id', checkPermission(MODULES.BCV, 'read'), blvController.getBlvById);
+router.post('/', checkPermission(MODULES.BCV, 'create'), blvController.createBlv);
+router.put('/:id', checkPermission(MODULES.BCV, 'update'), blvController.updateBlv);
+router.delete('/:id', checkPermission(MODULES.BCV, 'delete'), blvController.deleteBlv);
 
 module.exports = router;

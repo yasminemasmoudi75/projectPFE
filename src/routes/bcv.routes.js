@@ -12,6 +12,15 @@ router.get('/', checkPermission(MODULES.BCV, 'read'), bcvController.getAllBcv);
 // GET /api/bcv/:id       — détail d'un bon de commande (+ lignes)
 router.get('/:id', checkPermission(MODULES.BCV, 'read'), bcvController.getBcvById);
 
+// POST /api/bcv           — créer un nouveau bon de commande
+router.post('/', checkPermission(MODULES.BCV, 'create'), bcvController.createBcv);
+
+// PUT /api/bcv/:id        — mettre à jour un bon de commande
+router.put('/:id', checkPermission(MODULES.BCV, 'update'), bcvController.updateBcv);
+
+// DELETE /api/bcv/:id     — supprimer un bon de commande
+router.delete('/:id', checkPermission(MODULES.BCV, 'delete'), bcvController.deleteBcv);
+
 // GET /api/bcv/:id/pdf   — générer le PDF du bon de commande
 router.get('/:id/pdf', checkPermission(MODULES.BCV, 'read'), bcvController.generateBcvPDF);
 
