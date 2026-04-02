@@ -22,7 +22,8 @@ import {
     BuildingOfficeIcon,
     UserGroupIcon,
     ArrowUpRightIcon,
-    ChevronDownIcon
+    ChevronDownIcon,
+    BanknotesIcon
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
@@ -346,6 +347,13 @@ const ClientDetail = () => {
                     >
                         <PencilIcon className="h-4 w-4 inline mr-2" />
                         Éditer Fiche
+                    </button>
+                    <button
+                        onClick={() => navigate(`/clients/${id}/reglements`)}
+                        className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-xs font-bold uppercase tracking-wider hover:border-emerald-300 hover:text-emerald-600 hover:shadow-soft transition-all duration-300"
+                    >
+                        <BanknotesIcon className="h-4 w-4 inline mr-2" />
+                        Règlements
                     </button>
                     <button
                         onClick={() => navigate('/devis/new')}
