@@ -108,6 +108,16 @@ const Devis = sequelize.define('TabDevm', {
     allowNull: true,
     field: 'DatCreateUser'
   },
+  MDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'MDate'
+  },
+  DatLiv: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'DatLiv'
+  },
   CUser: {
     type: DataTypes.STRING(50),
     allowNull: true,
@@ -151,6 +161,20 @@ const Devis = sequelize.define('TabDevm', {
       fields: ['Valid']
     }
   ]
+});
+
+// Hooks pour ajouter les dates automatiquement
+Devis.beforeCreate((devis) => {
+  const now = new Date();
+  // Envoyer les dates sans timezone pour SQL Server DATETIME
+  if (!devis.DatCreateUser) devis.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
+  if (!devis.DatUser) devis.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
+  if (!devis.MDate) devis.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
+});
+
+Devis.beforeUpdate((devis) => {
+  const now = new Date();
+  if (!devis.DatUser) devis.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
 module.exports = Devis;

@@ -103,6 +103,16 @@ const FavMaster = sequelize.define('TabFavm', {
         allowNull: true,
         field: 'DatUser'
     },
+    MDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'MDate'
+    },
+    DatLiv: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'DatLiv'
+    },
     CUser: {
         type: DataTypes.STRING(50),
         allowNull: true,
@@ -143,6 +153,20 @@ const FavMaster = sequelize.define('TabFavm', {
         { fields: ['DatUser'] },
         { fields: ['Valid'] }
     ]
+});
+
+// Hooks pour ajouter les dates automatiquement
+const FavMasterModel = FavMaster;
+FavMasterModel.beforeCreate((fav) => {
+    const now = new Date();
+    // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!fav.DatUser) fav.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
+    if (!fav.MDate) fav.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
+});
+
+FavMasterModel.beforeUpdate((fav) => {
+    const now = new Date();
+    if (!fav.DatUser) fav.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
 module.exports = FavMaster;

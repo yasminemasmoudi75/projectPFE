@@ -1,6 +1,7 @@
 const { BcvMaster, BcvDetail, Tiers, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PDFService = require('../services/pdfService');
+const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
 /**
@@ -243,10 +244,11 @@ exports.transferBcv = async (req, res, next) => {
             CodMag: data.CodMag,
             CodRepres: data.CodRepres,
             CodDev: data.CodDev,
-            DatUser: sequelize.fn('GETDATE'),
             Valid: false,
             bTransf: false,
-            bLivr: targetType === 'BL'
+            bLivr: targetType === 'BL',
+            MDate: sequelize.literal('GETDATE()'),
+            DatUser: sequelize.literal('GETDATE()')
         };
 
         // 3. Créer le Master
@@ -284,6 +286,26 @@ exports.transferBcv = async (req, res, next) => {
         );
 
         await t.commit();
+
+        // ✅ ENREGISTRER LA TRANSFORMATION DANS MvtDocs (DEV → BCV)
+        try {
+          const montants = {
+            codTiers: sourceData.CodTiers,
+            libTiers: sourceData.LibTiers,
+            totalHT: sourceData.TotHT,
+            totalRem: sourceData.TotRem,
+            totalFodec: 0,
+            totalTVA: sourceData.TotTva,
+            totalTTC: sourceData.TotTTC
+          };
+          const targetTypeMap = { 'BL': 'BLV', 'FAC': 'FAV' };
+          const targetTypeDisplay = targetTypeMap[targetType];
+          const userId = req.user?.id || req.user?.UserID;
+          await mouvementService.enregistrerTransformation('BCV', sourceData.Nf, targetTypeDisplay, nextNf, montants, userId);
+          console.log(`✅ Mouvement enregistré: Transformation BCV #${sourceData.Nf} → ${targetTypeDisplay} #${nextNf} par utilisateur ${userId}`);
+        } catch (mouvementError) {
+          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+        }
 
         return res.status(201).json({
             status: 'success',
@@ -327,6 +349,7 @@ exports.createBcv = async (req, res, next) => {
         const masterData = sanitizeMasterData(master);
         masterData.DatCreateUser = sequelize.literal('GETDATE()');
         masterData.DatUser = sequelize.literal('GETDATE()');
+        masterData.MDate = sequelize.literal('GETDATE()');
         masterData.Guid = randomUUID();
 
         // 2. Créer le master
@@ -349,6 +372,24 @@ exports.createBcv = async (req, res, next) => {
         }
 
         await transaction.commit();
+
+        // ✅ ENREGISTRER LA CRÉATION DANS MvtDocs
+        try {
+          const montants = {
+            codTiers: masterData.CodTiers,
+            libTiers: masterData.LibTiers,
+            totalHT: masterData.TotHT,
+            totalRem: masterData.TotRem,
+            totalFodec: masterData.TotFodec || 0,
+            totalTVA: masterData.TotTva,
+            totalTTC: masterData.TotTTC
+          };
+          const userId = req.user?.id || req.user?.UserID;
+          await mouvementService.enregistrerCreation('BCV', newBcv.Nf, montants, userId);
+          console.log(`✅ Mouvement enregistré: Création BCV #${newBcv.Nf} par utilisateur ${userId}`);
+        } catch (mouvementError) {
+          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+        }
 
         const result = await BcvMaster.findOne({
             where: { Guid: newBcv.Guid },
@@ -390,6 +431,7 @@ exports.updateBcv = async (req, res, next) => {
 
         const masterData = sanitizeMasterData(master);
         masterData.MDate = sequelize.literal('GETDATE()');
+        masterData.DatUser = sequelize.literal('GETDATE()');
 
         await bcv.update(masterData, { transaction });
 

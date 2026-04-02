@@ -1,6 +1,7 @@
 const { DevisMaster, DevisDetail, BcvMaster, BcvDetail, Tiers, Product, TabSociete, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PDFService = require('../services/pdfService');
+const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
 const RECENT_DEVIS_ORDER = [
@@ -207,10 +208,14 @@ exports.createDevis = async (req, res, next) => {
 
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
+
+    // 2. Ajouter les dates avec GETDATE() SQL (bypass Sequelize timezone)
     masterData.DatCreateUser = sequelize.literal('GETDATE()');
     masterData.DatUser = sequelize.literal('GETDATE()');
+    masterData.MDate = sequelize.literal('GETDATE()');
+    masterData.Guid = randomUUID();
 
-    // 2. Créer le master
+    // Créer le master
     const newDevis = await DevisMaster.create(masterData, { transaction });
 
     // 3. Créer les détails
@@ -231,6 +236,24 @@ exports.createDevis = async (req, res, next) => {
     }
 
     await transaction.commit();
+
+    // ✅ ENREGISTRER LA CRÉATION DANS MvtDocs
+    try {
+      const montants = {
+        codTiers: masterData.CodTiers,
+        libTiers: masterData.LibTiers,
+        totalHT: masterData.TotHT,
+        totalRem: masterData.TotRem,
+        totalFodec: masterData.TotFodec,
+        totalTVA: masterData.TotTva,
+        totalTTC: masterData.TotTTC
+      };
+      const userId = req.user?.id || req.user?.UserID;
+      await mouvementService.enregistrerCreation('DEV', newDevis.Nf, montants, userId);
+      console.log(`✅ Mouvement enregistré: Création Devis #${newDevis.Nf} par utilisateur ${userId}`);
+    } catch (mouvementError) {
+      console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+    }
 
     const result = await DevisMaster.findByPk(newDevis.Guid, {
       include: [{ model: DevisDetail, as: 'details' }]
@@ -289,6 +312,8 @@ exports.updateDevis = async (req, res, next) => {
 
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
+
+    // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
     masterData.DatUser = sequelize.literal('GETDATE()');
 
     // 1. Mettre à jour le master
@@ -345,8 +370,9 @@ exports.updateDevis = async (req, res, next) => {
  * Supprimer un devis
  */
 exports.deleteDevis = async (req, res, next) => {
-  const transaction = await sequelize.transaction();
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const { id } = req.params;
     const devis = await DevisMaster.findByPk(id);
 
@@ -452,7 +478,9 @@ exports.convertDevis = async (req, res, next) => {
       CodMag: data.CodMag,
       CodRepres: data.CodRepres,
       CodDev: data.CodDev,
-      DatUser: sequelize.fn('GETDATE'),
+      MDate: sequelize.literal('GETDATE()'),
+      DatCreateUser: sequelize.literal('GETDATE()'),
+      DatUser: sequelize.literal('GETDATE()'),
       Valid: false,
       bTransf: false,
       bLivr: false
@@ -482,6 +510,24 @@ exports.convertDevis = async (req, res, next) => {
     await devis.update({ bTransf: true }, { transaction: t });
 
     await t.commit();
+
+    // ✅ ENREGISTRER LA TRANSFORMATION DANS MvtDocs (DEV → BCV)
+    try {
+      const montants = {
+        codTiers: data.CodTiers,
+        libTiers: data.LibTiers,
+        totalHT: data.TotHT,
+        totalRem: data.TotRem,
+        totalFodec: 0,
+        totalTVA: data.TotTva,
+        totalTTC: data.TotTTC
+      };
+      const userId = req.user?.id || req.user?.UserID;
+      await mouvementService.enregistrerTransformation('DEV', data.Nf, 'BCV', nextNf, montants, userId);
+      console.log(`✅ Mouvement enregistré: Transformation DEV #${data.Nf} → BCV #${nextNf} par utilisateur ${userId}`);
+    } catch (mouvementError) {
+      console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+    }
 
     res.status(200).json({
       status: 'success',

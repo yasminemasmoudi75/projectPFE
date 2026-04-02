@@ -21,6 +21,7 @@ const tiersGouvernoratRoutes = require('./tiersGouvernoratRoutes');
 const tiersCategorieRoutes = require('./tiersCategorieRoutes');
 const blvRoutes = require('./blvRoutes');
 const favRoutes = require('./favRoutes');
+const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -42,6 +43,7 @@ router.use('/tiers-gouvernorats', tiersGouvernoratRoutes);
 router.use('/tiers-categories', tiersCategorieRoutes);
 router.use('/blv', blvRoutes);
 router.use('/fav', favRoutes);
+router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
 
 // Route de base de l'API
 router.get('/', (req, res) => {

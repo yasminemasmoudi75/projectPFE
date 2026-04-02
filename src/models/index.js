@@ -29,6 +29,7 @@ const BlvMaster = require('./BlvMaster');
 const BlvDetail = require('./BlvDetail');
 const FavMaster = require('./FavMaster');
 const FavDetail = require('./FavDetail');
+const Mouvement = require('./Mouvement'); // ✅ Tableau MvtDocs - Mouvements/transformations
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -345,5 +346,6 @@ module.exports = {
   BlvMaster,
   BlvDetail,
   FavMaster,
-  FavDetail
+  FavDetail,
+  Mouvement  // ✅ Table MvtDocs - Mouvements/transformations de documents
 };

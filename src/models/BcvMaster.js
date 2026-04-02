@@ -103,6 +103,16 @@ const BcvMaster = sequelize.define('TabBcvm', {
         allowNull: true,
         field: 'DatUser'
     },
+    MDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'MDate'
+    },
+    DatLiv: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'DatLiv'
+    },
     CUser: {
         type: DataTypes.STRING(50),
         allowNull: true,
@@ -143,6 +153,20 @@ const BcvMaster = sequelize.define('TabBcvm', {
         { fields: ['DatUser'] },
         { fields: ['Valid'] }
     ]
+});
+
+// Hooks pour ajouter les dates automatiquement
+const BcvMasterModel = BcvMaster;
+BcvMasterModel.beforeCreate((bcv) => {
+    const now = new Date();
+    // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!bcv.DatUser) bcv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
+    if (!bcv.MDate) bcv.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
+});
+
+BcvMasterModel.beforeUpdate((bcv) => {
+    const now = new Date();
+    if (!bcv.DatUser) bcv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
 module.exports = BcvMaster;

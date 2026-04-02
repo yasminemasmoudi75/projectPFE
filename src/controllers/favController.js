@@ -1,5 +1,6 @@
 const { FavMaster, FavDetail, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
 /**
@@ -153,10 +154,14 @@ exports.createFav = async (req, res, next) => {
         }
 
         const masterData = sanitizeMasterData(master);
-        masterData.DatCreateUser = sequelize.literal('GETDATE()');
-        masterData.DatUser = sequelize.literal('GETDATE()');
         masterData.Guid = randomUUID();
 
+        // Ajouter les dates avec GETDATE() SQL (bypass Sequelize timezone)
+        masterData.DatCreateUser = sequelize.literal('GETDATE()');
+        masterData.DatUser = sequelize.literal('GETDATE()');
+        masterData.MDate = sequelize.literal('GETDATE()');
+
+        // Créer le master
         const newFav = await FavMaster.create(masterData, { transaction });
 
         if (details && Array.isArray(details) && details.length > 0) {
@@ -170,6 +175,24 @@ exports.createFav = async (req, res, next) => {
         }
 
         await transaction.commit();
+
+        // ✅ ENREGISTRER LA CRÉATION DANS MvtDocs
+        try {
+          const montants = {
+            codTiers: masterData.CodTiers,
+            libTiers: masterData.LibTiers,
+            totalHT: masterData.TotHT,
+            totalRem: masterData.TotRem,
+            totalFodec: masterData.TotFodec || 0,
+            totalTVA: masterData.TotTva,
+            totalTTC: masterData.TotTTC
+          };
+          const userId = req.user?.id || req.user?.UserID;
+          await mouvementService.enregistrerCreation('FAV', newFav.Nf, montants, userId);
+          console.log(`✅ Mouvement enregistré: Création FAV #${newFav.Nf} par utilisateur ${userId}`);
+        } catch (mouvementError) {
+          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+        }
 
         const result = await FavMaster.findOne({
             where: { Guid: newFav.Guid },
@@ -201,8 +224,9 @@ exports.updateFav = async (req, res, next) => {
         }
 
         const masterData = sanitizeMasterData(master);
-        masterData.MDate = sequelize.literal('GETDATE()');
 
+        // Mettre à jour le master avec date
+        masterData.DatUser = sequelize.literal('GETDATE()');
         await fav.update(masterData, { transaction });
 
         if (details && Array.isArray(details)) {
