@@ -1,8 +1,117 @@
 const Reclamation = require('../models/Reclamation');
 const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
-const { User, sequelize } = require('../models');
+const { User, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
+
+const MAX_LENGTHS = {
+    CodTiers: 20,
+    LibTiers: 255,
+    Objet: 500,
+    TypeReclamation: 100,
+    Priorite: 50,
+    Statut: 50,
+    NomTechnicien: 255,
+    CUser: 100,
+};
+
+const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
+
+const truncateString = (value, maxLength) => {
+    if (value === null || value === undefined) return value;
+    const normalized = normalizeString(value);
+    if (typeof normalized !== 'string') return normalized;
+    return normalized.slice(0, maxLength);
+};
+
+const buildReclamationPayload = (body = {}) => ({
+    CodTiers: truncateString(body.CodTiers, MAX_LENGTHS.CodTiers),
+    LibTiers: truncateString(body.LibTiers, MAX_LENGTHS.LibTiers),
+    Objet: truncateString(body.Objet, MAX_LENGTHS.Objet),
+    Description: normalizeString(body.Description),
+    TypeReclamation: truncateString(body.TypeReclamation, MAX_LENGTHS.TypeReclamation),
+    Priorite: truncateString(body.Priorite, MAX_LENGTHS.Priorite),
+    Statut: truncateString(body.Statut, MAX_LENGTHS.Statut),
+    NomTechnicien: truncateString(body.NomTechnicien, MAX_LENGTHS.NomTechnicien),
+    TechnicienID: body.TechnicienID ? Number(body.TechnicienID) : null,
+    Solution: normalizeString(body.Solution),
+});
+
+const fetchInterventionsForReclamation = async (reclamation) => {
+    if (!reclamation) return [];
+
+    const searchCriteria = {
+        DescPanne: reclamation.Objet,
+        Demandeur: reclamation.LibTiers,
+    };
+
+    const interventions = await TabDI.findAll({
+        where: searchCriteria,
+        order: [['DatCreate', 'DESC']],
+    });
+
+    if (!interventions.length) return [];
+
+    const interventionKeys = interventions
+        .map((item) => ({
+            iddi: item.IDDI,
+            numdi: item.NumDI,
+            datdi: item.DatCreate || item.DatDI,
+            descpanne: item.DescPanne,
+            demandeur: item.Demandeur,
+        }))
+        .filter(Boolean);
+
+    const btList = await TabBT.findAll({
+        where: {
+            [Op.or]: interventionKeys.flatMap((item) => [
+                item.iddi ? { IDDI: item.iddi } : null,
+                item.numdi ? { NumDI: item.numdi } : null,
+            ].filter(Boolean)),
+        },
+        order: [['DatCreate', 'DESC']],
+    });
+
+    const btByNumDi = new Map(btList.map((bt) => [String(bt.NumDI || ''), bt]));
+    const btByIdDi = new Map(btList.map((bt) => [String(bt.IDDI || ''), bt]));
+
+    return interventions.map((di) => {
+        const bt = btByIdDi.get(String(di.IDDI || '')) || btByNumDi.get(String(di.NumDI || '')) || null;
+
+        return {
+            iddi: di.IDDI,
+            numdi: di.NumDI,
+            datdi: di.DatCreate || di.DatDI,
+            demandeur: di.Demandeur,
+            descPanne: di.DescPanne,
+            service: di.Service,
+            réponse: di.Reponse,
+            commentaire: di.Comment,
+            intervention: bt
+                ? {
+                    idbt: bt.IDBT,
+                    numbt: bt.NumBT,
+                    datbt: bt.DatCreate || bt.DatBT,
+                    technicien: bt.CodInterv || null,
+                    resultat: bt.Resultat || null,
+                    encours: bt.BTEncours,
+                    clotured: bt.BTClotured,
+                    descPanne: bt.DescPanne,
+                }
+                : null,
+        };
+    });
+};
+
+const getNextInterventionNumbers = async () => {
+    const [maxDi] = await sequelize.query('SELECT MAX(NumDI) as maxNum FROM TabDI');
+    const [maxBt] = await sequelize.query('SELECT MAX(NumBT) as maxNum FROM TabBT');
+
+    return {
+        nextNumDI: (maxDi?.[0]?.maxNum || 0) + 1,
+        nextNumBT: (maxBt?.[0]?.maxNum || 0) + 1,
+    };
+};
 
 // Auto-generate ticket number: REC-YYYY-XXXX
 const generateNumTicket = async () => {
@@ -52,7 +161,16 @@ exports.getById = async (req, res, next) => {
     try {
         const rec = await Reclamation.findByPk(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
-        res.json({ status: 'success', data: rec });
+
+        const interventions = await fetchInterventionsForReclamation(rec);
+
+        res.json({
+            status: 'success',
+            data: {
+                ...rec.toJSON(),
+                interventions,
+            },
+        });
     } catch (err) {
         next(err);
     }
@@ -61,16 +179,95 @@ exports.getById = async (req, res, next) => {
 // ─── CREATE ────────────────────────────────────────────────────────────────────
 exports.create = async (req, res, next) => {
     try {
-        const payload = { ...req.body };
-        payload.NumTicket = await generateNumTicket();
-        payload.DateOuverture = new Date();
-        payload.Statut = payload.Statut || 'Ouvert';
-        payload.CUser = req.user?.username || req.user?.email || 'admin';
+        const payload = buildReclamationPayload(req.body);
 
-        const rec = await Reclamation.create(payload);
+        if (!payload.LibTiers || !payload.Objet) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'LibTiers et Objet sont obligatoires'
+            });
+        }
+
+        if (payload.CodTiers) {
+            const tierExists = await Tiers.findOne({ where: { CodTiers: payload.CodTiers } });
+            if (!tierExists) {
+                return res.status(404).json({
+                    status: 'error',
+                    message: 'Client introuvable pour ce CodTiers'
+                });
+            }
+        }
+
+        payload.NumTicket = await generateNumTicket();
+        payload.Statut = payload.Statut || 'Ouvert';
+        payload.CUser = truncateString(req.user?.LoginName || req.user?.EmailPro || 'admin', MAX_LENGTHS.CUser);
+
+        await sequelize.query(
+            `
+                INSERT INTO TabReclamation (
+                    CodTiers,
+                    LibTiers,
+                    Objet,
+                    Description,
+                    TypeReclamation,
+                    Priorite,
+                    Statut,
+                    NomTechnicien,
+                    TechnicienID,
+                    DateOuverture,
+                    DateResolution,
+                    CUser,
+                    Solution,
+                    NumTicket
+                )
+                VALUES (
+                    :CodTiers,
+                    :LibTiers,
+                    :Objet,
+                    :Description,
+                    :TypeReclamation,
+                    :Priorite,
+                    :Statut,
+                    :NomTechnicien,
+                    :TechnicienID,
+                    GETDATE(),
+                    :DateResolution,
+                    :CUser,
+                    :Solution,
+                    :NumTicket
+                )
+            `,
+            {
+                replacements: {
+                    CodTiers: payload.CodTiers ?? null,
+                    LibTiers: payload.LibTiers ?? null,
+                    Objet: payload.Objet ?? null,
+                    Description: payload.Description ?? null,
+                    TypeReclamation: payload.TypeReclamation ?? null,
+                    Priorite: payload.Priorite ?? null,
+                    Statut: payload.Statut ?? null,
+                    NomTechnicien: payload.NomTechnicien ?? null,
+                    TechnicienID: payload.TechnicienID ?? null,
+                    CUser: payload.CUser ?? null,
+                    Solution: payload.Solution ?? null,
+                    NumTicket: payload.NumTicket ?? null,
+                    DateResolution: null,
+                },
+            }
+        );
+
+        const rec = await Reclamation.findOne({ where: { NumTicket: payload.NumTicket } });
         res.status(201).json({ status: 'success', message: 'Réclamation créée', data: rec });
     } catch (err) {
         console.error('❌ create reclamation:', err);
+
+        if (err?.name === 'SequelizeDatabaseError' || err?.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                status: 'error',
+                message: err.original?.message || err.message || 'Impossible de créer la réclamation',
+            });
+        }
+
         next(err);
     }
 };
@@ -134,13 +331,14 @@ exports.assignTechnician = async (req, res, next) => {
     console.log('👉 [AssignTechnician] Route hit with body:', req.body);
     try {
         const { technicienID } = req.body;
+        const parsedTechnicienID = Number(technicienID);
         
-        if (!technicienID) {
+        if (!technicienID || Number.isNaN(parsedTechnicienID)) {
             return res.status(400).json({ status: 'error', message: 'TechnicienID requis' });
         }
 
         // Vérifier que le technicien existe
-        const technician = await User.findByPk(technicienID);
+        const technician = await User.findByPk(parsedTechnicienID);
         if (!technician) {
             return res.status(404).json({ status: 'error', message: 'Technicien non trouvé' });
         }
@@ -153,12 +351,26 @@ exports.assignTechnician = async (req, res, next) => {
 
         // Affecter le technicien
         const update = {
-            TechnicienID: technicienID,
+            TechnicienID: parsedTechnicienID,
             NomTechnicien: technician.FullName || technician.LoginName,
             Statut: 'En cours' // Changer le statut à "En cours" au moment de l'affectation
         };
 
-        await rec.update(update);
+        try {
+            await rec.update(update);
+        } catch (updateErr) {
+            // Fallback: certaines bases ont une contrainte FK différente sur TechnicienID.
+            // On conserve l'affectation fonctionnelle via NomTechnicien et Statut.
+            if (updateErr?.name === 'SequelizeForeignKeyConstraintError') {
+                await rec.update({
+                    TechnicienID: null,
+                    NomTechnicien: technician.FullName || technician.LoginName,
+                    Statut: 'En cours'
+                });
+            } else {
+                throw updateErr;
+            }
+        }
 
         // --- AUTOMATION: Create DI and BT ---
         try {
@@ -174,6 +386,7 @@ exports.assignTechnician = async (req, res, next) => {
             // Prepare safe strings
             const description = (rec.Objet || '').replace(/'/g, "''").substring(0, 250);
             const demandeur = (rec.LibTiers || '').replace(/'/g, "''").substring(0, 250);
+            const codInterv = truncateString(technician.LoginName || technician.EmailPro || '', 10).replace(/'/g, "''");
             
             // 2. Insert DI using Native SQL with NEWID()
             // Using OUTPUT INSERTED.IDDI to get the generated ID
@@ -188,7 +401,7 @@ exports.assignTechnician = async (req, res, next) => {
                 VALUES (@NewIDDI, ${newNumDI}, GETDATE(), '${description}', '${demandeur}', GETDATE(), 'SAV');
                 
                 INSERT INTO TabBT (IDBT, NumBT, DatBT, NumDI, IDDI, CodInterv, DescPanne, DatCreate, Demandeur, BTEncours, BTClotured, CodServ)
-                VALUES (@NewIDBT, ${newNumBT}, GETDATE(), ${newNumDI}, @NewIDDI, '${technician.LoginName}', '${description}', GETDATE(), '${demandeur}', 1, 0, 'SAV');
+                VALUES (@NewIDBT, ${newNumBT}, GETDATE(), ${newNumDI}, @NewIDDI, '${codInterv}', '${description}', GETDATE(), '${demandeur}', 1, 0, 'SAV');
             `;
             
             console.log('Debug: Executing Transaction SQL...');
@@ -238,6 +451,78 @@ exports.removeTechnicianAssignment = async (req, res, next) => {
         });
     } catch (err) {
         console.error('❌ removeTechnicianAssignment reclamation:', err);
+        next(err);
+    }
+};
+
+// ─── ADD INTERVENTION ──────────────────────────────────────────────────────────
+exports.addIntervention = async (req, res, next) => {
+    try {
+        const rec = await Reclamation.findByPk(req.params.id);
+        if (!rec) {
+            return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
+        }
+
+        const currentRole = String(req.user?.UserRole || '').toLowerCase();
+        const bodyTechnicienID = req.body?.technicienID ? Number(req.body.technicienID) : null;
+        const technicienID = bodyTechnicienID || (currentRole === 'technicien' ? Number(req.user?.UserID) : null) || rec.TechnicienID;
+
+        if (!technicienID) {
+            return res.status(400).json({ status: 'error', message: 'Technicien requis pour ajouter une intervention' });
+        }
+
+        if (!['technicien', 'admin'].includes(currentRole)) {
+            return res.status(403).json({ status: 'error', message: 'Accès interdit pour cette opération' });
+        }
+
+        const technician = await User.findByPk(technicienID);
+        if (!technician) {
+            return res.status(404).json({ status: 'error', message: 'Technicien non trouvé' });
+        }
+
+        const note = normalizeString(req.body?.resultat || req.body?.commentaire || req.body?.description || '');
+        const description = truncateString(req.body?.description || rec.Objet, 250);
+        const demandeur = truncateString(rec.LibTiers || '', 250);
+        const codIntervRaw = truncateString(technician.LoginName || technician.EmailPro || '', 10);
+        const { nextNumDI, nextNumBT } = await getNextInterventionNumbers();
+
+        const safeDescription = (description || '').replace(/'/g, "''");
+        const safeDemandeur = (demandeur || '').replace(/'/g, "''");
+        const safeNote = (note || '').replace(/'/g, "''");
+        const safeCodInterv = (codIntervRaw || '').replace(/'/g, "''");
+
+        const sql = `
+            DECLARE @NewIDDI UNIQUEIDENTIFIER = NEWID();
+            DECLARE @NewIDBT UNIQUEIDENTIFIER = NEWID();
+
+            INSERT INTO TabDI (IDDI, NumDI, DatDI, DescPanne, Demandeur, DatCreate, CodServ, Comment)
+            VALUES (@NewIDDI, ${nextNumDI}, GETDATE(), '${safeDescription}', '${safeDemandeur}', GETDATE(), 'SAV', '${safeNote}');
+
+            INSERT INTO TabBT (IDBT, NumBT, DatBT, NumDI, IDDI, CodInterv, DescPanne, DatCreate, Demandeur, Resultat, BTEncours, BTClotured, CodServ)
+            VALUES (@NewIDBT, ${nextNumBT}, GETDATE(), ${nextNumDI}, @NewIDDI, '${safeCodInterv}', '${safeDescription}', GETDATE(), '${safeDemandeur}', '${safeNote}', 1, 0, 'SAV');
+        `;
+
+        await sequelize.query(sql);
+
+        if (String(rec.Statut || '').toLowerCase() === 'ouvert') {
+            await rec.update({ Statut: 'En cours' });
+        }
+
+        const updated = await Reclamation.findByPk(req.params.id, {
+            include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }]
+        });
+        const interventions = await fetchInterventionsForReclamation(updated);
+
+        res.status(201).json({
+            status: 'success',
+            message: 'Intervention ajoutée avec succès',
+            data: {
+                ...updated.toJSON(),
+                interventions,
+            },
+        });
+    } catch (err) {
+        console.error('❌ addIntervention reclamation:', err);
         next(err);
     }
 };
