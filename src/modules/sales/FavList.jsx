@@ -24,6 +24,8 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -56,6 +58,7 @@ const rowVariants = {
 const FavList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { canCreate, canEdit } = usePermission(MODULE_CODES.FACTURES);
   const { favList: fav, loading, pagination } = useSelector((state) => state.fav);
 
   // Filter states
@@ -438,7 +441,7 @@ const FavList = () => {
                               : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
                           </p>
                         </div>
-                        {(!fav || fav.length === 0) && (
+                        {(!fav || fav.length === 0) && canCreate && (
                           <button onClick={() => navigate('/fav/new')} className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700">
                             + Créer un Fav
                           </button>
@@ -529,13 +532,15 @@ const FavList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/fav/edit/${item.Guid}`); }}
-                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
-                            title="Modifier"
-                          >
-                            <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/fav/edit/${item.Guid}`); }}
+                              className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
+                              title="Modifier"
+                            >
+                              <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/fav/${item.Guid}`); }}
                             className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all hover:-translate-y-0.5"

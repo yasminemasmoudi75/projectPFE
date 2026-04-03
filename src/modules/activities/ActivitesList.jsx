@@ -30,6 +30,8 @@ import { fetchActivites, createActivite, validateActivite } from './activiteSlic
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axios from '../../app/axios';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const extractArrayPayload = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -40,6 +42,7 @@ const extractArrayPayload = (payload) => {
 const ActivitesList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { canCreate } = usePermission(MODULE_CODES.CHARGEMENT);
   const { activites, loading } = useSelector((state) => state.activites);
   const { user } = useSelector((state) => state.auth);
 
@@ -256,29 +259,31 @@ const ActivitesList = () => {
             <ArrowPathIcon className="h-5 w-5" />
           </button>
 
-          <div className="flex bg-white p-1.5 rounded-2xl shadow-soft border border-slate-200 items-center">
-            <button
-              onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Appel' })); setIsAddModalOpen(true); }}
-              className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-              title="Appel"
-            >
-              <PhoneIcon className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Email' })); setIsAddModalOpen(true); }}
-              className="p-2.5 text-blue-400 hover:bg-blue-50 rounded-xl transition-all"
-              title="Email"
-            >
-              <EnvelopeIcon className="h-5 w-5" />
-            </button>
-            <div className="w-px h-5 bg-slate-200 mx-2"></div>
-            <button
-              onClick={() => navigate('/activites/new')}
-              className="btn-soft-primary flex items-center gap-2 h-10 px-6"
-            >
-              <PlusIcon className="h-4 w-4 stroke-[3]" /> Nouvel Événement
-            </button>
-          </div>
+          {canCreate && (
+            <div className="flex bg-white p-1.5 rounded-2xl shadow-soft border border-slate-200 items-center">
+              <button
+                onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Appel' })); setIsAddModalOpen(true); }}
+                className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                title="Appel"
+              >
+                <PhoneIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Email' })); setIsAddModalOpen(true); }}
+                className="p-2.5 text-blue-400 hover:bg-blue-50 rounded-xl transition-all"
+                title="Email"
+              >
+                <EnvelopeIcon className="h-5 w-5" />
+              </button>
+              <div className="w-px h-5 bg-slate-200 mx-2"></div>
+              <button
+                onClick={() => navigate('/activites/new')}
+                className="btn-soft-primary flex items-center gap-2 h-10 px-6"
+              >
+                <PlusIcon className="h-4 w-4 stroke-[3]" /> Nouvel Événement
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

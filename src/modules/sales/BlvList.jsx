@@ -25,6 +25,8 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -57,6 +59,7 @@ const rowVariants = {
 const BlvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { canEdit } = usePermission(MODULE_CODES.LIVRAISONS);
   const { blvList: blv, loading, pagination } = useSelector((state) => state.blv);
 
   // Filter states
@@ -525,13 +528,15 @@ const BlvList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/blv/edit/${item.Guid}`); }}
-                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
-                            title="Modifier"
-                          >
-                            <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/blv/edit/${item.Guid}`); }}
+                              className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
+                              title="Modifier"
+                            >
+                              <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/blv/${item.Guid}`); }}
                             className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all hover:-translate-y-0.5"

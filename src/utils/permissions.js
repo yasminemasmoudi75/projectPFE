@@ -50,10 +50,11 @@ const ROLE_MODULE_FALLBACK = {
 export const hasPermission = (user, moduleCode, action) => {
   const normalizedRole = normalizeRole(user?.UserRole);
 
-  // Administrateur a tous les droits
-  if (normalizedRole === normalizeRole(USER_ROLES.ADMIN)) {
-    return true;
-  }
+  // ✨ MODIFICATION: Admin respecte AUSSI les permissions (pas de bypass)
+  // Ancien code (supprimé):
+  // if (normalizedRole === normalizeRole(USER_ROLES.ADMIN)) {
+  //   return true;
+  // }
 
   // Vérifier dans les permissions de l'utilisateur
   if (user?.permissions && Array.isArray(user.permissions)) {
@@ -156,10 +157,10 @@ export const filterMenuByPermissions = (menuItems, user) => {
 
   return menuItems.filter((item) => {
     // Si pas de moduleCode, l'élément est toujours visible
-    if (!item.moduleCode) return true;
+    if (item.moduleCode == null) return true;
 
     // Vérifier la permission de consultation
-    return canView(user, item.moduleCode);
+    return canView(user, Number(item.moduleCode));
   });
 };
 

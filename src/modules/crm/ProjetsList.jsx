@@ -18,10 +18,13 @@ import { formatDate, formatCurrency } from '../../utils/format';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProjets } from './projetSlice';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const ProjetsList = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { canCreate } = usePermission(MODULE_CODES.PROJETS);
   const { projets, loading, pagination } = useSelector((state) => state.projets);
   const [typeFilter, setTypeFilter] = useState('All');
   const [search, setSearch] = useState('');
@@ -137,13 +140,15 @@ const ProjetsList = () => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </button>
-          <button
-            onClick={() => navigate('/projets/new')}
-            className="btn-soft-primary flex items-center gap-2"
-          >
-            <PlusIcon className="h-4 w-4 stroke-[3]" />
-            Nouveau Projet
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => navigate('/projets/new')}
+              className="btn-soft-primary flex items-center gap-2"
+            >
+              <PlusIcon className="h-4 w-4 stroke-[3]" />
+              Nouveau Projet
+            </button>
+          )}
         </div>
       </div>
 
@@ -308,12 +313,14 @@ const ProjetsList = () => {
               >
                 Réinitialiser
               </button>
-              <button
-                onClick={() => navigate('/projets/new')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs shadow-sm"
-              >
-                + Nouveau projet
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => navigate('/projets/new')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs shadow-sm"
+                >
+                  + Nouveau projet
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -403,18 +410,20 @@ const ProjetsList = () => {
         ))}
 
         {/* Create New Project Card Placeholder */}
-        <button
-          onClick={() => navigate('/projets/new')}
-          className="card-luxury p-8 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
-        >
-          <div className="h-16 w-16 bg-white rounded-2xl shadow-soft flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all">
-            <PlusIcon className="h-8 w-8 stroke-[3]" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lancer un chantier</h4>
-            <p className="text-xs text-slate-400 mt-1 font-medium">Créer un nouveau suivi projet</p>
-          </div>
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => navigate('/projets/new')}
+            className="card-luxury p-8 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
+          >
+            <div className="h-16 w-16 bg-white rounded-2xl shadow-soft flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all">
+              <PlusIcon className="h-8 w-8 stroke-[3]" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lancer un chantier</h4>
+              <p className="text-xs text-slate-400 mt-1 font-medium">Créer un nouveau suivi projet</p>
+            </div>
+          </button>
+        )}
       </div>
     </div>
   );

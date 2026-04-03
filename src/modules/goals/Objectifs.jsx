@@ -42,6 +42,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchObjectifs, updateObjectif } from './objectifSlice';
 import axios from '../../app/axios';
 import { getImageUrl } from '../../utils/imageUrl';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 // Icon Map helper
 const ICON_MAP = {
@@ -110,11 +112,11 @@ const getGoalVisuals = (type) => {
         case 'Validation Devis':
             return { color: 'blue', icon: DocumentTextIcon, unit: 'TND' };
         case 'Volume de Ventes':
-            return { color: 'rose', icon: ShoppingBagIcon, unit: 'UnitÈs' };
+            return { color: 'rose', icon: ShoppingBagIcon, unit: 'UnitÔøΩs' };
         case 'Marge Brute':
             return { color: 'amber', icon: ChartBarIcon, unit: 'TND' };
         default:
-            return { color: 'slate', icon: FlagIcon, unit: 'UnitÈ' };
+            return { color: 'slate', icon: FlagIcon, unit: 'UnitÔøΩ' };
     }
 };
 
@@ -122,12 +124,13 @@ const Objectifs = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useDispatch();
+    const { canCreate, canEdit } = usePermission(MODULE_CODES.OBJECTIFS);
     const { objectifs, loading: reduxLoading } = useSelector((state) => state.objectifs);
 
     const { user: currentUser } = useSelector(state => state.auth);
     const [users, setUsers] = useState([]);
 
-    // Pas de filtres par dÈfaut - afficher TOUS les objectifs de TOUS les utilisateurs
+    // Pas de filtres par dÔøΩfaut - afficher TOUS les objectifs de TOUS les utilisateurs
     const [selectedUserId, setSelectedUserId] = useState(location.state?.selectedUserId || 'all');
     const [selectedMonth, setSelectedMonth] = useState(location.state?.selectedMonth || 'all');
     const [selectedYear, setSelectedYear] = useState(location.state?.selectedYear || new Date().getFullYear());
@@ -137,21 +140,21 @@ const Objectifs = () => {
     const [filterType, setFilterType] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState('progress-desc'); // Tri par dÈfaut : progression dÈcroissante
+    const [sortBy, setSortBy] = useState('progress-desc'); // Tri par dÔøΩfaut : progression dÔøΩcroissante
 
     const months = [
-        { id: 1, name: 'Janvier' }, { id: 2, name: 'FÈvrier' }, { id: 3, name: 'Mars' },
+        { id: 1, name: 'Janvier' }, { id: 2, name: 'FÔøΩvrier' }, { id: 3, name: 'Mars' },
         { id: 4, name: 'Avril' }, { id: 5, name: 'Mai' }, { id: 6, name: 'Juin' },
-        { id: 7, name: 'Juillet' }, { id: 8, name: 'Ao˚t' }, { id: 9, name: 'Septembre' },
-        { id: 10, name: 'Octobre' }, { id: 11, name: 'Novembre' }, { id: 12, name: 'DÈcembre' }
+        { id: 7, name: 'Juillet' }, { id: 8, name: 'AoÔøΩt' }, { id: 9, name: 'Septembre' },
+        { id: 10, name: 'Octobre' }, { id: 11, name: 'Novembre' }, { id: 12, name: 'DÔøΩcembre' }
     ];
 
     const chartData = useMemo(() => {
         if (!allObjectifs || allObjectifs.length === 0) return [];
 
-        const monthNames = ['Jan', 'FÈv', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Ao˚t', 'Sept', 'Oct', 'Nov', 'DÈc'];
+        const monthNames = ['Jan', 'FÔøΩv', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'AoÔøΩt', 'Sept', 'Oct', 'Nov', 'DÔøΩc'];
         
-        // Initialiser les donnÈes pour tous les mois
+        // Initialiser les donnÔøΩes pour tous les mois
         const monthlyData = Array(12).fill(0).map((_, index) => ({
             month: monthNames[index],
             sales: 0,
@@ -167,8 +170,8 @@ const Objectifs = () => {
             }
         });
 
-        // Filtrer pour ne garder que les mois avec des donnÈes ou les X derniers mois
-        // Pour l'instant, on retourne tout ou on pourrait filtrer pour l'annÈe en cours
+        // Filtrer pour ne garder que les mois avec des donnÔøΩes ou les X derniers mois
+        // Pour l'instant, on retourne tout ou on pourrait filtrer pour l'annÔøΩe en cours
         return monthlyData.filter(d => d.sales > 0);
     }, [allObjectifs]);
 
@@ -185,21 +188,21 @@ const Objectifs = () => {
         fetchUsers();
     }, []);
 
-    // Charger TOUS les objectifs de la base de donnÈes
+    // Charger TOUS les objectifs de la base de donnÔøΩes
     useEffect(() => {
         const fetchAllObjectifs = async () => {
             try {
                 const params = {};
 
-                // Filtrer par mois si sÈlectionnÈ
+                // Filtrer par mois si sÔøΩlectionnÔøΩ
                 if (selectedMonth !== 'all') {
                     params.mois = selectedMonth;
                 }
 
-                // Filtrer par annÈe
+                // Filtrer par annÔøΩe
                 params.annee = selectedYear;
 
-                // Filtrer par utilisateur si sÈlectionnÈ
+                // Filtrer par utilisateur si sÔøΩlectionnÔøΩ
                 if (selectedUserId !== 'all') {
                     params.userId = selectedUserId;
                 }
@@ -221,9 +224,9 @@ const Objectifs = () => {
 
     
     useEffect(() => {
-        // Si on revient de la page de crÈation avec un state
+        // Si on revient de la page de crÔøΩation avec un state
         if (location.state?.refresh) {
-            // Mettre ‡ jour les filtres si nÈcessaire (le useEffect principal rechargera automatiquement)
+            // Mettre ÔøΩ jour les filtres si nÔøΩcessaire (le useEffect principal rechargera automatiquement)
             if (location.state.selectedUserId && location.state.selectedUserId !== selectedUserId) {
                 setSelectedUserId(location.state.selectedUserId);
             }
@@ -234,7 +237,7 @@ const Objectifs = () => {
                 setSelectedYear(location.state.selectedYear);
             }
 
-            // Nettoyer le state pour Èviter les rechargements multiples
+            // Nettoyer le state pour ÔøΩviter les rechargements multiples
             window.history.replaceState({}, document.title);
         }
     }, [location.state?.refresh]);
@@ -250,14 +253,14 @@ const Objectifs = () => {
                 data: { Montant_Realise_Actuel: parseFloat(val) }
             })).unwrap();
 
-            toast.success("Montant mis ‡ jour avec succËs");
+            toast.success("Montant mis ÔøΩ jour avec succÔøΩs");
 
-            // RÈinitialiser le champ input
+            // RÔøΩinitialiser le champ input
             if (inputElement) {
                 inputElement.value = '';
             }
 
-            // Recharger TOUS les objectifs depuis la base de donnÈes
+            // Recharger TOUS les objectifs depuis la base de donnÔøΩes
             const params = {};
             if (selectedMonth !== 'all') params.mois = selectedMonth;
             params.annee = selectedYear;
@@ -271,13 +274,13 @@ const Objectifs = () => {
                     : [];
             setAllObjectifs(objectifsData);
         } catch (error) {
-            console.error('Erreur lors de la mise ‡ jour:', error);
-            toast.error(error.response?.data?.message || "Erreur lors de la mise ‡ jour");
+            console.error('Erreur lors de la mise ÔøΩ jour:', error);
+            toast.error(error.response?.data?.message || "Erreur lors de la mise ÔøΩ jour");
         }
     };
 
     // Logique de filtrage (sans tri - le tri s'applique au classement)
-    // Utilise allObjectifs qui vient directement de la base de donnÈes
+    // Utilise allObjectifs qui vient directement de la base de donnÔøΩes
     const filteredObjectifs = useMemo(() => {
         let filtered = allObjectifs || [];
 
@@ -340,7 +343,7 @@ const Objectifs = () => {
                 };
             }
             groupedByUser[userId].objectifs.push(obj);
-            // IMPORTANT: Convertir en nombres pour Èviter les problËmes de calcul
+            // IMPORTANT: Convertir en nombres pour ÔøΩviter les problÔøΩmes de calcul
             const montantCible = parseFloat(obj.MontantCible) || 0;
             const montantRealise = parseFloat(obj.Montant_Realise_Actuel) || 0;
             groupedByUser[userId].totalTarget += montantCible;
@@ -353,18 +356,18 @@ const Objectifs = () => {
             progress: item.totalTarget > 0 ? (item.totalRealised / item.totalTarget) * 100 : 0
         }));
 
-        // Trier selon le critËre sÈlectionnÈ
+        // Trier selon le critÔøΩre sÔøΩlectionnÔøΩ
         const sorted = [...rankings].sort((a, b) => {
             switch (sortBy) {
-                case 'progress-desc': // Plus avancÈ en premier
+                case 'progress-desc': // Plus avancÔøΩ en premier
                     return b.progress - a.progress;
-                case 'progress-asc': // Moins avancÈ en premier
+                case 'progress-asc': // Moins avancÔøΩ en premier
                     return a.progress - b.progress;
-                case 'target-desc': // Objectif le plus ÈlevÈ en premier
+                case 'target-desc': // Objectif le plus ÔøΩlevÔøΩ en premier
                     return b.totalTarget - a.totalTarget;
                 case 'target-asc': // Objectif le plus bas en premier
                     return a.totalTarget - b.totalTarget;
-                case 'name': // Tri alphabÈtique par nom
+                case 'name': // Tri alphabÔøΩtique par nom
                     const nameA = a.user?.FullName || '';
                     const nameB = b.user?.FullName || '';
                     return nameA.localeCompare(nameB);
@@ -389,23 +392,25 @@ const Objectifs = () => {
                     </div>
                     <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Objectifs Commerciaux</h1>
                     <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-                        Pilotage des indicateurs clÈs ï Toutes les donnÈes de la base
+                        Pilotage des indicateurs clÔøΩs ÔøΩ Toutes les donnÔøΩes de la base
                     </p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/objectifs/new', {
-                            state: {
-                                selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
-                                selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
-                                selectedYear: parseInt(selectedYear)
-                            }
-                        })}
-                        className="btn-soft-primary flex items-center gap-2 font-bold"
-                    >
-                        <PlusIcon className="h-4 w-4" /> Nouvel Objectif
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/objectifs/new', {
+                                state: {
+                                    selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
+                                    selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
+                                    selectedYear: parseInt(selectedYear)
+                                }
+                            })}
+                            className="btn-soft-primary flex items-center gap-2 font-bold"
+                        >
+                            <PlusIcon className="h-4 w-4" /> Nouvel Objectif
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -465,9 +470,9 @@ const Objectifs = () => {
                                 className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
                             >
                                 <option value="all">Tous les statuts</option>
-                                <option value="completed">ComplÈtÈs (‚â•100%)</option>
+                                <option value="completed">ComplÔøΩtÔøΩs (‚â•100%)</option>
                                 <option value="in-progress">En cours (50-99%)</option>
-                                <option value="at-risk">¿ risque (&lt;50%)</option>
+                                <option value="at-risk">ÔøΩ risque (&lt;50%)</option>
                             </select>
                         </div>
 
@@ -480,8 +485,8 @@ const Objectifs = () => {
                                 className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
                             >
                                 <option value="progress-desc">üèÜ Meilleur avancement d'abord</option>
-                                <option value="progress-asc">üìâ Moins avancÈ d'abord</option>
-                                <option value="target-desc">üí∞ Objectif le plus ÈlevÈ</option>
+                                <option value="progress-asc">üìâ Moins avancÔøΩ d'abord</option>
+                                <option value="target-desc">üí∞ Objectif le plus ÔøΩlevÔøΩ</option>
                                 <option value="target-asc">üíµ Objectif le plus bas</option>
                                 <option value="name">üî§ Nom (A-Z)</option>
                             </select>
@@ -500,10 +505,10 @@ const Objectifs = () => {
                         </div>
                     </div>
 
-                    {/* Compteur de rÈsultats */}
+                    {/* Compteur de rÔøΩsultats */}
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-slate-500">
-                            {filteredObjectifs.length} objectif{filteredObjectifs.length > 1 ? 's' : ''} trouvÈ{filteredObjectifs.length > 1 ? 's' : ''}
+                            {filteredObjectifs.length} objectif{filteredObjectifs.length > 1 ? 's' : ''} trouvÔøΩ{filteredObjectifs.length > 1 ? 's' : ''}
                         </span>
                         {(filterType !== 'all' || filterStatus !== 'all' || searchTerm) && (
                             <button
@@ -514,7 +519,7 @@ const Objectifs = () => {
                                 }}
                                 className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
                             >
-                                RÈinitialiser filtres
+                                RÔøΩinitialiser filtres
                             </button>
                         )}
                     </div>
@@ -525,9 +530,9 @@ const Objectifs = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: 'Atteinte Cible', value: `${Math.round(globalProgress)}%`, sub: 'Progress. Globale', color: 'blue', icon: ArrowTrendingUpIcon, gradient: 'bg-gradient-blue' },
-                    { label: 'Objectif Mensuel', value: `${(totalTarget / 1000).toFixed(1)}k`, sub: 'TND / PÈriode', color: 'cyan', icon: BanknotesIcon, gradient: 'bg-gradient-blue-cyan' },
-                    { label: 'RÈalisÈ ‡ date', value: `${(totalRealised / 1000).toFixed(1)}k`, sub: 'TND cumulÈs', color: 'emerald', icon: CheckCircleIcon, gradient: 'bg-gradient-success' },
-                    { label: 'Reste ‡ faire', value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`, sub: '…cart restant', color: 'amber', icon: FlagIcon, gradient: 'bg-gradient-warning' },
+                    { label: 'Objectif Mensuel', value: `${(totalTarget / 1000).toFixed(1)}k`, sub: 'TND / PÔøΩriode', color: 'cyan', icon: BanknotesIcon, gradient: 'bg-gradient-blue-cyan' },
+                    { label: 'RÔøΩalisÔøΩ ÔøΩ date', value: `${(totalRealised / 1000).toFixed(1)}k`, sub: 'TND cumulÔøΩs', color: 'emerald', icon: CheckCircleIcon, gradient: 'bg-gradient-success' },
+                    { label: 'Reste ÔøΩ faire', value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`, sub: 'ÔøΩcart restant', color: 'amber', icon: FlagIcon, gradient: 'bg-gradient-warning' },
                 ].map((kpi, i) => (
                     <div key={i} className="card-luxury p-0 overflow-hidden group">
                         <div className="p-6 flex items-start justify-between">
@@ -551,19 +556,21 @@ const Objectifs = () => {
             <div className="card-luxury p-8">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-extrabold text-slate-800">Objectif Mensuelle</h2>
-                    <button
-                        onClick={() => navigate('/objectifs/new', {
-                            state: {
-                                typePeriode: 'Mensuel',
-                                selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
-                                selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
-                                selectedYear: parseInt(selectedYear)
-                            }
-                        })}
-                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
-                    >
-                        <PlusIcon className="h-4 w-4" /> Ajouter Objectif
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/objectifs/new', {
+                                state: {
+                                    typePeriode: 'Mensuel',
+                                    selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
+                                    selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
+                                    selectedYear: parseInt(selectedYear)
+                                }
+                            })}
+                            className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                        >
+                            <PlusIcon className="h-4 w-4" /> Ajouter Objectif
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -584,18 +591,20 @@ const Objectifs = () => {
                                             <Icon className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
-                                                    state: { objectif: goal }
-                                                })}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Modifier l'objectif"
-                                            >
-                                                <EyeIcon className="h-4 w-4" />
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
+                                                        state: { objectif: goal }
+                                                    })}
+                                                    className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Modifier l'objectif"
+                                                >
+                                                    <EyeIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
                                             <div className="text-right">
                                                 <p className={`text-2xl font-black ${config.text} tracking-tight`}>{Math.round(progress)}%</p>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AchËvement</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AchÔøΩvement</span>
                                             </div>
                                         </div>
                                     </div>
@@ -638,28 +647,30 @@ const Objectifs = () => {
                                             ></div>
                                         </div>
 
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="number" min="0"
-                                                placeholder="Nouveau montant..."
-                                                onKeyPress={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        handleUpdateProgress(goal.ID_Objectif, e.target.value, e.target);
-                                                    }
-                                                }}
-                                                className="input-modern px-4 py-2 text-xs h-10"
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.previousSibling;
-                                                    handleUpdateProgress(goal.ID_Objectif, input.value, input);
-                                                }}
-                                                className={`h-10 w-10 shrink-0 flex items-center justify-center text-white rounded-xl shadow-soft transition-all active:scale-95 ${config.bg} hover:brightness-110`}
-                                                title="Mettre ‡ jour le montant rÈalisÈ"
-                                            >
-                                                <PlusIcon className="h-4 w-4 stroke-[3]" />
-                                            </button>
-                                        </div>
+                                        {canEdit && (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="number" min="0"
+                                                    placeholder="Nouveau montant..."
+                                                    onKeyPress={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handleUpdateProgress(goal.ID_Objectif, e.target.value, e.target);
+                                                        }
+                                                    }}
+                                                    className="input-modern px-4 py-2 text-xs h-10"
+                                                />
+                                                <button
+                                                    onClick={(e) => {
+                                                        const input = e.currentTarget.previousSibling;
+                                                        handleUpdateProgress(goal.ID_Objectif, input.value, input);
+                                                    }}
+                                                    className={`h-10 w-10 shrink-0 flex items-center justify-center text-white rounded-xl shadow-soft transition-all active:scale-95 ${config.bg} hover:brightness-110`}
+                                                    title="Mettre ÔøΩ jour le montant rÔøΩalisÔøΩ"
+                                                >
+                                                    <PlusIcon className="h-4 w-4 stroke-[3]" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -668,8 +679,8 @@ const Objectifs = () => {
                                 <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-soft mb-6">
                                     <FlagIcon className="h-8 w-8" />
                                 </div>
-                                <h3 className="text-sm font-bold text-slate-500 mb-1">Aucun objectif trouvÈ</h3>
-                                <p className="text-xs text-slate-400 mb-6">Aucun objectif ne correspond aux filtres sÈlectionnÈs</p>
+                                <h3 className="text-sm font-bold text-slate-500 mb-1">Aucun objectif trouvÔøΩ</h3>
+                                <p className="text-xs text-slate-400 mb-6">Aucun objectif ne correspond aux filtres sÔøΩlectionnÔøΩs</p>
                                 <button
                                     onClick={() => {
                                         setFilterType('all');
@@ -678,13 +689,13 @@ const Objectifs = () => {
                                     }}
                                     className="btn-soft-primary px-8 font-bold"
                                 >
-                                    RÈinitialiser les filtres
+                                    RÔøΩinitialiser les filtres
                                 </button>
                             </div>
                         )}
 
                 {/* Create New Objectif Card */}
-                {filteredObjectifs.length > 0 && (
+                {filteredObjectifs.length > 0 && canCreate && (
                     <button
                         onClick={() => navigate('/objectifs/new')}
                         className="card-luxury p-8 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
@@ -694,7 +705,7 @@ const Objectifs = () => {
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Nouvel Objectif</h4>
-                            <p className="text-xs text-slate-400 mt-1 font-medium">DÈfinir une nouvelle cible</p>
+                            <p className="text-xs text-slate-400 mt-1 font-medium">DÔøΩfinir une nouvelle cible</p>
                         </div>
                     </button>
                 )}
@@ -705,19 +716,21 @@ const Objectifs = () => {
             <div className="card-luxury p-8">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-extrabold text-slate-800">Objectif hebdomadaire</h2>
-                    <button
-                        onClick={() => navigate('/objectifs/new', {
-                            state: {
-                                typePeriode: 'Hebdomadaire',
-                                selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
-                                selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
-                                selectedYear: parseInt(selectedYear)
-                            }
-                        })}
-                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
-                    >
-                        <PlusIcon className="h-4 w-4" /> Ajouter PÈriode
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/objectifs/new', {
+                                state: {
+                                    typePeriode: 'Hebdomadaire',
+                                    selectedUserId: selectedUserId !== 'all' ? selectedUserId : null,
+                                    selectedMonth: selectedMonth !== 'all' ? parseInt(selectedMonth) : new Date().getMonth() + 1,
+                                    selectedYear: parseInt(selectedYear)
+                                }
+                            })}
+                            className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                        >
+                            <PlusIcon className="h-4 w-4" /> Ajouter PÔøΩriode
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -738,20 +751,22 @@ const Objectifs = () => {
                                             <CalendarIcon className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
-                                                    state: { objectif: goal }
-                                                })}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Modifier l'objectif"
-                                            >
-                                                <EyeIcon className="h-4 w-4" />
-                                            </button>
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
+                                                        state: { objectif: goal }
+                                                    })}
+                                                    className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Modifier l'objectif"
+                                                >
+                                                    <EyeIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
                                     <div className="mb-4">
-                                        <h4 className="text-sm font-bold text-slate-800 mb-2">{goal.Semaine || 'Semaine non dÈfinie'}</h4>
+                                        <h4 className="text-sm font-bold text-slate-800 mb-2">{goal.Semaine || 'Semaine non dÔøΩfinie'}</h4>
                                         <div className="flex items-center gap-2 text-xs text-slate-500">
                                             <CalendarIcon className="h-3 w-3" />
                                             <span>
@@ -789,22 +804,24 @@ const Objectifs = () => {
                                     <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                                         <CalendarIcon className="h-8 w-8" />
                                     </div>
-                                    <p className="text-slate-500 font-medium">Aucun objectif hebdomadaire trouvÈ</p>
-                                    <button
-                                        onClick={() => navigate('/objectifs/new', {
-                                            state: { typePeriode: 'Hebdomadaire' }
-                                        })}
-                                        className="btn-soft-primary text-xs"
-                                    >
-                                        CrÈer un objectif hebdomadaire
-                                    </button>
+                                    <p className="text-slate-500 font-medium">Aucun objectif hebdomadaire trouvÔøΩ</p>
+                                    {canCreate && (
+                                        <button
+                                            onClick={() => navigate('/objectifs/new', {
+                                                state: { typePeriode: 'Hebdomadaire' }
+                                            })}
+                                            className="btn-soft-primary text-xs"
+                                        >
+                                            CrÔøΩer un objectif hebdomadaire
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}
                 </div>
             </div>
 
-            {/* Classement Performance …quipe - Liste de tous les commerciaux classÈs par avancement */}
+            {/* Classement Performance ÔøΩquipe - Liste de tous les commerciaux classÔøΩs par avancement */}
             {commercialRanking.length > 0 && (
                 <div className="card-luxury p-8">
                     <div className="flex items-center gap-3 mb-6">
@@ -812,9 +829,9 @@ const Objectifs = () => {
                             <TrophyIcon className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-slate-800">Classement Performance …quipe</h2>
+                            <h2 className="text-lg font-black text-slate-800">Classement Performance ÔøΩquipe</h2>
                             <p className="text-xs font-medium text-slate-500">
-                                Liste de tous les commerciaux classÈs par avancement ï Toutes les donnÈes
+                                Liste de tous les commerciaux classÔøΩs par avancement ÔøΩ Toutes les donnÔøΩes
                             </p>
                         </div>
                     </div>
@@ -876,7 +893,7 @@ const Objectifs = () => {
                                             </td>
                                             <td className="py-4 px-4">
                                                 <span className="text-sm font-medium text-slate-600">
-                                                    {item.user?.PosteOccupe || 'Non dÈfini'}
+                                                    {item.user?.PosteOccupe || 'Non dÔøΩfini'}
                                                 </span>
                                             </td>
                                             <td className="py-4 px-4 text-right">

@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import useAuth from '../hooks/useAuth';
+import usePermission from '../hooks/usePermission';
 import { filterMenuByPermissions } from '../utils/permissions';
 import { MODULE_CODES } from '../utils/constants';
 
@@ -31,28 +32,65 @@ const menuItems = [
   { type: 'section', name: 'CRM & Ventes' },
   { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS },
   { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS },
-  { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.DEVIS },
-  { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.DEVIS },
-  { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.DEVIS },
-  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.DEVIS },
+  { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES },
+  { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS },
+  { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES },
+  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS },
   { type: 'section', name: 'Opérations' },
-  { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },
-  { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES },
+  { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.CHARGEMENT },
   { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK },
-  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.SAV },
+  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.REGLEMENT },
   { type: 'section', name: 'Intelligence' },
   { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS },
-  { name: 'Nexus IA', href: '/ia', icon: SparklesIcon, moduleCode: MODULE_CODES.IA },
-  { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES },
+  { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP },
+  { name: 'Relevé', href: null, icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.RELEVE },
+  { name: 'Visite', href: null, icon: DocumentCheckIcon, moduleCode: MODULE_CODES.VISITES },
+  { name: 'Maps', href: null, icon: UsersIcon, moduleCode: MODULE_CODES.MAPS },
   { type: 'section', name: 'Système' },
-  { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS },
   { name: 'Paramètres', href: '/profile', icon: Cog6ToothIcon },
 ];
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user } = useAuth();
-  const filteredMenu = filterMenuByPermissions(menuItems, user);
+  const { allPermissions, loading } = usePermission();
+
+  // Debug
+  console.log('🔍 Sidebar - User:', user?.UserRole);
+  console.log('🔍 Sidebar - Permissions:', allPermissions.length, allPermissions);
+  console.log('🔍 Sidebar - Loading:', loading);
+
+  // ✅ Filtrer le menu en utilisant les permissions de la BD (dynamique)
+  // Si Actif = 1 dans TabAWProfileAccess → module affiché
+  // Si Actif = 0 dans TabAWProfileAccess → module caché
+  const filteredMenu = menuItems.filter((item) => {
+    // Si pas de moduleCode (null/undefined), l'élément est toujours visible (Dashboard, Paramètres)
+    if (item.moduleCode == null) {
+      console.log(`✅ ${item.name} - No moduleCode (always visible)`);
+      return true;
+    }
+
+    // Si c'est une section (type === 'section'), toujours visible
+    if (item.type === 'section') {
+      console.log(`✅ ${item.name} - Type section (always visible)`);
+      return true;
+    }
+
+    // Vérifier que le module existe dans les permissions de la BD
+    const itemCode = Number(item.moduleCode);
+    const modulePermission = allPermissions.find((permission) => Number(permission.moduleCode) === itemCode);
+    
+    if (!modulePermission) {
+      console.log(`❌ ${item.name} (code: ${itemCode}) - No permission found in database`);
+      console.log('   Available codes:', allPermissions.map(p => p.moduleCode));
+      return false; // Module n'existe pas dans les permissions
+    }
+
+    // Afficher SEULEMENT si isActive = true (Actif = 1 dans la BD)
+    const isVisible = modulePermission.isActive === true;
+    console.log(`${isVisible ? '✅' : '❌'} ${item.name} (code: ${itemCode}) - isActive: ${modulePermission.isActive}`);
+    return isVisible;
+  });
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col bg-gradient-to-b from-white via-slate-50/50 to-white">
@@ -84,6 +122,20 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               </div>
             );
           }
+          if (!item.href) {
+            return (
+              <div
+                key={item.name}
+                className="group flex items-center gap-1 rounded-2xl px-4 py-3 transition-all duration-300 relative overflow-hidden text-slate-500 cursor-default opacity-90"
+                title="Module actif dans la base, page non disponible"
+              >
+                <span className="text-base tracking-tight transition-all flex-1 font-medium text-slate-500">
+                  {item.name}
+                </span>
+              </div>
+            );
+          }
+
           return (
             <NavLink
               key={item.name}

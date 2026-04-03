@@ -22,12 +22,15 @@ import { formatDate, formatCurrency } from '../../utils/format';
 import { fetchProjetById, clearCurrentProjet, deleteProjet } from './projetSlice';
 import axios from '../../app/axios';
 import toast from 'react-hot-toast';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const ProjetDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
+  const { canCreate, canEdit } = usePermission(MODULE_CODES.PROJETS);
   const { currentProjet: projet, loading } = useSelector((state) => state.projets);
 
   const [activitesProjet, setActivitesProjet] = useState([]);
@@ -176,13 +179,15 @@ const ProjetDetail = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <button
-              onClick={() => navigate(`/projets/edit/${id}`)}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 font-bold text-sm"
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-              Modifier
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => navigate(`/projets/edit/${id}`)}
+                className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 font-bold text-sm"
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+                Modifier
+              </button>
+            )}
             <button
               onClick={handleDelete}
               className="px-6 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl hover:bg-rose-100 hover:text-rose-700 transition-all flex items-center gap-2 font-bold text-sm"
@@ -247,20 +252,22 @@ const ProjetDetail = () => {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate('/activites/new', {
-                    state: {
-                      defaultProjetId: projet.ID_Projet,
-                      defaultTierId: projet.client?.IDTiers || projet.IDTiers,
-                    },
-                  })
-                }
-                className="btn-soft-primary text-xs px-4 py-2 rounded-xl"
-              >
-                Ajouter une activité
-              </button>
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/activites/new', {
+                      state: {
+                        defaultProjetId: projet.ID_Projet,
+                        defaultTierId: projet.client?.IDTiers || projet.IDTiers,
+                      },
+                    })
+                  }
+                  className="btn-soft-primary text-xs px-4 py-2 rounded-xl"
+                >
+                  Ajouter une activité
+                </button>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -368,13 +375,15 @@ const ProjetDetail = () => {
                         >
                           Détails
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`)}
-                          className="px-3 py-1.5 text-[11px] text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg border border-blue-100"
-                        >
-                          Modifier
-                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`)}
+                            className="px-3 py-1.5 text-[11px] text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg border border-blue-100"
+                          >
+                            Modifier
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

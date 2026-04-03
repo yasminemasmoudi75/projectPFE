@@ -26,6 +26,8 @@ import { getImageUrl } from '../../utils/imageUrl';
 import { formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -58,6 +60,7 @@ const gridItemVariants = {
 
 const ProductsList = () => {
     const navigate = useNavigate();
+    const { canCreate, canEdit } = usePermission(MODULE_CODES.STOCK);
     const [bootstrapping, setBootstrapping] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [products, setProducts] = useState([]);
@@ -290,18 +293,20 @@ const ProductsList = () => {
                             Grille
                         </button>
                     </div>
-                    <motion.button
-                        whileHover={{
-                            scale: 1.03,
-                            boxShadow: '0px 10px 20px rgba(59, 130, 246, 0.3)',
-                        }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => navigate('/products/new')}
-                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
-                    >
-                        <PlusIcon className="h-5 w-5 stroke-[3]" />
-                        Nouveau produit
-                    </motion.button>
+                    {canCreate && (
+                        <motion.button
+                            whileHover={{
+                                scale: 1.03,
+                                boxShadow: '0px 10px 20px rgba(59, 130, 246, 0.3)',
+                            }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => navigate('/products/new')}
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
+                        >
+                            <PlusIcon className="h-5 w-5 stroke-[3]" />
+                            Nouveau produit
+                        </motion.button>
+                    )}
                 </div>
             </motion.div>
 
@@ -595,13 +600,15 @@ const ProductsList = () => {
                                             : 'Ajoutez votre premier produit.'}
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/products/new')}
-                                    className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700"
-                                >
-                                    + Nouveau produit
-                                </button>
+                                {canCreate && (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/products/new')}
+                                        className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700"
+                                    >
+                                        + Nouveau produit
+                                    </button>
+                                )}
                             </motion.div>
                         </div>
                     ) : viewMode === 'grid' ? (
@@ -807,19 +814,21 @@ const ProductsList = () => {
                                                         >
                                                             <EyeIcon className="h-4 w-4 stroke-[2.5]" />
                                                         </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                navigate(
-                                                                    `/products/edit/${product.IDArt}`
-                                                                );
-                                                            }}
-                                                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all"
-                                                            title="Modifier"
-                                                        >
-                                                            <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
-                                                        </button>
+                                                        {canEdit && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigate(
+                                                                        `/products/edit/${product.IDArt}`
+                                                                    );
+                                                                }}
+                                                                className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all"
+                                                                title="Modifier"
+                                                            >
+                                                                <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                                                            </button>
+                                                        )}
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {

@@ -20,9 +20,12 @@ import {
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
 import toast from 'react-hot-toast';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const ClientsList = () => {
     const navigate = useNavigate();
+    const { canCreate, canEdit } = usePermission(MODULE_CODES.CLIENTS);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [clients, setClients] = useState([]);
@@ -162,13 +165,15 @@ const ClientsList = () => {
                     >
                         <ArrowPathIcon className="h-5 w-5" />
                     </button>
-                    <button
-                        onClick={() => navigate('/clients/new')}
-                        className="btn-soft-primary flex items-center gap-2"
-                    >
-                        <PlusIcon className="h-4 w-4" />
-                        Nouveau Client
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/clients/new')}
+                            className="btn-soft-primary flex items-center gap-2"
+                        >
+                            <PlusIcon className="h-4 w-4" />
+                            Nouveau Client
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -396,12 +401,14 @@ const ClientsList = () => {
                                                 <UserGroupIcon className="h-8 w-8" />
                                             </div>
                                             <p className="text-slate-500 font-medium">Aucun client trouvé</p>
-                                            <button
-                                                onClick={() => navigate('/clients/new')}
-                                                className="btn-soft-primary text-xs"
-                                            >
-                                                Ajouter un client
-                                            </button>
+                                            {canCreate && (
+                                                <button
+                                                    onClick={() => navigate('/clients/new')}
+                                                    className="btn-soft-primary text-xs"
+                                                >
+                                                    Ajouter un client
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -479,13 +486,15 @@ const ClientsList = () => {
                                                 >
                                                     <EyeIcon className="h-5 w-5" />
                                                 </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); navigate(`/clients/edit/${client.IDTiers}`); }}
-                                                    className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
-                                                    title="Modifier"
-                                                >
-                                                    <PencilSquareIcon className="h-5 w-5" />
-                                                </button>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/clients/edit/${client.IDTiers}`); }}
+                                                        className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
+                                                        title="Modifier"
+                                                    >
+                                                        <PencilSquareIcon className="h-5 w-5" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

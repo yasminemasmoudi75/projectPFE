@@ -24,6 +24,8 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -56,6 +58,7 @@ const rowVariants = {
 const DevisList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { canCreate, canEdit } = usePermission(MODULE_CODES.DEVIS);
   const { devis, loading, pagination } = useSelector((state) => state.devis);
 
   // Filter states
@@ -194,15 +197,17 @@ const DevisList = () => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate('/devis/new')}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
-          >
-            <PlusIcon className="h-5 w-5 stroke-[3]" />
-            Nouvelle Proposition
-          </motion.button>
+          {canCreate && (
+            <motion.button
+              whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/devis/new')}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-soft transition-all hover:from-blue-700 hover:to-indigo-700"
+            >
+              <PlusIcon className="h-5 w-5 stroke-[3]" />
+              Nouvelle Proposition
+            </motion.button>
+          )}
         </div>
       </motion.div>
 
@@ -447,7 +452,7 @@ const DevisList = () => {
                               : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
                           </p>
                         </div>
-                        {(!devis || devis.length === 0) && (
+                        {(!devis || devis.length === 0) && canCreate && (
                           <button onClick={() => navigate('/devis/new')} className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700">
                             + Créer un devis
                           </button>
@@ -538,13 +543,15 @@ const DevisList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/devis/edit/${item.Guid}`); }}
-                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
-                            title="Modifier"
-                          >
-                            <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/devis/edit/${item.Guid}`); }}
+                              className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
+                              title="Modifier"
+                            >
+                              <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/devis/${item.Guid}`); }}
                             className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all hover:-translate-y-0.5"

@@ -85,21 +85,33 @@ export const MESSAGE_TYPES = {
 // CODES MODULES (pour permissions)
 // ===========================
 export const MODULE_CODES = {
-  DASHBOARD: 1,
-  CLIENTS: 10,
-  CONTACTS: 11,
-  DEVIS: 20,
-  COMMANDES: 21,
-  FACTURES: 22,
-  PROJETS: 30,
-  ACTIVITES: 31,
-  OBJECTIFS: 32,
-  STOCK: 40,
-  SAV: 50,
-  MESSAGES: 60,
-  IA: 70,
-  USERS: 80,
-  SETTINGS: 90,
+  // Database codes from TabAWProfileAccess
+  PROJETS: 3,            // Module Projets
+  DEVIS: 4,              // Module Devis
+  COMMANDES: 5,          // Module Commande (BCV)
+  LIVRAISONS: 6,         // Module Livraison (BLV)
+  FACTURES: 7,           // Module Facture (FAV)
+  CLIENTS: 30,           // Module Client
+  REGLEMENT: 31,         // Module Reglement
+  MENU: 32,              // Menu
+  TOURNEE: 40,           // Module Tournée
+  CHARGEMENT: 41,        // Module Chargement
+  OBJECTIFS: 42,         // Module Objectif
+  RECAP: 43,             // Module Recap
+  RELEVE: 44,            // Module Relevé
+  VISITES: 45,           // Module visite
+  STOCK: 46,             // Stock
+  SOLDE_CLIENT: 47,      // soldeClient
+  MAPS: 52,              // Maps
+  
+  // Frontend-only (no database permission check needed)
+  DASHBOARD: null,       // Dashboard shown to all users
+  ACTIVITES: 41,         // Map to Chargement for now
+  SAV: 31,               // Map to Reglement for now
+  MESSAGES: 1,           // Temporary placeholder
+  IA: 2,                 // Temporary placeholder
+  USERS: 3,              // Temporary placeholder
+  SETTINGS: null,        // Paramètres shown to all users
 };
 
 // ===========================
