@@ -50,10 +50,11 @@ const checkPermission = (codMod, action) => {
         });
       }
 
-      // Admin a tous les droits
-      if (access.isAdmin || userRole === 'admin') {
-        return next();
-      }
+      // ✨ MODIFICATION: Admin respecte AUSSI TabAWProfileAccess (pas de bypass)
+      // Ancien code (supprimé):
+      // if (access.isAdmin || userRole === 'admin') {
+      //   return next();
+      // }
 
       const aliases = roleAliases(userRole);
 
@@ -71,6 +72,10 @@ const checkPermission = (codMod, action) => {
       const permissions = permissionsResult[0];
 
       if (!permissions) {
+        if (userRole === 'admin') {
+          return next();
+        }
+
         return res.status(403).json({
           status: 'error',
           message: `Accès refusé au module`,
@@ -140,19 +145,34 @@ const checkPermission = (codMod, action) => {
 };
 
 /**
- * Codes des modules
+ * Codes des modules - MUST match CodMod values in TabAWProfileAccess
  */
 const MODULES = {
-  OBJECTIFS: 1,
-  RECLAMATIONS: 2,
-  INTERVENTIONS: 3,
-  DEVIS: 4,
-  PROJETS: 5,
+  DEVIS: 4,              // Module Devis
+  BCV: 5,                // Module Commande
+  LIVRAISONS: 6,         // Module Livraison
+  FACTURES: 7,           // Module Facture
+  CLIENTS: 30,           // Module Client
+  REGLEMENT: 31,         // Module Reglement
+  MENU: 32,              // Menu
+  TOURNEE: 40,           // Module Tournée
+  CHARGEMENT: 41,        // Module Chargement
+  OBJECTIFS: 42,         // Module Objectif
+  RECAP: 43,             // Module Recap
+  RELEVE: 44,            // Module Relevé
+  VISITES: 45,           // Module visite
+  STOCK: 46,             // Stock / Produits
+  SOLDE_CLIENT: 47,      // soldeClient
+  MAPS: 52,              // Maps
+
+  // Legacy / feature-specific routes without a dedicated permission row yet.
+  RECLAMATIONS: 1,
+  INTERVENTIONS: 2,
+  PROJETS: 3,
   PRODUITS: 46,
-  TIERS: 7,
-  BCV: 8,
-  ACTIVITES: 9,
-  MESSAGES: 10
+  TIERS: 30,
+  ACTIVITES: 45,
+  MESSAGES: 43
 };
 
 module.exports = {

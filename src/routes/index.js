@@ -22,6 +22,7 @@ const tiersCategorieRoutes = require('./tiersCategorieRoutes');
 const blvRoutes = require('./blvRoutes');
 const favRoutes = require('./favRoutes');
 const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
+const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -44,6 +45,7 @@ router.use('/tiers-categories', tiersCategorieRoutes);
 router.use('/blv', blvRoutes);
 router.use('/fav', favRoutes);
 router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
+router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
 
 // Route de base de l'API
 router.get('/', (req, res) => {

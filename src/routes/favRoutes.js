@@ -6,10 +6,10 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
-router.get('/', checkPermission(MODULES.BCV, 'read'), favController.getAllFav);
-router.get('/:id', checkPermission(MODULES.BCV, 'read'), favController.getFavById);
-router.post('/', checkPermission(MODULES.BCV, 'create'), favController.createFav);
-router.put('/:id', checkPermission(MODULES.BCV, 'update'), favController.updateFav);
-router.delete('/:id', checkPermission(MODULES.BCV, 'delete'), favController.deleteFav);
+router.get('/', checkPermission(MODULES.FACTURES, 'read'), favController.getAllFav);
+router.get('/:id', checkPermission(MODULES.FACTURES, 'read'), favController.getFavById);
+router.post('/', checkPermission(MODULES.FACTURES, 'create'), favController.createFav);
+router.put('/:id', checkPermission(MODULES.FACTURES, 'update'), favController.updateFav);
+router.delete('/:id', checkPermission(MODULES.FACTURES, 'delete'), favController.deleteFav);
 
 module.exports = router;
