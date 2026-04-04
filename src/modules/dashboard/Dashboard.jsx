@@ -37,6 +37,7 @@ import {
   RadialBar
 } from 'recharts';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
 import axiosInstance from '../../app/axios';
 import toast from 'react-hot-toast';
 
@@ -84,8 +85,15 @@ const isUnreadMessage = (message) => !normalizeBoolean(message?.Delivered);
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { allPermissions } = usePermission();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('week');
+
+  // Helper: Vérifier si un module est actif
+  const hasModuleAccess = (moduleCode) => {
+    if (!moduleCode) return true; // Pas de vérification si pas de code
+    return allPermissions.some(p => p.moduleCode === moduleCode && p.isActive);
+  };
 
   // State pour les données
   const [stats, setStats] = useState([]);
@@ -118,7 +126,20 @@ const Dashboard = () => {
       try {
         setLoading(true);
 
-        // Appels API parallèles
+        // Construire dynamiquement les appels API selon les permissions
+        const apiCalls = [
+          axiosInstance.get('/reclamations?limit=1000').catch(() => ({ data: [] })), // Toujours charger SAV
+          axiosInstance.get('/projets?limit=1000').catch(() => ({ data: [] })), // Toujours charger projets
+          hasModuleAccess(42) ? axiosInstance.get('/objectifs?limit=1000') : Promise.resolve({ data: [] }), // Objectifs (42)
+          axiosInstance.get('/devis?limit=1000').catch(() => ({ data: [] })), // Toujours charger devis
+          axiosInstance.get('/users?limit=1000').catch(() => ({ data: [] })), // Toujours charger users
+          axiosInstance.get('/activites?limit=50').catch(() => ({ data: [] })), // Toujours charger activités
+          axiosInstance.get('/tiers?limit=1000').catch(() => ({ data: [] })), // Toujours charger tiers
+          hasModuleAccess(2) ? axiosInstance.get('/messages?limit=100') : Promise.resolve({ data: [] }), // Messages (2)
+          axiosInstance.get('/blv?limit=1000').catch(() => ({ data: { data: [] } })), // Toujours charger BLV
+          hasModuleAccess(7) ? axiosInstance.get('/fav?limit=1000') : Promise.resolve({ data: { data: [] } }) // Factures (7)
+        ];
+
         const [
           reclamationsRes,
           projectsRes,
@@ -130,18 +151,7 @@ const Dashboard = () => {
           messagesRes,
           blvRes,
           favRes,
-        ] = await Promise.all([
-          axiosInstance.get('/reclamations?limit=1000'),
-          axiosInstance.get('/projets?limit=1000'),
-          axiosInstance.get('/objectifs?limit=1000'),
-          axiosInstance.get('/devis?limit=1000'),
-          axiosInstance.get('/users?limit=1000'),
-          axiosInstance.get('/activites?limit=50'),
-          axiosInstance.get('/tiers?limit=1000').catch(() => ({ data: [] })),
-          axiosInstance.get('/messages?limit=100').catch(() => ({ data: [] })),
-          axiosInstance.get('/blv?limit=1000').catch(() => ({ data: { data: [] } })),
-          axiosInstance.get('/fav?limit=1000').catch(() => ({ data: { data: [] } }))
-        ]);
+        ] = await Promise.all(apiCalls);
 
         const blv = getCollection(blvRes);
         const fav = getCollection(favRes);
@@ -468,7 +478,7 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [allPermissions]);
 
   const getIconStyle = (color) => {
     const styles = {

@@ -30,6 +30,8 @@ import { MODULE_CODES } from '../utils/constants';
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD },
   { type: 'section', name: 'CRM & Ventes' },
+  { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS },
+  { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES },
   { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS },
   { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS },
   { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES },

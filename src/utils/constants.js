@@ -86,6 +86,8 @@ export const MESSAGE_TYPES = {
 // ===========================
 export const MODULE_CODES = {
   // Database codes from TabAWProfileAccess
+  USERS: 1,              // Module Utilisateurs
+  MESSAGES: 2,           // Module Messages
   PROJETS: 3,            // Module Projets
   DEVIS: 4,              // Module Devis
   COMMANDES: 5,          // Module Commande (BCV)
@@ -108,9 +110,7 @@ export const MODULE_CODES = {
   DASHBOARD: null,       // Dashboard shown to all users
   ACTIVITES: 41,         // Map to Chargement for now
   SAV: 31,               // Map to Reglement for now
-  MESSAGES: 1,           // Temporary placeholder
-  IA: 2,                 // Temporary placeholder
-  USERS: 3,              // Temporary placeholder
+  IA: 8,                 // Temporary placeholder
   SETTINGS: null,        // Paramètres shown to all users
 };
 

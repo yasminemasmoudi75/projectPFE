@@ -12,7 +12,6 @@ const Dashboard = lazy(() => import('../modules/dashboard/Dashboard'));
 const ClientsList = lazy(() => import('../modules/clients/ClientsList'));
 const ClientDetail = lazy(() => import('../modules/clients/ClientDetail'));
 const ClientForm = lazy(() => import('../modules/clients/ClientForm'));
-const ClientReglements = lazy(() => import('../modules/clients/ClientReglements'));
 const DevisList = lazy(() => import('../modules/sales/DevisList'));
 const DevisDetail = lazy(() => import('../modules/sales/DevisDetail'));
 const DevisForm = lazy(() => import('../modules/sales/DevisForm'));
@@ -37,7 +36,6 @@ const ProductDetail = lazy(() => import('../modules/products/ProductDetail'));
 const ClaimsList = lazy(() => import('../modules/claims/ClaimsList'));
 const ClaimDetail = lazy(() => import('../modules/claims/ClaimDetail'));
 const ClaimForm = lazy(() => import('../modules/claims/ClaimForm'));
-const ClaimInterventionForm = lazy(() => import('../modules/claims/ClaimInterventionForm'));
 const Calendar = lazy(() => import('../modules/activities/CalendarView'));
 const Objectifs = lazy(() => import('../modules/goals/Objectifs'));
 const ObjectifForm = lazy(() => import('../modules/goals/ObjectifForm'));
@@ -136,14 +134,6 @@ const routes = [
         element: (
           <SuspenseWrapper>
             <ClientDetail />
-          </SuspenseWrapper>
-        ),
-      },
-      {
-        path: 'clients/:id/reglements',
-        element: (
-          <SuspenseWrapper>
-            <ClientReglements />
           </SuspenseWrapper>
         ),
       },
@@ -430,14 +420,6 @@ const routes = [
             element: (
               <SuspenseWrapper>
                 <ClaimDetail />
-              </SuspenseWrapper>
-            ),
-          },
-          {
-            path: ':id/intervention/new',
-            element: (
-              <SuspenseWrapper>
-                <ClaimInterventionForm />
               </SuspenseWrapper>
             ),
           }
