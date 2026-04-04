@@ -3,7 +3,7 @@ const { sequelize } = require('../config/database');
 
 const ROLE_LABELS = {
   admin: 'Admin',
-  commercial: 'Commercial',
+  commercial: 'Commerciale',
   agent: 'Agent',
   technicien: 'Technicien',
   client: 'Client',

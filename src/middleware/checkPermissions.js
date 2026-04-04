@@ -148,6 +148,9 @@ const checkPermission = (codMod, action) => {
  * Codes des modules - MUST match CodMod values in TabAWProfileAccess
  */
 const MODULES = {
+  USERS: 1,              // Module Utilisateurs
+  MESSAGES: 2,           // Module Messages (FIX: était 43)
+  PROJETS: 3,            // Module Projets
   DEVIS: 4,              // Module Devis
   BCV: 5,                // Module Commande
   LIVRAISONS: 6,         // Module Livraison
@@ -165,14 +168,12 @@ const MODULES = {
   SOLDE_CLIENT: 47,      // soldeClient
   MAPS: 52,              // Maps
 
-  // Legacy / feature-specific routes without a dedicated permission row yet.
+  // Legacy aliases
   RECLAMATIONS: 1,
   INTERVENTIONS: 2,
-  PROJETS: 3,
   PRODUITS: 46,
   TIERS: 30,
-  ACTIVITES: 45,
-  MESSAGES: 43
+  ACTIVITES: 45
 };
 
 module.exports = {
