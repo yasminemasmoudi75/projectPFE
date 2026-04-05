@@ -4,6 +4,54 @@ const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
+const isCommercialRole = (role) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const getCommercialIdentifiers = (user = {}) => {
+  const numericUserId = Number(user?.UserID || user?.id);
+  const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
+
+  const candidates = [
+    user?.CodRepres,
+    user?.codRepres,
+    userIdAsString,
+    user?.LoginName,
+    user?.EmailPro,
+    user?.GUID
+  ];
+
+  return Array.from(new Set(
+    candidates
+      .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
+      .filter((value) => value)
+  ));
+};
+
+const buildCommercialCodRepresFilter = (user = {}) => {
+  const identifiers = getCommercialIdentifiers(user);
+  if (identifiers.length === 0) {
+    return { Guid: '__NO_MATCH__' };
+  }
+
+  return {
+    [Op.or]: identifiers.map((identifier) =>
+      sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), identifier)
+    )
+  };
+};
+
+const resolveCommercialCodRepresValue = (user = {}) => {
+  const numericUserId = Number(user?.UserID || user?.id);
+  if (Number.isFinite(numericUserId)) {
+    return String(Math.trunc(numericUserId));
+  }
+
+  const fallback = user?.CodRepres || user?.codRepres || user?.LoginName || user?.EmailPro || user?.GUID;
+  return fallback ? String(fallback).trim().slice(0, 10) : null;
+};
+
 const RECENT_DEVIS_ORDER = [
   ['Nf', 'DESC'],
   ['DatCreateUser', 'DESC'],
@@ -18,22 +66,30 @@ exports.getAllDevis = async (req, res, next) => {
     const { search, status, page = 1, limit = 100 } = req.query;
     const offset = (page - 1) * limit;
 
-    const where = {};
+    const filters = [];
 
     // Exclude converted devis (bTransf = true)
-    where.bTransf = { [Op.ne]: true };
+    filters.push({ bTransf: { [Op.ne]: true } });
 
     if (search) {
-      where[Op.or] = [
-        { Nf: { [Op.like]: `%${search}%` } },
-        { LibTiers: { [Op.like]: `%${search}%` } }
-      ];
+      filters.push({
+        [Op.or]: [
+          { Nf: { [Op.like]: `%${search}%` } },
+          { LibTiers: { [Op.like]: `%${search}%` } }
+        ]
+      });
     }
 
     if (status) {
-      if (status === 'valid') where.Valid = true;
-      if (status === 'pending') where.Valid = false;
+      if (status === 'valid') filters.push({ Valid: true });
+      if (status === 'pending') filters.push({ Valid: false });
     }
+
+    if (isCommercialRole(req.user?.UserRole)) {
+      filters.push(buildCommercialCodRepresFilter(req.user));
+    }
+
+    const where = filters.length === 1 ? filters[0] : { [Op.and]: filters };
 
     const { count, rows } = await DevisMaster.findAndCountAll({
       where,
@@ -69,7 +125,12 @@ exports.getAllDevis = async (req, res, next) => {
 exports.getDevisById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const devis = await DevisMaster.findByPk(id, {
+    const where = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+      : { Guid: id };
+
+    const devis = await DevisMaster.findOne({
+      where,
       include: [
         {
           model: DevisDetail,
@@ -197,6 +258,15 @@ exports.createDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
+    if (isCommercialRole(req.user?.UserRole)) {
+      const codRepres = resolveCommercialCodRepresValue(req.user);
+      if (!codRepres) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+      }
+      master.CodRepres = codRepres;
+    }
+
     // 1. Déterminer le prochain numéro de devis (Nf) si pas fourni
     if (!master.Nf) {
       const lastDevis = await DevisMaster.findOne({
@@ -302,7 +372,11 @@ exports.updateDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
-    const devis = await DevisMaster.findByPk(id, { transaction });
+    const devisWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+      : { Guid: id };
+
+    const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
     if (!devis) {
       if (transaction && !transaction.finished) {
         await transaction.rollback();
@@ -312,6 +386,15 @@ exports.updateDevis = async (req, res, next) => {
 
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
+
+    if (isCommercialRole(req.user?.UserRole)) {
+      const codRepres = resolveCommercialCodRepresValue(req.user);
+      if (!codRepres) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+      }
+      masterData.CodRepres = codRepres;
+    }
 
     // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
     masterData.DatUser = sequelize.literal('GETDATE()');
@@ -374,7 +457,10 @@ exports.deleteDevis = async (req, res, next) => {
   try {
     transaction = await sequelize.transaction();
     const { id } = req.params;
-    const devis = await DevisMaster.findByPk(id);
+    const devisWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+      : { Guid: id };
+    const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
 
     if (!devis) {
       await transaction.rollback();
@@ -406,7 +492,10 @@ exports.deleteDevis = async (req, res, next) => {
 exports.validateDevis = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const devis = await DevisMaster.findByPk(id);
+    const devisWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+      : { Guid: id };
+    const devis = await DevisMaster.findOne({ where: devisWhere });
 
     if (!devis) {
       return res.status(404).json({ status: 'error', message: 'Devis non trouvé' });
@@ -434,7 +523,11 @@ exports.convertDevis = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const devis = await DevisMaster.findByPk(id, {
+    const devisWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+      : { Guid: id };
+    const devis = await DevisMaster.findOne({
+      where: devisWhere,
       include: [{ model: DevisDetail, as: 'details' }],
       transaction: t
     });

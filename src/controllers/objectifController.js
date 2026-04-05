@@ -1,4 +1,5 @@
 const { Objectif, User } = require('../models');
+const { Op } = require('sequelize');
 
 const normalizeInteger = (value) => {
     if (value === undefined || value === null || value === '') return null;
@@ -47,6 +48,36 @@ const hydrateObjectif = async (id) => Objectif.findByPk(id, {
     include: objectifInclude
 });
 
+const isCommercialRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const buildCommercialObjectifScope = (user = {}) => {
+    const userId = normalizeInteger(user?.UserID || user?.id);
+    const guid = user?.GUID ? String(user.GUID) : null;
+
+    if (!userId && !guid) {
+        return { ID_Objectif: '__NO_MATCH__' };
+    }
+
+    const scopes = [];
+    if (userId) scopes.push({ ID_Utilisateur: userId });
+    if (guid) scopes.push({ IdCont: guid });
+
+    return scopes.length === 1 ? scopes[0] : { [Op.or]: scopes };
+};
+
+const isObjectifRelatedToCommercial = (objectif, user = {}) => {
+    const userId = normalizeInteger(user?.UserID || user?.id);
+    const objectifUserId = normalizeInteger(objectif?.ID_Utilisateur);
+    const userGuid = user?.GUID ? String(user.GUID).toLowerCase() : null;
+    const objectifGuid = objectif?.IdCont ? String(objectif.IdCont).toLowerCase() : null;
+
+    return (userId && objectifUserId && userId === objectifUserId)
+        || (userGuid && objectifGuid && userGuid === objectifGuid);
+};
+
 /**
  * Créer un nouvel objectif
  */
@@ -68,18 +99,22 @@ exports.createObjectif = async (req, res, next) => {
             ID_Objectif_Parent
         } = req.body;
 
+        const effectiveUserId = isCommercialRole(req.user?.UserRole)
+            ? (req.user?.UserID || req.user?.id)
+            : ID_Utilisateur;
+
         void ID_Objectif_Parent;
 
         // Validation selon le type de période
         if (TypePeriode === 'Mensuel') {
-            if (!ID_Utilisateur || !Mois || !Annee || MontantCible === undefined || MontantCible === null) {
+            if (!effectiveUserId || !Mois || !Annee || MontantCible === undefined || MontantCible === null) {
                 return res.status(400).json({
                     status: 'error',
                     message: 'L\'utilisateur, le mois, l\'année et le montant cible sont obligatoires pour un objectif mensuel'
                 });
             }
         } else if (TypePeriode === 'Hebdomadaire') {
-            if (!ID_Utilisateur || !Semaine || !DateDebut || !DateFin) {
+            if (!effectiveUserId || !Semaine || !DateDebut || !DateFin) {
                 return res.status(400).json({
                     status: 'error',
                     message: 'L\'utilisateur, la semaine, la date de début et la date de fin sont obligatoires pour un objectif hebdomadaire'
@@ -87,7 +122,7 @@ exports.createObjectif = async (req, res, next) => {
             }
         }
 
-        const resolvedUser = await resolveUserForObjectif(ID_Utilisateur);
+        const resolvedUser = await resolveUserForObjectif(effectiveUserId);
         if (resolvedUser?.error) {
             return res.status(400).json({
                 status: 'error',
@@ -134,12 +169,14 @@ exports.createObjectif = async (req, res, next) => {
 exports.getAllObjectifs = async (req, res, next) => {
     try {
         const { userId, mois, annee, semaine, tiersId, projetId } = req.query;
-        const where = {};
+        const where = isCommercialRole(req.user?.UserRole)
+            ? buildCommercialObjectifScope(req.user)
+            : {};
 
         void tiersId;
         void projetId;
 
-        if (userId) {
+        if (userId && !isCommercialRole(req.user?.UserRole)) {
             const resolvedUser = await resolveUserForObjectif(userId);
             if (resolvedUser?.error) {
                 return res.status(200).json({
@@ -189,6 +226,13 @@ exports.getObjectifById = async (req, res, next) => {
             });
         }
 
+        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Accès refusé à cet objectif'
+            });
+        }
+
         res.status(200).json({
             status: 'success',
             data: objectif
@@ -231,8 +275,15 @@ exports.updateObjectif = async (req, res, next) => {
             });
         }
 
+        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Accès refusé à cet objectif'
+            });
+        }
+
         let resolvedUser = null;
-        if (ID_Utilisateur !== undefined) {
+        if (ID_Utilisateur !== undefined && !isCommercialRole(req.user?.UserRole)) {
             resolvedUser = await resolveUserForObjectif(ID_Utilisateur);
             if (resolvedUser?.error) {
                 return res.status(400).json({
@@ -295,6 +346,13 @@ exports.deleteObjectif = async (req, res, next) => {
             return res.status(404).json({
                 status: 'error',
                 message: 'Objectif non trouvé'
+            });
+        }
+
+        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Accès refusé à cet objectif'
             });
         }
 

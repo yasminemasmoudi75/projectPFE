@@ -4,6 +4,54 @@ const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
+const isCommercialRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const getCommercialIdentifiers = (user = {}) => {
+    const numericUserId = Number(user?.UserID || user?.id);
+    const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
+
+    const candidates = [
+        user?.CodRepres,
+        user?.codRepres,
+        userIdAsString,
+        user?.LoginName,
+        user?.EmailPro,
+        user?.GUID
+    ];
+
+    return Array.from(new Set(
+        candidates
+            .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
+            .filter((value) => value)
+    ));
+};
+
+const buildCommercialCodRepresFilter = (user = {}) => {
+    const identifiers = getCommercialIdentifiers(user);
+    if (identifiers.length === 0) {
+        return { Guid: '__NO_MATCH__' };
+    }
+
+    return {
+        [Op.or]: identifiers.map((identifier) =>
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), identifier)
+        )
+    };
+};
+
+const resolveCommercialCodRepresValue = (user = {}) => {
+    const numericUserId = Number(user?.UserID || user?.id);
+    if (Number.isFinite(numericUserId)) {
+        return String(Math.trunc(numericUserId));
+    }
+
+    const fallback = user?.CodRepres || user?.codRepres || user?.LoginName || user?.EmailPro || user?.GUID;
+    return fallback ? String(fallback).trim().slice(0, 10) : null;
+};
+
 /**
  * Helper function to parse dates for SQL Server through Sequelize
  */
@@ -82,17 +130,25 @@ exports.getAllBcv = async (req, res, next) => {
         const { search = '', page = 1, limit = 100 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        const where = {
+        const filters = [
             // Exclure les BCV déjà transférés en BLV/Facture
-            bTransf: { [Op.ne]: true }
-        };
+            { bTransf: { [Op.ne]: true } }
+        ];
 
         if (search) {
-            where[Op.or] = [
+            filters.push({
+                [Op.or]: [
                 { LibTiers: { [Op.like]: `%${search}%` } },
                 { CodTiers: { [Op.like]: `%${search}%` } },
-            ];
+                ]
+            });
         }
+
+        if (isCommercialRole(req.user?.UserRole)) {
+            filters.push(buildCommercialCodRepresFilter(req.user));
+        }
+
+        const where = filters.length === 1 ? filters[0] : { [Op.and]: filters };
 
         const { count, rows } = await BcvMaster.findAndCountAll({
             where,
@@ -125,8 +181,12 @@ exports.getBcvById = async (req, res, next) => {
     try {
         const { id } = req.params;
 
+        const where = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+
         const bcv = await BcvMaster.findOne({
-            where: { Guid: id },
+            where,
             include: [
                 { model: BcvDetail, as: 'details' },
                 { model: Tiers, as: 'client' }
@@ -337,6 +397,14 @@ exports.createBcv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
+        if (isCommercialRole(req.user?.UserRole)) {
+            const codRepres = resolveCommercialCodRepresValue(req.user);
+            if (!codRepres) {
+                return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+            }
+            master.CodRepres = codRepres;
+        }
+
         // 1. Déterminer le prochain numéro (Nf) si pas fourni
         if (!master.Nf) {
             const lastBcv = await BcvMaster.findOne({
@@ -423,10 +491,23 @@ exports.updateBcv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
-        const bcv = await BcvMaster.findOne({ where: { Guid: id }, transaction });
+        const bcvWhere = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+
+        const bcv = await BcvMaster.findOne({ where: bcvWhere, transaction });
         if (!bcv) {
             if (transaction && !transaction.finished) await transaction.rollback();
             return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
+        }
+
+        if (isCommercialRole(req.user?.UserRole)) {
+            const codRepres = resolveCommercialCodRepresValue(req.user);
+            if (!codRepres) {
+                if (transaction && !transaction.finished) await transaction.rollback();
+                return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+            }
+            master.CodRepres = codRepres;
         }
 
         const masterData = sanitizeMasterData(master);
@@ -475,7 +556,10 @@ exports.deleteBcv = async (req, res, next) => {
     try {
         transaction = await sequelize.transaction();
         const { id } = req.params;
-        const bcv = await BcvMaster.findOne({ where: { Guid: id }, transaction });
+        const bcvWhere = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+        const bcv = await BcvMaster.findOne({ where: bcvWhere, transaction });
 
         if (!bcv) {
             await transaction.rollback();

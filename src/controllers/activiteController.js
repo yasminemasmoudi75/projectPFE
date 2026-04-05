@@ -24,6 +24,38 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 const normalizeReference = (value) => (typeof value === 'string' ? value.trim() : value);
 
+const isCommercialRole = (role) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const buildCommercialActivityScope = async (user = {}) => {
+  const secUserId = await resolveSecUserId(user?.UserID || user?.id);
+  const possibleDestinataires = [user?.FullName, user?.LoginName]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (secUserId && possibleDestinataires.length > 0) {
+    return {
+      [Op.or]: [
+        { User: secUserId },
+        { Destinataire: { [Op.in]: possibleDestinataires } }
+      ]
+    };
+  }
+
+  if (secUserId) {
+    return { User: secUserId };
+  }
+
+  if (possibleDestinataires.length > 0) {
+    return { Destinataire: { [Op.in]: possibleDestinataires } };
+  }
+
+  return { Guid: '__NO_MATCH__' };
+};
+
 const serializeActivite = (activite) => {
   const plainActivite = activite?.toJSON ? activite.toJSON() : activite;
 
@@ -322,8 +354,12 @@ exports.getAllActivites = async (req, res, next) => {
       where.Valide = ['1', 'true', 'yes'].includes(String(valide).toLowerCase()) ? 1 : 0;
     }
 
+    const finalWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [where, await buildCommercialActivityScope(req.user)] }
+      : where;
+
     const activites = await Activite.findAll({
-      where,
+      where: finalWhere,
       include: ACTIVITE_INCLUDE,
       order: [['Date_Activite', 'DESC']]
     });
@@ -345,6 +381,15 @@ exports.getAllActivites = async (req, res, next) => {
  */
 exports.getActiviteById = async (req, res, next) => {
   try {
+    const lookupWhere = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
+      : { Guid: req.params.id };
+
+    const authorized = await Activite.findOne({ where: lookupWhere });
+    if (!authorized) {
+      return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
+    }
+
     const activite = await loadActiviteById(req.params.id);
 
     if (!activite) {
@@ -362,7 +407,11 @@ exports.getActiviteById = async (req, res, next) => {
  */
 exports.updateActivite = async (req, res, next) => {
   try {
-    const activite = await Activite.findByPk(req.params.id);
+    const where = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
+      : { Guid: req.params.id };
+
+    const activite = await Activite.findOne({ where });
 
     if (!activite) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
@@ -447,7 +496,11 @@ exports.updateActivite = async (req, res, next) => {
 
 exports.validateActivite = async (req, res, next) => {
   try {
-    const activite = await Activite.findByPk(req.params.id);
+    const where = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
+      : { Guid: req.params.id };
+
+    const activite = await Activite.findOne({ where });
 
     if (!activite) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
@@ -472,7 +525,11 @@ exports.validateActivite = async (req, res, next) => {
  */
 exports.deleteActivite = async (req, res, next) => {
   try {
-    const deleted = await Activite.destroy({ where: { Guid: req.params.id } });
+    const where = isCommercialRole(req.user?.UserRole)
+      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
+      : { Guid: req.params.id };
+
+    const deleted = await Activite.destroy({ where });
 
     if (!deleted) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });

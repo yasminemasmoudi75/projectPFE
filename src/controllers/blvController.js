@@ -3,6 +3,54 @@ const { Op } = require('sequelize');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
+const isCommercialRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const getCommercialIdentifiers = (user = {}) => {
+    const numericUserId = Number(user?.UserID || user?.id);
+    const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
+
+    const candidates = [
+        user?.CodRepres,
+        user?.codRepres,
+        userIdAsString,
+        user?.LoginName,
+        user?.EmailPro,
+        user?.GUID
+    ];
+
+    return Array.from(new Set(
+        candidates
+            .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
+            .filter((value) => value)
+    ));
+};
+
+const buildCommercialCodRepresFilter = (user = {}) => {
+    const identifiers = getCommercialIdentifiers(user);
+    if (identifiers.length === 0) {
+        return { Guid: '__NO_MATCH__' };
+    }
+
+    return {
+        [Op.or]: identifiers.map((identifier) =>
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), identifier)
+        )
+    };
+};
+
+const resolveCommercialCodRepresValue = (user = {}) => {
+    const numericUserId = Number(user?.UserID || user?.id);
+    if (Number.isFinite(numericUserId)) {
+        return String(Math.trunc(numericUserId));
+    }
+
+    const fallback = user?.CodRepres || user?.codRepres || user?.LoginName || user?.EmailPro || user?.GUID;
+    return fallback ? String(fallback).trim().slice(0, 10) : null;
+};
+
 /**
  * Helper function to parse dates for SQL Server through Sequelize
  */
@@ -73,14 +121,22 @@ exports.getAllBlv = async (req, res, next) => {
         const { search = '', page = 1, limit = 100 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        const where = {};
+        const filters = [];
         if (search) {
-            where[Op.or] = [
+            filters.push({
+                [Op.or]: [
                 { LibTiers: { [Op.like]: `%${search}%` } },
                 { CodTiers: { [Op.like]: `%${search}%` } },
                 { Nf: { [Op.like]: `%${search}%` } }
-            ];
+                ]
+            });
         }
+
+        if (isCommercialRole(req.user?.UserRole)) {
+            filters.push(buildCommercialCodRepresFilter(req.user));
+        }
+
+        const where = filters.length > 0 ? { [Op.and]: filters } : {};
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
@@ -113,8 +169,12 @@ exports.getBlvById = async (req, res, next) => {
     try {
         const { id } = req.params;
 
+        const where = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+
         const blv = await BlvMaster.findOne({
-            where: { Guid: id },
+            where,
             include: [
                 { model: BlvDetail, as: 'details' },
                 { model: Tiers, as: 'client' }
@@ -143,6 +203,15 @@ exports.createBlv = async (req, res, next) => {
 
         if (!master) {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
+        }
+
+        if (isCommercialRole(req.user?.UserRole)) {
+            const codRepres = resolveCommercialCodRepresValue(req.user);
+            if (!codRepres) {
+                if (transaction && !transaction.finished) await transaction.rollback();
+                return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+            }
+            master.CodRepres = codRepres;
         }
 
         if (!master.Nf) {
@@ -217,13 +286,25 @@ exports.updateBlv = async (req, res, next) => {
         const { id } = req.params;
         const { master, details } = req.body;
 
-        const blv = await BlvMaster.findOne({ where: { Guid: id }, transaction });
+        const blvWhere = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+        const blv = await BlvMaster.findOne({ where: blvWhere, transaction });
         if (!blv) {
             if (transaction && !transaction.finished) await transaction.rollback();
             return res.status(404).json({ status: 'error', message: 'Bon de livraison non trouvé' });
         }
 
         const masterData = sanitizeMasterData(master);
+
+        if (isCommercialRole(req.user?.UserRole)) {
+            const codRepres = resolveCommercialCodRepresValue(req.user);
+            if (!codRepres) {
+                if (transaction && !transaction.finished) await transaction.rollback();
+                return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
+            }
+            masterData.CodRepres = codRepres;
+        }
 
         // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
         masterData.DatUser = sequelize.literal('GETDATE()');
@@ -267,7 +348,10 @@ exports.deleteBlv = async (req, res, next) => {
     try {
         transaction = await sequelize.transaction();
         const { id } = req.params;
-        const blv = await BlvMaster.findOne({ where: { Guid: id }, transaction });
+        const blvWhere = isCommercialRole(req.user?.UserRole)
+            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
+            : { Guid: id };
+        const blv = await BlvMaster.findOne({ where: blvWhere, transaction });
 
         if (!blv) {
             await transaction.rollback();

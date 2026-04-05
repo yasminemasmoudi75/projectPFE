@@ -9,10 +9,14 @@ const [host, instanceName] = dbServer.includes('\\')
 
 console.log(`🔍 Tentative de connexion - Host: ${host}, Instance: ${instanceName || 'Défaut'}`);
 
+// Utiliser authentification Windows si DB_USER est vide
+const useWindowsAuth = !process.env.DB_USER || process.env.DB_AUTH_TYPE === 'windows';
+console.log(`🔐 Mode d'authentification: ${useWindowsAuth ? 'Windows (Trusted Connection)' : 'SQL Server'}`);
+
 const sequelize = new Sequelize(
   process.env.DB_DATABASE,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
+  useWindowsAuth ? undefined : process.env.DB_USER,
+  useWindowsAuth ? undefined : process.env.DB_PASSWORD,
   {
     host: host,
     port: parseInt(process.env.DB_PORT) || 1433,
@@ -22,7 +26,8 @@ const sequelize = new Sequelize(
         encrypt: process.env.DB_ENCRYPT === 'true',
         trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
         instanceName: instanceName,
-        useUTC: false, // Utilise l'heure locale pour éviter les problèmes de format DATETIME
+        useUTC: false,
+        ...(useWindowsAuth && { authentication: { type: 'default' } }),
       },
     },
     pool: {

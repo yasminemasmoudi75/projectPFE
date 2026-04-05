@@ -7,18 +7,20 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 // Appliquer la protection d'authentification à toutes les routes
 router.use(protect);
 
+const RECLAMATIONS_MODULE = MODULES.REGLEMENT;
+
 // Routes de consultation (tous les utilisateurs authentifiés)
-router.get('/', checkPermission(MODULES.RECLAMATIONS, 'read'), ctrl.getAll);
-router.get('/technician/:technicienID', checkPermission(MODULES.RECLAMATIONS, 'read'), ctrl.getTechnicianReclamations);
-router.get('/:id', checkPermission(MODULES.RECLAMATIONS, 'read'), ctrl.getById);
+router.get('/', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getAll);
+router.get('/technician/:technicienID', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getTechnicianReclamations);
+router.get('/:id', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getById);
 
 // Routes d'ajout/modification/suppression via permissions module
-router.post('/', checkPermission(MODULES.RECLAMATIONS, 'create'), ctrl.create);
-router.put('/:id', checkPermission(MODULES.RECLAMATIONS, 'update'), ctrl.update);
-router.patch('/:id/statut', checkPermission(MODULES.RECLAMATIONS, 'update'), ctrl.updateStatus);
-router.patch('/:id/assign-technician', checkPermission(MODULES.RECLAMATIONS, 'update'), ctrl.assignTechnician);
-router.patch('/:id/remove-technician', checkPermission(MODULES.RECLAMATIONS, 'update'), ctrl.removeTechnicianAssignment);
-router.post('/:id/interventions', checkPermission(MODULES.RECLAMATIONS, 'update'), ctrl.addIntervention);
-router.delete('/:id', checkPermission(MODULES.RECLAMATIONS, 'delete'), ctrl.remove);
+router.post('/', checkPermission(RECLAMATIONS_MODULE, 'create'), ctrl.create);
+router.put('/:id', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.update);
+router.patch('/:id/statut', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.updateStatus);
+router.patch('/:id/assign-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.assignTechnician);
+router.patch('/:id/remove-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.removeTechnicianAssignment);
+router.post('/:id/interventions', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.addIntervention);
+router.delete('/:id', checkPermission(RECLAMATIONS_MODULE, 'delete'), ctrl.remove);
 
 module.exports = router;

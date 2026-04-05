@@ -1,10 +1,73 @@
 const { Projet, Tiers } = require('../models');
 const { sequelize } = require('../config/database');
+const { Op } = require('sequelize');
 const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
 
 console.log('✅ projetController.js loaded');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isCommercialRole = (role) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const getCommercialIdentifiers = (user = {}) => {
+  const numericUserId = Number(user?.UserID || user?.id);
+  const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
+
+  const candidates = [
+    user?.CodRepres,
+    user?.codRepres,
+    userIdAsString,
+    user?.LoginName,
+    user?.EmailPro,
+    user?.GUID
+  ];
+
+  return Array.from(new Set(
+    candidates
+      .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
+      .filter((value) => value)
+  ));
+};
+
+const isTierRelatedToCommercial = (tier, user = {}) => {
+  const rep = String(tier?.codRepresTiers || '').trim().toLowerCase();
+  if (!rep) return false;
+  return getCommercialIdentifiers(user).includes(rep);
+};
+
+const buildProjectIncludeForUser = (user = {}, requiredForCommercial = false) => {
+  const baseInclude = {
+    model: Tiers,
+    as: 'client',
+    attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers']
+  };
+
+  if (!isCommercialRole(user?.UserRole)) {
+    return baseInclude;
+  }
+
+  const identifiers = getCommercialIdentifiers(user);
+  if (identifiers.length === 0) {
+    return {
+      ...baseInclude,
+      required: true,
+      where: { IDTiers: '__NO_MATCH__' }
+    };
+  }
+
+  return {
+    ...baseInclude,
+    required: requiredForCommercial,
+    where: {
+      [Op.or]: identifiers.map((identifier) =>
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('client.codRepresTiers')), identifier)
+      )
+    }
+  };
+};
 
 const resolveTierReference = async (tierReference) => {
   if (!tierReference) {
@@ -17,14 +80,14 @@ const resolveTierReference = async (tierReference) => {
   if (UUID_PATTERN.test(normalizedReference)) {
     tier = await Tiers.findOne({
       where: { IDTiers: normalizedReference },
-      attributes: ['IDTiers', 'CodTiers', 'Raisoc']
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'codRepresTiers']
     });
   }
 
   if (!tier) {
     tier = await Tiers.findOne({
       where: { CodTiers: normalizedReference },
-      attributes: ['IDTiers', 'CodTiers', 'Raisoc']
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'codRepresTiers']
     });
   }
 
@@ -108,6 +171,13 @@ exports.createProjet = async (req, res, next) => {
       });
     }
 
+    if (isCommercialRole(req.user?.UserRole) && tier && !isTierRelatedToCommercial(tier, req.user)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Accès refusé: ce client ne vous est pas attribué'
+      });
+    }
+
     console.log('📝 Attempting to create project in database...');
     const newProjet = await Projet.create({
       Code_Pro: finalCodePro,
@@ -128,13 +198,7 @@ exports.createProjet = async (req, res, next) => {
 
     // Récupérer le projet avec ses relations
     const projet = await Projet.findByPk(newProjet.ID_Projet, {
-      include: [
-        {
-          model: Tiers,
-          as: 'client',
-          attributes: ['IDTiers', 'Raisoc', 'CodTiers']
-        }
-      ]
+      include: [buildProjectIncludeForUser(req.user, false)]
     });
 
     res.status(201).json({
@@ -166,13 +230,7 @@ exports.getProjets = async (req, res, next) => {
     console.log(`🔍 Fetching projets: page=${page}, limit=${limit}, offset=${offset}`);
 
     const { count, rows } = await Projet.findAndCountAll({
-      include: [
-        {
-          model: Tiers,
-          as: 'client',
-          attributes: ['IDTiers', 'Raisoc', 'CodTiers']
-        }
-      ],
+      include: [buildProjectIncludeForUser(req.user, isCommercialRole(req.user?.UserRole))],
       order: [['Date_Creation', 'DESC'], ['ID_Projet', 'DESC']],
       limit: limit,
       offset: offset,
@@ -202,13 +260,7 @@ exports.getProjetById = async (req, res, next) => {
   try {
     const { id } = req.params;
     console.log(`🔍 Fetching projet with ID: ${id}`);
-    const include = [
-      {
-        model: Tiers,
-        as: 'client',
-        attributes: ['IDTiers', 'Raisoc', 'CodTiers']
-      }
-    ];
+    const include = [buildProjectIncludeForUser(req.user, false)];
 
     let projet = await Projet.findByPk(id, {
       include
@@ -234,6 +286,13 @@ exports.getProjetById = async (req, res, next) => {
       return res.status(404).json({
         status: 'error',
         message: 'Projet non trouvé'
+      });
+    }
+
+    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Accès refusé à ce projet'
       });
     }
 
@@ -264,12 +323,21 @@ exports.updateProjet = async (req, res, next) => {
       ...otherFields
     } = req.body;
 
-    const projet = await Projet.findByPk(id);
+    const projet = await Projet.findByPk(id, {
+      include: [buildProjectIncludeForUser(req.user, false)]
+    });
 
     if (!projet) {
       return res.status(404).json({
         status: 'error',
         message: 'Projet non trouvé'
+      });
+    }
+
+    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Accès refusé à ce projet'
       });
     }
 
@@ -314,6 +382,13 @@ exports.updateProjet = async (req, res, next) => {
       });
     }
 
+    if (isCommercialRole(req.user?.UserRole) && IDTiers !== undefined && tier && !isTierRelatedToCommercial(tier, req.user)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Accès refusé: ce client ne vous est pas attribué'
+      });
+    }
+
     // Préparer la mise à jour
     const updateData = {};
     if (Nom_Projet !== undefined) updateData.Nom_Projet = Nom_Projet.trim();
@@ -351,13 +426,7 @@ exports.updateProjet = async (req, res, next) => {
 
     // Récupérer le projet mis à jour avec ses relations
     const projetUpdated = await Projet.findByPk(id, {
-      include: [
-        {
-          model: Tiers,
-          as: 'client',
-          attributes: ['IDTiers', 'Raisoc', 'CodTiers']
-        }
-      ]
+      include: [buildProjectIncludeForUser(req.user, false)]
     });
 
     res.status(200).json({
@@ -376,12 +445,21 @@ exports.updateProjet = async (req, res, next) => {
 exports.deleteProjet = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const projet = await Projet.findByPk(id);
+    const projet = await Projet.findByPk(id, {
+      include: [buildProjectIncludeForUser(req.user, false)]
+    });
 
     if (!projet) {
       return res.status(404).json({
         status: 'error',
         message: 'Projet non trouvé'
+      });
+    }
+
+    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Accès refusé à ce projet'
       });
     }
 

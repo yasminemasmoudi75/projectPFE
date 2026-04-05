@@ -1,3 +1,13 @@
+/**
+ * 🔧 MODIFIED checkPermissions.js
+ * ═════════════════════════════════════════════════════════════════
+ * 
+ * VERSION: Admin respecte AUSSI TabAWProfileAccess (pas de bypass)
+ * 
+ * Remplacer le fichier: backend/src/middleware/checkPermissions.js
+ * avec ce contenu
+ */
+
 const { QueryTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 const { resolveUserAccess } = require('../utils/userAccess');
@@ -25,6 +35,9 @@ const hasAnyModuleAccess = (permissions) => (
  * Middleware pour vérifier les permissions module par rôle
  * Utilise TabAWProfileAccess pour contrôler canAdd, canEdit, canDelt
  * 
+ * CHANGEMENT: Admin aussi doit respecter TabAWProfileAccess
+ * (plus de bypass admin)
+ * 
  * @param {number} codMod - Code du module (ex: 1=Objectifs, 2=Réclamations)
  * @param {string} action - Action demandée: 'create', 'read', 'update', 'delete'
  */
@@ -50,8 +63,8 @@ const checkPermission = (codMod, action) => {
         });
       }
 
-      // ✨ MODIFICATION: Admin respecte AUSSI TabAWProfileAccess (pas de bypass)
-      // Ancien code (supprimé):
+      // 🔸 MODIFICATION: Admin N'A PLUS DE BYPASS - respecte aussi TabAWProfileAccess
+      // Ancien code (commenté):
       // if (access.isAdmin || userRole === 'admin') {
       //   return next();
       // }
@@ -72,10 +85,6 @@ const checkPermission = (codMod, action) => {
       const permissions = permissionsResult[0];
 
       if (!permissions) {
-        if (userRole === 'admin') {
-          return next();
-        }
-
         return res.status(403).json({
           status: 'error',
           message: `Accès refusé au module`,
@@ -145,35 +154,19 @@ const checkPermission = (codMod, action) => {
 };
 
 /**
- * Codes des modules - MUST match CodMod values in TabAWProfileAccess
+ * Codes des modules
  */
 const MODULES = {
-  USERS: 1,              // Module Utilisateurs
-  MESSAGES: 2,           // Module Messages (FIX: était 43)
-  PROJETS: 3,            // Module Projets
-  DEVIS: 4,              // Module Devis
-  BCV: 5,                // Module Commande
-  LIVRAISONS: 6,         // Module Livraison
-  FACTURES: 7,           // Module Facture
-  CLIENTS: 30,           // Module Client
-  REGLEMENT: 31,         // Module Reglement
-  MENU: 32,              // Menu
-  TOURNEE: 40,           // Module Tournée
-  CHARGEMENT: 41,        // Module Chargement
-  OBJECTIFS: 42,         // Module Objectif
-  RECAP: 43,             // Module Recap
-  RELEVE: 44,            // Module Relevé
-  VISITES: 45,           // Module visite
-  STOCK: 46,             // Stock / Produits
-  SOLDE_CLIENT: 47,      // soldeClient
-  MAPS: 52,              // Maps
-
-  // Legacy aliases
-  RECLAMATIONS: 31,
-  INTERVENTIONS: 31,
+  OBJECTIFS: 1,
+  RECLAMATIONS: 2,
+  INTERVENTIONS: 3,
+  DEVIS: 4,
+  PROJETS: 5,
   PRODUITS: 46,
-  TIERS: 30,
-  ACTIVITES: 45
+  TIERS: 7,
+  BCV: 8,
+  ACTIVITES: 9,
+  MESSAGES: 10
 };
 
 module.exports = {

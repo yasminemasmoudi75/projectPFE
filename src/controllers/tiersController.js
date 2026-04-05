@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
@@ -36,6 +37,50 @@ const normalizeNullableBool = (value) => {
         if (['0', 'false', 'no', 'non'].includes(v)) return false;
     }
     return null;
+};
+
+const isCommercialRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const getCommercialIdentifiers = (user = {}) => {
+    const candidates = [
+        user?.CodRepres,
+        user?.codRepres,
+        user?.GUID,
+        user?.UserID,
+        user?.LoginName,
+        user?.FullName,
+        user?.EmailPro
+    ];
+
+    const normalized = candidates
+        .map((value) => (value === null || value === undefined ? null : String(value).trim()))
+        .filter((value) => value && value.length > 0)
+        .map((value) => value.toLowerCase());
+
+    return Array.from(new Set(normalized));
+};
+
+const buildCommercialTiersWhere = (user = {}) => {
+    const identifiers = getCommercialIdentifiers(user);
+
+    if (identifiers.length === 0) {
+        return { IDTiers: '__NO_MATCH__' };
+    }
+
+    return {
+        [Op.or]: identifiers.map((identifier) =>
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('codRepresTiers')), identifier)
+        )
+    };
+};
+
+const isTierRelatedToCommercial = (tier, user = {}) => {
+    const rep = String(tier?.codRepresTiers || '').trim().toLowerCase();
+    if (!rep) return false;
+    return getCommercialIdentifiers(user).includes(rep);
 };
 
 const resolveTiersNiveau = (payload = {}) => {
@@ -421,7 +466,12 @@ exports.getAllTiers = async (req, res, next) => {
             ? [['SaveDate', 'DESC'], ['Raisoc', 'ASC']]
             : [['Raisoc', 'ASC']];
 
+        const where = isCommercialRole(req.user?.UserRole)
+            ? buildCommercialTiersWhere(req.user)
+            : undefined;
+
         const tiers = await Tiers.findAll({
+            where,
             order,
             include: [
                 { model: TiersClasse, as: 'tiersClasse' },
@@ -453,6 +503,13 @@ exports.getTiersById = async (req, res, next) => {
         });
         if (!tiers) {
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
+        }
+
+        if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(tiers, req.user)) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Accès refusé à ce client'
+            });
         }
 
         const [contacts, addresses] = await Promise.all([
