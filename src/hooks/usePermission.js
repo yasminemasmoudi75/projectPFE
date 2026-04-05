@@ -28,10 +28,7 @@ const usePermission = (moduleCode = null) => {
 
   // ✅ Charger les permissions depuis la base de données
   useEffect(() => {
-    console.log('🔍 usePermission - isAuthenticated:', isAuthenticated, 'accessToken:', accessToken ? 'exists' : 'missing');
-    
     if (!isAuthenticated || !accessToken) {
-      console.warn('⚠️ Not authenticated or missing token, skipping permission load');
       setDbPermissions([]);
       return;
     }
@@ -40,58 +37,41 @@ const usePermission = (moduleCode = null) => {
       try {
         setLoading(true);
         setError(null);
-        
-        console.log('🔄 Loading permissions from API...');
-        console.log('👤 User info:', { userId: user?.UserID, role: user?.UserRole });
+
         const response = await axios.get('/permissions/my-permissions');
-        console.log('📡 Full API Response:', response);
-        console.log('📡 Response.status:', response?.status);
-        console.log('📡 Response.data:', response?.data);
 
         // Axios interceptor returns response.data directly
         // Backend response structure: { status: "success", data: { permissions: [...] } }
         // So response = { status: "success", data: { permissions: [...] } }
         let permissions = [];
-        
-        console.log('🔍 Attempting to extract permissions...');
-        
+
         // Path 1: response.data.permissions (standard path after interceptor)
         if (response?.data?.permissions && Array.isArray(response.data.permissions)) {
           permissions = response.data.permissions;
-          console.log(`✅ Path 1 SUCCESS: Found ${permissions.length} permissions in response.data.permissions`);
         }
         // Path 2: response.permissions (fallback if interceptor doesn't wrap)
         else if (response?.permissions && Array.isArray(response.permissions)) {
           permissions = response.permissions;
-          console.log(`✅ Path 2 SUCCESS: Found ${permissions.length} permissions in response.permissions`);
         }
         // Path 3: Direct array
         else if (Array.isArray(response)) {
           permissions = response;
-          console.log(`✅ Path 3 SUCCESS: Response is an array with ${permissions.length} items`);
-        }
-        else {
-          console.error('❌ No permissions found in any expected path');
-          console.error('Response structure:', {
-            hasDataProp: !!response?.data,
-            hasPermissionsProp: !!response?.permissions,
-            isArray: Array.isArray(response),
-            keys: Object.keys(response || {})
-          });
         }
         
         if (permissions.length > 0) {
           setDbPermissions(permissions);
         } else {
-          console.warn('⚠️ No permissions found, using fallback for admin');
           // Fallback: If admin, show all modules
           if (user?.UserRole?.toLowerCase() === 'admin') {
             const allModules = [
+              { moduleCode: 1, moduleName: 'Module Utilisateurs', isActive: true, canCreate: true, canEdit: true, canDelete: true },
+              { moduleCode: 2, moduleName: 'Module Messages', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 3, moduleName: 'Module Projets', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 4, moduleName: 'Module Devis', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 5, moduleName: 'Module Commande', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 6, moduleName: 'Module Livraison', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 7, moduleName: 'Module Facture', isActive: true, canCreate: true, canEdit: true, canDelete: true },
+              { moduleCode: 8, moduleName: 'Module Calendrier', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 30, moduleName: 'Module Client', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 31, moduleName: 'Module Reglement', isActive: true, canCreate: true, canEdit: true, canDelete: true },
               { moduleCode: 40, moduleName: 'Module Tournée', isActive: true, canCreate: true, canEdit: true, canDelete: true },
@@ -110,17 +90,18 @@ const usePermission = (moduleCode = null) => {
           }
         }
       } catch (err) {
-        console.error('❌ Erreur lors du chargement des permissions:', err);
         setError(err.message);
         // Fallback for admin on error
         if (user?.UserRole?.toLowerCase() === 'admin') {
-          console.log('🔧 Admin fallback on error');
           const allModules = [
+            { moduleCode: 1, moduleName: 'Module Utilisateurs', isActive: true, canCreate: true, canEdit: true, canDelete: true },
+            { moduleCode: 2, moduleName: 'Module Messages', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 3, moduleName: 'Module Projets', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 4, moduleName: 'Module Devis', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 5, moduleName: 'Module Commande', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 6, moduleName: 'Module Livraison', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 7, moduleName: 'Module Facture', isActive: true, canCreate: true, canEdit: true, canDelete: true },
+            { moduleCode: 8, moduleName: 'Module Calendrier', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 30, moduleName: 'Module Client', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 31, moduleName: 'Module Reglement', isActive: true, canCreate: true, canEdit: true, canDelete: true },
             { moduleCode: 40, moduleName: 'Module Tournée', isActive: true, canCreate: true, canEdit: true, canDelete: true },

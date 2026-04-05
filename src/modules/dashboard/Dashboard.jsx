@@ -45,6 +45,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 const PRIORITY_COLORS = { 'Haute': '#ef4444', 'Moyenne': '#f59e0b', 'Basse': '#10b981' };
 const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'Résolu': '#10b981', 'Fermé': '#64748b' };
 const isExpectedAuthFailure = (error) => error?.response?.status === 401 || error?.isSessionExpired === true;
+const isForbidden = (error) => error?.response?.status === 403;
 const getCollection = (payload) => (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []);
 const normalizeBoolean = (value) => value === true || value === 1 || value === '1';
 const getProjectStatus = (project) => {
@@ -92,7 +93,8 @@ const Dashboard = () => {
   // Helper: Vérifier si un module est actif
   const hasModuleAccess = (moduleCode) => {
     if (!moduleCode) return true; // Pas de vérification si pas de code
-    return allPermissions.some(p => p.moduleCode === moduleCode && p.isActive);
+    const target = Number(moduleCode);
+    return allPermissions.some((p) => Number(p.moduleCode) === target && p.isActive === true);
   };
 
   // State pour les données
@@ -123,21 +125,34 @@ const Dashboard = () => {
   // Fetch les données au chargement
   useEffect(() => {
     const fetchDashboardData = async () => {
+      const safeRequest = async (enabled, requestFn, fallback) => {
+        if (!enabled) return fallback;
+
+        try {
+          return await requestFn();
+        } catch (error) {
+          if (isExpectedAuthFailure(error) || isForbidden(error)) {
+            return fallback;
+          }
+          throw error;
+        }
+      };
+
       try {
         setLoading(true);
 
         // Construire dynamiquement les appels API selon les permissions
         const apiCalls = [
-          axiosInstance.get('/reclamations?limit=1000').catch(() => ({ data: [] })), // Toujours charger SAV
-          axiosInstance.get('/projets?limit=1000').catch(() => ({ data: [] })), // Toujours charger projets
-          hasModuleAccess(42) ? axiosInstance.get('/objectifs?limit=1000') : Promise.resolve({ data: [] }), // Objectifs (42)
-          axiosInstance.get('/devis?limit=1000').catch(() => ({ data: [] })), // Toujours charger devis
-          axiosInstance.get('/users?limit=1000').catch(() => ({ data: [] })), // Toujours charger users
-          axiosInstance.get('/activites?limit=50').catch(() => ({ data: [] })), // Toujours charger activités
-          axiosInstance.get('/tiers?limit=1000').catch(() => ({ data: [] })), // Toujours charger tiers
-          hasModuleAccess(2) ? axiosInstance.get('/messages?limit=100') : Promise.resolve({ data: [] }), // Messages (2)
-          axiosInstance.get('/blv?limit=1000').catch(() => ({ data: { data: [] } })), // Toujours charger BLV
-          hasModuleAccess(7) ? axiosInstance.get('/fav?limit=1000') : Promise.resolve({ data: { data: [] } }) // Factures (7)
+          safeRequest(hasModuleAccess(31), () => axiosInstance.get('/reclamations?limit=1000'), { data: [] }), // SAV/Reclamations (31)
+          safeRequest(hasModuleAccess(3), () => axiosInstance.get('/projets?limit=1000'), { data: [] }), // Projets (3)
+          safeRequest(hasModuleAccess(42), () => axiosInstance.get('/objectifs?limit=1000'), { data: [] }), // Objectifs (42)
+          safeRequest(hasModuleAccess(4), () => axiosInstance.get('/devis?limit=1000'), { data: [] }), // Devis (4)
+          safeRequest(hasModuleAccess(1), () => axiosInstance.get('/users?limit=1000'), { data: [] }), // Users (1)
+          safeRequest(hasModuleAccess(41), () => axiosInstance.get('/activites?limit=50'), { data: [] }), // Activites (41)
+          safeRequest(hasModuleAccess(30), () => axiosInstance.get('/tiers?limit=1000'), { data: [] }), // Clients/Tiers (30)
+          safeRequest(hasModuleAccess(2), () => axiosInstance.get('/messages?limit=100'), { data: [] }), // Messages (2)
+          safeRequest(hasModuleAccess(6), () => axiosInstance.get('/blv?limit=1000'), { data: { data: [] } }), // BLV/Livraisons (6)
+          safeRequest(hasModuleAccess(7), () => axiosInstance.get('/fav?limit=1000'), { data: { data: [] } }) // Factures (7)
         ];
 
         const [
@@ -468,7 +483,7 @@ const Dashboard = () => {
         setChartData(statusData);
 
       } catch (error) {
-        if (!isExpectedAuthFailure(error)) {
+        if (!isExpectedAuthFailure(error) && !isForbidden(error)) {
           console.error('Erreur lors du chargement du dashboard:', error);
           toast.error('Erreur lors du chargement des données du dashboard');
         }

@@ -8,7 +8,8 @@ import {
     ArrowPathIcon,
     FunnelIcon,
     MagnifyingGlassIcon,
-    SparklesIcon
+    SparklesIcon,
+    LifebuoyIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,13 +39,6 @@ const rowVariants = {
   visible: { opacity: 1, x: 0, transition: { type: "spring", bounce: 0, duration: 0.4 } },
   exit: { opacity: 0, scale: 0.9, transition: { duration: 0.2 } }
 };
-
-const StatPill = ({ label, value, tone }) => (
-        <div className={`rounded-2xl border px-4 py-3 shadow-sm ${tone}`}>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-60">{label}</p>
-                <p className="mt-1 text-sm font-black">{value}</p>
-        </div>
-);
 
 const ClaimsList = () => {
     const navigate = useNavigate();
@@ -195,6 +189,316 @@ const ClaimsList = () => {
     );
 
     if (loading) return <LoadingSpinner />;
+
+    return (
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50/30 pb-20">
+            {/* Animated Background Elements */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400/5 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-400/5 rounded-full blur-3xl animate-pulse" />
+            </div>
+
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pt-8">
+                {/* Hero Header - Premium Look */}
+                <motion.div variants={itemVariants} className="group rounded-3xl bg-gradient-to-br from-white via-slate-50 to-blue-50/60 backdrop-blur-xl border border-slate-200/60 p-8 sm:p-12 shadow-lg hover:shadow-xl transition-all overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/3 via-transparent to-cyan-500/3 opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-3xl" />
+                    <div className="absolute -top-32 -right-32 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500" />
+                    
+                    <div className="relative space-y-6">
+                        <motion.div 
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="flex items-center gap-3"
+                        >
+                            <div className="p-3 bg-gradient-to-br from-blue-100/80 to-cyan-100/60 rounded-xl border border-blue-200/50 group-hover:border-blue-300 transition-all">
+                                <LifebuoyIcon className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <span className="text-sm font-bold text-blue-700 uppercase tracking-widest">Support & SAV</span>
+                        </motion.div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-3 tracking-tight">Gestion des Réclamations</h1>
+                            <p className="text-lg text-slate-600 max-w-2xl leading-relaxed font-medium">
+                                Suivez et gérez l'ensemble de vos tickets avec efficacité et professionnalisme.
+                            </p>
+                        </motion.div>
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4 }}
+                            className="flex flex-wrap gap-3 pt-4"
+                        >
+                            <motion.button
+                                whileHover={{ scale: 1.05, y: -3 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate('/claims/new')}
+                                className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-400/30 group/btn"
+                            >
+                                <PlusIcon className="h-5 w-5 inline mr-2 group-hover/btn:rotate-90 transition-transform" />
+                                Créer un ticket
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05, y: -3 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={fetchClaims}
+                                className="px-7 py-3.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-300 hover:border-slate-400 transition-all shadow-sm hover:shadow-md"
+                            >
+                                <ArrowPathIcon className="h-5 w-5 inline mr-2 group-hover:rotate-180 transition-transform" />
+                                Actualiser
+                            </motion.button>
+                        </motion.div>
+                    </div>
+                </motion.div>
+
+                {/* Stats Cards - Premium */}
+                <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                        { name: 'Nouveaux', count: stats.new, icon: ChatBubbleLeftEllipsisIcon, gradient: 'from-blue-500 to-blue-400', light: 'from-blue-50 to-blue-100/40', text: 'text-blue-700', badge: 'bg-blue-100/60 border-blue-300/40' },
+                        { name: 'En cours', count: stats.inProgress, icon: WrenchScrewdriverIcon, gradient: 'from-amber-500 to-amber-400', light: 'from-amber-50 to-amber-100/40', text: 'text-amber-700', badge: 'bg-amber-100/60 border-amber-300/40' },
+                        { name: 'Urgents', count: stats.urgent, icon: ClockIcon, gradient: 'from-rose-500 to-rose-400', light: 'from-rose-50 to-rose-100/40', text: 'text-rose-700', badge: 'bg-rose-100/60 border-rose-300/40' },
+                        { name: 'Résolus', count: stats.resolved, icon: CheckCircleIcon, gradient: 'from-emerald-500 to-emerald-400', light: 'from-emerald-50 to-emerald-100/40', text: 'text-emerald-700', badge: 'bg-emerald-100/60 border-emerald-300/40' },
+                    ].map((item, idx) => (
+                        <motion.div
+                            key={item.name}
+                            variants={itemVariants}
+                            whileHover={{ y: -8, x: 0 }}
+                            className={`group relative rounded-2xl bg-gradient-to-br ${item.light} backdrop-blur-sm border border-slate-200/60 p-6 overflow-hidden shadow-lg hover:shadow-2xl transition-all`}
+                        >
+                            <div className={`absolute -top-20 -right-20 w-56 h-56 bg-gradient-to-br ${item.light} rounded-full blur-3xl group-hover:scale-125 transition-transform duration-500 opacity-60`} />
+                            <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-3 transition-all duration-300`} />
+                            
+                            <div className="relative space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className={`text-xs font-bold ${item.text} uppercase tracking-widest opacity-90`}>{item.name}</span>
+                                    <motion.div
+                                        animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.1, 1] }}
+                                        transition={{ duration: 4, repeat: Infinity }}
+                                        className={`${item.badge} border rounded-lg p-2.5 transition-all`}
+                                    >
+                                        <item.icon className={`h-5 w-5 ${item.text}`} />
+                                    </motion.div>
+                                </div>
+                                <motion.div
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ delay: 0.3 + idx * 0.1, type: 'spring', stiffness: 200 }}
+                                    className={`text-4xl sm:text-5xl font-black ${item.text}`}
+                                >
+                                    {item.count}
+                                </motion.div>
+                                <div className={`h-1 w-12 bg-gradient-to-r from-transparent via-slate-300/50 to-transparent`} />
+                            </div>
+                        </motion.div>
+                    ))}
+                </motion.div>
+
+                {/* Filters Section - Premium */}
+                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/40 backdrop-blur-sm border border-slate-200/60 p-6 sm:p-8 shadow-lg hover:shadow-xl transition-all">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/2 via-transparent to-cyan-500/2 opacity-0 group-hover:opacity-100 transition-all rounded-2xl" />
+                    <div className="relative">
+                        <div className="mb-8">
+                            <h3 className="text-2xl font-black text-slate-900">Recherche & Filtres</h3>
+                            <p className="text-sm text-slate-600 mt-2 font-medium">Affinez vos résultats selon vos critères</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                            <div className="lg:col-span-2 relative group/input">
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
+                                <MagnifyingGlassIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Rechercher..."
+                                    className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-12 pr-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
+                                />
+                            </div>
+                            {[
+                                { value: statusFilter, onChange: setStatusFilter, options: [{ v: 'all', t: 'Tous les statuts' }, { v: 'Ouvert', t: 'Ouvert' }, { v: 'En cours', t: 'En cours' }, { v: 'Résolu', t: 'Résolu' }] },
+                                { value: priorityFilter, onChange: setPriorityFilter, options: [{ v: 'all', t: 'Toutes les priorités' }, { v: 'Urgente', t: 'Urgente' }, { v: 'Haute', t: 'Haute' }, { v: 'Normale', t: 'Normale' }, { v: 'Basse', t: 'Basse' }] },
+                            ].map((filter, fidx) => (
+                                <select
+                                    key={fidx}
+                                    value={filter.value}
+                                    onChange={(e) => filter.onChange(e.target.value)}
+                                    className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                >
+                                    {filter.options.map(opt => <option key={opt.v} value={opt.v}>{opt.t}</option>)}
+                                </select>
+                            ))}
+                            <select
+                                value={technicianFilter}
+                                onChange={(e) => setTechnicianFilter(e.target.value)}
+                                className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                            >
+                                <option value="all">Tous les techniciens</option>
+                                {techniciens.map((tech) => (
+                                    <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={sortMode}
+                                onChange={(e) => setSortMode(e.target.value)}
+                                className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                            >
+                                <option value="recent">Plus récents</option>
+                                <option value="priority">Par priorité</option>
+                                <option value="status">Par statut</option>
+                            </select>
+                        </div>
+
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="mt-4 flex items-center justify-between text-sm"
+                        >
+                            <p className="text-slate-700 font-semibold">
+                                <span className="text-blue-600 font-bold">{filteredClaims.length}</span> / <span className="text-slate-500">{claims.length}</span> tickets
+                            </p>
+                        </motion.div>
+                    </div>
+                </motion.div>
+
+                {/* Table - Premium */}
+                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/30 backdrop-blur-sm border border-slate-200/60 shadow-lg overflow-hidden">
+                    <div className="px-6 sm:px-8 py-6 border-b border-slate-200/60 bg-gradient-to-r from-white/80 to-blue-50/40 flex justify-between items-center">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900">Tickets de Support</h3>
+                            <p className="text-sm text-slate-600 mt-1 font-medium">Gestion centralisée de tous vos tickets</p>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/60 bg-slate-50/70">
+                                    <th className="px-6 py-4 font-bold">N° Ticket</th>
+                                    <th className="px-6 py-4 font-bold">Client & Objet</th>
+                                    <th className="px-6 py-4 font-bold">Priorité</th>
+                                    <th className="px-6 py-4 font-bold">Technicien</th>
+                                    <th className="px-6 py-4 font-bold">Statut</th>
+                                    <th className="px-6 py-4 text-right font-bold">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100/70">
+                                <AnimatePresence>
+                                    {filteredClaims.length === 0 ? (
+                                        <motion.tr
+                                            key="empty"
+                                            variants={rowVariants}
+                                            initial="hidden"
+                                            animate="visible"
+                                            exit="exit"
+                                        >
+                                            <td colSpan="6" className="text-center py-24">
+                                                <motion.div variants={itemVariants} className="flex flex-col items-center gap-4">
+                                                    <div className="p-4 bg-slate-100/80 rounded-2xl border border-slate-200/60">
+                                                        <ChatBubbleLeftEllipsisIcon className="h-12 w-12 text-slate-300" />
+                                                    </div>
+                                                    <h3 className="font-bold text-slate-700 text-lg">Aucune réclamation</h3>
+                                                    <p className="text-sm text-slate-500">Cliquez sur "Créer un Ticket" pour démarrer</p>
+                                                </motion.div>
+                                            </td>
+                                        </motion.tr>
+                                    ) : filteredClaims.map((claim, idx) => (
+                                        <motion.tr
+                                            key={claim.id}
+                                            variants={rowVariants}
+                                            initial="hidden"
+                                            animate="visible"
+                                            exit="exit"
+                                            transition={{ delay: idx * 0.02 }}
+                                            onClick={() => navigate(`/claims/${claim.id}`)}
+                                            className="hover:bg-blue-50/40 transition-all cursor-pointer border-b border-slate-100/70 last:border-b-0 group/row"
+                                            whileHover={{ x: 2 }}
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <motion.span whileHover={{ scale: 1.05 }} className="font-mono text-xs font-bold bg-gradient-to-r from-blue-100/80 to-blue-50/60 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-300/40 inline-block transition-all group-hover/row:border-blue-400/60 group-hover/row:shadow-lg group-hover/row:shadow-blue-300/20">
+                                                    {claim.ticket}
+                                                </motion.span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <div className="font-semibold text-slate-900 text-sm mb-1">{claim.client}</div>
+                                                    <div className="text-xs text-slate-500 truncate max-w-xs">{claim.object}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                    claim.priority === 'Urgente' || claim.priority === 'Urgent' ? 'bg-rose-100/70 text-rose-700 border-rose-300/40' :
+                                                    claim.priority === 'Haute' ? 'bg-amber-100/70 text-amber-700 border-amber-300/40' :
+                                                    claim.priority === 'Normale' ? 'bg-slate-100/70 text-slate-700 border-slate-300/40' :
+                                                        'bg-slate-100/60 text-slate-600 border-slate-300/30'
+                                                }`}>
+                                                    {claim.priority}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="h-8 w-8 bg-slate-100/80 border border-slate-300/60 rounded-lg flex items-center justify-center group-hover/row:border-blue-400/40 transition-all">
+                                                        <WrenchScrewdriverIcon className="h-4 w-4 text-slate-600 group-hover/row:text-blue-600 transition-all" />
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="text-xs font-semibold text-slate-800">{claim.assignedTo}</span>
+                                                        <select
+                                                            className="text-xs border border-slate-300/60 hover:border-slate-400 focus:border-blue-400 rounded-lg px-2 py-1 bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
+                                                            value=""
+                                                            disabled={
+                                                                assigningId === claim.id ||
+                                                                techniciens.length === 0 ||
+                                                                String(claim.status || '').toLowerCase() === 'résolu' ||
+                                                                String(claim.status || '').toLowerCase() === 'resolu' ||
+                                                                String(claim.status || '').toLowerCase() === 'fermé' ||
+                                                                String(claim.status || '').toLowerCase() === 'ferme'
+                                                            }
+                                                            onChange={(e) => {
+                                                                handleAssignTechnician(claim.id, e.target.value);
+                                                                e.target.value = '';
+                                                            }}
+                                                        >
+                                                            <option value="" disabled>
+                                                                {assigningId === claim.id
+                                                                    ? 'En cours...'
+                                                                    : (String(claim.status || '').toLowerCase() === 'résolu' || String(claim.status || '').toLowerCase() === 'resolu' || String(claim.status || '').toLowerCase() === 'fermé' || String(claim.status || '').toLowerCase() === 'ferme')
+                                                                        ? 'Clôturé'
+                                                                        : 'Affecter...'}
+                                                            </option>
+                                                            {techniciens.map((tech) => (
+                                                                <option key={tech.id} value={tech.id}>
+                                                                    {tech.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-block border transition-all ${
+                                                    claim.status === 'Résolu' || claim.status === 'resolu' ? 'bg-emerald-100/70 text-emerald-700 border-emerald-300/40' :
+                                                    claim.status === 'En cours' ? 'bg-amber-100/70 text-amber-700 border-amber-300/40' :
+                                                    claim.status === 'Ouvert' || claim.status === 'nouveau' ? 'bg-blue-100/70 text-blue-700 border-blue-300/40' :
+                                                            'bg-slate-100/60 text-slate-600 border-slate-300/30'
+                                                }`}>
+                                                    {claim.status}
+                                                </motion.span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-slate-600 font-medium group-hover/row:text-slate-800 transition-all">
+                                                {formatDate(claim.date)}
+                                            </td>
+                                        </motion.tr>
+                                    ))}
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div>
+            </div>
+        </motion.div>
+    );
 
     return (
         <motion.div variants={containerVariants} initial="hidden" animate="visible" className="min-h-screen bg-slate-50 pb-20">

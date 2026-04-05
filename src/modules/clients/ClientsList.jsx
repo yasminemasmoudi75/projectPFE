@@ -15,7 +15,10 @@ import {
     SparklesIcon,
     EyeIcon,
     PencilSquareIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    ArrowDownTrayIcon,
+    PrinterIcon,
+    TrashIcon
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
@@ -102,6 +105,88 @@ const ClientsList = () => {
         });
     }, [clients, searchTerm, filters]);
 
+    // Export functions
+    const exportToCSV = () => {
+        const headers = ['Code', 'Raison Sociale', 'Ville', 'Téléphone', 'Email', 'Statut'];
+        const rows = filteredClients.map(c => [
+            c.CodTiers || '',
+            c.Raisoc || '',
+            c.Ville || '',
+            c.Tel || '',
+            c.Email || '',
+            c.Actif ? 'Actif' : 'Inactif'
+        ]);
+        
+        const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `clients_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        toast.success('Export CSV réussi');
+    };
+
+    const exportToPDF = () => {
+        const printWindow = window.open('', '_blank');
+        const html = `
+          <html>
+            <head>
+              <title>Liste des Clients</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                th { background: #3b82f6; color: white; }
+                tr:nth-child(even) { background: #f8fafc; }
+                .header { margin-bottom: 20px; }
+                .header h1 { color: #1e293b; margin: 0; }
+                .header p { color: #64748b; margin: 5px 0; }
+                .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+                .badge-active { background: #d1fae5; color: #065f46; }
+                .badge-inactive { background: #f1f5f9; color: #475569; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>Liste des Clients</h1>
+                <p>Exporté le ${new Date().toLocaleDateString('fr-FR')} - ${filteredClients.length} clients</p>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Raison Sociale</th>
+                    <th>Ville</th>
+                    <th>Téléphone</th>
+                    <th>Email</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredClients.map(c => {
+                    const statusClass = c.Actif ? 'badge-active' : 'badge-inactive';
+                    const statusText = c.Actif ? 'Actif' : 'Inactif';
+                    return `
+                      <tr>
+                        <td>${c.CodTiers || '-'}</td>
+                        <td>${c.Raisoc || '-'}</td>
+                        <td>${c.Ville || '-'}</td>
+                        <td>${c.Tel || '-'}</td>
+                        <td>${c.Email || '-'}</td>
+                        <td><span class="badge ${statusClass}">${statusText}</span></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.print();
+    };
+
     const stats = useMemo(() => ({
         total: clients.length,
         active: clients.length,
@@ -165,6 +250,26 @@ const ClientsList = () => {
                     >
                         <ArrowPathIcon className="h-5 w-5" />
                     </button>
+                    
+                    {/* Export Buttons */}
+                    <button
+                        onClick={exportToCSV}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-semibold hover:bg-emerald-100 transition-colors shadow-soft"
+                        title="Exporter en CSV"
+                    >
+                        <ArrowDownTrayIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">CSV</span>
+                    </button>
+                    
+                    <button
+                        onClick={exportToPDF}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold hover:bg-rose-100 transition-colors shadow-soft"
+                        title="Imprimer / PDF"
+                    >
+                        <PrinterIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">PDF</span>
+                    </button>
+                    
                     {canCreate && (
                         <button
                             onClick={() => navigate('/clients/new')}

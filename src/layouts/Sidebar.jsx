@@ -1,5 +1,5 @@
-import { Fragment } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Fragment, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   XMarkIcon,
@@ -19,171 +19,269 @@ import {
   ShoppingBagIcon,
   TruckIcon,
   BanknotesIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ShieldCheckIcon,
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import useAuth from '../hooks/useAuth';
 import usePermission from '../hooks/usePermission';
-import { filterMenuByPermissions } from '../utils/permissions';
 import { MODULE_CODES } from '../utils/constants';
 
 const menuItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD, color: 'sky' },
+  { type: 'section', name: 'Administration' },
+  { name: 'Admin', href: '/admin', icon: ShieldCheckIcon, moduleCode: null, color: 'violet' },
   { type: 'section', name: 'CRM & Ventes' },
-  { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS },
-  { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES },
-  { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS },
-  { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS },
-  { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES },
-  { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS },
-  { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES },
-  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE },
-  { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS },
-  { type: 'section', name: 'Opérations' },
-  { name: 'Activités', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.CHARGEMENT },
-  { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK },
-  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.REGLEMENT },
+  { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS, color: 'indigo' },
+  { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES, color: 'cyan' },
+  { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS, color: 'emerald' },
+  { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS, color: 'sky' },
+  { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES, color: 'amber' },
+  { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS, color: 'orange' },
+  { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES, color: 'green' },
+  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE, color: 'teal' },
+  { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet' },
+  { type: 'section', name: 'Operations' },
+  { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.CHARGEMENT, color: 'rose' },
+  { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.CALENDRIER, color: 'pink' },
+  { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK, color: 'slate' },
+  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.REGLEMENT, color: 'red' },
   { type: 'section', name: 'Intelligence' },
-  { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS },
-  { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP },
-  { name: 'Relevé', href: null, icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.RELEVE },
-  { name: 'Visite', href: null, icon: DocumentCheckIcon, moduleCode: MODULE_CODES.VISITES },
-  { name: 'Maps', href: null, icon: UsersIcon, moduleCode: MODULE_CODES.MAPS },
-  { type: 'section', name: 'Système' },
-  { name: 'Paramètres', href: '/profile', icon: Cog6ToothIcon },
+  { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS, color: 'emerald' },
+  { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP, color: 'violet' },
+  { name: 'Relevé', href: null, icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.RELEVE, color: 'cyan' },
+  { name: 'Visite', href: null, icon: DocumentCheckIcon, moduleCode: MODULE_CODES.VISITES, color: 'amber' },
+  { name: 'Maps', href: null, icon: UsersIcon, moduleCode: MODULE_CODES.MAPS, color: 'sky' },
 ];
 
-const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
+const palette = {
+  sky: { pastel: 'bg-sky-50', text: 'text-sky-600', solid: 'bg-sky-500', ring: 'ring-sky-200' },
+  violet: { pastel: 'bg-violet-50', text: 'text-violet-600', solid: 'bg-violet-500', ring: 'ring-violet-200' },
+  indigo: { pastel: 'bg-indigo-50', text: 'text-indigo-600', solid: 'bg-indigo-500', ring: 'ring-indigo-200' },
+  cyan: { pastel: 'bg-cyan-50', text: 'text-cyan-600', solid: 'bg-cyan-500', ring: 'ring-cyan-200' },
+  emerald: { pastel: 'bg-emerald-50', text: 'text-emerald-600', solid: 'bg-emerald-500', ring: 'ring-emerald-200' },
+  amber: { pastel: 'bg-amber-50', text: 'text-amber-600', solid: 'bg-amber-500', ring: 'ring-amber-200' },
+  orange: { pastel: 'bg-orange-50', text: 'text-orange-600', solid: 'bg-orange-500', ring: 'ring-orange-200' },
+  green: { pastel: 'bg-green-50', text: 'text-green-600', solid: 'bg-green-500', ring: 'ring-green-200' },
+  teal: { pastel: 'bg-teal-50', text: 'text-teal-600', solid: 'bg-teal-500', ring: 'ring-teal-200' },
+  rose: { pastel: 'bg-rose-50', text: 'text-rose-600', solid: 'bg-rose-500', ring: 'ring-rose-200' },
+  pink: { pastel: 'bg-pink-50', text: 'text-pink-600', solid: 'bg-pink-500', ring: 'ring-pink-200' },
+  slate: { pastel: 'bg-slate-100', text: 'text-slate-600', solid: 'bg-slate-500', ring: 'ring-slate-200' },
+  red: { pastel: 'bg-red-50', text: 'text-red-600', solid: 'bg-red-500', ring: 'ring-red-200' },
+};
+
+const MenuItem = ({ item }) => {
+  const p = palette[item.color] || palette.sky;
+
+  if (!item.href) {
+    return (
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl opacity-50 cursor-not-allowed" title="Bientôt disponible">
+        <div className={clsx('h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0', p.pastel)}>
+          <item.icon className={clsx('h-4 w-4', p.text)} />
+        </div>
+        <span className="text-sm font-medium text-slate-500 flex-1 truncate">{item.name}</span>
+      </div>
+    );
+  }
+
+  return (
+    <NavLink
+      to={item.href}
+      className={({ isActive }) =>
+        clsx(
+          'group relative flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-colors duration-200 outline-none',
+          !isActive && 'hover:bg-slate-200/50'
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <>
+              <motion.div
+                layoutId="sidebar-active-bg"
+                className={clsx('absolute inset-0 rounded-xl', p.pastel)}
+                transition={{ type: 'spring', stiffness: 600, damping: 40 }}
+              />
+              <motion.div
+                layoutId="sidebar-active-pill"
+                className={clsx('absolute left-0 inset-y-2 w-1 rounded-r-full', p.solid)}
+                transition={{ type: 'spring', stiffness: 600, damping: 40 }}
+              />
+            </>
+          )}
+          <div className="relative z-10 h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300">
+            <div
+              className={clsx(
+                'h-full w-full rounded-lg flex items-center justify-center transition-all duration-300',
+                isActive
+                  ? clsx(p.solid, 'shadow-md')
+                  : clsx(p.pastel, 'group-hover:scale-105')
+              )}
+            >
+              <item.icon
+                className={clsx(
+                  'h-4 w-4 transition-colors',
+                  isActive ? 'text-white' : p.text
+                )}
+              />
+            </div>
+          </div>
+          <span
+            className={clsx(
+              'relative z-10 text-sm font-semibold truncate transition-colors',
+              isActive ? p.text : 'text-slate-600 group-hover:text-slate-800'
+            )}
+          >
+            {item.name}
+          </span>
+        </>
+      )}
+    </NavLink>
+  );
+};
+
+const SidebarContent = () => {
   const { user } = useAuth();
-  const { allPermissions, loading } = usePermission();
+  const { allPermissions } = usePermission();
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState({});
 
-  // Debug
-  console.log('🔍 Sidebar - User:', user?.UserRole);
-  console.log('🔍 Sidebar - Permissions:', allPermissions.length, allPermissions);
-  console.log('🔍 Sidebar - Loading:', loading);
+  const toggle = (name) => setCollapsed(prev => ({ ...prev, [name]: !prev[name] }));
 
-  // ✅ Filtrer le menu en utilisant les permissions de la BD (dynamique)
-  // Si Actif = 1 dans TabAWProfileAccess → module affiché
-  // Si Actif = 0 dans TabAWProfileAccess → module caché
-  const filteredMenu = menuItems.filter((item) => {
-    // Si pas de moduleCode (null/undefined), l'élément est toujours visible (Dashboard, Paramètres)
-    if (item.moduleCode == null) {
-      console.log(`✅ ${item.name} - No moduleCode (always visible)`);
-      return true;
-    }
-
-    // Si c'est une section (type === 'section'), toujours visible
-    if (item.type === 'section') {
-      console.log(`✅ ${item.name} - Type section (always visible)`);
-      return true;
-    }
-
-    // Vérifier que le module existe dans les permissions de la BD
-    const itemCode = Number(item.moduleCode);
-    const modulePermission = allPermissions.find((permission) => Number(permission.moduleCode) === itemCode);
-    
-    if (!modulePermission) {
-      console.log(`❌ ${item.name} (code: ${itemCode}) - No permission found in database`);
-      console.log('   Available codes:', allPermissions.map(p => p.moduleCode));
-      return false; // Module n'existe pas dans les permissions
-    }
-
-    // Afficher SEULEMENT si isActive = true (Actif = 1 dans la BD)
-    const isVisible = modulePermission.isActive === true;
-    console.log(`${isVisible ? '✅' : '❌'} ${item.name} (code: ${itemCode}) - isActive: ${modulePermission.isActive}`);
-    return isVisible;
+  const filtered = menuItems.filter(item => {
+    if (item.type === 'section') return true;
+    if (item.moduleCode == null) return true;
+    // Hide SAV module for commercial users
+    if (item.name === 'SAV' && String(user?.UserRole || '').toLowerCase() === 'commercial') return false;
+    const p = allPermissions.find(p => Number(p.moduleCode) === Number(item.moduleCode));
+    return p?.isActive === true;
   });
 
-  const SidebarContent = () => (
-    <div className="flex h-full flex-col bg-gradient-to-b from-white via-slate-50/50 to-white">
-      {/* Premium Branding Header */}
-      <div className="px-6 py-8 flex flex-col items-center border-b border-slate-100/50 bg-gradient-to-br from-blue-50/30 to-transparent">
-        <div className="relative group transition-transform hover:scale-110 duration-500">
-          <div className="absolute -inset-2 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur"></div>
-          <div className="relative h-20 w-48 flex items-center justify-center">
-            <img src="/images/logonexus.png" className="h-full w-full object-contain filter group-hover:brightness-110 transition-all" alt="Nexus CRM" />
+  const groups = [];
+  let sec = null;
+  filtered.forEach(item => {
+    if (item.type === 'section') {
+      sec = { ...item, items: [] };
+      groups.push(sec);
+    } else if (sec) {
+      sec.items.push(item);
+    } else {
+      groups.push(item);
+    }
+  });
+
+  const initials = user?.FullName
+    ?.split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'U';
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-white">
+      {/* Header avec logo - Logo bien visible */}
+      <div className="border-b border-slate-200 px-5 py-5 bg-slate-50">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center shadow-md flex-shrink-0">
+            <img src="/images/logonexus.png" className="h-8 w-8 object-contain" alt="Nexus" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-slate-900">NexusCRM</h1>
+            <p className="text-xs text-slate-500 font-medium">Business Management</p>
           </div>
         </div>
-        <p className="mt-3 text-[9px] font-black text-slate-400 uppercase tracking-[0.35em] group-hover:text-blue-600 transition-colors">Nexus Intelligence</p>
-        <p className="text-[8px] text-slate-300 mt-1">Enterprise CRM v2.0</p>
+      </div>
+
+      {/* User Profile Card */}
+      <div className="px-4 py-4 border-b border-slate-200">
+        <motion.button
+          whileHover={{ y: -2 }}
+          onClick={() => navigate('/profile')}
+          className="w-full flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100 hover:border-blue-300 transition-all group"
+        >
+          <div className="relative">
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
+              {initials}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-emerald-500 rounded-full border-2 border-white"></span>
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-semibold text-slate-900 truncate">
+              {user?.FullName || 'Utilisateur'}
+            </p>
+            <p className="text-xs text-slate-500 truncate">{user?.UserRole || 'Admin'}</p>
+          </div>
+          <ChevronDownIcon className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
+        </motion.button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-5 scrollbar-none space-y-0.5">
-        {filteredMenu.map((item, idx) => {
-          if (item.type === 'section') {
-            return (
-              <div key={`section-${idx}`} className="px-4 pt-5 pb-2 mt-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap flex-shrink-0">
-                    {item.name}
-                  </p>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="space-y-1">
+          {groups.map((g, i) => {
+            if (g.type === 'section') {
+              const isOpen = !collapsed[g.name];
+              const hasItems = g.items?.length > 0;
+              if (!hasItems) return null;
+
+              return (
+                <div key={i} className="mb-4">
+                  <button
+                    onClick={() => toggle(g.name)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-slate-100 transition-colors group"
+                  >
+                    <span className="flex-1 text-left text-xs font-bold text-slate-600 uppercase tracking-widest">
+                      {g.name}
+                    </span>
+                    <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDownIcon className="h-4 w-4 text-slate-400" />
+                    </motion.div>
+                  </button>
+
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="py-2 space-y-1">
+                          {g.items.map((item) => (
+                            <MenuItem key={item.name} item={item} />
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </div>
-            );
-          }
-          if (!item.href) {
-            return (
-              <div
-                key={item.name}
-                className="group flex items-center gap-1 rounded-2xl px-4 py-3 transition-all duration-300 relative overflow-hidden text-slate-500 cursor-default opacity-90"
-                title="Module actif dans la base, page non disponible"
-              >
-                <span className="text-base tracking-tight transition-all flex-1 font-medium text-slate-500">
-                  {item.name}
-                </span>
-              </div>
-            );
-          }
-
-          return (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={({ isActive }) =>
-                clsx(
-                  'group flex items-center gap-1 rounded-2xl px-4 py-3 transition-all duration-300 relative overflow-hidden',
-                  isActive
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {/* Active indicator with gradient */}
-                  {isActive && (
-                    <>
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-r-full shadow-md"></div>
-                    </>
-                  )}
-
-                  {/* Label with better typography */}
-                  <span className={clsx(
-                    "text-base tracking-tight transition-all flex-1 font-medium",
-                    isActive ? "font-semibold text-blue-700" : "text-slate-700 group-hover:text-slate-900"
-                  )}>
-                    {item.name}
-                  </span>
-
-
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+              );
+            }
+            return <MenuItem key={g.name} item={g} />;
+          })}
+        </div>
       </nav>
 
-      {/* Footer Section */}
-      <div className="border-t border-slate-100/50 p-4 bg-gradient-to-t from-slate-50/50 to-transparent">
+      {/* Footer */}
+      <div className="px-4 py-4 border-t border-slate-200 bg-slate-50">
+        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors group">
+          <div className="h-8 w-8 rounded-lg bg-red-100 group-hover:bg-red-200 flex items-center justify-center transition-colors">
+            <ArrowRightOnRectangleIcon className="h-4 w-4 text-red-600" />
+          </div>
+          <span className="text-sm font-medium">Déconnexion</span>
+        </button>
       </div>
-
     </div>
   );
+};
 
+const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   return (
     <>
       {/* Mobile Sidebar */}
@@ -241,8 +339,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       </Transition.Root>
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col p-4">
-        <div className="h-full bg-white rounded-3xl shadow-soft-xl border border-slate-100 overflow-hidden">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col p-3">
+        <div className="h-full bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
           <SidebarContent />
         </div>
       </div>

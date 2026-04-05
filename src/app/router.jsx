@@ -49,6 +49,10 @@ const Profile = lazy(() => import('../modules/profile/Profile'));
 const MouvementsPage = lazy(() => import('../modules/mouvements/MouvementsPage'));
 const NotFound = lazy(() => import('../components/feedback/NotFound'));
 
+// Admin modules
+const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboardPro'));
+const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
+
 
 // Wrapper pour Suspense
 const SuspenseWrapper = ({ children }) => (
@@ -93,6 +97,10 @@ const routes = [
       </ProtectedRoute>
     ),
     children: [
+      {
+        index: true,
+        element: <Navigate to="/dashboard" replace />,
+      },
       {
         index: true,
         element: <Navigate to="/dashboard" replace />,
@@ -478,6 +486,51 @@ const routes = [
             <IAPredictions />
           </SuspenseWrapper>
         ),
+      },
+      {
+        path: 'admin',
+        children: [
+          {
+            index: true,
+            element: (
+              <SuspenseWrapper>
+                <AdminDashboard />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'permissions',
+            element: (
+              <SuspenseWrapper>
+                <PermissionManager />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'roles',
+            element: (
+              <SuspenseWrapper>
+                <AdminDashboard />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'stats',
+            element: (
+              <SuspenseWrapper>
+                <AdminDashboard />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: 'settings',
+            element: (
+              <SuspenseWrapper>
+                <AdminDashboard />
+              </SuspenseWrapper>
+            ),
+          },
+        ],
       },
       {
         path: 'users',

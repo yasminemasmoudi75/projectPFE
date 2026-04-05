@@ -93,6 +93,7 @@ export const MODULE_CODES = {
   COMMANDES: 5,          // Module Commande (BCV)
   LIVRAISONS: 6,         // Module Livraison (BLV)
   FACTURES: 7,           // Module Facture (FAV)
+  CALENDRIER: 8,         // Module Calendrier
   CLIENTS: 30,           // Module Client
   REGLEMENT: 31,         // Module Reglement
   MENU: 32,              // Menu
@@ -110,7 +111,7 @@ export const MODULE_CODES = {
   DASHBOARD: null,       // Dashboard shown to all users
   ACTIVITES: 41,         // Map to Chargement for now
   SAV: 31,               // Map to Reglement for now
-  IA: 8,                 // Temporary placeholder
+  IA: null,              // Feature route enabled without DB mapping for now
   SETTINGS: null,        // Paramètres shown to all users
 };
 

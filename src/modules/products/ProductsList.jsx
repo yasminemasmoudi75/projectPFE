@@ -17,6 +17,8 @@ import {
     ArrowUpRightIcon,
     ArrowTrendingUpIcon,
     CheckCircleIcon,
+    ArrowDownTrayIcon,
+    PrinterIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -119,6 +121,78 @@ const ProductsList = () => {
             stockStatus: 'all',
             marque: '',
         });
+    };
+
+    // Export functions
+    const exportToCSV = () => {
+        const headers = ['Code', 'Libellé', 'Marque', 'Prix', 'Stock'];
+        const rows = filteredProducts.map(p => [
+            p.CodArt || '',
+            p.LibArt || '',
+            p.Marque || '',
+            p.PrixVente || 0,
+            p.Qte || 0
+        ]);
+        
+        const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `produits_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        toast.success('Export CSV réussi');
+    };
+
+    const exportToPDF = () => {
+        const printWindow = window.open('', '_blank');
+        const html = `
+          <html>
+            <head>
+              <title>Liste des Produits</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                th { background: #3b82f6; color: white; }
+                tr:nth-child(even) { background: #f8fafc; }
+                .header { margin-bottom: 20px; }
+                .header h1 { color: #1e293b; margin: 0; }
+                .header p { color: #64748b; margin: 5px 0; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>Liste des Produits</h1>
+                <p>Exporté le ${new Date().toLocaleDateString('fr-FR')} - ${filteredProducts.length} produits</p>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Libellé</th>
+                    <th>Marque</th>
+                    <th>Prix</th>
+                    <th>Stock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredProducts.map(p => `
+                    <tr>
+                      <td>${p.CodArt || '-'}</td>
+                      <td>${p.LibArt || '-'}</td>
+                      <td>${p.Marque || '-'}</td>
+                      <td>${(p.PrixVente || 0).toFixed(2)} TND</td>
+                      <td>${p.Qte || 0}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.print();
     };
 
     const handleDelete = async (id) => {
@@ -293,6 +367,30 @@ const ProductsList = () => {
                             Grille
                         </button>
                     </div>
+                    
+                    {/* Export Buttons */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={exportToCSV}
+                        className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
+                        title="Exporter en CSV"
+                    >
+                        <ArrowDownTrayIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">CSV</span>
+                    </motion.button>
+                    
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={exportToPDF}
+                        className="flex items-center gap-2 px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl font-semibold hover:bg-rose-100 transition-colors shadow-sm"
+                        title="Imprimer / PDF"
+                    >
+                        <PrinterIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">PDF</span>
+                    </motion.button>
+                    
                     {canCreate && (
                         <motion.button
                             whileHover={{

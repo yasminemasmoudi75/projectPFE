@@ -17,7 +17,10 @@ import {
   ChevronDownIcon,
   CalendarIcon,
   CurrencyDollarIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ArrowDownTrayIcon,
+  PrinterIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { fetchBcv } from './bcvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -141,6 +144,85 @@ const BcvList = () => {
     dispatch(fetchBcv({ page: 1, limit: 1000 }));
   };
 
+  // Export functions
+  const exportToCSV = () => {
+    const headers = ['N° Commande', 'Date', 'Client', 'Montant HT', 'Montant TTC', 'Statut Livraison'];
+    const rows = filteredBcv.map(b => [
+      `${b.Prfx || ''}${b.Nf || ''}`,
+      b.DatUser ? new Date(b.DatUser).toLocaleDateString('fr-FR') : '',
+      b.LibTiers || '',
+      b.TotHT || 0,
+      b.TotTTC || 0,
+      b.bLivr ? 'Livré' : 'En attente'
+    ]);
+    
+    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `commandes_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const exportToPDF = () => {
+    const printWindow = window.open('', '_blank');
+    const html = `
+      <html>
+        <head>
+          <title>Liste des Commandes</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background: #3b82f6; color: white; }
+            tr:nth-child(even) { background: #f8fafc; }
+            .header { margin-bottom: 20px; }
+            .header h1 { color: #1e293b; margin: 0; }
+            .header p { color: #64748b; margin: 5px 0; }
+            .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+            .badge-delivered { background: #d1fae5; color: #065f46; }
+            .badge-pending { background: #fef3c7; color: #92400e; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Liste des Commandes</h1>
+            <p>Exporté le ${new Date().toLocaleDateString('fr-FR')} - ${filteredBcv.length} commandes</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>N° Commande</th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Montant TTC</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredBcv.map(b => {
+                const statusClass = b.bLivr ? 'badge-delivered' : 'badge-pending';
+                const statusText = b.bLivr ? 'Livré' : 'En attente';
+                return `
+                  <tr>
+                    <td>${b.Prfx || ''}${b.Nf || ''}</td>
+                    <td>${b.DatUser ? new Date(b.DatUser).toLocaleDateString('fr-FR') : '-'}</td>
+                    <td>${b.LibTiers || '-'}</td>
+                    <td>${(b.TotTTC || 0).toFixed(2)} TND</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   useEffect(() => {
     refreshData();
   }, [dispatch]);
@@ -197,6 +279,30 @@ const BcvList = () => {
           >
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
+          
+          {/* Export Buttons */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
+            title="Exporter en CSV"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            <span className="hidden sm:inline">CSV</span>
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={exportToPDF}
+            className="flex items-center gap-2 px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl font-semibold hover:bg-rose-100 transition-colors shadow-sm"
+            title="Imprimer / PDF"
+          >
+            <PrinterIcon className="h-5 w-5" />
+            <span className="hidden sm:inline">PDF</span>
+          </motion.button>
+          
           {canCreate && (
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
