@@ -370,3 +370,42 @@ exports.deleteBlv = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Récupérer les bons de livraison de l'utilisateur connecté (Client Portal)
+ */
+exports.getMyBlv = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 50 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const userEmail = req.user?.EmailPro;
+        const userLogin = req.user?.LoginName;
+
+        // Pour les clients : filtrer STRICTEMENT par email ou login
+        const where = {
+            [Op.or]: [
+                { CUser: userEmail || '' },
+                { CUser: userLogin || '' },
+                { CodRepres: userEmail || '' },
+                { CodRepres: userLogin || '' },
+            ].filter(v => v)
+        };
+
+        const { count, rows } = await BlvMaster.findAndCountAll({
+            where,
+            include: [{ model: BlvDetail, as: 'details' }],
+            order: [['DatUser', 'DESC']],
+            limit: parseInt(limit),
+            offset,
+        });
+
+        res.json({
+            status: 'success',
+            data: rows,
+            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
+        });
+    } catch (error) {
+        console.error('❌ Error getMyBlv:', error);
+        next(error);
+    }
+};

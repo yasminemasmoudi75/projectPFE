@@ -6,6 +6,9 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
+// ⚠️ Routes spécifiques AVANT routes génériques avec :id
+router.get('/my-invoices', checkPermission(MODULES.FACTURES, 'read'), favController.getMyFav);
+
 router.get('/', checkPermission(MODULES.FACTURES, 'read'), favController.getAllFav);
 router.get('/:id', checkPermission(MODULES.FACTURES, 'read'), favController.getFavById);
 router.post('/', checkPermission(MODULES.FACTURES, 'create'), favController.createFav);

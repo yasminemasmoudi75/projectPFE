@@ -9,6 +9,11 @@ const isCommercialRole = (role) => {
   return normalized === 'commercial' || normalized === 'commerciale';
 };
 
+const isClientRole = (role) => {
+  const normalized = String(role || '').trim().toLowerCase();
+  return normalized === 'client';
+};
+
 const getCommercialIdentifiers = (user = {}) => {
   const numericUserId = Number(user?.UserID || user?.id);
   const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
@@ -58,6 +63,50 @@ const RECENT_DEVIS_ORDER = [
   ['DatUser', 'DESC']
 ];
 
+// Build filter for clients - they only see their own devis
+// This is async because we need to look up the Tiers by email
+const buildClientFilter = async (user = {}) => {
+  const userEmail = (user?.EmailPro || '').toLowerCase().trim();
+  const userLogin = (user?.LoginName || '').toLowerCase().trim();
+  const directCodTiers = user?.CodTiers || user?.codTiers || null;
+  
+  const orConditions = [];
+
+  if (directCodTiers) {
+    orConditions.push({ CodTiers: directCodTiers });
+  }
+  
+  // 1. Filter by CUser (created by user)
+  if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userEmail));
+  if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userLogin));
+  
+  // 2. Filter by CodRepres (commercial representative)
+  if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), userEmail));
+  if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), userLogin));
+  
+  // 3. Look up Tiers by email to get CodTiers
+  if (userEmail) {
+    try {
+      const tiers = await Tiers.findOne({
+        where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), userEmail),
+        attributes: ['CodTiers'],
+      });
+      
+      if (tiers?.CodTiers) {
+        orConditions.push({ CodTiers: tiers.CodTiers });
+      }
+    } catch (err) {
+      console.error('Error finding Tiers for client filter:', err.message);
+    }
+  }
+  
+  if (orConditions.length === 0) {
+    return { Guid: '__NO_MATCH__' };
+  }
+  
+  return { [Op.or]: orConditions };
+};
+
 /**
  * Récupérer tous les devis
  */
@@ -87,6 +136,11 @@ exports.getAllDevis = async (req, res, next) => {
 
     if (isCommercialRole(req.user?.UserRole)) {
       filters.push(buildCommercialCodRepresFilter(req.user));
+    }
+
+    // Client filter - only their own devis
+    if (isClientRole(req.user?.UserRole)) {
+      filters.push(await buildClientFilter(req.user));
     }
 
     const where = filters.length === 1 ? filters[0] : { [Op.and]: filters };
@@ -125,9 +179,15 @@ exports.getAllDevis = async (req, res, next) => {
 exports.getDevisById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const where = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-      : { Guid: id };
+    
+    // Build role-based filter
+    let where = { Guid: id };
+    
+    if (isCommercialRole(req.user?.UserRole)) {
+      where = { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] };
+    } else if (isClientRole(req.user?.UserRole)) {
+      where = { [Op.and]: [{ Guid: id }, await buildClientFilter(req.user)] };
+    }
 
     const devis = await DevisMaster.findOne({
       where,
@@ -671,6 +731,40 @@ exports.generateDevisPDF = async (req, res, next) => {
     res.send(pdfBuffer);
   } catch (error) {
     console.error('❌ Error generateDevisPDF:', error);
+    next(error);
+  }
+};
+
+/**
+ * Récupérer les devis de l'utilisateur connecté (Client Portal)
+ */
+exports.getMyDevis = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Use the same comprehensive client filter
+    const where = await buildClientFilter(req.user);
+    console.log('🧾 getMyDevis client filter:', JSON.stringify(where, null, 2));
+
+    const { count, rows } = await DevisMaster.findAndCountAll({
+      where,
+      include: [
+        { model: DevisDetail, as: 'details' },
+        { model: Tiers, as: 'tiers', attributes: ['CodTiers', 'Raisoc', 'Email'] },
+      ],
+      order: [['DatUser', 'DESC']],
+      limit: parseInt(limit),
+      offset,
+    });
+
+    res.json({
+      status: 'success',
+      data: rows,
+      pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
+    });
+  } catch (error) {
+    console.error('❌ Error getMyDevis:', error);
     next(error);
   }
 };

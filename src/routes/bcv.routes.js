@@ -6,6 +6,9 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
+// ⚠️ Routes spécifiques AVANT routes génériques avec :id
+router.get('/my-orders', checkPermission(MODULES.BCV, 'read'), bcvController.getMyBcv);
+
 // GET /api/bcv           — liste paginée des bons de commande
 router.get('/', checkPermission(MODULES.BCV, 'read'), bcvController.getAllBcv);
 

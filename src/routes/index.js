@@ -23,6 +23,7 @@ const blvRoutes = require('./blvRoutes');
 const favRoutes = require('./favRoutes');
 const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
 const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
+const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour tester la table TabRoleFilterVisibility
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -46,6 +47,7 @@ router.use('/blv', blvRoutes);
 router.use('/fav', favRoutes);
 router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
 router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
+router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterVisibility
 
 // Route de base de l'API
 router.get('/', (req, res) => {

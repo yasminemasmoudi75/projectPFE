@@ -6,6 +6,9 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
+// ⚠️ Routes spécifiques AVANT routes génériques avec :id
+router.get('/my-quotations', checkPermission(MODULES.DEVIS, 'read'), devisController.getMyDevis);
+
 // Routes devis
 router.get('/', checkPermission(MODULES.DEVIS, 'read'), devisController.getAllDevis);
 router.get('/:id', checkPermission(MODULES.DEVIS, 'read'), devisController.getDevisById);

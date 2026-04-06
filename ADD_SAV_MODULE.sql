@@ -1,7 +1,4 @@
--- Script pour ajouter/mettre à jour le module SAV dans les permissions
--- Suppression des anciens enregistrements SAV
-DELETE FROM TABAWPROFILEACCESS WHERE CodMod = 31;
-
+-- Script pour ajouter le module SAV dans les permissions
 -- Insertions des accès pour chaque rôle
 
 -- Row 1 - SAV pour Admin (accès complet)
@@ -36,7 +33,7 @@ INSERT INTO TABAWPROFILEACCESS (
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 );
 
--- Row 3 - SAV pour Client
+-- Row 223 - SAV pour Client
 INSERT INTO TABAWPROFILEACCESS (
     ProfileUser, CodMod, LibMod, Actif, canAdd, canEdit, canDelt, canMaps, 
     FiltreRepres, FiltreMag, FiltreChauffeur, canValid, CtrlStk, CanImp, canPDF, filtreTyp, 
@@ -52,7 +49,7 @@ INSERT INTO TABAWPROFILEACCESS (
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 );
 
--- Row 4 - SAV pour Commerciale (HIDDEN - accès désactivé)
+-- Row 224 - SAV pour Commerciale (HIDDEN - accès désactivé)
 INSERT INTO TABAWPROFILEACCESS (
     ProfileUser, CodMod, LibMod, Actif, canAdd, canEdit, canDelt, canMaps, 
     FiltreRepres, FiltreMag, FiltreChauffeur, canValid, CtrlStk, CanImp, canPDF, filtreTyp, 
@@ -68,7 +65,7 @@ INSERT INTO TABAWPROFILEACCESS (
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 );
 
--- Row 5 - SAV pour Technicien
+-- Row 225 - SAV pour Technicien
 INSERT INTO TABAWPROFILEACCESS (
     ProfileUser, CodMod, LibMod, Actif, canAdd, canEdit, canDelt, canMaps, 
     FiltreRepres, FiltreMag, FiltreChauffeur, canValid, CtrlStk, CanImp, canPDF, filtreTyp, 

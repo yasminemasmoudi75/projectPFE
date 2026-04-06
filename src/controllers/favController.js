@@ -368,3 +368,42 @@ exports.deleteFav = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Récupérer les factures de l'utilisateur connecté (Client Portal)
+ */
+exports.getMyFav = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 50 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const userEmail = req.user?.EmailPro;
+        const userLogin = req.user?.LoginName;
+
+        // Pour les clients : filtrer STRICTEMENT par email ou login
+        const where = {
+            [Op.or]: [
+                { CUser: userEmail || '' },
+                { CUser: userLogin || '' },
+                { CodRepres: userEmail || '' },
+                { CodRepres: userLogin || '' },
+            ].filter(v => v)
+        };
+
+        const { count, rows } = await FavMaster.findAndCountAll({
+            where,
+            include: [{ model: FavDetail, as: 'details' }],
+            order: [['DatUser', 'DESC']],
+            limit: parseInt(limit),
+            offset,
+        });
+
+        res.json({
+            status: 'success',
+            data: rows,
+            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
+        });
+    } catch (error) {
+        console.error('❌ Error getMyFav:', error);
+        next(error);
+    }
+};

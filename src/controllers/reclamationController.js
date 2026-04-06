@@ -3,6 +3,7 @@ const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
 const { User, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { resolveUserAccess } = require('../utils/userAccess');
 
 const MAX_LENGTHS = {
     CodTiers: 20,
@@ -25,16 +26,16 @@ const truncateString = (value, maxLength) => {
 };
 
 const buildReclamationPayload = (body = {}) => ({
-    CodTiers: truncateString(body.CodTiers, MAX_LENGTHS.CodTiers),
-    LibTiers: truncateString(body.LibTiers, MAX_LENGTHS.LibTiers),
-    Objet: truncateString(body.Objet, MAX_LENGTHS.Objet),
-    Description: normalizeString(body.Description),
-    TypeReclamation: truncateString(body.TypeReclamation, MAX_LENGTHS.TypeReclamation),
-    Priorite: truncateString(body.Priorite, MAX_LENGTHS.Priorite),
-    Statut: truncateString(body.Statut, MAX_LENGTHS.Statut),
-    NomTechnicien: truncateString(body.NomTechnicien, MAX_LENGTHS.NomTechnicien),
-    TechnicienID: body.TechnicienID ? Number(body.TechnicienID) : null,
-    Solution: normalizeString(body.Solution),
+    CodTiers: truncateString(body.CodTiers || body.codTiers, MAX_LENGTHS.CodTiers),
+    LibTiers: truncateString(body.LibTiers || body.libTiers, MAX_LENGTHS.LibTiers),
+    Objet: truncateString(body.Objet || body.objet, MAX_LENGTHS.Objet),
+    Description: normalizeString(body.Description || body.description),
+    TypeReclamation: truncateString(body.TypeReclamation || body.categorie || body.typeReclamation, MAX_LENGTHS.TypeReclamation),
+    Priorite: truncateString(body.Priorite || body.priorite, MAX_LENGTHS.Priorite),
+    Statut: truncateString(body.Statut || body.statut, MAX_LENGTHS.Statut),
+    NomTechnicien: truncateString(body.NomTechnicien || body.nomTechnicien, MAX_LENGTHS.NomTechnicien),
+    TechnicienID: body.TechnicienID ? Number(body.TechnicienID) : (body.technicienID ? Number(body.technicienID) : null),
+    Solution: normalizeString(body.Solution || body.solution),
 });
 
 const fetchInterventionsForReclamation = async (reclamation) => {
@@ -162,6 +163,24 @@ exports.getById = async (req, res, next) => {
         const rec = await Reclamation.findByPk(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
 
+        const userId = req.user?.id || req.user?.UserID;
+        const access = await resolveUserAccess(userId, req.user?.UserRole);
+        const isClient = access?.normalizedRole === 'client';
+
+        if (isClient) {
+            const userEmail = String(req.user?.EmailPro || '').toLowerCase();
+            const userLogin = String(req.user?.LoginName || '').toLowerCase();
+            const claimOwner = String(rec.CUser || '').toLowerCase();
+            const isOwner = claimOwner && (claimOwner === userEmail || claimOwner === userLogin);
+
+            if (!isOwner) {
+                return res.status(403).json({
+                    status: 'error',
+                    message: 'Accès refusé à cette réclamation'
+                });
+            }
+        }
+
         const interventions = await fetchInterventionsForReclamation(rec);
 
         res.json({
@@ -180,6 +199,13 @@ exports.getById = async (req, res, next) => {
 exports.create = async (req, res, next) => {
     try {
         const payload = buildReclamationPayload(req.body);
+
+        if (!payload.LibTiers) {
+            payload.LibTiers = truncateString(
+                req.user?.FullName || req.user?.LoginName || req.user?.EmailPro || 'Client',
+                MAX_LENGTHS.LibTiers
+            );
+        }
 
         if (!payload.LibTiers || !payload.Objet) {
             return res.status(400).json({
@@ -564,6 +590,56 @@ exports.getTechnicianReclamations = async (req, res, next) => {
         });
     } catch (err) {
         console.error('❌ getTechnicianReclamations:', err);
+        next(err);
+    }
+};
+
+// ─── GET MY RECLAMATIONS (Client Portal) ───────────────────────────────────────────────
+exports.getMyMyClaims = async (req, res, next) => {
+    try {
+        const userEmail = normalizeString(req.user?.EmailPro || '');
+        const userLogin = normalizeString(req.user?.LoginName || '');
+        const userFullName = normalizeString(req.user?.FullName || '');
+        const identities = [userEmail, userLogin, userFullName].filter(Boolean);
+        
+        if (!identities.length) {
+            return res.status(401).json({ status: 'error', message: 'Utilisateur non authentifié' });
+        }
+
+        const { page = 1, limit = 50 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        // Filtrer STRICTEMENT par l'email ou login de l'utilisateur connecté
+        // CUser = email ou login de la personne qui a créé la réclamation
+        const where = {
+            [Op.or]: identities.map((identity) => ({ CUser: identity }))
+        };
+
+        const { count, rows } = await Reclamation.findAndCountAll({
+            where,
+            order: [['DateOuverture', 'DESC']],
+            limit: parseInt(limit),
+            offset,
+        });
+
+        // Fetch interventions for each reclamation
+        const reclamationsWithInterventions = await Promise.all(
+            rows.map(async (rec) => {
+                const interventions = await fetchInterventionsForReclamation(rec);
+                return {
+                    ...rec.toJSON(),
+                    interventions,
+                };
+            })
+        );
+
+        res.json({
+            status: 'success',
+            data: reclamationsWithInterventions,
+            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
+        });
+    } catch (err) {
+        console.error('❌ getMyMyClaims:', err);
         next(err);
     }
 };
