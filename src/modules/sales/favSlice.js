@@ -15,6 +15,12 @@ export const fetchFav = createAsyncThunk('fav/fetchFav', async ({ page = 1, limi
     return response; // interceptor already unwraps response.data
 });
 
+// Récupérer les factures de l'utilisateur (client sees only their invoices)
+export const fetchMyFav = createAsyncThunk('fav/fetchMyFav', async ({ page = 1, limit = 100 } = {}) => {
+    const response = await axios.get('/fav/my-invoices', { params: { page, limit } });
+    return response;
+});
+
 // Récupérer une facture par ID (avec détails)
 export const fetchFavById = createAsyncThunk('fav/fetchFavById', async (id) => {
     const response = await axios.get(`/fav/${id}`);
@@ -57,6 +63,14 @@ const favSlice = createSlice({
                 state.pagination = action.payload?.pagination || initialState.pagination;
             })
             .addCase(fetchFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(fetchMyFav.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(fetchMyFav.fulfilled, (state, action) => {
+                state.loading = false;
+                state.favList = action.payload?.data || [];
+                state.pagination = action.payload?.pagination || initialState.pagination;
+            })
+            .addCase(fetchMyFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
 
             .addCase(fetchFavById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchFavById.fulfilled, (state, action) => { state.loading = false; state.currentFav = action.payload.data; })

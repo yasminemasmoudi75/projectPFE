@@ -12,10 +12,12 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axios from '../../app/axios';
 import { getImageUrl } from '../../utils/imageUrl';
+import useAuth from '../../hooks/useAuth';
 
 const ProductDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { isClient } = useAuth();
     const [loading, setLoading] = useState(true);
     const [product, setProduct] = useState(null);
     const [variants, setVariants] = useState([]);
@@ -96,7 +98,7 @@ const ProductDetail = () => {
         ['LastDateUpdate', formatDate(product.LastDateUpdate)],
         ['DateUpdate', formatDate(product.DateUpdate)],
         ['Description', product.Description || '-']
-    ];
+    ].filter(([label]) => !isClient || !['Qte', 'MinStk'].includes(label));
 
     return (
         <div className="animate-fade-in min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50">
@@ -170,7 +172,8 @@ const ProductDetail = () => {
                         </div>
                     </div>
 
-                    {/* Stock Card */}
+                    {/* Stock Card - hidden for clients */}
+                    {!isClient && (
                     <div className="card-luxury p-6 bg-gradient-to-br from-white via-amber-50/20 to-white border-2 border-amber-200/40 overflow-hidden group hover:shadow-xl transition-all duration-500">
                         <div className="flex items-start justify-between mb-6">
                             <div className="p-3 bg-gradient-to-br from-amber-100 to-amber-200 rounded-lg group-hover:shadow-lg transition-all duration-300">
@@ -196,6 +199,7 @@ const ProductDetail = () => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* Right Column - Details & Pricing */}
@@ -320,7 +324,8 @@ const ProductDetail = () => {
                         </div>
                     </div>
 
-                    {/* Variants Table */}
+                    {/* Variants Table - hidden for clients */}
+                    {!isClient && (
                     <div className="card-luxury overflow-hidden">
                         <div className="bg-slate-50 px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
@@ -368,6 +373,7 @@ const ProductDetail = () => {
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>

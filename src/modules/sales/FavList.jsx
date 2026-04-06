@@ -19,7 +19,7 @@ import {
   CurrencyDollarIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { fetchFav } from './favSlice';
+import { fetchMyFav } from './favSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -138,7 +138,7 @@ const FavList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchFav({ page: 1, limit: 1000 }));
+    dispatch(fetchMyFav({ page: 1, limit: 1000 }));
   };
 
   useEffect(() => {

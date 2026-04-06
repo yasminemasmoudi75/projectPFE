@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -18,7 +18,9 @@ import {
     BuildingOfficeIcon,
     ArrowPathIcon,
     TagIcon,
-    ChevronDownIcon
+    ChevronDownIcon,
+    XMarkIcon,
+    CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { updateDevis, createDevis, fetchDevisById, clearCurrentDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -77,6 +79,9 @@ const DevisForm = () => {
     const [expandedItems, setExpandedItems] = useState({});
     const [activeProductRowId, setActiveProductRowId] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
+    const [clientSearch, setClientSearch] = useState('');
+    const [showClientDropdown, setShowClientDropdown] = useState(false);
+    const clientDropdownRef = useState(null);
 
     const toggleItemExpanded = (tempId) => {
         setExpandedItems(prev => ({
@@ -333,6 +338,17 @@ const DevisForm = () => {
         loadProductsList();
     }, []);
 
+    // Close client dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target)) {
+                setShowClientDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     // Fetch clients from database
     useEffect(() => {
         const fetchClients = async () => {
@@ -508,8 +524,21 @@ const DevisForm = () => {
             }));
             // Cin belongs to Tiers model, not DevisMaster - keep separate
             setClientCin(selectedClient.Cin || '');
+            setClientSearch(selectedClient.Raisoc || selectedClient.CodTiers || '');
+            setShowClientDropdown(false);
         }
     };
+
+    // Filter clients based on search
+    const filteredClients = clients.filter(client => {
+        if (!clientSearch) return true;
+        const search = clientSearch.toLowerCase();
+        return (
+            (client.Raisoc && client.Raisoc.toLowerCase().includes(search)) ||
+            (client.CodTiers && client.CodTiers.toLowerCase().includes(search)) ||
+            (client.Email && client.Email.toLowerCase().includes(search))
+        );
+    }).slice(0, 20); // Limit to 20 results for performance
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -697,26 +726,85 @@ const DevisForm = () => {
                             </div>
                         </div>
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Client Selector */}
-                            <div className="group md:col-span-2">
-                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Sélectionner un Client</label>
+                            {/* Client Selector with Search */}
+                            <div className="group md:col-span-2 relative" ref={clientDropdownRef}>
+                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Rechercher un Client</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <UserGroupIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                     </div>
-                                    <select
-                                        value={formData.CodTiers || ''}
-                                        onChange={(e) => handleClientSelect(e.target.value)}
-                                        className="input-modern pl-11 w-full text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                    >
-                                        <option value="">-- Choisir un client --</option>
-                                        {clients.map(client => (
-                                            <option key={client.CodTiers} value={client.CodTiers}>
-                                                [{client.CodTiers}] {client.Raisoc}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <input
+                                        type="text"
+                                        value={clientSearch}
+                                        onChange={(e) => {
+                                            setClientSearch(e.target.value);
+                                            setShowClientDropdown(true);
+                                            // Clear selection if user types something different
+                                            if (formData.CodTiers && !clients.some(c => 
+                                                c.Raisoc === e.target.value || c.CodTiers === e.target.value
+                                            )) {
+                                                setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
+                                            }
+                                        }}
+                                        onFocus={() => setShowClientDropdown(true)}
+                                        placeholder="Tapez pour rechercher un client..."
+                                        className="input-modern pl-11 pr-10 w-full text-slate-700 bg-white border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                        autoComplete="off"
+                                    />
+                                    {clientSearch && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setClientSearch('');
+                                                setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
+                                                setShowClientDropdown(false);
+                                            }}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                        >
+                                            <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+                                        </button>
+                                    )}
                                 </div>
+                                
+                                {/* Dropdown */}
+                                {showClientDropdown && filteredClients.length > 0 && (
+                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                                        {filteredClients.map(client => (
+                                            <button
+                                                key={client.CodTiers}
+                                                type="button"
+                                                onClick={() => handleClientSelect(client.CodTiers)}
+                                                className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}
+                                            >
+                                                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                                    <UserGroupIcon className="h-4 w-4 text-slate-500" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
+                                                    <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}</p>
+                                                </div>
+                                                {formData.CodTiers === client.CodTiers && (
+                                                    <CheckCircleIcon className="h-4 w-4 text-blue-600" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* No results message */}
+                                {showClientDropdown && clientSearch && filteredClients.length === 0 && (
+                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4">
+                                        <p className="text-sm text-slate-500 text-center">Aucun client trouvé pour "{clientSearch}"</p>
+                                    </div>
+                                )}
+                                
+                                {/* Selected client indicator */}
+                                {formData.CodTiers && !showClientDropdown && (
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-green-600">
+                                        <CheckCircleIcon className="h-4 w-4" />
+                                        <span>Client sélectionné: <strong>{formData.LibTiers}</strong></span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="group">

@@ -23,7 +23,7 @@ import {
   PrinterIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { fetchBlv } from './blvSlice';
+import { fetchMyBlv } from './blvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -142,7 +142,7 @@ const BlvList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchBlv({ page: 1, limit: 1000 }));
+    dispatch(fetchMyBlv({ page: 1, limit: 1000 }));
   };
 
   // Export functions

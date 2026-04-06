@@ -17,6 +17,7 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate } from '../../utils/format';
 import axios from '../../app/axios';
 import toast from 'react-hot-toast';
+import useAuth from '../../hooks/useAuth';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -42,6 +43,8 @@ const rowVariants = {
 
 const ClaimsList = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isClient = String(user?.UserRole || '').toLowerCase() === 'client';
     const [loading, setLoading] = useState(true);
     const [claims, setClaims] = useState([]);
     const [techniciens, setTechniciens] = useState([]);
@@ -144,9 +147,13 @@ const ClaimsList = () => {
     };
 
     useEffect(() => {
+        if (isClient) {
+            navigate('/client-portal?tab=claims', { replace: true });
+            return;
+        }
         fetchClaims();
         fetchTechniciens();
-    }, [fetchClaims, fetchTechniciens]);
+    }, [fetchClaims, fetchTechniciens, isClient, navigate]);
 
     const filteredClaims = useMemo(() => {
         const normalize = (value) => String(value || '').toLowerCase().trim();

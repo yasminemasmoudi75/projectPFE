@@ -150,16 +150,30 @@ const SidebarContent = () => {
   const { allPermissions } = usePermission();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState({});
+  const role = String(user?.UserRole || '').toLowerCase();
 
   const toggle = (name) => setCollapsed(prev => ({ ...prev, [name]: !prev[name] }));
 
   const filtered = menuItems.filter(item => {
+    if (role === 'client' && ['Bons de Commande', 'Livraisons'].includes(item.name)) {
+      return true;
+    }
+
     if (item.type === 'section') return true;
     if (item.moduleCode == null) return true;
     // Hide SAV module for commercial users
-    if (item.name === 'SAV' && String(user?.UserRole || '').toLowerCase() === 'commercial') return false;
+    if (item.name === 'SAV' && role === 'commercial') return false;
+    // Hide Clients (admin) module from non-admin users
+    if (item.name === 'Clients' && role !== 'admin') return false;
+    // Hide Users (admin) module from non-admin users
+    if (item.name === 'Utilisateurs' && role !== 'admin') return false;
+    // Hide Admin section from non-admin users
+    if (item.name === 'Admin' && role !== 'admin') return false;
+
     const p = allPermissions.find(p => Number(p.moduleCode) === Number(item.moduleCode));
     return p?.isActive === true;
+  }).map(item => {
+    return item;
   });
 
   const groups = [];

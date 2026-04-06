@@ -15,6 +15,12 @@ export const fetchBcv = createAsyncThunk('bcv/fetchBcv', async ({ page = 1, limi
     return response;
 });
 
+// Récupérer les bons de commande de l'utilisateur (client sees only their orders)
+export const fetchMyBcv = createAsyncThunk('bcv/fetchMyBcv', async ({ page = 1, limit = 100 } = {}) => {
+    const response = await axios.get('/bcv/my-orders', { params: { page, limit } });
+    return response;
+});
+
 // Récupérer un bon de commande par ID (avec détails)
 export const fetchBcvById = createAsyncThunk('bcv/fetchBcvById', async (id) => {
     const response = await axios.get(`/bcv/${id}`);
@@ -49,6 +55,14 @@ const bcvSlice = createSlice({
                 state.pagination = action.payload?.pagination || initialState.pagination;
             })
             .addCase(fetchBcv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(fetchMyBcv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(fetchMyBcv.fulfilled, (state, action) => {
+                state.loading = false;
+                state.bcvList = action.payload?.data || [];
+                state.pagination = action.payload?.pagination || initialState.pagination;
+            })
+            .addCase(fetchMyBcv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
 
             .addCase(fetchBcvById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchBcvById.fulfilled, (state, action) => { state.loading = false; state.currentBcv = action.payload; })

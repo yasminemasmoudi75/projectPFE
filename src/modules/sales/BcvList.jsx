@@ -22,7 +22,7 @@ import {
   PrinterIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { fetchBcv } from './bcvSlice';
+import { fetchMyBcv } from './bcvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -61,7 +61,7 @@ const rowVariants = {
 const BcvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate, canEdit } = usePermission(MODULE_CODES.COMMANDES);
+  const { canCreate, canEdit, isModuleActive, loading: permissionLoading } = usePermission(MODULE_CODES.COMMANDES);
   const { bcvList: bcv, loading, pagination } = useSelector((state) => state.bcv);
 
   // Filter states
@@ -141,7 +141,8 @@ const BcvList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchBcv({ page: 1, limit: 1000 }));
+    if (!isModuleActive) return;
+    dispatch(fetchMyBcv({ page: 1, limit: 1000 }));
   };
 
   // Export functions
@@ -224,8 +225,9 @@ const BcvList = () => {
   };
 
   useEffect(() => {
+    if (permissionLoading) return;
     refreshData();
-  }, [dispatch]);
+  }, [dispatch, permissionLoading, isModuleActive]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);

@@ -15,6 +15,12 @@ export const fetchBlv = createAsyncThunk('blv/fetchBlv', async ({ page = 1, limi
     return response; // interceptor already unwraps response.data
 });
 
+// Récupérer les bons de livraison de l'utilisateur (client sees only their deliveries)
+export const fetchMyBlv = createAsyncThunk('blv/fetchMyBlv', async ({ page = 1, limit = 100 } = {}) => {
+    const response = await axios.get('/blv/my-deliveries', { params: { page, limit } });
+    return response;
+});
+
 // Récupérer un bon de livraison par ID (avec détails)
 export const fetchBlvById = createAsyncThunk('blv/fetchBlvById', async (id) => {
     const response = await axios.get(`/blv/${id}`);
@@ -57,6 +63,14 @@ const blvSlice = createSlice({
                 state.pagination = action.payload?.pagination || initialState.pagination;
             })
             .addCase(fetchBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(fetchMyBlv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(fetchMyBlv.fulfilled, (state, action) => {
+                state.loading = false;
+                state.blvList = action.payload?.data || [];
+                state.pagination = action.payload?.pagination || initialState.pagination;
+            })
+            .addCase(fetchMyBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
 
             .addCase(fetchBlvById.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchBlvById.fulfilled, (state, action) => { state.loading = false; state.currentBlv = action.payload.data; })

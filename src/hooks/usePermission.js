@@ -14,6 +14,8 @@ import {
   isAdmin,
 } from '../utils/permissions';
 
+const toBool = (value) => value === true || value === 1 || value === '1';
+
 /**
  * Hook personnalisé pour gérer les permissions RBAC
  * Charge les permissions depuis la base de données via l'API
@@ -136,17 +138,17 @@ const usePermission = (moduleCode = null) => {
 
   // Obtenir tous les modules actifs
   const activeModules = useMemo(() => {
-    return dbPermissions.filter(p => p.isActive);
+    return dbPermissions.filter((p) => toBool(p.isActive));
   }, [dbPermissions]);
 
   return {
     // ✅ Permissions depuis la base de données pour le module courant
-    isModuleActive: modulePermissions?.isActive ?? false,  // Visible dans sidebar?
-    canCreate: modulePermissions?.canCreate ?? false,       // Bouton ADD?
-    canEdit: modulePermissions?.canEdit ?? false,           // Bouton EDIT?
-    canDelete: modulePermissions?.canDelete ?? false,       // Bouton DELETE?
-    canValidate: modulePermissions?.canValidate ?? false,   // Bouton VALIDER?
-    canExport: modulePermissions?.canExport ?? false,       // Bouton EXPORTER?
+    isModuleActive: toBool(modulePermissions?.isActive),    // Visible dans sidebar?
+    canCreate: toBool(modulePermissions?.canCreate),        // Bouton ADD?
+    canEdit: toBool(modulePermissions?.canEdit),            // Bouton EDIT?
+    canDelete: toBool(modulePermissions?.canDelete),        // Bouton DELETE?
+    canValidate: toBool(modulePermissions?.canValidate),    // Bouton VALIDER?
+    canExport: toBool(modulePermissions?.canExport),        // Bouton EXPORTER?
 
     // Tous les modules
     allPermissions: dbPermissions,

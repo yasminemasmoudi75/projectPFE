@@ -40,6 +40,7 @@ const Calendar = lazy(() => import('../modules/activities/CalendarView'));
 const Objectifs = lazy(() => import('../modules/goals/Objectifs'));
 const ObjectifForm = lazy(() => import('../modules/goals/ObjectifForm'));
 const MessagesList = lazy(() => import('../modules/messaging/MessagesList'));
+const ClientPortalDashboard = lazy(() => import('../modules/clientPortal/ClientPortalDashboard'));
 
 const IAPredictions = lazy(() => import('../modules/ai-engine/Predictions'));
 const UsersList = lazy(() => import('../modules/users/UsersList'));
@@ -476,6 +477,14 @@ const routes = [
         element: (
           <SuspenseWrapper>
             <MessagesList />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'client-portal',
+        element: (
+          <SuspenseWrapper>
+            <ClientPortalDashboard />
           </SuspenseWrapper>
         ),
       },

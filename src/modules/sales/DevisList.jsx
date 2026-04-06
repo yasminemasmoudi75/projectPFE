@@ -21,13 +21,16 @@ import {
   ArrowDownTrayIcon,
   PrinterIcon
 } from '@heroicons/react/24/outline';
-import { fetchDevis } from './devisSlice';
+import { fetchMyDevis, fetchDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
+
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -61,6 +64,7 @@ const DevisList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { canCreate, canEdit } = usePermission(MODULE_CODES.DEVIS);
+  const { user, isAdmin, isClient, isCommercial, isAuthenticated, loading: authLoading } = useAuth();
   const { devis, loading, pagination } = useSelector((state) => state.devis);
 
   // Filter states
@@ -99,8 +103,32 @@ const DevisList = () => {
   // Count active filters
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'all' && v !== '').length;
 
+  const currentUserTokens = [
+    normalizeText(user?.EmailPro),
+    normalizeText(user?.LoginName),
+    normalizeText(user?.FullName),
+  ].filter(Boolean);
+
   // Apply filters to devis list
   const filteredDevis = devis?.filter(item => {
+    if (isClient) {
+      const itemTokens = [
+        normalizeText(item.CUser),
+        normalizeText(item.CodRepres),
+        normalizeText(item.LibTiers),
+        normalizeText(item.tiers?.Raisoc),
+        normalizeText(item.tiers?.Email),
+      ];
+
+      const linkedToCurrentClient = currentUserTokens.some((token) =>
+        itemTokens.some((candidate) => candidate && candidate === token)
+      );
+
+      if (!linkedToCurrentClient) {
+        return false;
+      }
+    }
+
     // Search filter
     if (filters.search && !(`${item.Prfx}${item.Nf}`.toLowerCase().includes(filters.search.toLowerCase()) ||
       item.LibTiers?.toLowerCase().includes(filters.search.toLowerCase()))) {
@@ -140,8 +168,22 @@ const DevisList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchDevis({ page: 1, limit: 1000 }));
+    // Admin: fetch all devis
+    // Commercial: fetch their own devis (backend filters by CodRepres)
+    // Client: fetch their own quotations
+    if (isClient) {
+      dispatch(fetchMyDevis({ page: 1, limit: 1000 }));
+    } else {
+      dispatch(fetchDevis({ page: 1, limit: 1000 }));
+    }
   };
+
+  // Initial fetch based on role
+  useEffect(() => {
+    if (authLoading) return;
+    if (isAuthenticated && !user) return;
+    refreshData();
+  }, [isClient, isAuthenticated, authLoading, user]);
 
   // Export functions
   const exportToCSV = () => {
@@ -225,10 +267,6 @@ const DevisList = () => {
     printWindow.print();
   };
 
-  useEffect(() => {
-    refreshData();
-  }, [dispatch]);
-
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -282,7 +320,9 @@ const DevisList = () => {
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
           
-          {/* Export Buttons */}
+          {/* Export Buttons - hidden for clients */}
+          {!isClient && (
+            <>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -304,8 +344,10 @@ const DevisList = () => {
             <PrinterIcon className="h-5 w-5" />
             <span className="hidden sm:inline">PDF</span>
           </motion.button>
+            </>
+          )}
           
-          {canCreate && (
+          {canCreate && !isClient && (
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
               whileTap={{ scale: 0.97 }}
@@ -319,7 +361,8 @@ const DevisList = () => {
         </div>
       </motion.div>
 
-      {/* Quick Stats Overlay */}
+      {/* Quick Stats Overlay - hidden for clients */}
+      {!isClient && (
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div whileHover={{ y: -5 }} className="card-luxury p-0 overflow-hidden relative group">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -358,6 +401,7 @@ const DevisList = () => {
           <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-teal-500"></div>
         </motion.div>
       </motion.div>
+      )}
 
       {/* Filters Card */}
       <motion.div variants={itemVariants} className="card-luxury p-0 overflow-hidden bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-xl shadow-slate-200/40 rounded-3xl">
@@ -560,7 +604,7 @@ const DevisList = () => {
                               : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
                           </p>
                         </div>
-                        {(!devis || devis.length === 0) && canCreate && (
+                        {(!devis || devis.length === 0) && canCreate && !isClient && (
                           <button onClick={() => navigate('/devis/new')} className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700">
                             + Créer un devis
                           </button>
@@ -651,7 +695,7 @@ const DevisList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canEdit && (
+                          {canEdit && !isClient && (
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/devis/edit/${item.Guid}`); }}
                               className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
