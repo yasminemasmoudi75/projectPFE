@@ -21,6 +21,7 @@ exports.createUser = async (req, res, next) => {
       TelPro,
       Poste,
       Departement,
+      Gouvernorat,
       IsActive,
       DateNaissance
     } = req.body;
@@ -67,6 +68,7 @@ exports.createUser = async (req, res, next) => {
       TelPro,
       PosteOccupe: Poste,
       Departement,
+      Gouvernorat,
       DateNaissance: sanitizeDate(DateNaissance)
     }, { transaction });
 
@@ -90,6 +92,7 @@ exports.createUser = async (req, res, next) => {
       TelPro: newUser.TelPro,
       PosteOccupe: newUser.PosteOccupe,
       Departement: newUser.Departement,
+      Gouvernorat: newUser.Gouvernorat,
       IsActive: newUser.IsActive
     };
 
@@ -175,6 +178,7 @@ exports.updateUser = async (req, res, next) => {
       TelPro,
       Poste,
       Departement,
+      Gouvernorat,
       IsActive,
       Password
     } = req.body;
@@ -203,6 +207,7 @@ exports.updateUser = async (req, res, next) => {
     if (TelPro) updateData.TelPro = TelPro;
     if (Poste) updateData.PosteOccupe = Poste;
     if (Departement) updateData.Departement = Departement;
+    if (Gouvernorat) updateData.Gouvernorat = Gouvernorat;
 
     // Si le mot de passe est modifié, on le re-hashe
     if (Password) {

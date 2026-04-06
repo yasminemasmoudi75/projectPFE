@@ -230,13 +230,12 @@ const replaceTiersChildren = async ({ tierId, contacts, addresses, transaction }
         await TiersContact.destroy({ where: { IDTiers: tierId }, transaction });
         if (contacts.length > 0) {
             await TiersContact.bulkCreate(
-                contacts.map((item, index) => ({
+                contacts.map((item) => ({
                     IDTiers: tierId,
-                    ID: index + 1,
                     Responsable: item.Responsable,
                     Tel: item.Tel
                 })),
-                { transaction }
+                { transaction, fields: ['IDTiers', 'Responsable', 'Tel'] }
             );
         }
     }
@@ -245,12 +244,11 @@ const replaceTiersChildren = async ({ tierId, contacts, addresses, transaction }
         await TiersAdr.destroy({ where: { IDTiers: tierId }, transaction });
         if (addresses.length > 0) {
             await TiersAdr.bulkCreate(
-                addresses.map((item, index) => ({
+                addresses.map((item) => ({
                     IDTiers: tierId,
-                    ID: index + 1,
                     Adresse: item.Adresse
                 })),
-                { transaction }
+                { transaction, fields: ['IDTiers', 'Adresse'] }
             );
         }
     }

@@ -123,7 +123,8 @@ exports.register = async (req, res, next) => {
           UserID: newUser.UserID,
           LoginName: newUser.LoginName,
           FullName: newUser.FullName,
-          UserRole: newUser.UserRole
+          UserRole: newUser.UserRole,
+          Gouvernorat: newUser.Gouvernorat
         }
       }
     });
@@ -200,6 +201,13 @@ exports.login = async (req, res, next) => {
     const loginAccess = await resolveUserAccess(user.UserID, user.UserRole, { transaction });
     user.setDataValue('UserRole', loginAccess.role);
 
+    console.log('✅ LOGIN USER OBJECT:', {
+      UserID: user.UserID,
+      Gouvernorat: user.Gouvernorat,
+      TelPro: user.TelPro,
+      AllFields: user.toJSON()
+    });
+
     // 4. Générer les tokens
     const token = signToken({ id: user.UserID, role: user.UserRole });
     const refreshToken = signRefreshToken({ id: user.UserID });
@@ -226,6 +234,7 @@ exports.login = async (req, res, next) => {
           TelPro: user.TelPro,
           PosteOccupe: user.PosteOccupe,
           Departement: user.Departement,
+          Gouvernorat: user.Gouvernorat,
           PhotoProfil: user.PhotoProfil,
           MustChangePassword: user.MustChangePassword
         }
@@ -514,6 +523,7 @@ exports.getMe = async (req, res) => {
         TelPro: req.user.TelPro,
         PosteOccupe: req.user.PosteOccupe,
         Departement: req.user.Departement,
+        Gouvernorat: req.user.Gouvernorat,
         PhotoProfil: req.user.PhotoProfil,
         MustChangePassword: req.user.MustChangePassword
       }

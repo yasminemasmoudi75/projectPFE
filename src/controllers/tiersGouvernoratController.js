@@ -9,7 +9,7 @@ exports.getAll = async (req, res, next) => {
             order: [['libelle', 'ASC']]
         });
         res.status(200).json({
-            success: true,
+            status: 'success',
             data: regions
         });
     } catch (error) {

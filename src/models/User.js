@@ -50,6 +50,11 @@ const User = sequelize.define('User', {
       return value == null ? true : value;
     }
   },
+  Gouvernorat: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'Gouvernorat'
+  },
   RefreshToken: {
     type: DataTypes.VIRTUAL
   }
