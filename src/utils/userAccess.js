@@ -85,9 +85,20 @@ async function resolveUserAccess(userId, fallbackRole = 'User', options = {}) {
 
   const row = rows[0] || null;
   const roleFromProfileId = getRoleFromProfileId(row?.PROF_ID);
+  
+  // LOGIQUE DE RÉSOLUION : 
+  // 1. Si USER_IS_ADMIN -> Admin
+  // 2. Si PROF_DESCRIPTION match un rôle connu (normalizeRole) -> Ce rôle
+  // 3. Fallback sur le mappage PROF_ID -> Rôle (PROFILE_ID_TO_ROLE)
+  // 4. Sinon FallbackRole ou User
+  
   const rawRole = canFlag(row?.USER_IS_ADMIN)
     ? 'Admin'
-    : (row?.PROF_DESCRIPTION || roleFromProfileId || fallbackRole || 'User');
+    : (row?.PROF_DESCRIPTION && normalizeRole(row.PROF_DESCRIPTION) !== row.PROF_DESCRIPTION.toLowerCase() 
+        ? row.PROF_DESCRIPTION 
+        : (roleFromProfileId || fallbackRole || 'User'));
+
+        
   const normalizedRole = normalizeRole(rawRole) || 'user';
 
   return {
@@ -99,6 +110,7 @@ async function resolveUserAccess(userId, fallbackRole = 'User', options = {}) {
     isAdmin: canFlag(row?.USER_IS_ADMIN) || normalizedRole === 'admin',
     isActive: row?.USER_ACTIVE == null ? true : canFlag(row.USER_ACTIVE)
   };
+
 }
 
 async function findProfileForRole(role, options = {}) {

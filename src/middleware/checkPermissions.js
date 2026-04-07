@@ -61,9 +61,10 @@ const checkPermission = (codMod, action) => {
       // Récupérer les permissions du rôle pour ce module
       const permissionsResult = await sequelize.query(`
         SELECT TOP 1 canAdd, canEdit, canDelt, Actif, ProfileUser
-        FROM TabAWProfileAccess
+        FROM TabAWProfileAccess WITH (NOLOCK)
         WHERE LOWER(ProfileUser) IN (:aliases) AND CodMod = :codMod
         ORDER BY CASE WHEN LOWER(ProfileUser) = :preferredRole THEN 0 ELSE 1 END
+
       `, {
         replacements: { aliases, codMod, preferredRole: userRole },
         type: QueryTypes.SELECT

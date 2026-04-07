@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { User, sequelize } = require('../models');
+const { TableHints } = require('sequelize');
+
 const { sanitizeDate } = require('../utils/helpers');
 const { allocateNextUserId } = require('../utils/userId');
 const { attachAccessToUser, attachAccessToUsers, resolveUserAccess, upsertUserAccess } = require('../utils/userAccess');
@@ -115,19 +117,35 @@ exports.createUser = async (req, res, next) => {
  */
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.findAll({
+    const filterHelper = require('../utils/filterHelper');
+    
+    // Module 19 = Users (Table-driven filters from TabRoleFilterVisibility)
+    const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+        '19',
+        req.query,
+        req.user
+    );
+
+    const { count, rows } = await User.findAndCountAll({
       attributes: { exclude: ['Password', 'RefreshToken'] },
-      order: [['UserID', 'DESC']]
+      where,
+      order: [['USER_NAME', 'ASC']],
+      limit,
+      offset,
+      tableHint: TableHints.NOLOCK
     });
 
-    await attachAccessToUsers(users);
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Liste des utilisateurs récupérée avec succès',
-      count: users.length,
-      data: users
-    });
+
+
+    // Indispensable pour que le champ virtuel UserRole soit peuplé pour le Frontend
+    const { attachAccessToUsers } = require('../utils/userAccess');
+    await attachAccessToUsers(rows);
+
+
+    res.status(200).json(
+      filterHelper.formatPaginatedResponse(rows, count, page, limit)
+    );
   } catch (error) {
     next(error);
   }

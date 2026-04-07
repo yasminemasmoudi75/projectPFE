@@ -161,66 +161,27 @@ exports.createProduct = async (req, res, next) => {
 
 exports.getAllProducts = async (req, res) => {
     try {
-        console.log('[getAllProducts] ========== START ==========');
-        console.log('[getAllProducts] User role:', req.user?.UserRole);
-        const { search, page: pageQuery, limit: limitQuery, sort = 'recent' } = req.query;
-        const page = Math.max(parseInt(pageQuery, 10) || 1, 1);
-        const limit = Math.min(Math.max(parseInt(limitQuery, 10) || 100, 1), 200);
-        const offset = (page - 1) * limit;
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 12 = Products (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '12',
+            req.query,
+            req.user
+        );
 
-        console.log('[getAllProducts] page=' + page + ', limit=' + limit + ', search=' + (search || 'none'));
-
-        if (sort === 'recent' && page === 1) {
-            const searchFilter = search ? 'WHERE ([LibArt] LIKE :search OR [CodArt] LIKE :search)' : '';
-
-            const rows = await sequelize.query(`
-                SELECT TOP ${limit}
-                    [IDArt], [CodArt], [LibArt], [ExLibArt] AS [Description], [PrixVente],
-                    [PrixAvhat] AS [PrixAchat], [Qte], [MinStk], [Collection], [Marque],
-                    [LibFam], [LibFour], [urlimg], [DateUser], [LastDateUpdate], [DateUpdate], [Tva], [Unite]
-                FROM [TabStock] WITH (NOLOCK)
-                ${searchFilter}
-                ORDER BY [DateUser] DESC, [LastDateUpdate] DESC, [IDArt] DESC;
-            `, { replacements: search ? { search: '%' + search + '%' } : {}, type: QueryTypes.SELECT });
-
-            const visibilityOverrides = await getFilterVisibilityByRole(req.user?.UserRole || 'client');
-            console.log('[getAllProducts] visibilityOverrides:', JSON.stringify(visibilityOverrides));
-
-            return res.json({
-                status: 'success',
-                data: rows,
-                meta: { stockFilters: buildStockFilterMeta(rows, visibilityOverrides) }
-            });
-        }
-
-        const where = {};
-        if (search) {
-            where[Op.or] = [
-                { LibArt: { [Op.like]: '%' + search + '%' } },
-                { CodArt: { [Op.like]: '%' + search + '%' } }
-            ];
-        }
-
-        const order = sort === 'recent'
-            ? [['DateUser', 'DESC'], ['LastDateUpdate', 'DESC'], ['IDArt', 'DESC']]
-            : [['CodArt', 'ASC']];
-
-        const rows = await Product.findAll({
+        const { count, rows } = await Product.findAndCountAll({
             attributes: { exclude: ['imgArt'] },
             where,
             tableHint: TableHints.NOLOCK,
-            order,
             limit,
             offset
         });
 
-        const visibilityOverrides = await getFilterVisibilityByRole(req.user?.UserRole || 'client');
 
-        res.json({
-            status: 'success',
-            data: rows,
-            meta: { stockFilters: buildStockFilterMeta(rows, visibilityOverrides) }
-        });
+        res.json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
     } catch (error) {
         console.error('[Product list error]:', error);
         res.status(500).json({ status: 'error', message: 'Erreur lors de la recuperation des produits', error: error.message });

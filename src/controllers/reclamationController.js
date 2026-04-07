@@ -2,7 +2,8 @@ const Reclamation = require('../models/Reclamation');
 const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
 const { User, Tiers, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const { resolveUserAccess } = require('../utils/userAccess');
 
 const MAX_LENGTHS = {
@@ -125,32 +126,27 @@ const generateNumTicket = async () => {
 // ─── GET ALL ───────────────────────────────────────────────────────────────────
 exports.getAll = async (req, res, next) => {
     try {
-        const { search = '', statut = '', priorite = '', page = 1, limit = 100 } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
-        const where = {};
-
-        if (search.trim()) {
-            where[Op.or] = [
-                { LibTiers: { [Op.like]: `%${search}%` } },
-                { Objet: { [Op.like]: `%${search}%` } },
-                { NumTicket: { [Op.like]: `%${search}%` } },
-            ];
-        }
-        if (statut) where.Statut = statut;
-        if (priorite) where.Priorite = priorite;
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 47 = Support/Reclamations (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '47',
+            req.query,
+            req.user
+        );
 
         const { count, rows } = await Reclamation.findAndCountAll({
             where,
             order: [['DateOuverture', 'DESC']],
-            limit: parseInt(limit),
+            limit,
             offset,
+            tableHint: TableHints.NOLOCK
         });
 
-        res.json({
-            status: 'success',
-            data: rows,
-            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
-        });
+
+        res.json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
     } catch (err) {
         console.error('❌ getAll reclamations:', err);
         next(err);

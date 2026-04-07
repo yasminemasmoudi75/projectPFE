@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
@@ -459,29 +460,30 @@ exports.createTiers = async (req, res, next) => {
  */
 exports.getAllTiers = async (req, res, next) => {
     try {
-        const sort = normalizeString(req.query.sort)?.toLowerCase();
-        const order = sort === 'recent'
-            ? [['SaveDate', 'DESC'], ['Raisoc', 'ASC']]
-            : [['Raisoc', 'ASC']];
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 11 = Tiers/Clients (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '11',
+            req.query,
+            req.user
+        );
 
-        const where = isCommercialRole(req.user?.UserRole)
-            ? buildCommercialTiersWhere(req.user)
-            : undefined;
-
-        const tiers = await Tiers.findAll({
+        const { count, rows } = await Tiers.findAndCountAll({
             where,
-            order,
-            include: [
-                { model: TiersClasse, as: 'tiersClasse' },
-                { model: TiersGouvernorat, as: 'region' },
-                { model: TiersCategorie, as: 'tiersCategorieObj' }
-            ]
+            order: [['Raisoc', 'ASC']],
+            limit,
+            offset,
+            tableHint: TableHints.NOLOCK
         });
-        res.status(200).json({
-            status: 'success',
-            count: tiers.length,
-            data: tiers
-        });
+
+
+
+
+        res.status(200).json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
+
     } catch (error) {
         next(error);
     }

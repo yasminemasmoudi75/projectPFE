@@ -27,15 +27,17 @@ const sequelize = new Sequelize(
         trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
         instanceName: instanceName,
         useUTC: false,
+        requestTimeout: 60000,
         ...(useWindowsAuth && { authentication: { type: 'default' } }),
       },
     },
     pool: {
-      max: 5,
+      max: 20,
       min: 0,
-      acquire: 30000,
+      acquire: 60000,
       idle: 10000,
     },
+
     define: {
       timestamps: false
     },

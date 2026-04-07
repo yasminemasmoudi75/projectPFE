@@ -1,4 +1,5 @@
-const { QueryTypes, Op } = require('sequelize');
+const { QueryTypes, Op, TableHints } = require('sequelize');
+
 const { Activite, User, Tiers, Projet, sequelize } = require('../models');
 const { sanitizeDate } = require('../utils/helpers');
 
@@ -24,37 +25,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 const normalizeReference = (value) => (typeof value === 'string' ? value.trim() : value);
 
-const isCommercialRole = (role) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'commercial' || normalized === 'commerciale';
-};
+// Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialActivityScope, etc.) 
+// ont été supprimées car elles sont maintenant gérées de manière centralisée par 
+// le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-const buildCommercialActivityScope = async (user = {}) => {
-  const secUserId = await resolveSecUserId(user?.UserID || user?.id);
-  const possibleDestinataires = [user?.FullName, user?.LoginName]
-    .filter(Boolean)
-    .map((value) => String(value).trim())
-    .filter(Boolean);
-
-  if (secUserId && possibleDestinataires.length > 0) {
-    return {
-      [Op.or]: [
-        { User: secUserId },
-        { Destinataire: { [Op.in]: possibleDestinataires } }
-      ]
-    };
-  }
-
-  if (secUserId) {
-    return { User: secUserId };
-  }
-
-  if (possibleDestinataires.length > 0) {
-    return { Destinataire: { [Op.in]: possibleDestinataires } };
-  }
-
-  return { Guid: '__NO_MATCH__' };
-};
 
 const serializeActivite = (activite) => {
   const plainActivite = activite?.toJSON ? activite.toJSON() : activite;
@@ -281,96 +255,29 @@ exports.createActivite = async (req, res, next) => {
  */
 exports.getAllActivites = async (req, res, next) => {
   try {
-    const { userId, projetId, tierId, type, valide } = req.query;
-    const where = {};
+    const filterHelper = require('../utils/filterHelper');
+    
+    // Module 45 = Activités (Table-driven filters from TabRoleFilterVisibility)
+    const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+        '45',
+        req.query,
+        req.user
+    );
 
-    // Filtres optionnels pour Postman
-    if (userId) {
-      const requestedUser = await resolveUserReference(userId);
-
-      if (!requestedUser) {
-        return res.status(200).json({
-          status: 'success',
-          count: 0,
-          data: []
-        });
-      }
-
-      const secUserId = await resolveSecUserId(requestedUser.UserID);
-      const possibleDestinataires = [requestedUser.FullName, requestedUser.LoginName]
-        .filter(Boolean)
-        .map((value) => String(value).trim())
-        .filter(Boolean);
-
-      if (secUserId && possibleDestinataires.length > 0) {
-        where[Op.or] = [
-          { User: secUserId },
-          { Destinataire: { [Op.in]: possibleDestinataires } }
-        ];
-      } else if (secUserId) {
-        where.User = secUserId;
-      } else if (possibleDestinataires.length > 0) {
-        where.Destinataire = { [Op.in]: possibleDestinataires };
-      } else {
-        return res.status(200).json({
-          status: 'success',
-          count: 0,
-          data: []
-        });
-      }
-    }
-
-    if (projetId) {
-      const projet = await resolveProjetReference(projetId);
-
-      if (!projet) {
-        return res.status(200).json({
-          status: 'success',
-          count: 0,
-          data: []
-        });
-      }
-
-      where.Nf = projet.nf;
-    }
-
-    if (tierId) {
-      const tier = await resolveTierReference(tierId);
-
-      if (!tier) {
-        return res.status(200).json({
-          status: 'success',
-          count: 0,
-          data: []
-        });
-      }
-
-      where.CodTiers = tier.CodTiers;
-    }
-
-    if (type) where.Type_Activite = type;
-
-    if (valide !== undefined) {
-      where.Valide = ['1', 'true', 'yes'].includes(String(valide).toLowerCase()) ? 1 : 0;
-    }
-
-    const finalWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [where, await buildCommercialActivityScope(req.user)] }
-      : where;
-
-    const activites = await Activite.findAll({
-      where: finalWhere,
-      include: ACTIVITE_INCLUDE,
-      order: [['Date_Activite', 'DESC']]
+    const { count, rows } = await Activite.findAndCountAll({
+      where,
+      order: [['Date_Activite', 'DESC']],
+      limit,
+      offset,
+      tableHint: TableHints.NOLOCK
     });
 
-    const serializedActivites = activites.map(serializeActivite);
 
-    res.status(200).json({
-      status: 'success',
-      count: serializedActivites.length,
-      data: serializedActivites
-    });
+
+
+    res.json(
+      filterHelper.formatPaginatedResponse(rows, count, page, limit)
+    );
   } catch (error) {
     next(error);
   }
@@ -381,14 +288,17 @@ exports.getAllActivites = async (req, res, next) => {
  */
 exports.getActiviteById = async (req, res, next) => {
   try {
-    const lookupWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
-      : { Guid: req.params.id };
+    const filterHelper = require('../utils/filterHelper');
 
-    const authorized = await Activite.findOne({ where: lookupWhere });
+    // Sécurité mandataire pour les activités (Module 45)
+    const securityWhere = await filterHelper.applyTableDrivenFilters('45', {}, req.user);
+    const where = { [Op.and]: [{ Guid: req.params.id }, securityWhere] };
+
+    const authorized = await Activite.findOne({ where });
     if (!authorized) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
     }
+
 
     const activite = await loadActiviteById(req.params.id);
 
@@ -407,11 +317,12 @@ exports.getActiviteById = async (req, res, next) => {
  */
 exports.updateActivite = async (req, res, next) => {
   try {
-    const where = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
-      : { Guid: req.params.id };
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('45', {}, req.user);
+    const where = { [Op.and]: [{ Guid: req.params.id }, securityWhere] };
 
     const activite = await Activite.findOne({ where });
+
 
     if (!activite) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
@@ -525,11 +436,12 @@ exports.validateActivite = async (req, res, next) => {
  */
 exports.deleteActivite = async (req, res, next) => {
   try {
-    const where = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
-      : { Guid: req.params.id };
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('45', {}, req.user);
+    const where = { [Op.and]: [{ Guid: req.params.id }, securityWhere] };
 
     const deleted = await Activite.destroy({ where });
+
 
     if (!deleted) {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });

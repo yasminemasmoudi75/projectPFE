@@ -1,6 +1,7 @@
 const { Stock, Collection, sequelize } = require('../models');
 const { randomUUID } = require('crypto');
-const { Op, QueryTypes } = require('sequelize');
+const { Op, QueryTypes, TableHints } = require('sequelize');
+
 const { formatDateForMSSQL } = require('../utils/helpers');
 const path = require('path');
 const fs = require('fs').promises;
@@ -15,9 +16,11 @@ exports.getAllStocks = async (req, res, next) => {
         console.log('--- [START] getAllStocks ---');
 
         const stocks = await Stock.findAll({
-            limit: 1000,
-            order: [['LibArt', 'ASC']]
+            limit: 100,
+            order: [['LibArt', 'ASC']],
+            tableHint: TableHints.NOLOCK
         });
+
 
         console.log(`✅ Found ${stocks.length} stocks`);
 

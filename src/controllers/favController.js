@@ -1,55 +1,13 @@
 const { FavMaster, FavDetail, Tiers, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
 
-const isCommercialRole = (role) => {
-    const normalized = String(role || '').trim().toLowerCase();
-    return normalized === 'commercial' || normalized === 'commerciale';
-};
+// Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialCodRepresFilter, etc.) 
+// ont été supprimées car elles sont maintenant gérées de manière centralisée par 
+// le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-const getCommercialIdentifiers = (user = {}) => {
-    const numericUserId = Number(user?.UserID || user?.id);
-    const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
-
-    const candidates = [
-        user?.CodRepres,
-        user?.codRepres,
-        userIdAsString,
-        user?.LoginName,
-        user?.EmailPro,
-        user?.GUID
-    ];
-
-    return Array.from(new Set(
-        candidates
-            .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
-            .filter((value) => value)
-    ));
-};
-
-const buildCommercialCodRepresFilter = (user = {}) => {
-    const identifiers = getCommercialIdentifiers(user);
-    if (identifiers.length === 0) {
-        return { Guid: '__NO_MATCH__' };
-    }
-
-    return {
-        [Op.or]: identifiers.map((identifier) =>
-            sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), identifier)
-        )
-    };
-};
-
-const resolveCommercialCodRepresValue = (user = {}) => {
-    const numericUserId = Number(user?.UserID || user?.id);
-    if (Number.isFinite(numericUserId)) {
-        return String(Math.trunc(numericUserId));
-    }
-
-    const fallback = user?.CodRepres || user?.codRepres || user?.LoginName || user?.EmailPro || user?.GUID;
-    return fallback ? String(fallback).trim().slice(0, 10) : null;
-};
 
 /**
  * Helper function to parse dates for SQL Server through Sequelize
@@ -118,44 +76,29 @@ const sanitizeMasterData = (masterData) => {
  */
 exports.getAllFav = async (req, res, next) => {
     try {
-        const { search = '', page = 1, limit = 100 } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 7 = FAV (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '7',
+            req.query,
+            req.user
+        );
 
-        const filters = [];
-        if (search) {
-            filters.push({
-                [Op.or]: [
-                { LibTiers: { [Op.like]: `%${search}%` } },
-                { CodTiers: { [Op.like]: `%${search}%` } },
-                { Nf: { [Op.like]: `%${search}%` } }
-                ]
-            });
-        }
-
-        if (isCommercialRole(req.user?.UserRole)) {
-            filters.push(buildCommercialCodRepresFilter(req.user));
-        }
-
-        const where = filters.length > 0 ? { [Op.and]: filters } : {};
 
         const { count, rows } = await FavMaster.findAndCountAll({
             where,
             include: [{ model: Tiers, as: 'client' }],
             order: [['DatUser', 'DESC']],
-            limit: parseInt(limit),
+            limit,
             offset,
+            tableHint: TableHints.NOLOCK
         });
 
-        return res.status(200).json({
-            status: 'success',
-            pagination: {
-                total: count,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(count / parseInt(limit)),
-            },
-            data: rows
-        });
+
+        return res.status(200).json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
     } catch (error) {
         console.error('❌ Error getAllFav:', error);
         next(error);
@@ -168,18 +111,23 @@ exports.getAllFav = async (req, res, next) => {
 exports.getFavById = async (req, res, next) => {
     try {
         const { id } = req.params;
+        const filterHelper = require('../utils/filterHelper');
 
-        const where = isCommercialRole(req.user?.UserRole)
-            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-            : { Guid: id };
+        // Sécurité mandataire pour les factures (Module 7)
+        const securityWhere = await filterHelper.applyTableDrivenFilters('7', {}, req.user);
+        const where = { [Op.and]: [{ Guid: id }, securityWhere] };
+
 
         const fav = await FavMaster.findOne({
             where,
             include: [
                 { model: FavDetail, as: 'details' },
                 { model: Tiers, as: 'client' }
-            ]
+            ],
+            tableHint: TableHints.NOLOCK
         });
+
+
 
         if (!fav) {
             return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
@@ -205,13 +153,11 @@ exports.createFav = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
-        if (isCommercialRole(req.user?.UserRole)) {
-            const codRepres = resolveCommercialCodRepresValue(req.user);
-            if (!codRepres) {
-                return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
-            }
-            master.CodRepres = codRepres;
+        if (req.user?.UserRole && req.user.UserRole.toLowerCase().includes('commercial')) {
+            const codRepres = req.user.id || req.user.UserID;
+            master.CodRepres = String(codRepres);
         }
+
 
         if (!master.Nf) {
             const lastFav = await FavMaster.findOne({
@@ -374,36 +320,32 @@ exports.deleteFav = async (req, res, next) => {
  */
 exports.getMyFav = async (req, res, next) => {
     try {
-        const { page = 1, limit = 50 } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
-        const userEmail = req.user?.EmailPro;
-        const userLogin = req.user?.LoginName;
-
-        // Pour les clients : filtrer STRICTEMENT par email ou login
-        const where = {
-            [Op.or]: [
-                { CUser: userEmail || '' },
-                { CUser: userLogin || '' },
-                { CodRepres: userEmail || '' },
-                { CodRepres: userLogin || '' },
-            ].filter(v => v)
-        };
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Système de filtrage centralisé (Module 5)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '5',
+            req.query,
+            req.user
+        );
 
         const { count, rows } = await FavMaster.findAndCountAll({
             where,
-            include: [{ model: FavDetail, as: 'details' }],
+            include: [{ model: Tiers, as: 'client' }],
             order: [['DatUser', 'DESC']],
-            limit: parseInt(limit),
+            limit,
             offset,
+            tableHint: TableHints.NOLOCK
         });
 
-        res.json({
-            status: 'success',
-            data: rows,
-            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
-        });
+
+
+        res.json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
     } catch (error) {
         console.error('❌ Error getMyFav:', error);
         next(error);
     }
 };
+

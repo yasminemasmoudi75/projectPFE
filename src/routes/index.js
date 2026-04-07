@@ -24,6 +24,7 @@ const favRoutes = require('./favRoutes');
 const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
 const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
 const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour tester la table TabRoleFilterVisibility
+const filterConfigRoutes = require('./filterConfigRoutes'); // ✅ Routes pour la configuration table-driven des filtres
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -48,6 +49,7 @@ router.use('/fav', favRoutes);
 router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
 router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
 router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterVisibility
+router.use('/filters', filterConfigRoutes); // ✅ Configuration table-driven des filtres
 
 // Route de base de l'API
 router.get('/', (req, res) => {
