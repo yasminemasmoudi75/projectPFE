@@ -1,7 +1,0 @@
-=== ÉTAT DE LA BASE ===
-BCV transférés (bTransf=true): 0
-BCV non transférés (bTransf=false): 2942
-Total BL (TabBlvm): 4745
-Total FA (TabFavm): 3358
-
-BCVs marqués transférés:
