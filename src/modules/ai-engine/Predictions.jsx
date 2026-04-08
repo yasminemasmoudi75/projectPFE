@@ -80,7 +80,7 @@ const Predictions = () => {
               </div>
               <p className="mt-2 text-sm font-bold text-blue-100 flex items-center gap-2 text-emerald-300">
                 <ArrowTrendingUpIcon className="h-4 w-4" />
-                +15.4% de croissance projetée pour le mois prochain
+                {predictions.salesForecast?.trend || '+0.0%'} de variation projetee
               </p>
             </div>
           </div>
@@ -107,22 +107,18 @@ const Predictions = () => {
               </div>
               <h2 className="text-xs font-black text-slate-800 uppercase tracking-widest">Relances Prioritaires</h2>
             </div>
-            <span className="badge badge-primary">3 Actions Recommandées</span>
+            <span className="badge badge-primary">{(predictions.relanceRecommendations || []).length} Actions Recommandees</span>
           </div>
           <div className="p-4 space-y-3 bg-white">
-            {[
-              { name: 'Carthage Global', days: 5, score: 88, type: 'Email' },
-              { name: 'Pharma Plus SA', days: 12, score: 72, type: 'Appel' },
-              { name: 'Global Import', days: 8, score: 65, type: 'Meeting' },
-            ].map((client, i) => (
+            {(predictions.relanceRecommendations || []).map((client, i) => (
               <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/20 transition-all group cursor-pointer">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-gradient-blue group-hover:text-white transition-all group-hover:scale-110">
                     <UserGroupIcon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-extrabold text-slate-800">{client.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Dernière interaction : {client.days}j</p>
+                    <p className="text-sm font-extrabold text-slate-800">{client.client}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Derniere interaction : {client.lastInteraction}j</p>
                   </div>
                 </div>
                 <div className="text-right">
