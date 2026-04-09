@@ -1,11 +1,12 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
-const { attachAccessToUser, upsertUserAccess, normalizeRole } = require('../utils/userAccess');
+const { attachAccessToUser, upsertUserAccess } = require('../utils/userAccess');
 
 const DEFAULT_TIERS_NIVEAU = 0;
 const MAX_COD_TIERS_LENGTH = 20;
@@ -39,9 +40,9 @@ const normalizeNullableBool = (value) => {
     return null;
 };
 
-const isStaffRole = (role) => {
-    const normalized = normalizeRole(role);
-    return ['commercial', 'agent', 'technicien'].includes(normalized);
+const isCommercialRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'commercial' || normalized === 'commerciale';
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -230,13 +231,12 @@ const replaceTiersChildren = async ({ tierId, contacts, addresses, transaction }
         await TiersContact.destroy({ where: { IDTiers: tierId }, transaction });
         if (contacts.length > 0) {
             await TiersContact.bulkCreate(
-                contacts.map((item, index) => ({
+                contacts.map((item) => ({
                     IDTiers: tierId,
-                    ID: index + 1,
                     Responsable: item.Responsable,
                     Tel: item.Tel
                 })),
-                { transaction }
+                { transaction, fields: ['IDTiers', 'Responsable', 'Tel'] }
             );
         }
     }
@@ -245,12 +245,11 @@ const replaceTiersChildren = async ({ tierId, contacts, addresses, transaction }
         await TiersAdr.destroy({ where: { IDTiers: tierId }, transaction });
         if (addresses.length > 0) {
             await TiersAdr.bulkCreate(
-                addresses.map((item, index) => ({
+                addresses.map((item) => ({
                     IDTiers: tierId,
-                    ID: index + 1,
                     Adresse: item.Adresse
                 })),
-                { transaction }
+                { transaction, fields: ['IDTiers', 'Adresse'] }
             );
         }
     }
@@ -461,29 +460,30 @@ exports.createTiers = async (req, res, next) => {
  */
 exports.getAllTiers = async (req, res, next) => {
     try {
-        const sort = normalizeString(req.query.sort)?.toLowerCase();
-        const order = sort === 'recent'
-            ? [['SaveDate', 'DESC'], ['Raisoc', 'ASC']]
-            : [['Raisoc', 'ASC']];
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 11 = Tiers/Clients (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '11',
+            req.query,
+            req.user
+        );
 
-        const where = isStaffRole(req.user?.UserRole)
-            ? buildCommercialTiersWhere(req.user)
-            : undefined;
-
-        const tiers = await Tiers.findAll({
+        const { count, rows } = await Tiers.findAndCountAll({
             where,
-            order,
-            include: [
-                { model: TiersClasse, as: 'tiersClasse' },
-                { model: TiersGouvernorat, as: 'region' },
-                { model: TiersCategorie, as: 'tiersCategorieObj' }
-            ]
+            order: [['Raisoc', 'ASC']],
+            limit,
+            offset,
+            tableHint: TableHints.NOLOCK
         });
-        res.status(200).json({
-            status: 'success',
-            count: tiers.length,
-            data: tiers
-        });
+
+
+
+
+        res.status(200).json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
+
     } catch (error) {
         next(error);
     }
@@ -505,7 +505,7 @@ exports.getTiersById = async (req, res, next) => {
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
 
-        if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(tiers, req.user)) {
+        if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(tiers, req.user)) {
             return res.status(403).json({
                 status: 'error',
                 message: 'Accès refusé à ce client'

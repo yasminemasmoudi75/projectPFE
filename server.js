@@ -3,6 +3,10 @@ const app = require('./src/app');
 const { testConnection, sequelize } = require('./src/config/database');
 const { PORT } = require('./src/config/constants');
 
+// Import des services Gmail
+const { initializeGmailAuth } = require('./src/services/gmailAuthService');
+const { startGmailSyncJob } = require('./src/services/gmailSyncJob');
+
 // Fonction pour démarrer le serveur
 const startServer = async () => {
   try {
@@ -26,6 +30,26 @@ const startServer = async () => {
       // Ne pas arrêter le serveur, les tables peuvent déjà exister
     }
     */
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INITIALISATION GMAIL
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('\n📧 ═══════════════════════════════════════════════════════════');
+    console.log('📧 Initialisation du service Gmail...');
+    console.log('📧 ═══════════════════════════════════════════════════════════\n');
+
+    try {
+      initializeGmailAuth();
+      
+      // OAuth 2.0 n'a pas besoin de test global (tokens sont créés per-user)
+      // Démarrer le cron job de synchronisation
+      console.log('✅ Service Gmail initialisé avec succès\n');
+      startGmailSyncJob();
+      console.log('✅ Gmail Sync Cron Job démarré\n');
+    } catch (gmailError) {
+      console.warn('⚠️ Erreur lors de l\'initialisation Gmail:', gmailError.message);
+      console.log('⚠️ Le serveur peut continuer sans Gmail, mais les emails ne seront pas synchronisés\n');
+    }
 
     // Démarrer le serveur Express
     app.listen(PORT, () => {

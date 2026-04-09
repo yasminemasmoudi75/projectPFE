@@ -1,74 +1,17 @@
 const { Projet, Tiers } = require('../models');
 const { sequelize } = require('../config/database');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
-const { normalizeRole } = require('../utils/userAccess');
 
 console.log('✅ projetController.js loaded');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const isStaffRole = (role) => {
-  const normalized = normalizeRole(role);
-  return ['commercial', 'agent', 'technicien'].includes(normalized);
-};
+// Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildProjectIncludeForUser, etc.) 
+// ont été supprimées car elles sont maintenant gérées de manière centralisée par 
+// le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-const getCommercialIdentifiers = (user = {}) => {
-  const numericUserId = Number(user?.UserID || user?.id);
-  const userIdAsString = Number.isFinite(numericUserId) ? String(Math.trunc(numericUserId)) : null;
-
-  const candidates = [
-    user?.CodRepres,
-    user?.codRepres,
-    userIdAsString,
-    user?.LoginName,
-    user?.EmailPro,
-    user?.GUID
-  ];
-
-  return Array.from(new Set(
-    candidates
-      .map((value) => (value === null || value === undefined ? null : String(value).trim().toLowerCase()))
-      .filter((value) => value)
-  ));
-};
-
-const isTierRelatedToCommercial = (tier, user = {}) => {
-  const rep = String(tier?.codRepresTiers || '').trim().toLowerCase();
-  if (!rep) return false;
-  return getCommercialIdentifiers(user).includes(rep);
-};
-
-const buildProjectIncludeForUser = (user = {}, requiredForCommercial = false) => {
-  const baseInclude = {
-    model: Tiers,
-    as: 'client',
-    attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers']
-  };
-
-  if (!isStaffRole(user?.UserRole)) {
-    return baseInclude;
-  }
-
-  const identifiers = getCommercialIdentifiers(user);
-  if (identifiers.length === 0) {
-    return {
-      ...baseInclude,
-      required: true,
-      where: { IDTiers: '__NO_MATCH__' }
-    };
-  }
-
-  return {
-    ...baseInclude,
-    required: requiredForCommercial,
-    where: {
-      [Op.or]: identifiers.map((identifier) =>
-        sequelize.where(sequelize.fn('LOWER', sequelize.col('client.codRepresTiers')), identifier)
-      )
-    }
-  };
-};
 
 const resolveTierReference = async (tierReference) => {
   if (!tierReference) {
@@ -172,12 +115,18 @@ exports.createProjet = async (req, res, next) => {
       });
     }
 
-    if (isStaffRole(req.user?.UserRole) && tier && !isTierRelatedToCommercial(tier, req.user)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Accès refusé: ce client ne vous est pas attribué'
-      });
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
+    // Si une restriction s'applique (ex: région), on vérifie si le client cible est accessible
+    if (tier) {
+        const canAccessClient = await Tiers.findOne({
+          where: { [Op.and]: [{ CodTiers: tier.CodTiers }, await filterHelper.applyTableDrivenFilters('11', {}, req.user)] }
+        });
+        if (!canAccessClient) {
+          return res.status(403).json({ status: 'error', message: 'Accès refusé: ce client ne vous est pas attribué' });
+        }
     }
+
 
     console.log('📝 Attempting to create project in database...');
     const newProjet = await Projet.create({
@@ -199,8 +148,9 @@ exports.createProjet = async (req, res, next) => {
 
     // Récupérer le projet avec ses relations
     const projet = await Projet.findByPk(newProjet.ID_Projet, {
-      include: [buildProjectIncludeForUser(req.user, false)]
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }]
     });
+
 
     res.status(201).json({
       status: 'success',
@@ -224,32 +174,34 @@ exports.createProjet = async (req, res, next) => {
  */
 exports.getProjets = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
+    const filterHelper = require('../utils/filterHelper');
+    
+    // Module 3 = Projets
+    const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+        '3',
+        req.query,
+        req.user
+    );
 
-    console.log(`🔍 Fetching projets: page=${page}, limit=${limit}, offset=${offset}`);
 
     const { count, rows } = await Projet.findAndCountAll({
-      include: [buildProjectIncludeForUser(req.user, isStaffRole(req.user?.UserRole))],
-      order: [['Date_Creation', 'DESC'], ['ID_Projet', 'DESC']],
-      limit: limit,
-      offset: offset,
-      distinct: true
+      where,
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }],
+      order: [['dateSave', 'DESC']],
+      limit,
+      offset,
+      tableHint: TableHints.NOLOCK
     });
 
-    res.status(200).json({
-      status: 'success',
-      pagination: {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit)
-      },
-      data: rows
-    });
+
+
+
+
+    res.json(
+      filterHelper.formatPaginatedResponse(rows, count, page, limit)
+    );
   } catch (error) {
-    console.error('❌ Error in getProjets:', error);
+    console.error('❌ [PROJET LIST ERROR]:', error);
     next(error);
   }
 };
@@ -259,43 +211,38 @@ exports.getProjets = async (req, res, next) => {
  */
 exports.getProjetById = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    console.log(`🔍 Fetching projet with ID: ${id}`);
-    const include = [buildProjectIncludeForUser(req.user, false)];
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
+    const include = [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }];
 
-    let projet = await Projet.findByPk(id, {
+    let projet = await Projet.findOne({
+      where: { [Op.and]: [{ ID_Projet: id }, securityWhere] },
       include
     });
 
     // Fallback: legacy links from activities may reference project via nf.
     if (!projet && /^\d+$/.test(String(id))) {
       projet = await Projet.findOne({
-        where: { nf: Number(id) },
+        where: { [Op.and]: [{ nf: Number(id) }, securityWhere] },
         include
       });
     }
 
     if (!projet) {
       projet = await Projet.findOne({
-        where: { Code_Pro: String(id) },
+        where: { [Op.and]: [{ Code_Pro: String(id) }, securityWhere] },
         include
       });
     }
 
     if (!projet) {
-      console.log(`⚠️ Projet ${id} not found`);
+      console.log(`⚠️ Projet ${id} not found or access denied`);
       return res.status(404).json({
         status: 'error',
-        message: 'Projet non trouvé'
+        message: 'Projet non trouvé ou accès refusé'
       });
     }
 
-    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Accès refusé à ce projet'
-      });
-    }
 
     res.status(200).json({
       status: 'success',
@@ -324,23 +271,21 @@ exports.updateProjet = async (req, res, next) => {
       ...otherFields
     } = req.body;
 
-    const projet = await Projet.findByPk(id, {
-      include: [buildProjectIncludeForUser(req.user, false)]
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
+    
+    const projet = await Projet.findOne({
+      where: { [Op.and]: [{ ID_Projet: id }, securityWhere] },
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }]
     });
 
     if (!projet) {
       return res.status(404).json({
         status: 'error',
-        message: 'Projet non trouvé'
+        message: 'Projet non trouvé ou accès refusé'
       });
     }
 
-    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Accès refusé à ce projet'
-      });
-    }
 
     // Validation de l'avancement
     if (Avancement !== undefined && (Avancement < 0 || Avancement > 100)) {
@@ -383,7 +328,7 @@ exports.updateProjet = async (req, res, next) => {
       });
     }
 
-    if (isStaffRole(req.user?.UserRole) && IDTiers !== undefined && tier && !isTierRelatedToCommercial(tier, req.user)) {
+    if (isCommercialRole(req.user?.UserRole) && IDTiers !== undefined && tier && !isTierRelatedToCommercial(tier, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé: ce client ne vous est pas attribué'
@@ -427,8 +372,9 @@ exports.updateProjet = async (req, res, next) => {
 
     // Récupérer le projet mis à jour avec ses relations
     const projetUpdated = await Projet.findByPk(id, {
-      include: [buildProjectIncludeForUser(req.user, false)]
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }]
     });
+
 
     res.status(200).json({
       status: 'success',
@@ -445,24 +391,20 @@ exports.updateProjet = async (req, res, next) => {
  */
 exports.deleteProjet = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const projet = await Projet.findByPk(id, {
-      include: [buildProjectIncludeForUser(req.user, false)]
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
+    
+    const deleted = await Projet.destroy({
+      where: { [Op.and]: [{ ID_Projet: id }, securityWhere] }
     });
 
-    if (!projet) {
+    if (!deleted) {
       return res.status(404).json({
         status: 'error',
-        message: 'Projet non trouvé'
+        message: 'Projet non trouvé ou accès refusé'
       });
     }
 
-    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Accès refusé à ce projet'
-      });
-    }
 
     await projet.destroy();
 

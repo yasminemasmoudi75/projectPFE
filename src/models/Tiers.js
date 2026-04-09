@@ -221,7 +221,7 @@ const Tiers = sequelize.define('Tiers', {
     allowNull: true,
     field: 'MapsSubRegion'
   },
-  gouvernorat: {
+  Gouvernorat: {
     type: DataTypes.INTEGER,
     allowNull: true,
     field: 'gouvernorat',
@@ -253,7 +253,7 @@ const Tiers = sequelize.define('Tiers', {
 
 Tiers.associate = (models) => {
   Tiers.belongsTo(models.TiersClasse, { foreignKey: 'Classe', as: 'tiersClasse' });
-  Tiers.belongsTo(models.TiersGouvernorat, { foreignKey: 'gouvernorat', as: 'region' });
+  Tiers.belongsTo(models.TiersGouvernorat, { foreignKey: 'Gouvernorat', as: 'region' });
   Tiers.belongsTo(models.TiersCategorie, { foreignKey: 'Categorie', as: 'tiersCategorieObj' });
 };
 

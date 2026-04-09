@@ -24,8 +24,8 @@ const favRoutes = require('./favRoutes');
 const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
 const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
 const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour tester la table TabRoleFilterVisibility
-const reglementsRoutes = require('./reglements.routes'); // ✅ Routes pour les réglement (paiements)
-const iaRoutes = require('./ia.routes');
+const gmailAuthRoutes = require('./gmailAuth.routes'); // ✅ Routes pour Gmail OAuth 2.0
+// const filterConfigRoutes = require('./filterConfigRoutes'); // TODO: À créer si besoin
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -49,9 +49,9 @@ router.use('/blv', blvRoutes);
 router.use('/fav', favRoutes);
 router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
 router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
-router.use('/reglements', reglementsRoutes); // ✅ Réglement (paiements client/admin)
 router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterVisibility
-router.use('/ia', iaRoutes);
+router.use('/auth/gmail', gmailAuthRoutes); // ✅ Gmail OAuth 2.0
+// router.use('/filters', filterConfigRoutes); // TODO: À créer si besoin
 
 // Route de base de l'API
 router.get('/', (req, res) => {

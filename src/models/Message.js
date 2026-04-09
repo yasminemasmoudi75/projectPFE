@@ -70,6 +70,34 @@ const Message = sequelize.define('MSGMessages', {
     type: DataTypes.BLOB,
     allowNull: true,
     field: 'MessageData'
+  },
+  Subject: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'Subject'
+  },
+  StatusRead: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'StatusRead',
+    defaultValue: false
+  },
+  Priority: {
+    type: DataTypes.SMALLINT,
+    allowNull: true,
+    field: 'Priority',
+    defaultValue: 1
+  },
+  GmailMessageID: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'GmailMessageID'
+  },
+  SyncedWithGmail: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+    field: 'SyncedWithGmail',
+    defaultValue: false
   }
 }, {
   tableName: 'MSGMessages',
