@@ -10,7 +10,13 @@ import './index.css';
 // Configurer les intercepteurs Axios avec le store
 setupAxiosInterceptors(store);
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+// Vérifier que le nœud root existe
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element with id "root" not found in HTML');
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <Provider store={store}>
       <App />

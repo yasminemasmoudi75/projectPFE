@@ -15,6 +15,11 @@ import {
     ArrowTrendingUpIcon,
     BoltIcon,
     DocumentTextIcon,
+    Cog6ToothIcon,
+    LightBulbIcon,
+    ShieldCheckIcon,
+    FireIcon,
+    StarIcon,
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -32,7 +37,7 @@ const card = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, trans
 const PRIORITY = {
     Urgente: { bg: 'bg-rose-50',   text: 'text-rose-600',   dot: 'bg-rose-500',   border: 'border-rose-200',   glow: 'shadow-rose-100'   },
     Haute:   { bg: 'bg-amber-50',  text: 'text-amber-600',  dot: 'bg-amber-500',  border: 'border-amber-200',  glow: 'shadow-amber-100'  },
-    Normale: { bg: 'bg-sky-50',    text: 'text-sky-600',    dot: 'bg-sky-400',    border: 'border-sky-200',    glow: 'shadow-sky-100'    },
+    Normale: { bg: 'bg-blue-50',    text: 'text-blue-600',    dot: 'bg-blue-400',    border: 'border-blue-200',    glow: 'shadow-blue-100'    },
     Basse:   { bg: 'bg-slate-50',  text: 'text-slate-500',  dot: 'bg-slate-300',  border: 'border-slate-200',  glow: 'shadow-slate-100'  },
 };
 
@@ -78,8 +83,8 @@ const ClaimDetail = () => {
         setAssigning(true);
         try {
             const res = await axios.patch(`/reclamations/${id}/assign-technician`, { technicienID: tech.id });
-            if (res?.status === 'success') { setClaim(res.data); toast.success(`Affecté à ${tech.name}`); }
-            else toast.error('Affectation échouée');
+            if (res?.status === 'success') { setClaim(res?.data || claim); toast.success(`Affecté à ${tech.name}`); }
+            else toast.error('Affectation échouée: ' + (res?.message || ''));
         } catch (e) { toast.error(e.response?.data?.message || "Erreur lors de l'affectation"); }
         finally { setAssigning(false); }
     };
@@ -87,8 +92,8 @@ const ClaimDetail = () => {
     const handleStatusUpdate = async (newStatus) => {
         try {
             const res = await axios.patch(`/reclamations/${id}/statut`, { statut: newStatus });
-            if (res?.status === 'success') { setClaim(res.data); toast.success(`Statut : ${newStatus}`); }
-            else toast.error('Mise à jour du statut échouée');
+            if (res?.status === 'success') { setClaim(res?.data || claim); toast.success(`Statut : ${newStatus}`); }
+            else toast.error('Mise à jour du statut échouée: ' + (res?.message || ''));
         } catch (e) { toast.error(e.response?.data?.message || 'Erreur mise à jour'); }
     };
 
@@ -113,92 +118,106 @@ const ClaimDetail = () => {
 
     return (
         <motion.div variants={page} initial="hidden" animate="visible"
-            className="min-h-screen pb-24 px-4 sm:px-6 lg:px-8"
-            style={{ background: 'linear-gradient(155deg, #f0f5ff 0%, #f8fafc 45%, #f0fdf8 100%)' }}
+            className="min-h-screen px-3 sm:px-6 lg:px-8"
+            style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}
         >
-            {/* Full-width status ribbon */}
-            <div className={`h-1 w-full bg-gradient-to-r ${status.bar} fixed top-0 left-0 z-50`} />
+            {/* Premium status ribbon */}
+            <div className={`h-1.5 w-full bg-gradient-to-r ${status.bar} fixed top-0 left-0 z-50 shadow-lg`} />
 
-            <div className="max-w-6xl mx-auto pt-10 space-y-6">
+            <div className="max-w-7xl mx-auto pt-8 pb-24 space-y-8">
 
-                {/* ── Top nav ── */}
-                <motion.div variants={card} className="flex flex-wrap items-center justify-between gap-3">
+                {/* ── Premium header ── */}
+                <motion.div variants={card} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
                     <motion.button
-                        whileHover={{ x: -4 }} whileTap={{ scale: 0.95 }}
+                        whileHover={{ x: -3 }} whileTap={{ scale: 0.95 }}
                         onClick={() => navigate('/claims')}
-                        className="flex items-center gap-2 text-slate-500 hover:text-blue-600 text-xs font-bold transition-colors"
+                        className="inline-flex items-center gap-2.5 text-slate-600 hover:text-slate-700 text-sm font-semibold transition-all"
                     >
-                        <ArrowLeftIcon className="h-4 w-4" />
-                        Retour aux réclamations
+                        <ArrowLeftIcon className="h-5 w-5" />
+                        Retour
                     </motion.button>
 
-                    <div className="flex items-center gap-2">
-                        <span className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-500 shadow-sm">
-                            <ChatBubbleLeftEllipsisIcon className="h-3 w-3" />
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <motion.div whileHover={{ scale: 1.05 }} className="hidden sm:flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider bg-white border border-slate-200 text-slate-600 shadow-md hover:shadow-lg transition-all">
+                            <TagIcon className="h-4 w-4 text-indigo-600" />
                             {claim.NumTicket || `#RM${claim.ID}`}
-                        </span>
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm ${status.bg} ${status.text} ${status.border}`}>
-                            <StatusIcon className="h-3.5 w-3.5" />
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.05 }} className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-bold border shadow-md hover:shadow-lg transition-all ${status.bg} ${status.text} ${status.border}`}>
+                            <StatusIcon className="h-4 w-4" />
                             {claim.Statut}
-                        </span>
+                        </motion.div>
                     </div>
 
-                    {userIsAdmin && !isClosed && (
+                    {(userIsAdmin || userIsTechnicien) && !isClosed && (
                         <motion.button
-                            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                            whileHover={{ scale: 1.05, boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)' }} 
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => handleStatusUpdate('Résolu')}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-colors"
+                            className="inline-flex items-center gap-2.5 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all"
                         >
-                            <CheckCircleIcon className="h-4 w-4" />
+                            <CheckCircleIcon className="h-5 w-5" />
                             Marquer Résolu
                         </motion.button>
                     )}
                 </motion.div>
 
-                {/* ── Hero banner ── */}
+                {/* ── Premium hero banner ── */}
                 <motion.div variants={card}
-                    className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg"
-                    style={{ boxShadow: '0 8px 40px rgba(99,102,241,.08), 0 2px 8px rgba(0,0,0,.04)' }}
+                    className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-white to-slate-100 border border-slate-200/50 shadow-2xl"
                 >
-                    {/* decorative blobs */}
-                    <div className="pointer-events-none absolute inset-0">
-                        <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-indigo-100/60 blur-3xl" />
-                        <div className="absolute bottom-0 left-1/4 h-32 w-32 rounded-full bg-sky-100/60 blur-2xl" />
+                    {/* Decorative elements */}
+                    <div className="absolute inset-0 overflow-hidden">
+                        <div className={`absolute -top-40 -right-40 h-80 w-80 rounded-full bg-gradient-to-br ${status.bar} opacity-[0.08] blur-3xl`} />
+                        <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-indigo-500 opacity-[0.05] blur-3xl" />
                     </div>
-                    {/* left accent */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${status.bar}`} />
 
-                    <div className="relative px-8 pt-8 pb-7 pl-10">
-                        <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.22em] mb-1">Suivi de votre demande</p>
-                                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight"
-                                    style={{ fontFamily: "'Georgia', serif" }}
+                    <div className="relative px-8 sm:px-12 py-12 sm:py-16">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-8">
+                            <div className="flex-1">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.15em] mb-3">Détail du ticket</p>
+                                <h1 className="text-3xl sm:text-4xl font-black text-slate-800 leading-tight mb-4 max-w-2xl"
+                                    style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em' }}
                                 >
                                     {claim.Objet}
                                 </h1>
-                                <p className="mt-2 text-sm text-slate-500 font-medium">
-                                    {claim.LibTiers || claim.CodTiers} · Ouvert le {formatDate(claim.DateOuverture)}
-                                </p>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-sm text-slate-600 font-medium">
+                                    <div className="flex items-center gap-2">
+                                        <UserCircleIcon className="h-4 w-4 text-indigo-500" />
+                                        <span>{claim.LibTiers || claim.CodTiers}</span>
+                                    </div>
+                                    <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-300" />
+                                    <div className="flex items-center gap-2">
+                                        <CalendarIcon className="h-4 w-4 text-indigo-500" />
+                                        <span>{formatDate(claim.DateOuverture)}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm ${prio.bg} ${prio.text} ${prio.border}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${prio.dot}`} />
-                                {claim.Priorite || 'Normale'}
-                            </span>
+
+                            <motion.div whileHover={{ scale: 1.05 }} className={`inline-flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border ${prio.border} ${prio.bg} shadow-md`}>
+                                <div className={`h-3 w-3 rounded-full ${prio.dot}`} />
+                                <span className={`text-xs font-black uppercase tracking-wider ${prio.text}`}>{claim.Priorite || 'Normale'}</span>
+                            </motion.div>
                         </div>
 
-                        {/* KPI row */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {/* KPI cards - Premium style */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12">
                             {[
-                                { label: 'Priorité',      value: claim.Priorite || 'Normale',                                             tone: `${prio.bg} ${prio.text} ${prio.border}`              },
-                                { label: 'Statut',        value: claim.Statut,                                                            tone: `${status.bg} ${status.text} ${status.border}`        },
-                                { label: 'Actions',       value: `${interventions.length} action${interventions.length !== 1 ? 's' : ''}`, tone: 'bg-slate-50 text-slate-700 border-slate-200'       },
-                                { label: 'Agent support', value: claim.NomTechnicien || 'Non assigné',                                    tone: claim.NomTechnicien ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200' },
-                            ].map(k => (
-                                <div key={k.label} className={`rounded-xl border px-4 py-3 ${k.tone}`}>
-                                    <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-0.5">{k.label}</p>
-                                    <p className="text-xs font-black truncate">{k.value}</p>
-                                </div>
+                                { icon: StarIcon, label: 'Statut', value: claim.Statut, color: 'from-blue-300 to-indigo-400', bgColor: 'from-blue-100 to-indigo-100' },
+                                { icon: BoltIcon, label: 'Actions', value: interventions.length, color: 'from-amber-300 to-orange-400', bgColor: 'from-amber-100 to-orange-100' },
+                                { icon: WrenchScrewdriverIcon, label: 'Assigné à', value: claim.NomTechnicien || 'Non assigné', color: 'from-emerald-300 to-teal-400', bgColor: 'from-emerald-100 to-teal-100' },
+                                { icon: FireIcon, label: 'Priorité', value: claim.Priorite || 'Normale', color: 'from-rose-300 to-pink-400', bgColor: 'from-rose-100 to-pink-100' },
+                            ].map((item, idx) => (
+                                <motion.div key={idx} whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,.12)' }}
+                                    className={`bg-gradient-to-br ${item.bgColor} rounded-2xl border border-slate-200/50 px-5 py-5 shadow-lg hover:shadow-xl transition-all`}
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md`}>
+                                            <item.icon className="h-5 w-5 text-white" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">{item.label}</p>
+                                    <p className="text-base font-black text-slate-800 truncate">{item.value}</p>
+                                </motion.div>
                             ))}
                         </div>
                     </div>
@@ -208,247 +227,276 @@ const ClaimDetail = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                     {/* ── Left col (2/3) ── */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="lg:col-span-2 space-y-8">
 
-                        {/* Claim detail card */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50/30 flex items-center gap-2">
-                                <DocumentTextIcon className="h-4 w-4 text-indigo-500" />
-                                <h2 className="text-sm font-black text-slate-700 uppercase tracking-widest">Détail de la réclamation</h2>
-                            </div>
-                            <div className="p-6 space-y-5">
-                                {/* role / stats row */}
-                                <div className="grid grid-cols-3 gap-3">
+                        {/* Claim detail card - Premium */}
+                        <motion.div variants={card} className="rounded-2xl bg-white border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-all">
+                            <div className="h-1 w-full bg-gradient-to-r from-indigo-300 to-purple-300" />
+                            <div className="px-8 sm:px-10 py-10">
+                                <h2 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-300 to-blue-400 flex items-center justify-center">
+                                        <DocumentTextIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    Informations du ticket
+                                </h2>
+
+                                {/* Client & Ticket info */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                                    <motion.div whileHover={{ scale: 1.01, y: -2 }} className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm text-slate-800">
+                                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">Client</p>
+                                        <p className="text-lg font-bold text-slate-800">{claim.LibTiers || claim.CodTiers}</p>
+                                        <p className="text-sm text-slate-500 mt-2 font-medium">Demandeur du ticket</p>
+                                    </motion.div>
+                                    <motion.div whileHover={{ scale: 1.01, y: -2 }} className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm text-slate-800">
+                                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">N° Ticket</p>
+                                        <p className="text-lg font-bold font-mono text-slate-800">{claim.NumTicket || `#RM${claim.ID}`}</p>
+                                        <p className="text-sm text-slate-500 mt-2 font-medium">Référence unique</p>
+                                    </motion.div>
+                                </div>
+
+                                {/* Description */}
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8">
+                                    <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <LightBulbIcon className="h-4 w-4 text-slate-600" />
+                                        Description
+                                    </p>
+                                    <p className="text-slate-700 leading-relaxed font-medium text-base">{claim.Description || 'Aucune description fournie'}</p>
+                                </div>
+
+                                {/* Stats */}
+                                <div className="grid grid-cols-3 gap-4">
                                     {[
-                                        { label: 'Rôle',         value: userIsAdmin ? 'Administration' : userIsTechnicien ? 'Technicien' : userIsClient ? 'Client' : 'Utilisateur' },
-                                        { label: 'Interventions', value: interventions.length },
-                                        { label: 'Statut',       value: claim.Statut },
-                                    ].map(m => (
-                                        <div key={m.label} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
-                                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{m.label}</p>
-                                            <p className="mt-1 text-sm font-black text-slate-800">{m.value}</p>
-                                        </div>
+                                        { label: 'Rôle', value: userIsAdmin ? 'Admin' : userIsTechnicien ? 'Tech' : 'Client', color: 'bg-gradient-to-br from-indigo-300 to-blue-400' },
+                                        { label: 'Actions', value: interventions.length, color: 'bg-gradient-to-br from-amber-300 to-orange-400' },
+                                        { label: 'Statut', value: claim.Statut, color: 'bg-gradient-to-br from-emerald-300 to-teal-400' },
+                                    ].map(item => (
+                                        <motion.div key={item.label} whileHover={{ y: -2 }} className={`${item.color} rounded-lg px-4 py-4 shadow-sm text-white`}>
+                                            <p className="text-xs font-semibold opacity-80 uppercase tracking-wider mb-1">{item.label}</p>
+                                            <p className="text-base font-bold">{item.value}</p>
+                                        </motion.div>
                                     ))}
-                                </div>
-
-                                {/* client / ticket */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
-                                        <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                            <UserCircleIcon className="h-5 w-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500">Client</p>
-                                            <p className="text-sm font-black text-slate-800">{claim.LibTiers || claim.CodTiers}</p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center gap-3">
-                                        <div className="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                            <TagIcon className="h-5 w-5 text-indigo-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-500">N° Ticket</p>
-                                            <p className="text-sm font-black text-slate-800 font-mono">{claim.NumTicket || `#RM${claim.ID}`}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* description */}
-                                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Description</p>
-                                    <p className="text-slate-700 text-sm leading-relaxed">{claim.Description}</p>
                                 </div>
                             </div>
                         </motion.div>
 
-                        {/* Timeline */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md p-6">
-                            <div className="flex items-center gap-2 mb-7">
-                                <ArrowTrendingUpIcon className="h-4 w-4 text-indigo-500" />
-                                <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Historique</h3>
-                            </div>
-                            <ol className="relative border-l-2 border-dashed border-slate-200 space-y-7 pl-8">
-                                <TStep delay={0.1} color="bg-indigo-500" title="Ticket créé" sub={formatDate(claim.DateOuverture)} icon={<CalendarIcon className="h-3 w-3 text-white" />} />
-                                {claim.NomTechnicien && <TStep delay={0.2} color="bg-amber-500" title="Agent support assigné" sub={claim.NomTechnicien} icon={<WrenchScrewdriverIcon className="h-3 w-3 text-white" />} />}
-                                {claim.Statut === 'En cours' && <TStep delay={0.25} color="bg-orange-500" title="Traitement en cours" sub="En attente de résolution" icon={<ClockIcon className="h-3 w-3 text-white" />} pulse />}
-                                {claim.Statut === 'Résolu'   && <TStep delay={0.3}  color="bg-emerald-500" title="Ticket résolu ✓" sub={formatDate(claim.DateResolution || new Date())} icon={<CheckCircleIcon className="h-3 w-3 text-white" />} />}
+                        {/* Timeline - Premium */}
+                        <motion.div variants={card} className="rounded-2xl bg-white border border-slate-200 shadow-md p-8 sm:p-10 overflow-hidden hover:shadow-lg transition-all">
+                            <div className="h-1 w-full absolute top-0 left-0 right-0 bg-gradient-to-r from-indigo-300 to-purple-300" />
+                            <h3 className="text-2xl font-bold text-slate-800 mb-8 flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-300 to-purple-400 flex items-center justify-center">
+                                    <ArrowTrendingUpIcon className="h-5 w-5 text-white" />
+                                </div>
+                                Historique du ticket
+                            </h3>
+                            <ol className="relative space-y-8 pl-8 border-l-2 border-slate-300">
+                                <TStep delay={0.1} color="bg-indigo-400" title="Ticket créé" sub={formatDate(claim.DateOuverture)} icon={<CalendarIcon className="h-4 w-4 text-white" />} />
+                                {claim.NomTechnicien && <TStep delay={0.2} color="bg-blue-400" title="Agent assigné" sub={claim.NomTechnicien} icon={<WrenchScrewdriverIcon className="h-4 w-4 text-white" />} />}
+                                {claim.Statut === 'En cours' && <TStep delay={0.25} color="bg-amber-400" title="Traitement en cours" sub="En attente de résolution" icon={<ClockIcon className="h-4 w-4 text-white" />} pulse />}
+                                {claim.Statut === 'Résolu'   && <TStep delay={0.3}  color="bg-emerald-400" title="Ticket résolu ✓" sub={formatDate(claim.DateResolution || new Date())} icon={<CheckCircleIcon className="h-4 w-4 text-white" />} />}
                             </ol>
                         </motion.div>
 
-                        {/* Interventions list */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-indigo-50/30 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <BoltIcon className="h-4 w-4 text-indigo-500" />
-                                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Journal des actions</h3>
-                                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black">
-                                        {interventions.length}
-                                    </span>
-                                </div>
-                                <select
-                                    value={interventionFilter}
-                                    onChange={e => setInterventionFilter(e.target.value)}
-                                    className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
-                                >
-                                    <option value="all">Toutes</option>
-                                    <option value="with-report">Avec compte-rendu</option>
-                                    <option value="without-report">Sans compte-rendu</option>
-                                    <option value="closed">Terminées</option>
-                                </select>
-                            </div>
-
-                            <div className="p-6">
-                                {filteredInterventions.length === 0 ? (
-                                    <div className="flex flex-col items-center gap-3 py-10 text-center">
-                                        <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center">
-                                            <BoltIcon className="h-6 w-6 text-slate-300" />
+                        {/* Interventions list - Premium */}
+                        <motion.div variants={card} className="rounded-2xl bg-white border border-slate-200 shadow-md overflow-hidden hover:shadow-lg transition-all">
+                            <div className="h-1 w-full bg-gradient-to-r from-amber-300 via-orange-400 to-red-400" />
+                            <div className="px-8 sm:px-10 py-8">
+                                <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center shadow-sm">
+                                            <BoltIcon className="h-5 w-5 text-white" />
                                         </div>
-                                        <p className="text-sm font-black text-slate-600">Aucune action enregistrée</p>
-                                        <p className="text-xs text-slate-400 max-w-xs">Les actions apparaissent ici dès que votre demande est prise en charge.</p>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-slate-800">Journal des actions</h3>
+                                            <p className="text-xs text-slate-500 font-medium mt-0.5">{interventions.length} action{interventions.length !== 1 ? 's' : ''} enregistrée{interventions.length !== 1 ? 's' : ''}</p>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {filteredInterventions.map((item, index) => (
-                                            <motion.div key={`${item.iddi || index}`} whileHover={{ y: -2 }}
-                                                className="rounded-2xl border border-slate-100 bg-slate-50 p-5 shadow-sm"
-                                            >
-                                                <div className="flex items-start justify-between gap-3 mb-4">
-                                                    <div>
-                                                        <p className="text-sm font-black text-slate-900">Action #{item.numdi || '-'}</p>
-                                                        <p className="text-xs text-slate-400 mt-0.5">Ajoutée le {formatDate(item.datdi)}</p>
-                                                    </div>
-                                                    <span className="px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-black uppercase tracking-widest text-indigo-700">
-                                                        Suivi intervention
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <InfoBlock label="Demandeur"      value={item.demandeur || claim.LibTiers || '-'} />
-                                                    <InfoBlock label="Problème signalé"    value={item.descPanne || claim.Objet || '-'} />
-                                                </div>
-                                                {item.intervention && (
-                                                    <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <div>
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Rapport d'action #{item.intervention.numbt || '-'}</p>
-                                                                <p className="text-sm font-black text-emerald-900 mt-0.5">Intervenant: {item.intervention.technicien || claim.NomTechnicien || 'Agent support'}</p>
+                                    <select
+                                        value={interventionFilter}
+                                        onChange={e => setInterventionFilter(e.target.value)}
+                                        className="text-xs font-bold bg-white border-2 border-amber-300 rounded-xl px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                                    >
+                                        <option value="all">Toutes</option>
+                                        <option value="with-report">Avec rapport</option>
+                                        <option value="without-report">Sans rapport</option>
+                                        <option value="closed">Terminées</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    {filteredInterventions.length === 0 ? (
+                                        <div className="flex flex-col items-center gap-4 py-16 text-center">
+                                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                <BoltIcon className="h-8 w-8 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-base font-black text-slate-600">Aucune action enregistrée</p>
+                                                <p className="text-sm text-slate-400 mt-1 font-medium">Les actions apparaîtront une fois la demande prise en charge</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {filteredInterventions.map((item, index) => (
+                                                <motion.div key={`${item.iddi || index}`} whileHover={{ scale: 1.01, y: -2 }}
+                                                    className="rounded-2xl bg-gradient-to-br from-white via-slate-50 to-white border border-slate-100/50 p-6 shadow-md hover:shadow-lg transition-all"
+                                                >
+                                                    {/* Header */}
+                                                    <div className="flex items-start justify-between gap-4 mb-5">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2.5 mb-2">
+                                                                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                                                                    <Cog6ToothIcon className="h-4 w-4 text-white" />
+                                                                </div>
+                                                                <p className="text-base font-black text-slate-800">Action #{item.numdi || '-'}</p>
                                                             </div>
-                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.intervention.clotured ? 'bg-emerald-100 text-emerald-700' : item.intervention.encours ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                                {item.intervention.clotured ? 'Terminé' : item.intervention.encours ? 'En cours' : 'Démarré'}
-                                                            </span>
+                                                            <p className="text-xs text-slate-500 ml-10 font-semibold">{formatDate(item.datdi)}</p>
                                                         </div>
-                                                        <p className="mt-2 text-xs text-emerald-800 leading-relaxed">
-                                                            {item.intervention.resultat || 'Sans rapport détaillé'}
-                                                        </p>
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200/50 text-xs font-bold text-amber-700 whitespace-nowrap">
+                                                            <BoltIcon className="h-3.5 w-3.5" />
+                                                            En suivi
+                                                        </span>
                                                     </div>
-                                                )}
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                )}
+
+                                                    {/* Problem description */}
+                                                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200/50 rounded-xl p-4 mb-4">
+                                                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">Problème reporté</p>
+                                                        <p className="text-sm font-bold text-slate-800">{item.descPanne || claim.Objet || '-'}</p>
+                                                        <p className="text-xs text-slate-600 mt-2 font-medium">Par <span className="font-black text-slate-800">{item.demandeur || claim.LibTiers || '-'}</span></p>
+                                                    </div>
+
+                                                    {/* Intervention report */}
+                                                    {item.intervention && (
+                                                        <div className={`rounded-xl border px-5 py-4 ${item.intervention.clotured ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/50' : item.intervention.encours ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/50' : 'bg-gradient-to-br from-sky-50 to-cyan-50 border-blue-200/50'}`}>
+                                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                                <div>
+                                                                    <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${item.intervention.clotured ? 'text-emerald-700' : item.intervention.encours ? 'text-amber-700' : 'text-blue-700'}`}>
+                                                                        Rapport d'action #{item.intervention.numbt || '-'}
+                                                                    </p>
+                                                                    <p className={`text-sm font-bold ${item.intervention.clotured ? 'text-emerald-900' : item.intervention.encours ? 'text-amber-900' : 'text-blue-900'}`}>
+                                                                        {item.intervention.technicien || claim.NomTechnicien || 'Agent support'}
+                                                                    </p>
+                                                                </div>
+                                                                <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 ${item.intervention.clotured ? 'bg-emerald-100/80 text-emerald-700' : item.intervention.encours ? 'bg-amber-100/80 text-amber-700' : 'bg-blue-100/80 text-blue-700'}`}>
+                                                                    {item.intervention.clotured && <CheckCircleIcon className="h-3.5 w-3.5" />}
+                                                                    {item.intervention.encours && <ClockIcon className="h-3.5 w-3.5" />}
+                                                                    {!item.intervention.clotured && !item.intervention.encours && <BoltIcon className="h-3.5 w-3.5" />}
+                                                                    {item.intervention.clotured ? 'Terminée' : item.intervention.encours ? 'En cours' : 'Démarrée'}
+                                                                </motion.span>
+                                                            </div>
+                                                            {item.intervention.resultat && (
+                                                                <div className={`text-xs leading-relaxed font-medium ${item.intervention.clotured ? 'text-emerald-800' : item.intervention.encours ? 'text-amber-800' : 'text-blue-800'}`}>
+                                                                    <p className="font-bold mb-1.5">Rapport:</p>
+                                                                    <p className="opacity-95">{item.intervention.resultat}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </motion.div>
                     </div>
 
                     {/* ── Right sidebar (1/3) ── */}
-                    <div className="space-y-5">
+                    <div className="space-y-8">
 
-                        {/* State + progress */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md p-6 overflow-hidden relative">
-                            <div className={`absolute inset-0 opacity-[0.03] bg-gradient-to-br ${status.bar}`} />
-                            <p className="relative text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">État du ticket</p>
-                            <div className={`relative flex items-center gap-3 p-4 rounded-2xl border ${status.bg} ${status.border}`}>
-                                <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${status.bar} flex items-center justify-center shadow-md flex-shrink-0`}>
-                                    <StatusIcon className="h-5 w-5 text-white" />
+                        {/* State + Progress - Premium */}
+                        <motion.div variants={card} className="rounded-3xl bg-gradient-to-br from-white to-slate-50 border border-slate-200/50 shadow-xl p-8 overflow-hidden relative hover:shadow-2xl transition-all">
+                            <div className={`absolute -top-20 -right-20 h-40 w-40 opacity-[0.06] bg-gradient-to-br ${status.bar} rounded-full blur-3xl`} />
+                            <div className="relative">
+                                <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                                    <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${status.bar} flex items-center justify-center`}>
+                                        <StatusIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    État du ticket
+                                </h3>
+                                <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }} className={`relative flex items-center gap-4 p-5 rounded-2xl border ${status.bg} ${status.border} mb-6`}>
+                                    <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${status.bar} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                                        <StatusIcon className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`text-base font-black ${status.text}`}>{claim.Statut}</p>
+                                        <p className="text-xs text-slate-600 font-semibold mt-1">{status.label}</p>
+                                    </div>
+                                </motion.div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-2.5">
+                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Progression</p>
+                                        <span className={`text-sm font-black ${status.text}`}>{status.pct}</span>
+                                    </div>
+                                    <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: status.pct }}
+                                            transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
+                                            className={`h-full rounded-full bg-gradient-to-r ${status.bar} shadow-lg`}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className={`font-black text-sm ${status.text}`}>{claim.Statut}</p>
-                                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate">{status.label}</p>
-                                </div>
-                                {!isClosed && <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />}
-                            </div>
-                            <div className="mt-4">
-                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: status.pct }}
-                                        transition={{ duration: 1.2, ease: 'easeOut', delay: 0.4 }}
-                                        className={`h-full rounded-full bg-gradient-to-r ${status.bar}`}
-                                    />
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-semibold mt-1.5">{status.pct} complété</p>
                             </div>
                         </motion.div>
 
-                        {/* Technicien card */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md p-6">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                <WrenchScrewdriverIcon className="h-3.5 w-3.5" /> Agent support en charge
-                            </p>
-                            <AnimatePresence mode="wait">
-                                {claim.NomTechnicien ? (
-                                    <motion.div key="tech" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-                                        className="flex items-center gap-3 p-4 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100"
-                                    >
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-400 to-blue-600 flex items-center justify-center shadow-md flex-shrink-0">
-                                            <UserCircleIcon className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <p className="font-black text-slate-800 text-sm">{claim.NomTechnicien}</p>
-                                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Actif
-                                            </span>
-                                        </div>
-                                    </motion.div>
-                                ) : (
-                                    <motion.div key="none" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                        className="flex items-center gap-2 p-4 bg-rose-50 rounded-2xl border border-rose-200 text-rose-600 text-sm font-bold"
-                                    >
-                                        <ExclamationCircleIcon className="h-4 w-4 flex-shrink-0" /> Non assigné
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        {/* Technician Card - Premium style */}
+                        <motion.div variants={card} className="rounded-3xl bg-gradient-to-br from-white to-indigo-50/30 border border-slate-200/50 shadow-xl p-8 overflow-hidden relative hover:shadow-2xl transition-all">
+                            <div className="absolute -top-20 -right-20 h-40 w-40 opacity-[0.06] bg-indigo-500 rounded-full blur-3xl" />
+                            <div className="relative">
+                                <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2.5">
+                                    <WrenchScrewdriverIcon className="h-5 w-5 text-indigo-400" />
+                                    Agent assigné
+                                </h3>
+                                <AnimatePresence mode="wait">
+                                    {claim.NomTechnicien ? (
+                                        <motion.div key="tech" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                            className="flex items-center gap-4 p-5 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-2xl border border-indigo-200/70"
+                                        >
+                                            <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 3, repeat: Infinity }} className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-300 to-blue-400 flex items-center justify-center shadow-lg flex-shrink-0">
+                                                <UserCircleIcon className="h-6 w-6 text-white" />
+                                            </motion.div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-black text-slate-800 text-base truncate">{claim.NomTechnicien}</p>
+                                                <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-bold mt-1">
+                                                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                    Actif
+                                                </span>
+                                            </div>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div key="none" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                            className="flex items-center gap-4 p-5 bg-gradient-to-br from-rose-100 to-pink-100 rounded-2xl border border-rose-200/70"
+                                        >
+                                            <div className="h-12 w-12 rounded-xl bg-rose-200 flex items-center justify-center flex-shrink-0">
+                                                <ExclamationCircleIcon className="h-6 w-6 text-rose-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-base font-black text-rose-700">Non assigné</p>
+                                                <p className="text-xs text-rose-600 font-semibold mt-0.5">À assigner en priorité</p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                         </motion.div>
-
-                        {/* Add intervention entry point */}
-                        {(userIsAdmin || userIsTechnicien) && !isClosed && (
-                            <motion.div variants={card}
-                                className="bg-white rounded-2xl border border-slate-100 shadow-md p-6 space-y-4"
-                            >
-                                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest flex items-center gap-1.5">
-                                    <SparklesIcon className="h-3.5 w-3.5" /> Nouvelle action
-                                </p>
-                                <p className="text-sm text-slate-600 leading-relaxed">
-                                    Utilisez le formulaire dédié pour enregistrer une action complète avec type, durée, prochaine étape et compte-rendu.
-                                </p>
-                                <motion.button
-                                    type="button"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-200 hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <SparklesIcon className="h-4 w-4" /> Ouvrir le formulaire professionnel
-                                </motion.button>
-                            </motion.div>
-                        )}
 
                         {/* Client space */}
                         {userIsClient && (
-                            <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md p-6 space-y-4">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                    <UserCircleIcon className="h-3.5 w-3.5" /> Espace client
-                                </p>
-                                <p className="text-sm text-slate-600 leading-relaxed">Suivez l'état de votre réclamation ou ouvrez un nouveau ticket.</p>
-                                <div className="flex flex-col gap-2">
+                            <motion.div variants={card} className="bg-white rounded-3xl border border-slate-200/50 shadow-xl p-6 space-y-4 hover:shadow-2xl transition-all">
+                                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2.5">
+                                    <UserCircleIcon className="h-5 w-5 text-blue-400" />
+                                    Espace client
+                                </h3>
+                                <p className="text-sm text-slate-600 leading-relaxed font-medium">Suivez l'état de votre réclamation ou ouvrez un nouveau ticket.</p>
+                                    <div className="flex flex-col gap-2">
                                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                                         onClick={() => navigate('/claims/new')}
-                                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-md"
+                                        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl transition-all"
                                     >
-                                        Créer une réclamation
+                                        + Créer une réclamation
                                     </motion.button>
                                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                                         onClick={() => navigate('/claims')}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+                                        className="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors"
                                     >
                                         Voir mes réclamations
                                     </motion.button>
@@ -458,45 +506,61 @@ const ClaimDetail = () => {
 
                         {/* Assign technician */}
                         {userIsAdmin && !isClosed && (
-                            <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md p-6">
-                                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                                    <UserPlusIcon className="h-3.5 w-3.5" /> Affecter un agent support
-                                </p>
-                                {techniciens.length === 0 ? (
-                                    <p className="text-xs text-slate-400 text-center py-3 font-semibold">Aucun agent disponible</p>
-                                ) : (
-                                    <>
-                                        <select
-                                            defaultValue="" disabled={assigning}
-                                            onChange={e => { const t = techniciens.find(x => String(x.id) === e.target.value); if (t) handleAssign(t); }}
-                                            className="w-full px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer appearance-none"
-                                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
-                                        >
-                                            <option value="" disabled>Sélectionner un agent...</option>
-                                            {techniciens.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                        <AnimatePresence>
-                                            {assigning && (
-                                                <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                                                    className="mt-3 text-xs text-indigo-500 font-bold text-center flex items-center justify-center gap-2"
-                                                >
-                                                    <motion.span animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                                                        className="inline-block h-3 w-3 border-2 border-indigo-400 border-t-transparent rounded-full"
-                                                    />
-                                                    Affectation en cours…
-                                                </motion.p>
-                                            )}
-                                        </AnimatePresence>
-                                    </>
-                                )}
+                            <motion.div variants={card} className="bg-white rounded-3xl border border-slate-200/50 shadow-xl overflow-hidden hover:shadow-2xl transition-all">
+                                <div className="h-2 w-full bg-gradient-to-r from-indigo-300 to-purple-400" />
+                                <div className="p-6">
+                                    <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-300 to-purple-400 flex items-center justify-center shadow-md">
+                                            <UserPlusIcon className="h-5 w-5 text-white" />
+                                        </div>
+                                        Affecter un agent support
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium mb-5">Sélectionnez un agent disponible pour prendre en charge ce ticket</p>
+                                    {techniciens.length === 0 ? (
+                                        <div className="flex flex-col items-center gap-3 py-6 text-center">
+                                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                                <UserPlusIcon className="h-6 w-6 text-slate-400" />
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-600">Aucun agent disponible</p>
+                                            <p className="text-xs text-slate-400 font-medium">Veuillez créer des agents avant d'assigner</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <select
+                                                defaultValue="" disabled={assigning}
+                                                onChange={e => { const t = techniciens.find(x => String(x.id) === e.target.value); if (t) handleAssign(t); }}
+                                                className="w-full px-4 py-3.5 text-sm font-bold text-slate-700 bg-gradient-to-br from-indigo-100 to-purple-100 border-2 border-indigo-300 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all cursor-pointer appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
+                                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '18px', paddingRight: '40px' }}
+                                            >
+                                                <option value="" disabled>✓ Sélectionner un agent...</option>
+                                                {techniciens.map(t => <option key={t.id} value={t.id}>👤 {t.name}</option>)}
+                                            </select>
+                                            <AnimatePresence>
+                                                {assigning && (
+                                                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                                                        className="mt-4 p-3 rounded-lg bg-gradient-to-r from-indigo-100 to-purple-100 border border-indigo-200/70 flex items-center justify-center gap-2"
+                                                    >
+                                                        <motion.span animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                                                            className="inline-block h-4 w-4 border-2 border-indigo-300 border-t-indigo-500 rounded-full"
+                                                        />
+                                                        <span className="text-xs font-bold text-indigo-500">Affectation en cours…</span>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </>
+                                    )}
+                                </div>
                             </motion.div>
                         )}
 
                         {/* Info card */}
-                        <motion.div variants={card} className="bg-white rounded-2xl border border-slate-100 shadow-md overflow-hidden">
-                            <div className={`h-0.5 w-full bg-gradient-to-r ${status.bar}`} />
+                        <motion.div variants={card} className="bg-white rounded-3xl border border-slate-200/50 shadow-xl overflow-hidden hover:shadow-2xl transition-all">
+                            <div className="h-0.5 w-full bg-gradient-to-r from-indigo-300 to-purple-400" />
                             <div className="p-6">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Informations</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <CalendarIcon className="h-4 w-4 text-indigo-600" />
+                                    Détails du ticket
+                                </p>
                                 <div className="space-y-1">
                                     <MRow icon={<CalendarIcon className="h-4 w-4 text-indigo-400" />} iconBg="bg-indigo-50" label="Date d'ouverture" value={formatDate(claim.DateOuverture)} />
                                     <MRow icon={<TagIcon       className="h-4 w-4 text-violet-400" />} iconBg="bg-violet-50" label="Type"            value={claim.TypeReclamation} chip />
@@ -508,6 +572,7 @@ const ClaimDetail = () => {
                     </div>
                 </div>
             </div>
+
         </motion.div>
     );
 };
@@ -518,11 +583,11 @@ const TStep = ({ delay, color, title, sub, icon, pulse }) => (
     <motion.li initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}
         transition={{ delay, type: 'spring', stiffness: 260, damping: 22 }} className="relative"
     >
-        <span className={`absolute -left-[2.15rem] top-0.5 h-7 w-7 rounded-full ${color} flex items-center justify-center shadow-md ${pulse ? 'animate-pulse' : ''}`}>
+        <motion.span whileHover={{ scale: 1.15 }} className={`absolute -left-[2.5rem] top-1 h-9 w-9 rounded-full ${color} flex items-center justify-center shadow-lg ${pulse ? 'animate-pulse' : ''}`}>
             {icon}
-        </span>
-        <p className="text-sm font-black text-slate-800">{title}</p>
-        <p className="text-xs text-slate-400 mt-0.5 font-medium">{sub}</p>
+        </motion.span>
+        <p className="text-base font-black text-slate-800">{title}</p>
+        <p className="text-sm text-slate-500 mt-1 font-semibold">{sub}</p>
     </motion.li>
 );
 
@@ -534,14 +599,14 @@ const InfoBlock = ({ label, value }) => (
 );
 
 const MRow = ({ icon, iconBg, label, value, chip, last }) => (
-    <div className={`flex items-center justify-between py-3 ${!last ? 'border-b border-slate-50' : ''}`}>
-        <span className="flex items-center gap-2.5 text-slate-500 text-xs font-semibold">
-            <span className={`h-7 w-7 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>{icon}</span>
+    <div className={`flex items-center justify-between py-3.5 ${!last ? 'border-b border-slate-100' : ''}`}>
+        <span className="flex items-center gap-3 text-slate-700 text-sm font-semibold">
+            <span className={`h-8 w-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>{icon}</span>
             {label}
         </span>
         {chip
-            ? <span className="text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-100 px-2.5 py-1 rounded-lg">{value}</span>
-            : <span className="text-xs font-black text-slate-700">{value}</span>
+            ? <span className="text-xs font-bold bg-violet-50 text-violet-600 border border-violet-200/50 px-3 py-1.5 rounded-lg">{value}</span>
+            : <span className="text-sm font-black text-slate-800">{value}</span>
         }
     </div>
 );

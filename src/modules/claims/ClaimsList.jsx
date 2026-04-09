@@ -85,7 +85,17 @@ const ClaimsList = () => {
             
             // Filtrer pour les techniciens: seulement leurs réclamations assignées
             if (isTechnicien) {
-                mapped = mapped.filter(claim => String(claim.assignedToId) === String(user?.UserID));
+                const techId = user?.UserID;
+                const normalize = (value) => String(value || '').trim().toLowerCase();
+                const technicianNames = [user?.FullName, user?.LoginName, user?.EmailPro]
+                    .map(normalize)
+                    .filter(Boolean);
+
+                mapped = mapped.filter(claim => {
+                    const idMatch = claim.assignedToId === techId || String(claim.assignedToId) === String(techId);
+                    const nameMatch = technicianNames.includes(normalize(claim.assignedTo));
+                    return idMatch || nameMatch;
+                });
             }
             
             setClaims(mapped);
@@ -132,11 +142,13 @@ const ClaimsList = () => {
                 technicienID: selectedTech.id
             });
 
+            // axios interceptor already returns response.data payload
             if (response?.status === 'success') {
                 const updated = response?.data || {};
+                const updatedId = updated?.ID ?? updated?.id ?? claimId;
                 setClaims((prev) =>
                     prev.map((claim) =>
-                        claim.id === claimId
+                        String(claim.id) === String(updatedId)
                             ? {
                                 ...claim,
                                 assignedTo: updated.NomTechnicien || selectedTech.name,
@@ -147,8 +159,10 @@ const ClaimsList = () => {
                     )
                 );
                 toast.success(`Affecté à ${selectedTech.name}`);
+                // Ensure UI reflects server state immediately (covers backend fallback paths)
+                fetchClaims();
             } else {
-                toast.error('Affectation échouée');
+                toast.error('Affectation échouée: ' + (response?.message || 'réponse invalide'));
             }
         } catch (error) {
             console.warn('Assign technician warning:', error?.response?.status, error?.response?.data?.message);
@@ -171,7 +185,20 @@ const ClaimsList = () => {
         if (isAdmin) {
             fetchTechniciens();
         }
-    }, [fetchClaims, fetchTechniciens, isAdmin]);
+
+        // Auto-refresh pour techniciens: toutes les 5 secondes
+        // Permet de voir les nouvelles assignations de l'admin en temps quasi-réel
+        let interval;
+        if (isTechnicien) {
+            interval = setInterval(() => {
+                fetchClaims();
+            }, 5000); // 5 secondes
+        }
+        
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [fetchClaims, fetchTechniciens, isAdmin, isTechnicien]);
 
     const filteredClaims = useMemo(() => {
         const normalize = (value) => String(value || '').toLowerCase().trim();
@@ -430,7 +457,7 @@ const ClaimsList = () => {
                                     {!isClient && <th className="px-6 py-4 font-bold">Technicien</th>}
                                     <th className="px-6 py-4 font-bold">Statut</th>
                                     <th className="px-6 py-4 text-right font-bold">Date</th>
-                                    {isClient && <th className="px-6 py-4 font-bold text-center">Action</th>}
+                                    {(isClient || isTechnicien) && <th className="px-6 py-4 font-bold text-center">Action</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100/70">
@@ -462,6 +489,7 @@ const ClaimsList = () => {
                                             exit="exit"
                                             transition={{ delay: idx * 0.02 }}
                                             className="hover:bg-blue-50/40 transition-all cursor-pointer border-b border-slate-100/70 last:border-b-0 group/row"
+                                            onClick={() => navigate(`/claims/${claim.id}`)}
                                             whileHover={{ x: 2 }}
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -538,19 +566,30 @@ const ClaimsList = () => {
                                             <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-slate-600 font-medium group-hover/row:text-slate-800 transition-all">
                                                 {formatDate(claim.date)}
                                             </td>
-                                            {isClient && (
+                                            {(isClient || isTechnicien) && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.08 }}
-                                                        whileTap={{ scale: 0.95 }}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/claims/${claim.id}`);
-                                                        }}
-                                                        className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100/70 border border-blue-300/40 rounded-lg hover:bg-blue-100 hover:border-blue-400/60 transition-all"
-                                                    >
-                                                        <EyeIcon className="h-4 w-4" />
-                                                    </motion.button>
+                                                    <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.08 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => navigate(`/claims/${claim.id}`)}
+                                                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100/70 border border-blue-300/40 rounded-lg hover:bg-blue-100 hover:border-blue-400/60 transition-all"
+                                                            title="Voir le détail"
+                                                        >
+                                                            <EyeIcon className="h-4 w-4" />
+                                                        </motion.button>
+                                                        {isTechnicien && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.08 }}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={() => navigate(`/claims/${claim.id}/intervention/new`)}
+                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-300/40 rounded-lg hover:bg-emerald-100 hover:border-emerald-400/60 transition-all"
+                                                                title="Ajouter une intervention"
+                                                            >
+                                                                <PlusIcon className="h-4 w-4" />
+                                                            </motion.button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </motion.tr>
