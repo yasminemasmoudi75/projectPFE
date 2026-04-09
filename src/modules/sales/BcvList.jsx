@@ -22,12 +22,13 @@ import {
   PrinterIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { fetchMyBcv } from './bcvSlice';
+import { fetchMyBcv, fetchBcv } from './bcvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
@@ -62,6 +63,7 @@ const BcvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { canCreate, canEdit, isModuleActive, loading: permissionLoading } = usePermission(MODULE_CODES.COMMANDES);
+  const { isClient, isAuthenticated, loading: authLoading } = useAuth();
   const { bcvList: bcv, loading, pagination } = useSelector((state) => state.bcv);
 
   // Filter states
@@ -142,7 +144,11 @@ const BcvList = () => {
 
   const refreshData = () => {
     if (!isModuleActive) return;
-    dispatch(fetchMyBcv({ page: 1, limit: 1000 }));
+    if (isClient) {
+      dispatch(fetchMyBcv({ page: 1, limit: 1000 }));
+    } else {
+      dispatch(fetchBcv({ page: 1, limit: 1000 }));
+    }
   };
 
   // Export functions
@@ -225,9 +231,9 @@ const BcvList = () => {
   };
 
   useEffect(() => {
-    if (permissionLoading) return;
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
-  }, [dispatch, permissionLoading, isModuleActive]);
+  }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);

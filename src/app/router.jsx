@@ -40,14 +40,13 @@ const Calendar = lazy(() => import('../modules/activities/CalendarView'));
 const Objectifs = lazy(() => import('../modules/goals/Objectifs'));
 const ObjectifForm = lazy(() => import('../modules/goals/ObjectifForm'));
 const MessagesList = lazy(() => import('../modules/messaging/MessagesList'));
-const ClientPortalDashboard = lazy(() => import('../modules/clientPortal/ClientPortalDashboard'));
-
 const IAPredictions = lazy(() => import('../modules/ai-engine/Predictions'));
 const UsersList = lazy(() => import('../modules/users/UsersList'));
 const UserForm = lazy(() => import('../modules/users/UserForm'));
 const UserDetail = lazy(() => import('../modules/users/UserDetail'));
 const Profile = lazy(() => import('../modules/profile/Profile'));
 const MouvementsPage = lazy(() => import('../modules/mouvements/MouvementsPage'));
+const ReglemsList = lazy(() => import('../modules/reglements/ReglemsList'));
 const NotFound = lazy(() => import('../components/feedback/NotFound'));
 
 // Admin modules
@@ -435,6 +434,14 @@ const routes = [
         ]
       },
       {
+        path: 'reglements',
+        element: (
+          <SuspenseWrapper>
+            <ReglemsList />
+          </SuspenseWrapper>
+        ),
+      },
+      {
         path: 'calendar',
         element: (
           <SuspenseWrapper>
@@ -477,14 +484,6 @@ const routes = [
         element: (
           <SuspenseWrapper>
             <MessagesList />
-          </SuspenseWrapper>
-        ),
-      },
-      {
-        path: 'client-portal',
-        element: (
-          <SuspenseWrapper>
-            <ClientPortalDashboard />
           </SuspenseWrapper>
         ),
       },

@@ -43,6 +43,7 @@ const menuItems = [
   { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES, color: 'amber' },
   { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS, color: 'orange' },
   { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES, color: 'green' },
+  { name: 'Paiements', href: '/reglements', icon: BanknotesIcon, moduleCode: MODULE_CODES.REGLEMENT, color: 'emerald' },
   { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE, color: 'teal' },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet' },
   { type: 'section', name: 'Operations' },

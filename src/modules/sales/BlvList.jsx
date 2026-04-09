@@ -23,12 +23,13 @@ import {
   PrinterIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { fetchMyBlv } from './blvSlice';
+import { fetchMyBlv, fetchBlv } from './blvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
@@ -62,7 +63,8 @@ const rowVariants = {
 const BlvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canEdit } = usePermission(MODULE_CODES.LIVRAISONS);
+  const { canEdit, isModuleActive, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
+  const { isClient, isAuthenticated, loading: authLoading } = useAuth();
   const { blvList: blv, loading, pagination } = useSelector((state) => state.blv);
 
   // Filter states
@@ -142,7 +144,12 @@ const BlvList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchMyBlv({ page: 1, limit: 1000 }));
+    if (!isModuleActive) return;
+    if (isClient) {
+      dispatch(fetchMyBlv({ page: 1, limit: 1000 }));
+    } else {
+      dispatch(fetchBlv({ page: 1, limit: 1000 }));
+    }
   };
 
   // Export functions
@@ -225,8 +232,9 @@ const BlvList = () => {
   };
 
   useEffect(() => {
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
-  }, [dispatch]);
+  }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);

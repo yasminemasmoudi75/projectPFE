@@ -136,6 +136,11 @@ const usePermission = (moduleCode = null) => {
     return dbPermissions.find((permission) => Number(permission.moduleCode) === targetCode) || null;
   }, [moduleCode, dbPermissions]);
 
+  // Vérifier si l'utilisateur est admin
+  const isUserAdmin = useMemo(() => {
+    return user?.UserRole?.toLowerCase() === 'admin';
+  }, [user?.UserRole]);
+
   // Obtenir tous les modules actifs
   const activeModules = useMemo(() => {
     return dbPermissions.filter((p) => toBool(p.isActive));
@@ -143,12 +148,16 @@ const usePermission = (moduleCode = null) => {
 
   return {
     // ✅ Permissions depuis la base de données pour le module courant
-    isModuleActive: toBool(modulePermissions?.isActive),    // Visible dans sidebar?
-    canCreate: toBool(modulePermissions?.canCreate),        // Bouton ADD?
-    canEdit: toBool(modulePermissions?.canEdit),            // Bouton EDIT?
-    canDelete: toBool(modulePermissions?.canDelete),        // Bouton DELETE?
-    canValidate: toBool(modulePermissions?.canValidate),    // Bouton VALIDER?
-    canExport: toBool(modulePermissions?.canExport),        // Bouton EXPORTER?
+    // Mapper les noms de champs BD (canAdd, canEdit, canDelt) vers l'API (canCreate, canEdit, canDelete)
+    // Si permissions trouvées: utiliser la BD (même si false)
+    // Si permissions non trouvées ET admin: autoriser tout
+    // Si permissions non trouvées ET non-admin: interdire tout
+    isModuleActive: modulePermissions !== null ? toBool(modulePermissions?.Actif) : isUserAdmin,
+    canCreate: modulePermissions !== null ? toBool(modulePermissions?.canAdd || modulePermissions?.canCreate) : isUserAdmin,
+    canEdit: modulePermissions !== null ? toBool(modulePermissions?.canEdit) : isUserAdmin,
+    canDelete: modulePermissions !== null ? toBool(modulePermissions?.canDelt || modulePermissions?.canDelete) : isUserAdmin,
+    canValidate: modulePermissions !== null ? toBool(modulePermissions?.canValid || modulePermissions?.canValidate) : isUserAdmin,
+    canExport: modulePermissions !== null ? toBool(modulePermissions?.canExport) : isUserAdmin,
 
     // Tous les modules
     allPermissions: dbPermissions,

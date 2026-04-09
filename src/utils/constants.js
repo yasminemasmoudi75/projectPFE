@@ -95,7 +95,7 @@ export const MODULE_CODES = {
   FACTURES: 7,           // Module Facture (FAV)
   CALENDRIER: 8,         // Module Calendrier
   CLIENTS: 30,           // Module Client
-  REGLEMENT: 31,         // Module Reglement
+  REGLEMENT: 51,         // Module Reglement (nouveau code dédié)
   MENU: 32,              // Menu
   TOURNEE: 40,           // Module Tournée
   CHARGEMENT: 41,        // Module Chargement

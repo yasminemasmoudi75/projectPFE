@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../app/axios';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
@@ -34,6 +36,7 @@ import toast from 'react-hot-toast';
 const CalendarView = () => {
     const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
+    const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.CALENDRIER);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -400,12 +403,14 @@ const CalendarView = () => {
                             Liste
                         </button>
                     </div>
-                    <button
-                        onClick={() => navigate('/activites/new', { state: { from: 'calendar' } })}
-                        className="bg-primary-600 text-white px-6 py-3 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-xl shadow-primary-100 hover:bg-primary-700 transition-all active:scale-95"
-                    >
-                        <PlusIcon className="h-4 w-4" /> NOUVELLE ACTION
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/activites/new', { state: { from: 'calendar' } })}
+                            className="bg-primary-600 text-white px-6 py-3 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-xl shadow-primary-100 hover:bg-primary-700 transition-all active:scale-95"
+                        >
+                            <PlusIcon className="h-4 w-4" /> NOUVELLE ACTION
+                        </button>
+                    )}
                 </div>
             </div>
 

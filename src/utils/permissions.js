@@ -2,41 +2,90 @@ import { MODULE_CODES, ACTION_TYPES, USER_ROLES } from './constants';
 
 const normalizeRole = (role) => (role || '').toString().trim().toLowerCase();
 
+/**
+ * ✅ MATRICE FALLBACK: Rôles et Modules Accessibles
+ * 
+ * Utilisée quand l'API de permissions du backend ne répond pas
+ * Correspond à la table TabAWProfileAccess de la base de données
+ * 
+ * ADMIN: Tous les modules (sauf modules vides: 8, 40, 43, 44)
+ * COMMERCIAL: 11 modules (Ventes + Stock)
+ * AGENT: Même que Commercial (11 modules)
+ * TECHNICIEN: 5 modules (Support spécialisé)
+ * CLIENT: 5 modules (Lecture seule + SAV personnel)
+ */
 const ROLE_MODULE_FALLBACK = {
-  admin: Object.values(MODULE_CODES),
+  admin: [
+    // Module codes from TabAWProfileAccess (1-52)
+    MODULE_CODES.USERS,        // 1 - Utilisateurs
+    MODULE_CODES.MESSAGES,     // 2 - Messages
+    MODULE_CODES.PROJETS,      // 3 - Projets
+    MODULE_CODES.DEVIS,        // 4 - Devis
+    MODULE_CODES.COMMANDES,    // 5 - BCV/Commandes
+    MODULE_CODES.LIVRAISONS,   // 6 - BLV/Livraisons
+    MODULE_CODES.FACTURES,     // 7 - FAV/Factures
+    // MODULE_CODES.CALENDRIER,    // 8 - VIDE (non-implémenté)
+    MODULE_CODES.CLIENTS,      // 30 - Clients
+    MODULE_CODES.REGLEMENT,    // 31 - SAV/Réclamations
+    MODULE_CODES.MENU,         // 32 - Menu
+    // MODULE_CODES.TOURNEE,       // 40 - VIDE (non-implémenté)
+    MODULE_CODES.CHARGEMENT,   // 41 - Activités/Chargement
+    MODULE_CODES.OBJECTIFS,    // 42 - Objectifs
+    // MODULE_CODES.RECAP,         // 43 - VIDE (non-implémenté)
+    // MODULE_CODES.RELEVE,        // 44 - VIDE (non-implémenté)
+    MODULE_CODES.VISITES,      // 45 - Visites
+    MODULE_CODES.STOCK,        // 46 - Stock
+    MODULE_CODES.SOLDE_CLIENT, // 47 - Solde Client
+    MODULE_CODES.MAPS,         // 52 - Maps
+  ],
+  
   commercial: [
-    MODULE_CODES.DASHBOARD,
-    MODULE_CODES.CLIENTS,
-    MODULE_CODES.DEVIS,
-    MODULE_CODES.PROJETS,
-    MODULE_CODES.ACTIVITES,
-    MODULE_CODES.OBJECTIFS,
-    MODULE_CODES.STOCK,
-    MODULE_CODES.SAV,
-    MODULE_CODES.MESSAGES,
+    // 11 modules: Ventes + Clients + Stock
+    // ✅ Avec filtrage FiltreRepres (voir leurs propres données)
+    MODULE_CODES.MESSAGES,     // 2 - Messages
+    MODULE_CODES.PROJETS,      // 3 - Projets  
+    MODULE_CODES.DEVIS,        // 4 - Devis ⭐ (filtré)
+    MODULE_CODES.COMMANDES,    // 5 - BCV ⭐ (filtré)
+    MODULE_CODES.LIVRAISONS,   // 6 - BLV ⭐ (filtré)
+    MODULE_CODES.FACTURES,     // 7 - FAV ⭐ (filtré)
+    MODULE_CODES.CLIENTS,      // 30 - Clients ⭐ (filtré)
+    MODULE_CODES.CHARGEMENT,   // 41 - Activités
+    MODULE_CODES.OBJECTIFS,    // 42 - Objectifs
+    MODULE_CODES.VISITES,      // 45 - Visites
+    MODULE_CODES.STOCK,        // 46 - Stock ⭐ (limité)
   ],
+  
   agent: [
-    MODULE_CODES.DASHBOARD,
-    MODULE_CODES.CLIENTS,
-    MODULE_CODES.DEVIS,
-    MODULE_CODES.PROJETS,
-    MODULE_CODES.ACTIVITES,
-    MODULE_CODES.OBJECTIFS,
-    MODULE_CODES.SAV,
-    MODULE_CODES.MESSAGES,
+    // MÊME que Commercial (11 modules)
+    MODULE_CODES.MESSAGES,     // 2 - Messages
+    MODULE_CODES.PROJETS,      // 3 - Projets
+    MODULE_CODES.DEVIS,        // 4 - Devis ⭐ (filtré)
+    MODULE_CODES.COMMANDES,    // 5 - BCV ⭐ (filtré)
+    MODULE_CODES.LIVRAISONS,   // 6 - BLV ⭐ (filtré)
+    MODULE_CODES.FACTURES,     // 7 - FAV ⭐ (filtré)
+    MODULE_CODES.CLIENTS,      // 30 - Clients ⭐ (filtré)
+    MODULE_CODES.CHARGEMENT,   // 41 - Activités
+    MODULE_CODES.OBJECTIFS,    // 42 - Objectifs
+    MODULE_CODES.VISITES,      // 45 - Visites
+    MODULE_CODES.STOCK,        // 46 - Stock ⭐ (limité)
   ],
+  
   technicien: [
-    MODULE_CODES.DASHBOARD,
-    MODULE_CODES.ACTIVITES,
-    MODULE_CODES.STOCK,
-    MODULE_CODES.SAV,
-    MODULE_CODES.MESSAGES,
+    // 5 modules: Support spécialisé
+    MODULE_CODES.MESSAGES,     // 2 - Messages
+    MODULE_CODES.CHARGEMENT,   // 41 - Activités
+    MODULE_CODES.REGLEMENT,    // 31 - SAV/Réclamations (gestion complète)
+    MODULE_CODES.STOCK,        // 46 - Stock (lecture)
+    MODULE_CODES.VISITES,      // 45 - Visites
   ],
+  
   client: [
-    MODULE_CODES.DASHBOARD,
-    MODULE_CODES.DEVIS,
-    MODULE_CODES.SAV,
-    MODULE_CODES.MESSAGES,
+    // 5 modules: Lecture seule + SAV personnel
+    MODULE_CODES.MESSAGES,     // 2 - Messages
+    MODULE_CODES.DEVIS,        // 4 - Devis personnel
+    MODULE_CODES.FACTURES,     // 7 - Factures personnelles
+    MODULE_CODES.REGLEMENT,    // 31 - SAV personnel (création uniquement)
+    MODULE_CODES.PROJETS,      // 3 - Projets (lecture)
   ],
 };
 

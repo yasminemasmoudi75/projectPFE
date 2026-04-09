@@ -19,12 +19,13 @@ import {
   CurrencyDollarIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { fetchMyFav } from './favSlice';
+import { fetchMyFav, fetchFav } from './favSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 
 // --- Animation Variants ---
@@ -58,7 +59,8 @@ const rowVariants = {
 const FavList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate, canEdit } = usePermission(MODULE_CODES.FACTURES);
+  const { canCreate, canEdit, isModuleActive, loading: permissionLoading } = usePermission(MODULE_CODES.FACTURES);
+  const { isClient, isAuthenticated, loading: authLoading } = useAuth();
   const { favList: fav, loading, pagination } = useSelector((state) => state.fav);
 
   // Filter states
@@ -138,12 +140,18 @@ const FavList = () => {
   }) || [];
 
   const refreshData = () => {
-    dispatch(fetchMyFav({ page: 1, limit: 1000 }));
+    if (!isModuleActive) return;
+    if (isClient) {
+      dispatch(fetchMyFav({ page: 1, limit: 1000 }));
+    } else {
+      dispatch(fetchFav({ page: 1, limit: 1000 }));
+    }
   };
 
   useEffect(() => {
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
-  }, [dispatch]);
+  }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
