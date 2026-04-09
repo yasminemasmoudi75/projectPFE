@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
 import {
   PlusIcon,
   EyeIcon,
@@ -19,18 +20,18 @@ import {
   CurrencyDollarIcon,
   CheckCircleIcon,
   ArrowDownTrayIcon,
-  PrinterIcon
+  PrinterIcon,
+  UserIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
-import { fetchMyDevis, fetchDevis } from './devisSlice';
+import { fetchDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
-import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
-
-const normalizeText = (value) => String(value || '').trim().toLowerCase();
+import axios from '../../app/axios';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -64,8 +65,8 @@ const DevisList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { canCreate, canEdit } = usePermission(MODULE_CODES.DEVIS);
-  const { user, isAdmin, isClient, isCommercial, isAuthenticated, loading: authLoading } = useAuth();
   const { devis, loading, pagination } = useSelector((state) => state.devis);
+  const { currentUser } = useAuth();
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -75,9 +76,38 @@ const DevisList = () => {
     maxAmount: '',
     minProbability: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    commercial: '', // New: filter by commercial
+    client: '' // New: filter by client
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [commercials, setCommercials] = useState([]);
+  const [allClients, setAllClients] = useState([]);
+  const [loadingCommercials, setLoadingCommercials] = useState(false);
+
+  // Memoize filtered commercials based on clients available to Agent
+  const filteredCommercials = useMemo(() => {
+    if (currentUser?.UserRole === 'Agent' && allClients.length > 0) {
+      // Get unique commercial IDs from clients
+      const commercialIdsInRegion = new Set();
+      allClients.forEach(client => {
+        if (client.codRepresTiers) {
+          commercialIdsInRegion.add(client.codRepresTiers);
+        }
+      });
+      
+      // Filter commercials that have clients in this region
+      return commercials.filter(com => commercialIdsInRegion.has(com.UserID));
+    }
+    return commercials;
+  }, [commercials, currentUser?.UserRole, allClients]);
+
+  // Memoize filtered clients to avoid infinite loops
+  const filteredClientsForDropdown = useMemo(() => {
+    return filters.commercial
+      ? allClients.filter(client => client.codRepresTiers == filters.commercial)
+      : allClients;
+  }, [filters.commercial, allClients]);
 
   // Filter handler
   const handleFilterChange = (key, value) => {
@@ -85,6 +115,34 @@ const DevisList = () => {
       ...prev,
       [key]: value
     }));
+  };
+
+  // Fetch commercials
+  const fetchCommercials = async () => {
+    try {
+      setLoadingCommercials(true);
+      const response = await axios.get('/users');
+      const data = response.data;
+      const commercialsList = (Array.isArray(data) ? data : data.data || [])
+        .filter(user => user.UserRole === 'Commerciale' || user.UserRole === 'Commercial');
+      setCommercials(commercialsList);
+    } catch (error) {
+      console.error('Error fetching commercials:', error);
+    } finally {
+      setLoadingCommercials(false);
+    }
+  };
+
+  // Fetch clients
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get('/tiers');
+      const data = response.data;
+      const clientsData = Array.isArray(data) ? data : data.data || [];
+      setAllClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
   };
 
   // Reset filters
@@ -96,39 +154,17 @@ const DevisList = () => {
       maxAmount: '',
       minProbability: '',
       dateFrom: '',
-      dateTo: ''
+      dateTo: '',
+      commercial: '',
+      client: ''
     });
   };
 
   // Count active filters
   const activeFiltersCount = Object.values(filters).filter(v => v !== 'all' && v !== '').length;
 
-  const currentUserTokens = [
-    normalizeText(user?.EmailPro),
-    normalizeText(user?.LoginName),
-    normalizeText(user?.FullName),
-  ].filter(Boolean);
-
   // Apply filters to devis list
   const filteredDevis = devis?.filter(item => {
-    if (isClient) {
-      const itemTokens = [
-        normalizeText(item.CUser),
-        normalizeText(item.CodRepres),
-        normalizeText(item.LibTiers),
-        normalizeText(item.tiers?.Raisoc),
-        normalizeText(item.tiers?.Email),
-      ];
-
-      const linkedToCurrentClient = currentUserTokens.some((token) =>
-        itemTokens.some((candidate) => candidate && candidate === token)
-      );
-
-      if (!linkedToCurrentClient) {
-        return false;
-      }
-    }
-
     // Search filter
     if (filters.search && !(`${item.Prfx}${item.Nf}`.toLowerCase().includes(filters.search.toLowerCase()) ||
       item.LibTiers?.toLowerCase().includes(filters.search.toLowerCase()))) {
@@ -164,26 +200,22 @@ const DevisList = () => {
       if (itemDate > filterDate) return false;
     }
 
+    // Commercial filter - match by CodRepres (commercial representative code)
+    if (filters.commercial) {
+      if (item.CodRepres !== filters.commercial) return false;
+    }
+
+    // Client filter - match by CodTiers
+    if (filters.client) {
+      if (item.CodTiers !== filters.client) return false;
+    }
+
     return true;
   }) || [];
 
   const refreshData = () => {
-    // Admin: fetch all devis
-    // Commercial: fetch their own devis (backend filters by CodRepres)
-    // Client: fetch their own quotations
-    if (isClient) {
-      dispatch(fetchMyDevis({ page: 1, limit: 1000 }));
-    } else {
-      dispatch(fetchDevis({ page: 1, limit: 1000 }));
-    }
+    dispatch(fetchDevis({ page: 1, limit: 1000 }));
   };
-
-  // Initial fetch based on role
-  useEffect(() => {
-    if (authLoading) return;
-    if (isAuthenticated && !user) return;
-    refreshData();
-  }, [isClient, isAuthenticated, authLoading, user]);
 
   // Export functions
   const exportToCSV = () => {
@@ -267,6 +299,12 @@ const DevisList = () => {
     printWindow.print();
   };
 
+  useEffect(() => {
+    refreshData();
+    fetchCommercials();
+    fetchClients();
+  }, [dispatch, currentUser?.UserRole]);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -320,9 +358,7 @@ const DevisList = () => {
             <ArrowPathIcon className="h-5 w-5" />
           </motion.button>
           
-          {/* Export Buttons - hidden for clients */}
-          {!isClient && (
-            <>
+          {/* Export Buttons */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -344,10 +380,8 @@ const DevisList = () => {
             <PrinterIcon className="h-5 w-5" />
             <span className="hidden sm:inline">PDF</span>
           </motion.button>
-            </>
-          )}
           
-          {canCreate && !isClient && (
+          {canCreate && (
             <motion.button
               whileHover={{ scale: 1.03, boxShadow: "0px 10px 20px rgba(59, 130, 246, 0.3)" }}
               whileTap={{ scale: 0.97 }}
@@ -361,8 +395,7 @@ const DevisList = () => {
         </div>
       </motion.div>
 
-      {/* Quick Stats Overlay - hidden for clients */}
-      {!isClient && (
+      {/* Quick Stats Overlay */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div whileHover={{ y: -5 }} className="card-luxury p-0 overflow-hidden relative group">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -401,7 +434,6 @@ const DevisList = () => {
           <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-teal-500"></div>
         </motion.div>
       </motion.div>
-      )}
 
       {/* Filters Card */}
       <motion.div variants={itemVariants} className="card-luxury p-0 overflow-hidden bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-xl shadow-slate-200/40 rounded-3xl">
@@ -532,6 +564,44 @@ const DevisList = () => {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                     />
                   </div>
+                  {/* Commercial Filter */}
+                  <div className="group">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                      <UserIcon className="h-3.5 w-3.5" />
+                      Commerciale
+                    </label>
+                    <select
+                      value={filters.commercial} 
+                      onChange={(e) => handleFilterChange('commercial', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                    >
+                      <option value="">-- Tous les commerciales --</option>
+                      {filteredCommercials.map(com => (
+                        <option key={com.UserID} value={com.UserID}>
+                          {com.FullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Client Filter */}
+                  <div className="group">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                      <BuildingOfficeIcon className="h-3.5 w-3.5" />
+                      Client
+                    </label>
+                    <select
+                      value={filters.client} 
+                      onChange={(e) => handleFilterChange('client', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                    >
+                      <option value="">-- Tous les clients --</option>
+                      {filteredClientsForDropdown.map(client => (
+                        <option key={client.CodTiers} value={client.CodTiers}>
+                          {client.Raisoc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Filter Actions */}
@@ -604,7 +674,7 @@ const DevisList = () => {
                               : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
                           </p>
                         </div>
-                        {(!devis || devis.length === 0) && canCreate && !isClient && (
+                        {(!devis || devis.length === 0) && canCreate && (
                           <button onClick={() => navigate('/devis/new')} className="mt-2 text-sm text-blue-600 font-bold hover:text-blue-700">
                             + Créer un devis
                           </button>
@@ -695,7 +765,7 @@ const DevisList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canEdit && !isClient && (
+                          {canEdit && (
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/devis/edit/${item.Guid}`); }}
                               className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
