@@ -11,7 +11,7 @@ import { USER_ROLES } from '../../utils/constants';
 const ClaimInterventionForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, isTechnicien } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

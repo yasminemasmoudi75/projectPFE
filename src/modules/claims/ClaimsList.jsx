@@ -53,7 +53,7 @@ const STATUS = {
 
 const ClaimsList = () => {
     const navigate = useNavigate();
-    const { user, isClient } = useAuth();
+    const { user, isClient, isTechnicien, isAdmin } = useAuth();
     const [loading, setLoading] = useState(true);
     const [claims, setClaims] = useState([]);
     const [techniciens, setTechniciens] = useState([]);
@@ -83,6 +83,11 @@ const ClaimsList = () => {
                 assignedToId: rec.TechnicienID || null
             }));
             
+            // Filtrer pour les techniciens: seulement leurs réclamations assignées
+            if (isTechnicien) {
+                mapped = mapped.filter(claim => String(claim.assignedToId) === String(user?.UserID));
+            }
+            
             setClaims(mapped);
         } catch (error) {
             console.error('Error fetching reclamations:', error);
@@ -90,7 +95,7 @@ const ClaimsList = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [isTechnicien, user?.UserID]);
 
     const fetchTechniciens = useCallback(async () => {
         try {
@@ -159,13 +164,14 @@ const ClaimsList = () => {
     };
 
     useEffect(() => {
-        // Clients et Admins peuvent voir les réclamations
-        // Clients voient uniquement les leurs, Admins voient toutes
+        // Clients voient uniquement les leurs
+        // Techniciens voient leurs réclamations assignées
+        // Admins voient toutes les réclamations
         fetchClaims();
-        if (!isClient) {
+        if (isAdmin) {
             fetchTechniciens();
         }
-    }, [fetchClaims, fetchTechniciens, isClient]);
+    }, [fetchClaims, fetchTechniciens, isAdmin]);
 
     const filteredClaims = useMemo(() => {
         const normalize = (value) => String(value || '').toLowerCase().trim();
@@ -238,9 +244,15 @@ const ClaimsList = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                         >
-                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-3 tracking-tight">Gestion des Réclamations</h1>
+                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-3 tracking-tight">
+                                {isAdmin ? 'Gestion des Réclamations' : isTechnicien ? 'Mes Réclamations' : 'Mes Tickets'}
+                            </h1>
                             <p className="text-lg text-slate-600 max-w-2xl leading-relaxed font-medium">
-                                Suivez et gérez l'ensemble de vos tickets avec efficacité et professionnalisme.
+                                {isAdmin 
+                                    ? 'Suivez et gérez l\'ensemble de vos tickets avec efficacité et professionnalisme.'
+                                    : isTechnicien 
+                                    ? 'Gérez vos interventions assignées et ajoutez des actions à vos réclamations.'
+                                    : 'Suivez les statuts de vos demandes de support.'}
                             </p>
                         </motion.div>
                         <motion.div 
@@ -249,15 +261,17 @@ const ClaimsList = () => {
                             transition={{ delay: 0.4 }}
                             className="flex flex-wrap gap-3 pt-4"
                         >
-                            <motion.button
-                                whileHover={{ scale: 1.05, y: -3 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => navigate('/claims/new')}
-                                className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-400/30 group/btn"
-                            >
-                                <PlusIcon className="h-5 w-5 inline mr-2 group-hover/btn:rotate-90 transition-transform" />
-                                Créer un ticket
-                            </motion.button>
+                            {(isAdmin || isClient) && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05, y: -3 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => navigate('/claims/new')}
+                                    className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-400/30 group/btn"
+                                >
+                                    <PlusIcon className="h-5 w-5 inline mr-2 group-hover/btn:rotate-90 transition-transform" />
+                                    {isAdmin ? 'Créer un ticket' : 'Signaler un problème'}
+                                </motion.button>
+                            )}
                             <motion.button
                                 whileHover={{ scale: 1.05, y: -3 }}
                                 whileTap={{ scale: 0.95 }}
@@ -360,16 +374,18 @@ const ClaimsList = () => {
                                         <option value="Normale">Normale</option>
                                         <option value="Basse">Basse</option>
                                     </select>
-                                    <select
-                                        value={technicianFilter}
-                                        onChange={(e) => setTechnicianFilter(e.target.value)}
-                                        className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                    >
-                                        <option value="all">Tous les techniciens</option>
-                                        {techniciens.map((tech) => (
-                                            <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                        ))}
-                                    </select>
+                                    {isAdmin && (
+                                        <select
+                                            value={technicianFilter}
+                                            onChange={(e) => setTechnicianFilter(e.target.value)}
+                                            className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                        >
+                                            <option value="all">Tous les techniciens</option>
+                                            {techniciens.map((tech) => (
+                                                <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                     <select
                                         value={sortMode}
                                         onChange={(e) => setSortMode(e.target.value)}
@@ -468,7 +484,7 @@ const ClaimsList = () => {
                                                     {claim.priority}
                                                 </span>
                                             </td>
-                                            {!isClient && (
+                                            {isAdmin && (
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                                         <div className="h-8 w-8 bg-slate-100/80 border border-slate-300/60 rounded-lg flex items-center justify-center group-hover/row:border-blue-400/40 transition-all">
