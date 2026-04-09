@@ -228,7 +228,7 @@ const UsersList = () => {
             <tbody className="divide-y divide-slate-100/50">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-8 py-20 text-center">
+                  <td colSpan={4} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                         <UsersIcon className="h-8 w-8" />
