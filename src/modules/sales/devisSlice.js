@@ -28,17 +28,6 @@ export const fetchDevis = createAsyncThunk(
   }
 );
 
-// Fetch user's own quotations (client sees only their data)
-export const fetchMyDevis = createAsyncThunk(
-  'devis/fetchMyDevis',
-  async ({ page = 1, limit = 100 }) => {
-    const response = await axios.get('/devis/my-quotations', {
-      params: { page, limit }
-    });
-    return response;
-  }
-);
-
 export const fetchDevisById = createAsyncThunk('devis/fetchDevisById', async (id) => {
   const response = await axios.get(`/devis/${id}`);
   // response est { status: 'success', data: { ... } }
@@ -95,20 +84,6 @@ const devisSlice = createSlice({
         state.pagination = action.payload?.pagination || initialState.pagination;
       })
       .addCase(fetchDevis.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
-      })
-
-      // Fetch My Devis (user's own quotations)
-      .addCase(fetchMyDevis.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchMyDevis.fulfilled, (state, action) => {
-        state.loading = false;
-        state.devis = action.payload?.data || [];
-        state.pagination = action.payload?.pagination || initialState.pagination;
-      })
-      .addCase(fetchMyDevis.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
