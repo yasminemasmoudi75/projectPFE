@@ -2,7 +2,8 @@ const Reclamation = require('../models/Reclamation');
 const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
 const { User, Tiers, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, TableHints } = require('sequelize');
+
 const { resolveUserAccess } = require('../utils/userAccess');
 
 const MAX_LENGTHS = {
@@ -14,42 +15,6 @@ const MAX_LENGTHS = {
     Statut: 50,
     NomTechnicien: 255,
     CUser: 100,
-};
-
-const buildClientFilter = async (user = {}) => {
-    const userEmail = (user?.EmailPro || '').toLowerCase().trim();
-    const userLogin = (user?.LoginName || '').toLowerCase().trim();
-    const directCodTiers = user?.CodTiers || user?.codTiers || null;
-    
-    const orConditions = [];
-
-    if (directCodTiers) {
-      orConditions.push({ CodTiers: directCodTiers });
-    }
-    
-    if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userEmail));
-    if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userLogin));
-    
-    if (userEmail) {
-      try {
-        const tiers = await Tiers.findOne({
-          where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), userEmail),
-          attributes: ['CodTiers'],
-        });
-        
-        if (tiers?.CodTiers) {
-          orConditions.push({ CodTiers: tiers.CodTiers });
-        }
-      } catch (err) {
-        console.error('Error finding Tiers for client filter:', err.message);
-      }
-    }
-    
-    if (orConditions.length === 0) {
-      return { NumTicket: '__NO_MATCH__' }; // NumTicket instead of Guid
-    }
-    
-    return { [Op.or]: orConditions };
 };
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
@@ -161,48 +126,27 @@ const generateNumTicket = async () => {
 // ─── GET ALL ───────────────────────────────────────────────────────────────────
 exports.getAll = async (req, res, next) => {
     try {
-        const { search = '', statut = '', priorite = '', page = 1, limit = 100 } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
-        let where = {};
-
-        // Check if user is a CLIENT - apply filtering
-        const userId = req.user?.id || req.user?.UserID;
-        const access = await resolveUserAccess(userId, req.user?.UserRole);
-        const isClient = access?.normalizedRole === 'client';
-
-        if (isClient) {
-            console.log('🔐 CLIENT filtering enabled for user:', req.user?.LoginName);
-            const clientFilter = await buildClientFilter(req.user);
-            where = { ...where, ...clientFilter };
-            console.log('   Filter applied:', JSON.stringify(clientFilter));
-        }
-
-        if (search.trim()) {
-            where[Op.or] = [
-                { LibTiers: { [Op.like]: `%${search}%` } },
-                { Objet: { [Op.like]: `%${search}%` } },
-                { NumTicket: { [Op.like]: `%${search}%` } },
-            ];
-        }
-        if (statut) where.Statut = statut;
-        if (priorite) where.Priorite = priorite;
-
-        console.log('📊 Query WHERE clause:', JSON.stringify(where));
+        const filterHelper = require('../utils/filterHelper');
+        
+        // Module 47 = Support/Reclamations (Table-driven filters from TabRoleFilterVisibility)
+        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
+            '47',
+            req.query,
+            req.user
+        );
 
         const { count, rows } = await Reclamation.findAndCountAll({
             where,
             order: [['DateOuverture', 'DESC']],
-            limit: parseInt(limit),
+            limit,
             offset,
+            tableHint: TableHints.NOLOCK
         });
 
-        console.log('✅ Found', rows.length, 'reclamations (out of', count, 'total)');
 
-        res.json({
-            status: 'success',
-            data: rows,
-            pagination: { total: count, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(count / parseInt(limit)) },
-        });
+        res.json(
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+        );
     } catch (err) {
         console.error('❌ getAll reclamations:', err);
         next(err);
@@ -661,7 +605,11 @@ exports.getMyMyClaims = async (req, res, next) => {
         const { page = 1, limit = 50 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        const where = await buildClientFilter(req.user);
+        // Filtrer STRICTEMENT par l'email ou login de l'utilisateur connecté
+        // CUser = email ou login de la personne qui a créé la réclamation
+        const where = {
+            [Op.or]: identities.map((identity) => ({ CUser: identity }))
+        };
 
         const { count, rows } = await Reclamation.findAndCountAll({
             where,
