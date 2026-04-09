@@ -16,6 +16,42 @@ const MAX_LENGTHS = {
     CUser: 100,
 };
 
+const buildClientFilter = async (user = {}) => {
+    const userEmail = (user?.EmailPro || '').toLowerCase().trim();
+    const userLogin = (user?.LoginName || '').toLowerCase().trim();
+    const directCodTiers = user?.CodTiers || user?.codTiers || null;
+    
+    const orConditions = [];
+
+    if (directCodTiers) {
+      orConditions.push({ CodTiers: directCodTiers });
+    }
+    
+    if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userEmail));
+    if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userLogin));
+    
+    if (userEmail) {
+      try {
+        const tiers = await Tiers.findOne({
+          where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), userEmail),
+          attributes: ['CodTiers'],
+        });
+        
+        if (tiers?.CodTiers) {
+          orConditions.push({ CodTiers: tiers.CodTiers });
+        }
+      } catch (err) {
+        console.error('Error finding Tiers for client filter:', err.message);
+      }
+    }
+    
+    if (orConditions.length === 0) {
+      return { NumTicket: '__NO_MATCH__' }; // NumTicket instead of Guid
+    }
+    
+    return { [Op.or]: orConditions };
+};
+
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
 
 const truncateString = (value, maxLength) => {
@@ -127,7 +163,19 @@ exports.getAll = async (req, res, next) => {
     try {
         const { search = '', statut = '', priorite = '', page = 1, limit = 100 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
-        const where = {};
+        let where = {};
+
+        // Check if user is a CLIENT - apply filtering
+        const userId = req.user?.id || req.user?.UserID;
+        const access = await resolveUserAccess(userId, req.user?.UserRole);
+        const isClient = access?.normalizedRole === 'client';
+
+        if (isClient) {
+            console.log('🔐 CLIENT filtering enabled for user:', req.user?.LoginName);
+            const clientFilter = await buildClientFilter(req.user);
+            where = { ...where, ...clientFilter };
+            console.log('   Filter applied:', JSON.stringify(clientFilter));
+        }
 
         if (search.trim()) {
             where[Op.or] = [
@@ -139,12 +187,16 @@ exports.getAll = async (req, res, next) => {
         if (statut) where.Statut = statut;
         if (priorite) where.Priorite = priorite;
 
+        console.log('📊 Query WHERE clause:', JSON.stringify(where));
+
         const { count, rows } = await Reclamation.findAndCountAll({
             where,
             order: [['DateOuverture', 'DESC']],
             limit: parseInt(limit),
             offset,
         });
+
+        console.log('✅ Found', rows.length, 'reclamations (out of', count, 'total)');
 
         res.json({
             status: 'success',
@@ -609,11 +661,7 @@ exports.getMyMyClaims = async (req, res, next) => {
         const { page = 1, limit = 50 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        // Filtrer STRICTEMENT par l'email ou login de l'utilisateur connecté
-        // CUser = email ou login de la personne qui a créé la réclamation
-        const where = {
-            [Op.or]: identities.map((identity) => ({ CUser: identity }))
-        };
+        const where = await buildClientFilter(req.user);
 
         const { count, rows } = await Reclamation.findAndCountAll({
             where,

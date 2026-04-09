@@ -5,7 +5,7 @@ const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, Tier
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
-const { attachAccessToUser, upsertUserAccess } = require('../utils/userAccess');
+const { attachAccessToUser, upsertUserAccess, normalizeRole } = require('../utils/userAccess');
 
 const DEFAULT_TIERS_NIVEAU = 0;
 const MAX_COD_TIERS_LENGTH = 20;
@@ -39,9 +39,9 @@ const normalizeNullableBool = (value) => {
     return null;
 };
 
-const isCommercialRole = (role) => {
-    const normalized = String(role || '').trim().toLowerCase();
-    return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+    const normalized = normalizeRole(role);
+    return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -466,7 +466,7 @@ exports.getAllTiers = async (req, res, next) => {
             ? [['SaveDate', 'DESC'], ['Raisoc', 'ASC']]
             : [['Raisoc', 'ASC']];
 
-        const where = isCommercialRole(req.user?.UserRole)
+        const where = isStaffRole(req.user?.UserRole)
             ? buildCommercialTiersWhere(req.user)
             : undefined;
 
@@ -505,7 +505,7 @@ exports.getTiersById = async (req, res, next) => {
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
 
-        if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(tiers, req.user)) {
+        if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(tiers, req.user)) {
             return res.status(403).json({
                 status: 'error',
                 message: 'Accès refusé à ce client'

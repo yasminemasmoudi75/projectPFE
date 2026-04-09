@@ -1,6 +1,7 @@
 const { QueryTypes, Op } = require('sequelize');
 const { Activite, User, Tiers, Projet, sequelize } = require('../models');
 const { sanitizeDate } = require('../utils/helpers');
+const { normalizeRole } = require('../utils/userAccess');
 
 const ACTIVITE_INCLUDE = [
   {
@@ -24,9 +25,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 const normalizeReference = (value) => (typeof value === 'string' ? value.trim() : value);
 
-const isCommercialRole = (role) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+  const normalized = normalizeRole(role);
+  return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const buildCommercialActivityScope = async (user = {}) => {
@@ -354,7 +355,7 @@ exports.getAllActivites = async (req, res, next) => {
       where.Valide = ['1', 'true', 'yes'].includes(String(valide).toLowerCase()) ? 1 : 0;
     }
 
-    const finalWhere = isCommercialRole(req.user?.UserRole)
+    const finalWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [where, await buildCommercialActivityScope(req.user)] }
       : where;
 
@@ -381,7 +382,7 @@ exports.getAllActivites = async (req, res, next) => {
  */
 exports.getActiviteById = async (req, res, next) => {
   try {
-    const lookupWhere = isCommercialRole(req.user?.UserRole)
+    const lookupWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
       : { Guid: req.params.id };
 
@@ -407,7 +408,7 @@ exports.getActiviteById = async (req, res, next) => {
  */
 exports.updateActivite = async (req, res, next) => {
   try {
-    const where = isCommercialRole(req.user?.UserRole)
+    const where = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
       : { Guid: req.params.id };
 
@@ -496,7 +497,7 @@ exports.updateActivite = async (req, res, next) => {
 
 exports.validateActivite = async (req, res, next) => {
   try {
-    const where = isCommercialRole(req.user?.UserRole)
+    const where = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
       : { Guid: req.params.id };
 
@@ -525,7 +526,7 @@ exports.validateActivite = async (req, res, next) => {
  */
 exports.deleteActivite = async (req, res, next) => {
   try {
-    const where = isCommercialRole(req.user?.UserRole)
+    const where = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: req.params.id }, await buildCommercialActivityScope(req.user)] }
       : { Guid: req.params.id };
 

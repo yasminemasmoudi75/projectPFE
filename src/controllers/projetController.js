@@ -2,14 +2,15 @@ const { Projet, Tiers } = require('../models');
 const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
+const { normalizeRole } = require('../utils/userAccess');
 
 console.log('✅ projetController.js loaded');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const isCommercialRole = (role) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+  const normalized = normalizeRole(role);
+  return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -45,7 +46,7 @@ const buildProjectIncludeForUser = (user = {}, requiredForCommercial = false) =>
     attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers']
   };
 
-  if (!isCommercialRole(user?.UserRole)) {
+  if (!isStaffRole(user?.UserRole)) {
     return baseInclude;
   }
 
@@ -171,7 +172,7 @@ exports.createProjet = async (req, res, next) => {
       });
     }
 
-    if (isCommercialRole(req.user?.UserRole) && tier && !isTierRelatedToCommercial(tier, req.user)) {
+    if (isStaffRole(req.user?.UserRole) && tier && !isTierRelatedToCommercial(tier, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé: ce client ne vous est pas attribué'
@@ -230,7 +231,7 @@ exports.getProjets = async (req, res, next) => {
     console.log(`🔍 Fetching projets: page=${page}, limit=${limit}, offset=${offset}`);
 
     const { count, rows } = await Projet.findAndCountAll({
-      include: [buildProjectIncludeForUser(req.user, isCommercialRole(req.user?.UserRole))],
+      include: [buildProjectIncludeForUser(req.user, isStaffRole(req.user?.UserRole))],
       order: [['Date_Creation', 'DESC'], ['ID_Projet', 'DESC']],
       limit: limit,
       offset: offset,
@@ -289,7 +290,7 @@ exports.getProjetById = async (req, res, next) => {
       });
     }
 
-    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé à ce projet'
@@ -334,7 +335,7 @@ exports.updateProjet = async (req, res, next) => {
       });
     }
 
-    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé à ce projet'
@@ -382,7 +383,7 @@ exports.updateProjet = async (req, res, next) => {
       });
     }
 
-    if (isCommercialRole(req.user?.UserRole) && IDTiers !== undefined && tier && !isTierRelatedToCommercial(tier, req.user)) {
+    if (isStaffRole(req.user?.UserRole) && IDTiers !== undefined && tier && !isTierRelatedToCommercial(tier, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé: ce client ne vous est pas attribué'
@@ -456,7 +457,7 @@ exports.deleteProjet = async (req, res, next) => {
       });
     }
 
-    if (isCommercialRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
+    if (isStaffRole(req.user?.UserRole) && !isTierRelatedToCommercial(projet.client, req.user)) {
       return res.status(403).json({
         status: 'error',
         message: 'Accès refusé à ce projet'

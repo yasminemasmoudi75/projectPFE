@@ -24,6 +24,7 @@ const favRoutes = require('./favRoutes');
 const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs - Mouvements
 const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
 const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour tester la table TabRoleFilterVisibility
+const reglementsRoutes = require('./reglements.routes'); // ✅ Routes pour les réglement (paiements)
 const iaRoutes = require('./ia.routes');
 
 // Utiliser les routes
@@ -48,6 +49,7 @@ router.use('/blv', blvRoutes);
 router.use('/fav', favRoutes);
 router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformations
 router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
+router.use('/reglements', reglementsRoutes); // ✅ Réglement (paiements client/admin)
 router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterVisibility
 router.use('/ia', iaRoutes);
 

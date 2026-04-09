@@ -1,6 +1,6 @@
 const { verifyToken } = require('../utils/jwtUtils');
-const { User } = require('../models');
-const { resolveUserAccess } = require('../utils/userAccess');
+const { User, Tiers, sequelize } = require('../models');
+const { resolveUserAccess, normalizeRole } = require('../utils/userAccess');
 
 /**
  * Middleware pour protéger les routes (vérification du JWT)
@@ -52,6 +52,42 @@ exports.protect = async (req, res, next) => {
 
         const access = await resolveUserAccess(currentUser.UserID, currentUser.UserRole);
         currentUser.setDataValue('UserRole', access.role);
+
+        // If the user is a Client, look up their linked Tiers record and attach CodTiers
+        const normalizedRole = normalizeRole(access.role);
+        if (normalizedRole === 'client') {
+            try {
+                const userEmail = (currentUser.EmailPro || '').toLowerCase().trim();
+                let tiers = null;
+
+                // Try to find Tiers by email match
+                if (userEmail) {
+                    tiers = await Tiers.findOne({
+                        where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), userEmail),
+                        attributes: ['CodTiers'],
+                    });
+                }
+
+                // Also try matching TabTiers.CUser via a raw query as fallback
+                if (!tiers && userEmail) {
+                    const { QueryTypes } = require('sequelize');
+                    const rows = await sequelize.query(
+                        `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(Email) = :email`,
+                        { replacements: { email: userEmail }, type: QueryTypes.SELECT }
+                    );
+                    if (rows[0]?.CodTiers) {
+                        currentUser.setDataValue('CodTiers', rows[0].CodTiers);
+                    }
+                }
+
+                if (tiers?.CodTiers) {
+                    currentUser.setDataValue('CodTiers', tiers.CodTiers);
+                }
+                console.log(`🔑 Client ${userEmail} -> CodTiers: ${currentUser.getDataValue('CodTiers') || 'NOT FOUND'}`);
+            } catch (tierErr) {
+                console.error('⚠️ Failed to resolve CodTiers for client:', tierErr.message);
+            }
+        }
 
         // 4. Vérifier si l'utilisateur est toujours actif
         if (!access.isActive || !currentUser.IsActive || !currentUser.Enabled) {

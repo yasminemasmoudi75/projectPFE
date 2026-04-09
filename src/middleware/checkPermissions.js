@@ -156,7 +156,7 @@ const MODULES = {
   LIVRAISONS: 6,         // Module Livraison
   FACTURES: 7,           // Module Facture
   CLIENTS: 30,           // Module Client
-  REGLEMENT: 31,         // Module Reglement
+  REGLEMENT: 51,         // Module Reglement (nouveau code dédié)
   MENU: 32,              // Menu
   TOURNEE: 40,           // Module Tournée
   CHARGEMENT: 41,        // Module Chargement

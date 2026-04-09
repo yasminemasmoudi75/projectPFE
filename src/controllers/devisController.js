@@ -3,10 +3,11 @@ const { Op } = require('sequelize');
 const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { normalizeRole } = require('../utils/userAccess');
 
-const isCommercialRole = (role) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+  const normalized = normalizeRole(role);
+  return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const isClientRole = (role) => {
@@ -118,7 +119,7 @@ exports.getAllDevis = async (req, res, next) => {
     const filters = [];
 
     // Exclude converted devis (bTransf = true)
-    filters.push({ bTransf: { [Op.ne]: true } });
+    filters.push({ [Op.or]: [{ bTransf: false }, { bTransf: null }] });
 
     if (search) {
       filters.push({
@@ -134,7 +135,7 @@ exports.getAllDevis = async (req, res, next) => {
       if (status === 'pending') filters.push({ Valid: false });
     }
 
-    if (isCommercialRole(req.user?.UserRole)) {
+    if (isStaffRole(req.user?.UserRole)) {
       filters.push(buildCommercialCodRepresFilter(req.user));
     }
 
@@ -183,7 +184,7 @@ exports.getDevisById = async (req, res, next) => {
     // Build role-based filter
     let where = { Guid: id };
     
-    if (isCommercialRole(req.user?.UserRole)) {
+    if (isStaffRole(req.user?.UserRole)) {
       where = { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] };
     } else if (isClientRole(req.user?.UserRole)) {
       where = { [Op.and]: [{ Guid: id }, await buildClientFilter(req.user)] };
@@ -318,7 +319,7 @@ exports.createDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
-    if (isCommercialRole(req.user?.UserRole)) {
+    if (isStaffRole(req.user?.UserRole)) {
       const codRepres = resolveCommercialCodRepresValue(req.user);
       if (!codRepres) {
         if (transaction && !transaction.finished) await transaction.rollback();
@@ -432,7 +433,7 @@ exports.updateDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
-    const devisWhere = isCommercialRole(req.user?.UserRole)
+    const devisWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
       : { Guid: id };
 
@@ -447,7 +448,7 @@ exports.updateDevis = async (req, res, next) => {
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
 
-    if (isCommercialRole(req.user?.UserRole)) {
+    if (isStaffRole(req.user?.UserRole)) {
       const codRepres = resolveCommercialCodRepresValue(req.user);
       if (!codRepres) {
         if (transaction && !transaction.finished) await transaction.rollback();
@@ -517,7 +518,7 @@ exports.deleteDevis = async (req, res, next) => {
   try {
     transaction = await sequelize.transaction();
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
+    const devisWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
       : { Guid: id };
     const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
@@ -552,7 +553,7 @@ exports.deleteDevis = async (req, res, next) => {
 exports.validateDevis = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
+    const devisWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
       : { Guid: id };
     const devis = await DevisMaster.findOne({ where: devisWhere });
@@ -583,7 +584,7 @@ exports.convertDevis = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
+    const devisWhere = isStaffRole(req.user?.UserRole)
       ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
       : { Guid: id };
     const devis = await DevisMaster.findOne({

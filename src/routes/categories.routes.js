@@ -2,19 +2,26 @@ const express = require('express');
 const router = express.Router();
 const categoryController = require('../controllers/categoryController');
 const { protect } = require('../middleware/auth');
+const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
-// Categories
-// Collections (as sub-route or separate logic, let's keep it here for now as they are related)
-router.get('/collections/all', categoryController.getAllCollections);
-router.post('/collections', categoryController.createCollection);
+// ✅ CORRECTION: Collections avec vérification de permissions
+router.get('/collections/all', checkPermission(MODULES.CATEGORIES, 'read'), categoryController.getAllCollections);
+router.post('/collections', checkPermission(MODULES.CATEGORIES, 'create'), categoryController.createCollection);
 
-// Categories
-router.get('/', categoryController.getAllCategories);
-router.get('/:id', categoryController.getCategoryById);
-router.post('/', categoryController.createCategory);
-router.put('/:id', categoryController.updateCategory);
-router.delete('/:id', categoryController.deleteCategory);
+// ✅ CORRECTION: Categories avec vérification complète des permissions
+// READ operations (no permission check needed, but route is protected by auth)
+router.get('/', checkPermission(MODULES.CATEGORIES, 'read'), categoryController.getAllCategories);
+router.get('/:id', checkPermission(MODULES.CATEGORIES, 'read'), categoryController.getCategoryById);
+
+// CREATE operation (need canAdd permission from TabAWProfileAccess)
+router.post('/', checkPermission(MODULES.CATEGORIES, 'create'), categoryController.createCategory);
+
+// UPDATE operation (need canEdit permission from TabAWProfileAccess)
+router.put('/:id', checkPermission(MODULES.CATEGORIES, 'update'), categoryController.updateCategory);
+
+// DELETE operation (need canDelt permission from TabAWProfileAccess)
+router.delete('/:id', checkPermission(MODULES.CATEGORIES, 'delete'), categoryController.deleteCategory);
 
 module.exports = router;

@@ -30,6 +30,9 @@ const BlvDetail = require('./BlvDetail');
 const FavMaster = require('./FavMaster');
 const FavDetail = require('./FavDetail');
 const Mouvement = require('./Mouvement'); // ✅ Tableau MvtDocs - Mouvements/transformations
+const TabReg = require('./TabReg');
+const TabRegD = require('./TabRegD');
+const TabRegF = require('./TabRegF');
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -314,6 +317,42 @@ TabStockD.belongsTo(Product, {
   as: 'product'
 });
 
+// TabReg - TabRegD (1:N) - Réglement Master - Detail
+TabReg.hasMany(TabRegD, {
+  foreignKey: 'IDReg',
+  sourceKey: 'IDReg',
+  as: 'details'
+});
+TabRegD.belongsTo(TabReg, {
+  foreignKey: 'IDReg',
+  targetKey: 'IDReg',
+  as: 'master'
+});
+
+// TabReg - TabRegF (1:N) - Réglement Master - Pièces
+TabReg.hasMany(TabRegF, {
+  foreignKey: 'IDReg',
+  sourceKey: 'IDReg',
+  as: 'pieces'
+});
+TabRegF.belongsTo(TabReg, {
+  foreignKey: 'IDReg',
+  targetKey: 'IDReg',
+  as: 'master'
+});
+
+// TabReg - Tiers (N:1)
+TabReg.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers',
+  as: 'client'
+});
+Tiers.hasMany(TabReg, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'reglements'
+});
+
 console.log('✅ Associations setup complete.');
 
 // Export des modèles et de la connexion
@@ -347,5 +386,8 @@ module.exports = {
   BlvDetail,
   FavMaster,
   FavDetail,
-  Mouvement  // ✅ Table MvtDocs - Mouvements/transformations de documents
+  Mouvement,  // ✅ Table MvtDocs - Mouvements/transformations de documents
+  TabReg,
+  TabRegD,
+  TabRegF
 };

@@ -1,5 +1,6 @@
 const { Objectif, User } = require('../models');
 const { Op } = require('sequelize');
+const { normalizeRole } = require('../utils/userAccess');
 
 const normalizeInteger = (value) => {
     if (value === undefined || value === null || value === '') return null;
@@ -48,9 +49,9 @@ const hydrateObjectif = async (id) => Objectif.findByPk(id, {
     include: objectifInclude
 });
 
-const isCommercialRole = (role) => {
-    const normalized = String(role || '').trim().toLowerCase();
-    return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+    const normalized = normalizeRole(role);
+    return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const buildCommercialObjectifScope = (user = {}) => {
@@ -99,7 +100,7 @@ exports.createObjectif = async (req, res, next) => {
             ID_Objectif_Parent
         } = req.body;
 
-        const effectiveUserId = isCommercialRole(req.user?.UserRole)
+        const effectiveUserId = isStaffRole(req.user?.UserRole)
             ? (req.user?.UserID || req.user?.id)
             : ID_Utilisateur;
 
@@ -169,14 +170,14 @@ exports.createObjectif = async (req, res, next) => {
 exports.getAllObjectifs = async (req, res, next) => {
     try {
         const { userId, mois, annee, semaine, tiersId, projetId } = req.query;
-        const where = isCommercialRole(req.user?.UserRole)
+        const where = isStaffRole(req.user?.UserRole)
             ? buildCommercialObjectifScope(req.user)
             : {};
 
         void tiersId;
         void projetId;
 
-        if (userId && !isCommercialRole(req.user?.UserRole)) {
+        if (userId && !isStaffRole(req.user?.UserRole)) {
             const resolvedUser = await resolveUserForObjectif(userId);
             if (resolvedUser?.error) {
                 return res.status(200).json({
@@ -226,7 +227,7 @@ exports.getObjectifById = async (req, res, next) => {
             });
         }
 
-        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+        if (isStaffRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
             return res.status(403).json({
                 status: 'error',
                 message: 'Accès refusé à cet objectif'
@@ -275,7 +276,7 @@ exports.updateObjectif = async (req, res, next) => {
             });
         }
 
-        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+        if (isStaffRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
             return res.status(403).json({
                 status: 'error',
                 message: 'Accès refusé à cet objectif'
@@ -283,7 +284,7 @@ exports.updateObjectif = async (req, res, next) => {
         }
 
         let resolvedUser = null;
-        if (ID_Utilisateur !== undefined && !isCommercialRole(req.user?.UserRole)) {
+        if (ID_Utilisateur !== undefined && !isStaffRole(req.user?.UserRole)) {
             resolvedUser = await resolveUserForObjectif(ID_Utilisateur);
             if (resolvedUser?.error) {
                 return res.status(400).json({
@@ -349,7 +350,7 @@ exports.deleteObjectif = async (req, res, next) => {
             });
         }
 
-        if (isCommercialRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
+        if (isStaffRole(req.user?.UserRole) && !isObjectifRelatedToCommercial(objectif, req.user)) {
             return res.status(403).json({
                 status: 'error',
                 message: 'Accès refusé à cet objectif'

@@ -2,10 +2,11 @@ const { BlvMaster, BlvDetail, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { normalizeRole } = require('../utils/userAccess');
 
-const isCommercialRole = (role) => {
-    const normalized = String(role || '').trim().toLowerCase();
-    return normalized === 'commercial' || normalized === 'commerciale';
+const isStaffRole = (role) => {
+    const normalized = normalizeRole(role);
+    return ['commercial', 'agent', 'technicien'].includes(normalized);
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -49,6 +50,45 @@ const resolveCommercialCodRepresValue = (user = {}) => {
 
     const fallback = user?.CodRepres || user?.codRepres || user?.LoginName || user?.EmailPro || user?.GUID;
     return fallback ? String(fallback).trim().slice(0, 10) : null;
+};
+
+const buildClientFilter = async (user = {}) => {
+    const userEmail = (user?.EmailPro || '').toLowerCase().trim();
+    const userLogin = (user?.LoginName || '').toLowerCase().trim();
+    const directCodTiers = user?.CodTiers || user?.codTiers || null;
+    
+    const orConditions = [];
+
+    if (directCodTiers) {
+      orConditions.push({ CodTiers: directCodTiers });
+    }
+    
+    if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userEmail));
+    if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CUser')), userLogin));
+    
+    if (userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), userEmail));
+    if (userLogin && userLogin !== userEmail) orConditions.push(sequelize.where(sequelize.fn('LOWER', sequelize.col('CodRepres')), userLogin));
+    
+    if (userEmail) {
+      try {
+        const tiers = await Tiers.findOne({
+          where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), userEmail),
+          attributes: ['CodTiers'],
+        });
+        
+        if (tiers?.CodTiers) {
+          orConditions.push({ CodTiers: tiers.CodTiers });
+        }
+      } catch (err) {
+        console.error('Error finding Tiers for client filter:', err.message);
+      }
+    }
+    
+    if (orConditions.length === 0) {
+      return { Guid: '__NO_MATCH__' };
+    }
+    
+    return { [Op.or]: orConditions };
 };
 
 /**
@@ -132,7 +172,7 @@ exports.getAllBlv = async (req, res, next) => {
             });
         }
 
-        if (isCommercialRole(req.user?.UserRole)) {
+        if (isStaffRole(req.user?.UserRole)) {
             filters.push(buildCommercialCodRepresFilter(req.user));
         }
 
@@ -169,7 +209,7 @@ exports.getBlvById = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const where = isCommercialRole(req.user?.UserRole)
+        const where = isStaffRole(req.user?.UserRole)
             ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
             : { Guid: id };
 
@@ -205,7 +245,7 @@ exports.createBlv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
-        if (isCommercialRole(req.user?.UserRole)) {
+        if (isStaffRole(req.user?.UserRole)) {
             const codRepres = resolveCommercialCodRepresValue(req.user);
             if (!codRepres) {
                 if (transaction && !transaction.finished) await transaction.rollback();
@@ -286,7 +326,7 @@ exports.updateBlv = async (req, res, next) => {
         const { id } = req.params;
         const { master, details } = req.body;
 
-        const blvWhere = isCommercialRole(req.user?.UserRole)
+        const blvWhere = isStaffRole(req.user?.UserRole)
             ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
             : { Guid: id };
         const blv = await BlvMaster.findOne({ where: blvWhere, transaction });
@@ -297,7 +337,7 @@ exports.updateBlv = async (req, res, next) => {
 
         const masterData = sanitizeMasterData(master);
 
-        if (isCommercialRole(req.user?.UserRole)) {
+        if (isStaffRole(req.user?.UserRole)) {
             const codRepres = resolveCommercialCodRepresValue(req.user);
             if (!codRepres) {
                 if (transaction && !transaction.finished) await transaction.rollback();
@@ -348,7 +388,7 @@ exports.deleteBlv = async (req, res, next) => {
     try {
         transaction = await sequelize.transaction();
         const { id } = req.params;
-        const blvWhere = isCommercialRole(req.user?.UserRole)
+        const blvWhere = isStaffRole(req.user?.UserRole)
             ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
             : { Guid: id };
         const blv = await BlvMaster.findOne({ where: blvWhere, transaction });
@@ -381,15 +421,7 @@ exports.getMyBlv = async (req, res, next) => {
         const userEmail = req.user?.EmailPro;
         const userLogin = req.user?.LoginName;
 
-        // Pour les clients : filtrer STRICTEMENT par email ou login
-        const where = {
-            [Op.or]: [
-                { CUser: userEmail || '' },
-                { CUser: userLogin || '' },
-                { CodRepres: userEmail || '' },
-                { CodRepres: userLogin || '' },
-            ].filter(v => v)
-        };
+        const where = await buildClientFilter(req.user);
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
