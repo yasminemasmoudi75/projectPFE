@@ -138,10 +138,30 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     console.log(`📧 ════════════════════════════════════════════════════════════`);
-    console.log(`📧 Message envoyé par: ${req.user.USER_NAME} (UserID: ${req.user.UserID})`);
+    console.log(`📧 Message envoyé par: ${req.user.EmailPro || req.user.LoginName} (UserID: ${req.user.UserID})`);
     console.log(`📧 Destinataire: ${recipientEmail}`);
     console.log(`📧 Subject: ${subject}`);
     console.log(`📧 ════════════════════════════════════════════════════════════`);
+
+    // ═════ STEP 0: LOOKUP RECIPIENT ID FROM EMAIL ═════
+    let finalRecipientID = recipientID;
+    if (!finalRecipientID) {
+      try {
+        const recipientUser = await User.findOne({
+          where: {
+            EmailPro: recipientEmail  // ✅ The correct field name
+          }
+        });
+        if (recipientUser) {
+          finalRecipientID = recipientUser.UserID;
+          console.log(`✅ RecipientID trouvé: ${finalRecipientID} pour email: ${recipientEmail}`);
+        } else {
+          console.warn(`⚠️ Utilisateur non trouvé pour email: ${recipientEmail}`);
+        }
+      } catch (lookupError) {
+        console.warn(`⚠️ Erreur lors lookup recipient: ${lookupError.message}`);
+      }
+    }
 
     // ═════ STEP 1: CRÉER LE MESSAGE EN BD LOCAL ═════
     let message;
@@ -150,7 +170,7 @@ exports.sendMessage = async (req, res, next) => {
       // Utiliser sequelize.literal() pour GETDATE() qui évite les problèmes de format
       message = await Message.create({
         SenderID: req.user.UserID,
-        RecipientID: recipientID || null,
+        RecipientID: finalRecipientID || null,
         MessageText: messageText,
         Subject: subject,
         SendingDate: sequelize.literal('GETDATE()'),  // ✅ Laisser SQL Server générer la date
@@ -167,7 +187,7 @@ exports.sendMessage = async (req, res, next) => {
       
       message = await Message.create({
         SenderID: req.user.UserID,
-        RecipientID: recipientID || null,
+        RecipientID: finalRecipientID || null,
         MessageText: messageText,
         SendingDate: sequelize.literal('GETDATE()'),  // ✅ Laisser SQL Server générer la date
         Delivered: false
@@ -205,19 +225,28 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     // ═════ STEP 3: RETOURNER SUCCÈS ═════
+    // Recharger le message avec les associations (sender/recipient) pour match getInbox structure
+    const fullMessage = await Message.findByPk(message.ID, {
+      include: [
+        { 
+          association: 'sender', 
+          attributes: ['UserID', 'USER_NAME', 'EmailPro'],
+          required: false
+        },
+        { 
+          association: 'recipient', 
+          attributes: ['UserID', 'USER_NAME', 'EmailPro'],
+          required: false
+        }
+      ]
+    });
+
     res.status(201).json({
       status: 'success',
       message: gmailSynced 
         ? 'Message envoyé (local + Gmail)' 
         : 'Message créé (local)',
-      data: {
-        id: message.ID,
-        subject,
-        recipient: recipientEmail,
-        sentAt: message.SendingDate,
-        gmailSynced: gmailSynced,
-        localOnly: !gmailSynced
-      }
+      data: fullMessage
     });
 
   } catch (error) {

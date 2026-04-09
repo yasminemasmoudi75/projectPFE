@@ -1,5 +1,5 @@
 const { getGmailClientForUser } = require('./gmailAuthService');
-const { Message } = require('../models');
+const { Message, User } = require('../models');
 
 /**
  * Service Gmail pour envoyer/recevoir et synchroniser les emails
@@ -16,9 +16,14 @@ const sendEmail = async (userId, to, subject, messageText, cc = null, bcc = null
     // Obtenir le client Gmail pour cet utilisateur
     const gmail = await getGmailClientForUser(userId);
 
+    // Récupérer l'email de l'utilisateur depuis la BD
+    const user = await User.findByPk(userId);
+    const fromEmail = user?.EmailPro || user?.LoginName || 'crmnexus11@gmail.com';
+    console.log(`📧 Email FROM: ${fromEmail}`);
+
     // Créer le message email
     const emailLines = [
-      `From: crmnexus11@gmail.com`,
+      `From: ${fromEmail}`,
       `To: ${to}`,
       subject ? `Subject: ${subject}` : 'Subject: Message from Nexus CRM',
       cc ? `Cc: ${cc}` : '',
