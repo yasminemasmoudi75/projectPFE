@@ -406,44 +406,125 @@ exports.remove = async (req, res, next) => {
 
 // ─── ASSIGN TECHNICIAN ─────────────────────────────────────────────────────────
 exports.assignTechnician = async (req, res, next) => {
-    console.log('👉 [AssignTechnician] Route hit with body:', req.body);
+    console.log('👉 [AssignTechnician] =======================================');
+    console.log('👉 [AssignTechnician] Route hit');
+    console.log('👉 [AssignTechnician] Request body:', req.body);
+    console.log('👉 [AssignTechnician] Reclamation ID:', req.params.id);
+    
     try {
         const { technicienID } = req.body;
         const parsedTechnicienID = Number(technicienID);
         
+        console.log(`👉 [AssignTechnician] Parsed TechnicienID: ${parsedTechnicienID} (type: ${typeof parsedTechnicienID})`);
+        
         if (!technicienID || Number.isNaN(parsedTechnicienID)) {
-            return res.status(400).json({ status: 'error', message: 'TechnicienID requis' });
+            const errMsg = 'TechnicienID requis et doit être un nombre';
+            console.error('❌ [AssignTechnician]', errMsg);
+            return res.status(400).json({ status: 'error', message: errMsg });
         }
 
         // Vérifier que le technicien existe
+        console.log(`🔍 [AssignTechnician] Searching for technician with UserID = ${parsedTechnicienID}...`);
         const technician = await User.findByPk(parsedTechnicienID);
         if (!technician) {
-            return res.status(404).json({ status: 'error', message: 'Technicien non trouvé' });
+            const errMsg = `Technicien avec ID ${parsedTechnicienID} non trouvé dans la base`;
+            console.error('❌ [AssignTechnician]', errMsg);
+            return res.status(404).json({ status: 'error', message: errMsg });
         }
+
+        console.log('✅ [AssignTechnician] Technician found:', {
+            UserID: technician.UserID,
+            FullName: technician.FullName,
+            EmailPro: technician.EmailPro,
+            UserIDType: typeof technician.UserID
+        });
 
         // Vérifier que la réclamation existe
+        console.log(`🔍 [AssignTechnician] Searching for reclamation with ID = ${req.params.id}...`);
         const rec = await Reclamation.findByPk(req.params.id);
         if (!rec) {
-            return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
+            const errMsg = `Réclamation avec ID ${req.params.id} non trouvée`;
+            console.error('❌ [AssignTechnician]', errMsg);
+            return res.status(404).json({ status: 'error', message: errMsg });
         }
 
-        // Affecter le technicien
-        const update = {
-            TechnicienID: parsedTechnicienID,
-            NomTechnicien: technician.FullName || technician.LoginName,
-            Statut: 'En cours' // Changer le statut à "En cours" au moment de l'affectation
+        console.log('✅ [AssignTechnician] Reclamation found:', {
+            ID: rec.ID,
+            NumTicket: rec.NumTicket,
+            CurrentTechnicienID: rec.TechnicienID,
+            CurrentNomTechnicien: rec.NomTechnicien
+        });
+
+        const technicianDisplayName = technician.FullName || technician.EmailPro || technician.LoginName;
+        const technicienIDToSave = Number(parsedTechnicienID);
+
+        // Check actual FK parent metadata before setting TechnicienID to avoid 409 conflicts.
+        let canSetTechnicienId = false;
+        let fkParentSchema = null;
+        let fkParentTable = null;
+        let fkUserColumn = null;
+        try {
+            const [fkRows] = await sequelize.query(
+                `
+                SELECT TOP 1
+                    s2.name AS ParentSchema,
+                    t2.name AS ParentTable,
+                    c2.name AS ParentColumn
+                FROM sys.foreign_keys fk
+                JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+                JOIN sys.tables t1 ON fkc.parent_object_id = t1.object_id
+                JOIN sys.columns c1 ON c1.object_id = t1.object_id AND c1.column_id = fkc.parent_column_id
+                JOIN sys.tables t2 ON fkc.referenced_object_id = t2.object_id
+                JOIN sys.schemas s2 ON t2.schema_id = s2.schema_id
+                JOIN sys.columns c2 ON c2.object_id = t2.object_id AND c2.column_id = fkc.referenced_column_id
+                WHERE t1.name = 'TabReclamation' AND c1.name = 'TechnicienID'
+                `
+            );
+
+            const fkMeta = fkRows?.[0] || {};
+            fkParentSchema = fkMeta.ParentSchema || null;
+            fkParentTable = fkMeta.ParentTable || null;
+            fkUserColumn = fkMeta.ParentColumn || null;
+
+            if (fkParentSchema && fkParentTable && fkUserColumn) {
+                const [existsRows] = await sequelize.query(
+                    `SELECT CASE WHEN EXISTS (SELECT 1 FROM [${fkParentSchema}].[${fkParentTable}] WHERE [${fkUserColumn}] = :techId) THEN 1 ELSE 0 END AS existsInParent`,
+                    { replacements: { techId: technicienIDToSave } }
+                );
+                canSetTechnicienId = Number(existsRows?.[0]?.existsInParent) === 1;
+            }
+
+            console.log('🔍 [AssignTechnician] FK check resolved parent:', {
+                fkParentSchema,
+                fkParentTable,
+                fkUserColumn,
+                technicianExistsInParent: canSetTechnicienId,
+                techId: technicienIDToSave,
+            });
+        } catch (fkCheckErr) {
+            console.warn('⚠️ [AssignTechnician] FK pre-check failed, fallback to NomTechnicien only:', fkCheckErr?.message);
+            canSetTechnicienId = false;
+        }
+
+        const updatePayload = {
+            NomTechnicien: technicianDisplayName,
+            Statut: 'En cours',
+            TechnicienID: canSetTechnicienId ? technicienIDToSave : null,
         };
 
+        console.log('👤 [AssignTechnician] Final update payload:', updatePayload);
+
         try {
-            await rec.update(update);
+            await rec.update(updatePayload);
+            console.log('✅ [AssignTechnician] Update succeeded');
         } catch (updateErr) {
-            // Fallback: certaines bases ont une contrainte FK différente sur TechnicienID.
-            // On conserve l'affectation fonctionnelle via NomTechnicien et Statut.
+            // Last safety net: if FK still fails, keep assignment by name/status only.
             if (updateErr?.name === 'SequelizeForeignKeyConstraintError') {
+                console.warn('⚠️ [AssignTechnician] FK conflict on TechnicienID, retrying without TechnicienID');
                 await rec.update({
+                    NomTechnicien: technicianDisplayName,
+                    Statut: 'En cours',
                     TechnicienID: null,
-                    NomTechnicien: technician.FullName || technician.LoginName,
-                    Statut: 'En cours'
                 });
             } else {
                 throw updateErr;
@@ -491,10 +572,23 @@ exports.assignTechnician = async (req, res, next) => {
         }
         // ------------------------------------
         
+        console.log('🔄 [AssignTechnician] Reloading reclamation from database to confirm update...');
         const updated = await Reclamation.findByPk(req.params.id, {
             include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }]
         });
 
+        console.log('✅ [AssignTechnician] Reclamation reloaded, confirming saved data:', {
+            ID: updated.ID,
+            TechnicienID: updated.TechnicienID,
+            NomTechnicien: updated.NomTechnicien,
+            Statut: updated.Statut,
+            SavedSuccessfully: canSetTechnicienId
+                ? String(updated.TechnicienID) === String(technicienIDToSave)
+                : Boolean(updated.NomTechnicien)
+        });
+
+        console.log('✅ [AssignTechnician] Assignment SUCCESS! Sending response...');
+        console.log('═══════════════════════════════════════════════════════════');
 
         res.json({ 
             status: 'success', 
@@ -502,7 +596,9 @@ exports.assignTechnician = async (req, res, next) => {
             data: updated 
         });
     } catch (err) {
-        console.error('❌ assignTechnician reclamation:', err);
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('❌ [AssignTechnician] FAILED with error:', err?.message);
+        console.error('❌ [AssignTechnician] Stack:', err?.stack?.split('\n').slice(0, 3).join('\n'));
         next(err);
     }
 };

@@ -7,16 +7,21 @@ const [host, instanceName] = dbServer.includes('\\')
   ? dbServer.split('\\')
   : [dbServer, undefined];
 
-console.log(`🔍 Tentative de connexion - Host: ${host}, Instance: ${instanceName || 'Défaut'}`);
+console.log(`🔍 Configuration DB:`);
+console.log(`   - Host: ${host}`);
+console.log(`   - Port: ${process.env.DB_PORT || 1433}`);
+console.log(`   - Database: ${process.env.DB_DATABASE}`);
+console.log(`   - User: ${process.env.DB_USER || '(Windows Auth)'}`);
+console.log(`   - Instance: ${instanceName || 'Défaut'}`);
 
-// Utiliser authentification Windows si DB_USER est vide
-const useWindowsAuth = !process.env.DB_USER || process.env.DB_AUTH_TYPE === 'windows';
-console.log(`🔐 Mode d'authentification: ${useWindowsAuth ? 'Windows (Trusted Connection)' : 'SQL Server'}`);
+// ✅ FIXÉ: Force SQL Server Auth si credentials fournis dans .env
+const useWindowsAuth = process.env.DB_AUTH_TYPE === 'windows' && !process.env.DB_USER;
+console.log(`🔐 Mode d'authentification: ${useWindowsAuth ? 'Windows (Trusted Connection)' : 'SQL Server (User/Password)'}`);
 
 const sequelize = new Sequelize(
   process.env.DB_DATABASE,
-  useWindowsAuth ? undefined : process.env.DB_USER,
-  useWindowsAuth ? undefined : process.env.DB_PASSWORD,
+  useWindowsAuth ? undefined : (process.env.DB_USER || 'sa'),
+  useWindowsAuth ? undefined : (process.env.DB_PASSWORD || ''),
   {
     host: host,
     port: parseInt(process.env.DB_PORT) || 1433,

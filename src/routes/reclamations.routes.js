@@ -4,6 +4,8 @@ const ctrl = require('../controllers/reclamationController');
 const { protect } = require('../middleware/auth');
 const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 const { resolveUserAccess } = require('../utils/userAccess');
+const { sequelize } = require('../config/database');
+const { QueryTypes } = require('sequelize');
 
 // Appliquer la protection d'authentification à toutes les routes
 router.use(protect);
@@ -37,11 +39,49 @@ const allowClientOrCreatePermission = (req, res, next) => {
 		});
 	});
 };
+const allowTechnicianOnOwnClaimOrUpdatePermission = (req, res, next) => {
+	(async () => {
+		const userId = req.user?.id || req.user?.UserID;
+		const claimId = req.params.id;
+		const access = await resolveUserAccess(userId, req.user?.UserRole);
+		
+		// If admin, apply standard update permission check
+		if (access?.normalizedRole === 'admin') {
+			return checkPermission(RECLAMATIONS_MODULE, 'update')(req, res, next);
+		}
+		
+		// If technician, check if claim is assigned to them
+		if (access?.normalizedRole === 'technicien') {
+			try {
+				const claims = await sequelize.query(
+					`SELECT TechnicienID FROM TabReclamation WHERE ID = :id`,
+					{ replacements: { id: claimId }, type: QueryTypes.SELECT }
+				);
+				
+				if (claims && claims[0] && (claims[0].TechnicienID === userId || claims[0].TechnicienID == userId)) {
+					return next(); // Technician owns this claim
+				}
+			} catch (dbError) {
+				// If query fails, fall through to permission check
+				console.error('Error checking claim assignment:', dbError);
+			}
+		}
+		
+		// Otherwise, apply standard update permission check
+		return checkPermission(RECLAMATIONS_MODULE, 'update')(req, res, next);
+	})().catch((error) => {
+		return res.status(500).json({
+			status: 'error',
+			message: 'Erreur de vérification du rôle utilisateur',
+			error: error.message,
+		});
+	});
+};
 
 // ⚠️ Important: Routes plus spécifiques AVANT routes génériques
 // Routes de consultation (tous les utilisateurs authentifiés)
 router.get('/my-claims', allowClientOrReadPermission, ctrl.getMyMyClaims);
-router.post('/:id/interventions', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.addIntervention);
+router.post('/:id/interventions', allowTechnicianOnOwnClaimOrUpdatePermission, ctrl.addIntervention);
 router.get('/technician/:technicienID', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getTechnicianReclamations);
 
 // Routes générales (après les routes spécifiques)
@@ -51,7 +91,7 @@ router.get('/:id', allowClientOrReadPermission, ctrl.getById);
 // Routes d'ajout/modification/suppression via permissions module
 router.post('/', allowClientOrCreatePermission, ctrl.create);
 router.put('/:id', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.update);
-router.patch('/:id/statut', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.updateStatus);
+router.patch('/:id/statut', allowTechnicianOnOwnClaimOrUpdatePermission, ctrl.updateStatus);
 router.patch('/:id/assign-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.assignTechnician);
 router.patch('/:id/remove-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.removeTechnicianAssignment);
 router.delete('/:id', checkPermission(RECLAMATIONS_MODULE, 'delete'), ctrl.remove);
