@@ -20,6 +20,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchProjets } from './projetSlice';
 import usePermission from '../../hooks/usePermission';
 import { MODULE_CODES } from '../../utils/constants';
+import axios from '../../app/axios';
 
 const ProjetsList = () => {
   const navigate = useNavigate();
@@ -45,15 +46,31 @@ const ProjetsList = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const reps = Array.from(
-      new Set(
-        projets
-          .map((p) => p.client?.codRepresTiers)
-          .filter((v) => v && String(v).trim() !== '')
-      )
-    );
-    setCommerciaux(reps);
-  }, [projets]);
+    const fetchCommerciaux = async () => {
+      try {
+        const response = await axios.get('/users/commercials/projets-filter');
+        const data = response.data;
+        const rawList = Array.isArray(data) ? data : data.data || [];
+        // Map to { value (UserID string), label (FullName) }
+        setCommerciaux(rawList.map(c => ({
+          value: String(c.userId || c.value || c.UserID),
+          label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
+        })));
+      } catch (error) {
+        console.error('Error fetching commercials:', error);
+        // Fallback: extract from loaded projects
+        const reps = Array.from(
+          new Set(
+            projets
+              .map((p) => p.client?.codRepresTiers)
+              .filter((v) => v && String(v).trim() !== '')
+          )
+        );
+        setCommerciaux(reps.map(code => ({ value: code, label: code })));
+      }
+    };
+    fetchCommerciaux();
+  }, []);
 
   const availableTypes = useMemo(() => {
     const phases = projets.map((p) => p.Phase).filter(Boolean);
@@ -79,7 +96,7 @@ const ProjetsList = () => {
 
       const repCode = tiers?.codRepresTiers;
       const matchesCommercial =
-        !selectedCommercial || repCode === selectedCommercial;
+        !selectedCommercial || String(repCode || '') === selectedCommercial;
 
       const createdDate = projet.Date_Creation
         ? new Date(projet.Date_Creation)
@@ -254,9 +271,9 @@ const ProjetsList = () => {
                     className="input-modern h-10 text-xs w-full"
                   >
                     <option value="">Tous les commerciaux</option>
-                    {commerciaux.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
+                    {commerciaux.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
                       </option>
                     ))}
                   </select>

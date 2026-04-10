@@ -50,7 +50,7 @@ const menuItems = [
   { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.CHARGEMENT, color: 'rose' },
   { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.CALENDRIER, color: 'pink' },
   { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK, color: 'slate' },
-  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.REGLEMENT, color: 'red' },
+  { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.SAV, color: 'red' },
   { type: 'section', name: 'Intelligence' },
   { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS, color: 'emerald' },
   { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP, color: 'violet' },

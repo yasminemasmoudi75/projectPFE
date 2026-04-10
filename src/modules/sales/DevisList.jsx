@@ -117,14 +117,19 @@ const DevisList = () => {
     }));
   };
 
-  // Fetch commercials
+  // Fetch commercials (filtered by filtrerepres via backend)
   const fetchCommercials = async () => {
     try {
       setLoadingCommercials(true);
-      const response = await axios.get('/users');
+      const response = await axios.get('/users/commercials/devis-filter');
       const data = response.data;
-      const commercialsList = (Array.isArray(data) ? data : data.data || [])
-        .filter(user => user.UserRole === 'Commerciale' || user.UserRole === 'Commercial');
+      const rawList = Array.isArray(data) ? data : data.data || [];
+      // Map backend response shape { userId, fullName, label } to { UserID, FullName }
+      const commercialsList = rawList.map(c => ({
+        UserID: c.userId || c.UserID,
+        FullName: c.fullName || c.FullName || c.label || c.login,
+        LoginName: c.login || c.LoginName
+      }));
       setCommercials(commercialsList);
     } catch (error) {
       console.error('Error fetching commercials:', error);

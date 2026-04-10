@@ -98,10 +98,15 @@ const ActivitesListPro = () => {
   useEffect(() => {
     const fetchCommerciaux = async () => {
       try {
-        const response = await axios.get('/users');
+        const response = await axios.get('/users/commercials/activites-filter');
         const rawData = extractArrayPayload(response);
-        const sortedActifs = rawData
-          .filter((u) => u.IsActive === true || u.IsActive === 1 || typeof u.IsActive === 'undefined')
+        // Map backend response shape to { UserID, FullName, LoginName }
+        const mapped = rawData.map(c => ({
+          UserID: c.userId || c.UserID,
+          FullName: c.fullName || c.FullName || c.label,
+          LoginName: c.login || c.LoginName
+        }));
+        const sortedActifs = mapped
           .sort((a, b) =>
             (a.FullName || a.LoginName || '')
               .toString()
@@ -109,7 +114,7 @@ const ActivitesListPro = () => {
           );
         setCommerciaux(sortedActifs);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching commercials:', error);
       }
     };
     fetchCommerciaux();

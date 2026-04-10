@@ -32,6 +32,7 @@ const ClientsList = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [clients, setClients] = useState([]);
+    const [commercialsList, setCommercialsList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState({
@@ -67,6 +68,21 @@ const ClientsList = () => {
 
     useEffect(() => {
         fetchClients();
+        // Fetch commercials filtered by filtrerepres
+        const fetchCommerciaux = async () => {
+            try {
+                const response = await axios.get('/users/commercials/assignable');
+                const data = response.data;
+                const rawList = Array.isArray(data) ? data : data.data || [];
+                setCommercialsList(rawList.map(c => ({
+                    value: String(c.userId || c.value || c.UserID),
+                    label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
+                })));
+            } catch (error) {
+                console.error('Error fetching commercials:', error);
+            }
+        };
+        fetchCommerciaux();
     }, []);
 
     const filteredClients = useMemo(() => {
@@ -86,7 +102,7 @@ const ClientsList = () => {
                 (c.Ville || '').toLowerCase() === filters.city.toLowerCase();
 
             const matchesCommercial = !filters.commercial ||
-                (c.codRepresTiers || '').toLowerCase().includes(filters.commercial.toLowerCase());
+                String(c.codRepresTiers || '') === filters.commercial;
 
             const matchesPaymentType = !filters.paymentType ||
                 (c.ModReg || '') === filters.paymentType;
@@ -198,9 +214,13 @@ const ClientsList = () => {
         return [...new Set(clients.map(c => c.Ville).filter(Boolean))].sort();
     }, [clients]);
 
+    // Use backend-fetched commercials (filtered by filtrerepres) if available,
+    // fallback to extracting from loaded clients
     const uniqueCommercials = useMemo(() => {
-        return [...new Set(clients.map(c => c.codRepresTiers).filter(Boolean))].sort();
-    }, [clients]);
+        if (commercialsList.length > 0) return commercialsList;
+        const codes = [...new Set(clients.map(c => c.codRepresTiers).filter(Boolean))].sort();
+        return codes.map(code => ({ value: code, label: code }));
+    }, [clients, commercialsList]);
 
     const uniquePaymentTypes = useMemo(() => {
         return [...new Set(clients.map(c => c.ModReg).filter(Boolean))].sort();
@@ -413,8 +433,8 @@ const ClientsList = () => {
                                     className="input-modern text-sm"
                                 >
                                     <option value="">Tous les commerciaux</option>
-                                    {uniqueCommercials.map(commercial => (
-                                        <option key={commercial} value={commercial}>{commercial}</option>
+                                    {uniqueCommercials.map(c => (
+                                        <option key={c.value} value={c.value}>{c.label}</option>
                                     ))}
                                 </select>
                             </div>
