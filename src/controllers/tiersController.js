@@ -188,14 +188,7 @@ const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } =
     if (forCreate) {
         mapped.Actif = mapped.Actif ?? true;
         mapped.UserCreate = createdBy || null;
-        // Format sans timezone pour compatibilité SQL Server datetime
-        const now = new Date();
-        mapped.SaveDate = now.getFullYear() + '-' +
-            String(now.getMonth() + 1).padStart(2, '0') + '-' +
-            String(now.getDate()).padStart(2, '0') + ' ' +
-            String(now.getHours()).padStart(2, '0') + ':' +
-            String(now.getMinutes()).padStart(2, '0') + ':' +
-            String(now.getSeconds()).padStart(2, '0');
+        mapped.SaveDate = new Date();
     }
 
     return mapped;
