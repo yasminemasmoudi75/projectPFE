@@ -14,6 +14,18 @@ const { REGLEMENT } = require('../middleware/checkPermissions').MODULES || { REG
 router.post('/', protect, reglemController.createReglement);
 
 /**
+ * @route   GET /api/reglements/paymodes
+ * @desc    Get all payment modes (species, cheque, etc)
+ */
+router.get('/paymodes', protect, reglemController.getPaymentModes);
+
+/**
+ * @route   GET /api/reglements/unpaid/:codTiers
+ * @desc    Get all unpaid documents for a client
+ */
+router.get('/unpaid/:codTiers', protect, reglemController.getUnpaidByClient);
+
+/**
  * @route   GET /api/reglements
  * @desc    Get all reglements with role-based filtering
  * @access  Private (Admin sees all, Client sees theirs)
@@ -58,14 +70,14 @@ module.exports = router;
 const reglemDiag = async (req, res) => {
     try {
         const { TabReg, TabRegD } = require('../models');
-        
+
         const total = await TabReg.count();
         const first5 = await TabReg.findAll({
             limit: 5,
             attributes: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'Payed'],
             order: [['IDReg', 'DESC']]
         });
-        
+
         res.json({
             status: 'debug',
             totalReglements: total,

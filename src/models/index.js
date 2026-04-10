@@ -31,6 +31,11 @@ const FavMaster = require('./FavMaster');
 const FavDetail = require('./FavDetail');
 const Mouvement = require('./Mouvement'); // ✅ Tableau MvtDocs - Mouvements/transformations
 const GmailOAuthTokens = require('./GmailOAuthTokens'); // ✅ Tokens OAuth Gmail
+const TabReg = require('./TabReg');
+const TabRegD = require('./TabRegD');
+const TabRegF = require('./TabRegF');
+const MvtRecap = require('./MvtRecap');
+const TabModReg = require('./TabModReg');
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -315,6 +320,28 @@ TabStockD.belongsTo(Product, {
   as: 'product'
 });
 
+TabReg.hasMany(TabRegD, {
+  foreignKey: 'IDReg',
+  sourceKey: 'IDReg',
+  as: 'details'
+});
+TabRegD.belongsTo(TabReg, {
+  foreignKey: 'IDReg',
+  targetKey: 'IDReg',
+  as: 'master'
+});
+
+TabReg.hasMany(TabRegF, {
+  foreignKey: 'IDReg',
+  sourceKey: 'IDReg',
+  as: 'pieces'
+});
+TabRegF.belongsTo(TabReg, {
+  foreignKey: 'IDReg',
+  targetKey: 'IDReg',
+  as: 'master'
+});
+
 console.log('✅ Associations setup complete.');
 
 // Export des modèles et de la connexion
@@ -349,5 +376,10 @@ module.exports = {
   FavMaster,
   FavDetail,
   Mouvement,  // ✅ Table MvtDocs - Mouvements/transformations de documents
-  GmailOAuthTokens  // ✅ Tokens OAuth Gmail
+  GmailOAuthTokens,  // ✅ Tokens OAuth Gmail
+  TabReg,
+  TabRegD,
+  TabRegF,
+  MvtRecap,
+  TabModReg
 };

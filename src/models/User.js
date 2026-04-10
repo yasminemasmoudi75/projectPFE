@@ -34,6 +34,11 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'GUID'
   },
+  Gouvernorat: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'Gouvernorat'
+  },
   // --- VIRTUALS ---
   UserRole: {
     type: DataTypes.VIRTUAL,

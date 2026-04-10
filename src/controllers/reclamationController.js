@@ -15,6 +15,11 @@ const MAX_LENGTHS = {
     Statut: 50,
     NomTechnicien: 255,
     CUser: 100,
+    TicketAdresse: 255,
+    TicketVille: 50,
+    TicketPays: 50,
+    TicketCp: 20,
+    TicketAdresseMaps: 255,
 };
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
@@ -37,6 +42,13 @@ const buildReclamationPayload = (body = {}) => ({
     NomTechnicien: truncateString(body.NomTechnicien || body.nomTechnicien, MAX_LENGTHS.NomTechnicien),
     TechnicienID: body.TechnicienID ? Number(body.TechnicienID) : (body.technicienID ? Number(body.technicienID) : null),
     Solution: normalizeString(body.Solution || body.solution),
+    TicketAdresse: truncateString(body.TicketAdresse || body.ticketAdresse, MAX_LENGTHS.TicketAdresse),
+    TicketVille: truncateString(body.TicketVille || body.ticketVille, MAX_LENGTHS.TicketVille),
+    TicketPays: truncateString(body.TicketPays || body.ticketPays, MAX_LENGTHS.TicketPays),
+    TicketCp: truncateString(body.TicketCp || body.ticketCp, MAX_LENGTHS.TicketCp),
+    TicketAdresseMaps: truncateString(body.TicketAdresseMaps || body.ticketAdresseMaps, MAX_LENGTHS.TicketAdresseMaps),
+    TicketLat: body.TicketLat !== undefined && body.TicketLat !== null && body.TicketLat !== '' ? Number(body.TicketLat) : null,
+    TicketLong: body.TicketLong !== undefined && body.TicketLong !== null && body.TicketLong !== '' ? Number(body.TicketLong) : null,
 });
 
 const fetchInterventionsForReclamation = async (reclamation) => {
@@ -179,11 +191,59 @@ exports.getById = async (req, res, next) => {
 
         const interventions = await fetchInterventionsForReclamation(rec);
 
+        let location = null;
+        if (rec.CodTiers) {
+            const tier = await Tiers.findOne({
+                where: { CodTiers: rec.CodTiers },
+                attributes: ['CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Pays', 'Cp', 'AdresseMaps', 'lat', 'long'],
+            });
+
+            const ticketLocation = {
+                codTiers: rec.CodTiers || null,
+                clientName: rec.LibTiers || null,
+                address: rec.TicketAdresse || null,
+                city: rec.TicketVille || null,
+                country: rec.TicketPays || null,
+                postalCode: rec.TicketCp || null,
+                addressMaps: rec.TicketAdresseMaps || null,
+                lat: rec.TicketLat !== null && rec.TicketLat !== undefined ? Number(rec.TicketLat) : null,
+                long: rec.TicketLong !== null && rec.TicketLong !== undefined ? Number(rec.TicketLong) : null,
+            };
+
+            const hasTicketLocation = Boolean(
+                ticketLocation.address ||
+                ticketLocation.city ||
+                ticketLocation.country ||
+                ticketLocation.postalCode ||
+                ticketLocation.addressMaps ||
+                ticketLocation.lat !== null ||
+                ticketLocation.long !== null
+            );
+
+            if (hasTicketLocation) {
+                location = { ...ticketLocation, source: 'ticket' };
+            } else if (tier) {
+                location = {
+                    codTiers: tier.CodTiers || null,
+                    clientName: tier.Raisoc || rec.LibTiers || null,
+                    address: tier.Adresse || null,
+                    city: tier.Ville || null,
+                    country: tier.Pays || null,
+                    postalCode: tier.Cp || null,
+                    addressMaps: tier.AdresseMaps || null,
+                    lat: tier.lat !== null && tier.lat !== undefined ? Number(tier.lat) : null,
+                    long: tier.long !== null && tier.long !== undefined ? Number(tier.long) : null,
+                    source: 'tiers',
+                };
+            }
+        }
+
         res.json({
             status: 'success',
             data: {
                 ...rec.toJSON(),
                 interventions,
+                location,
             },
         });
     } catch (err) {
@@ -240,7 +300,14 @@ exports.create = async (req, res, next) => {
                     DateResolution,
                     CUser,
                     Solution,
-                    NumTicket
+                    NumTicket,
+                    TicketAdresse,
+                    TicketVille,
+                    TicketPays,
+                    TicketCp,
+                    TicketAdresseMaps,
+                    TicketLat,
+                    TicketLong
                 )
                 VALUES (
                     :CodTiers,
@@ -256,7 +323,14 @@ exports.create = async (req, res, next) => {
                     :DateResolution,
                     :CUser,
                     :Solution,
-                    :NumTicket
+                    :NumTicket,
+                    :TicketAdresse,
+                    :TicketVille,
+                    :TicketPays,
+                    :TicketCp,
+                    :TicketAdresseMaps,
+                    :TicketLat,
+                    :TicketLong
                 )
             `,
             {
@@ -274,6 +348,13 @@ exports.create = async (req, res, next) => {
                     Solution: payload.Solution ?? null,
                     NumTicket: payload.NumTicket ?? null,
                     DateResolution: null,
+                    TicketAdresse: payload.TicketAdresse ?? null,
+                    TicketVille: payload.TicketVille ?? null,
+                    TicketPays: payload.TicketPays ?? null,
+                    TicketCp: payload.TicketCp ?? null,
+                    TicketAdresseMaps: payload.TicketAdresseMaps ?? null,
+                    TicketLat: Number.isFinite(payload.TicketLat) ? payload.TicketLat : null,
+                    TicketLong: Number.isFinite(payload.TicketLong) ? payload.TicketLong : null,
                 },
             }
         );

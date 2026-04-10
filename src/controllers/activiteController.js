@@ -256,16 +256,30 @@ exports.createActivite = async (req, res, next) => {
 exports.getAllActivites = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
+    const selectedCommercial = String(req.query?.commercial || req.query?.userId || '').trim();
+    const queryForTableFilters = { ...req.query };
+    delete queryForTableFilters.commercial;
+    delete queryForTableFilters.userId;
     
     // Module 45 = Activités (Table-driven filters from TabRoleFilterVisibility)
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
         '45',
-        req.query,
+        queryForTableFilters,
         req.user
     );
 
+    let finalWhere = where;
+    if (selectedCommercial && /^\d+$/.test(selectedCommercial)) {
+      const commercialWhere = { User: Number(selectedCommercial) };
+      const hasWhere = where && (
+        Object.keys(where).length > 0 || Object.getOwnPropertySymbols(where).length > 0
+      );
+      finalWhere = hasWhere ? { [Op.and]: [where, commercialWhere] } : commercialWhere;
+    }
+
     const { count, rows } = await Activite.findAndCountAll({
-      where,
+      where: finalWhere,
+      include: ACTIVITE_INCLUDE,
       order: [['Date_Activite', 'DESC']],
       limit,
       offset,

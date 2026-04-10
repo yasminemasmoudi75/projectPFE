@@ -25,6 +25,8 @@ const mouvementRoutes = require('./mouvementRoutes'); // ✅ Routes pour MvtDocs
 const permissionRoutes = require('./permissionRoutes'); // ✅ Routes pour les permissions
 const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour tester la table TabRoleFilterVisibility
 const gmailAuthRoutes = require('./gmailAuth.routes'); // ✅ Routes pour Gmail OAuth 2.0
+const reglementsRoutes = require('./reglements.routes'); // ✅ Routes pour les règlements
+const recapRoutes = require('./recap.routes'); // ✅ Routes pour le récapitulatif
 // const filterConfigRoutes = require('./filterConfigRoutes'); // TODO: À créer si besoin
 
 // Utiliser les routes
@@ -51,6 +53,8 @@ router.use('/mouvements', mouvementRoutes); // ✅ Historique des transformation
 router.use('/permissions', permissionRoutes); // ✅ Permissions utilisateur
 router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterVisibility
 router.use('/auth/gmail', gmailAuthRoutes); // ✅ Gmail OAuth 2.0
+router.use('/reglements', reglementsRoutes); // ✅ Gestion des règlements
+router.use('/recap', recapRoutes); // ✅ Récapitulatif mouvements
 // router.use('/filters', filterConfigRoutes); // TODO: À créer si besoin
 
 // Route de base de l'API

@@ -5,6 +5,43 @@ const { TableHints } = require('sequelize');
 const { sanitizeDate } = require('../utils/helpers');
 const { allocateNextUserId } = require('../utils/userId');
 const { attachAccessToUser, attachAccessToUsers, resolveUserAccess, upsertUserAccess } = require('../utils/userAccess');
+const { QueryTypes } = require('sequelize');
+
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const roleAliases = (normalizedRole) => {
+  const aliases = {
+    admin: ['admin', 'administrateur'],
+    commercial: ['commercial', 'commerciale'],
+    agent: ['agent'],
+    technicien: ['technicien', 'technicien sav'],
+    client: ['client']
+  };
+  return aliases[normalizedRole] || [normalizedRole];
+};
+
+const resolveGouvernoratId = async (gouvernoratValue, { transaction } = {}) => {
+  if (gouvernoratValue === undefined || gouvernoratValue === null || gouvernoratValue === '') {
+    return null;
+  }
+
+  const raw = String(gouvernoratValue).trim();
+  if (!raw) return null;
+
+  const row = await sequelize.query(`
+    SELECT TOP 1 id
+    FROM tiersGouvernorat
+    WHERE id = TRY_CONVERT(INT, :raw)
+       OR LOWER(LTRIM(RTRIM(libelle))) = LOWER(LTRIM(RTRIM(:raw)))
+    ORDER BY CASE WHEN id = TRY_CONVERT(INT, :raw) THEN 0 ELSE 1 END
+  `, {
+    replacements: { raw },
+    type: QueryTypes.SELECT,
+    transaction
+  });
+
+  return row[0]?.id ?? null;
+};
 
 /**
  * Créer un utilisateur
@@ -55,6 +92,16 @@ exports.createUser = async (req, res, next) => {
       });
     }
 
+    const gouvernoratId = await resolveGouvernoratId(Gouvernorat, { transaction });
+    if (Gouvernorat !== undefined && Gouvernorat !== null && Gouvernorat !== '' && !gouvernoratId) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(400).json({
+        status: 'error',
+        message: 'Gouvernorat invalide: valeur introuvable dans tiersGouvernorat'
+      });
+    }
+
     // 3. Sécurité : Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(Password, 10);
     const nextUserId = await allocateNextUserId({ transaction });
@@ -70,7 +117,7 @@ exports.createUser = async (req, res, next) => {
       TelPro,
       PosteOccupe: Poste,
       Departement,
-      Gouvernorat,
+      Gouvernorat: gouvernoratId,
       DateNaissance: sanitizeDate(DateNaissance)
     }, { transaction });
 
@@ -225,7 +272,18 @@ exports.updateUser = async (req, res, next) => {
     if (TelPro) updateData.TelPro = TelPro;
     if (Poste) updateData.PosteOccupe = Poste;
     if (Departement) updateData.Departement = Departement;
-    if (Gouvernorat) updateData.Gouvernorat = Gouvernorat;
+    if (Gouvernorat !== undefined) {
+      const gouvernoratId = await resolveGouvernoratId(Gouvernorat, { transaction });
+      if (Gouvernorat !== null && Gouvernorat !== '' && !gouvernoratId) {
+        await transaction.rollback();
+        transaction = null;
+        return res.status(400).json({
+          status: 'error',
+          message: 'Gouvernorat invalide: valeur introuvable dans tiersGouvernorat'
+        });
+      }
+      updateData.Gouvernorat = gouvernoratId;
+    }
 
     // Si le mot de passe est modifié, on le re-hashe
     if (Password) {
@@ -282,6 +340,125 @@ exports.deleteUser = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       message: 'Utilisateur supprimé avec succès'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Récupérer la liste des commerciaux assignables (pour formulaire client)
+ * - Si FiltreRepres activé pour l'agent: commerciaux de sa région uniquement
+ * - Sinon: tous les commerciaux
+ */
+exports.getAssignableCommercials = async (req, res, next) => {
+  try {
+    const requesterId = req.user?.UserID || req.user?.id;
+    const requesterRole = normalizeRole(req.user?.UserRole);
+    const requesterRegion = req.user?.Gouvernorat || null;
+    const moduleCode = String(req.query?.moduleCode || '30').trim();
+    const includeAll = req.query?.includeAll === 'true' || req.query?.includeAll === '1';
+
+    const moduleCandidates = [moduleCode];
+    if (moduleCode === '11' || moduleCode === '30') {
+      moduleCandidates.push('11', '30');
+    }
+
+    const aliases = roleAliases(requesterRole);
+
+    const filtreRepresRows = await sequelize.query(`
+      SELECT TOP 1 FiltreRepres
+      FROM TabAWProfileAccess
+      WHERE LOWER(ProfileUser) IN (:aliases)
+        AND CAST(CodMod AS NVARCHAR(20)) IN (:moduleCandidates)
+      ORDER BY CASE WHEN CAST(CodMod AS NVARCHAR(20)) = :moduleCode THEN 0 ELSE 1 END
+    `, {
+      replacements: {
+        aliases,
+        moduleCandidates: Array.from(new Set(moduleCandidates)),
+        moduleCode
+      },
+      type: QueryTypes.SELECT
+    });
+
+    const filtreRepresEnabled = filtreRepresRows[0]?.FiltreRepres === 1
+      || filtreRepresRows[0]?.FiltreRepres === true
+      || filtreRepresRows[0]?.FiltreRepres === '1';
+
+    // Si FiltreRepres est OFF ou includeAll est explicité, retourner TOUS les commerciaux
+    // Sinon si agent ET FiltreRepres ON, filtrer par région
+    const whereRegionClause = (!filtreRepresEnabled || includeAll)
+      ? ''
+      : (requesterRole === 'agent' && requesterRegion)
+        ? `AND EXISTS (
+             SELECT 1
+             FROM tiersGouvernorat tgReq
+             INNER JOIN tiersGouvernorat tgUser ON tgUser.id = tgReq.id
+             WHERE (
+               tgReq.id = TRY_CONVERT(INT, :requesterRegion)
+               OR LOWER(LTRIM(RTRIM(tgReq.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), :requesterRegion))))
+             )
+             AND (
+               tgUser.id = TRY_CONVERT(INT, u.Gouvernorat)
+               OR LOWER(LTRIM(RTRIM(tgUser.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), u.Gouvernorat))))
+             )
+           )`
+        : '';
+
+    const rows = await sequelize.query(`
+      SELECT
+        u.USER_ID AS UserID,
+        u.USER_NAME AS LoginName,
+        u.REAL_NAME AS FullName,
+        u.Gouvernorat AS Gouvernorat
+      FROM UCS_USERS u
+      INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
+      INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
+      WHERE LOWER(p.PROF_DESCRIPTION) IN ('commercial', 'commerciale')
+      ${whereRegionClause}
+      ORDER BY u.REAL_NAME ASC
+    `, {
+      replacements: { requesterRegion: requesterRegion ? String(requesterRegion) : null },
+      type: QueryTypes.SELECT
+    });
+
+    // Defensive fallback: if agent + FiltreRepres and no regional match, return current user only when commercial.
+    let data = rows;
+    if (requesterRole === 'agent' && filtreRepresEnabled && (!rows || rows.length === 0) && requesterId) {
+      const selfCommercial = await sequelize.query(`
+        SELECT
+          u.USER_ID AS UserID,
+          u.USER_NAME AS LoginName,
+          u.REAL_NAME AS FullName,
+          u.Gouvernorat AS Gouvernorat
+        FROM UCS_USERS u
+        INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
+        INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
+        WHERE u.USER_ID = :requesterId
+          AND LOWER(p.PROF_DESCRIPTION) IN ('commercial', 'commerciale')
+      `, {
+        replacements: { requesterId },
+        type: QueryTypes.SELECT
+      });
+      data = selfCommercial;
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: (data || []).map((row) => ({
+        value: String(row.UserID),
+        userId: row.UserID,
+        login: row.LoginName,
+        fullName: row.FullName,
+        gouvernorat: row.Gouvernorat,
+        label: row.FullName || row.LoginName || `Commercial ${row.UserID}`
+      })),
+      meta: {
+        filtreRepresEnabled,
+        requesterRole,
+        requesterRegion,
+        moduleCode
+      }
     });
   } catch (error) {
     next(error);

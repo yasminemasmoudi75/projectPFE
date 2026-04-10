@@ -1,155 +1,222 @@
 -- ===================================================================
 -- SCRIPT SQL: Ajouter données TEST pour Réglement
 -- ===================================================================
--- Ajoute 3 réglement avec statuts différents pour tester
+-- Version robuste:
+-- - Utilise Raisoc au lieu de Name
+-- - N'écrit pas dans la colonne calculée Solde
+-- - Capture l'ID auto-incrémenté avec OUTPUT inserted.IDReg
 -- ===================================================================
 
--- Assurez-vous qu'il y a des clients dans TabTiers sinon ça ne marche pas!
--- SELECT TOP 5 * FROM TabTiers
+USE AA;
+GO
 
--- OPTION 1: Utiliser des clients existants
--- Décommenter et adapter les CodTiers selon vos données
+SET NOCOUNT ON;
 
--- 1️⃣ RÉGLEMENT #1 - NON PAYÉ
-INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
-SELECT 
-    GETDATE() as DatReg,
-    CodTiers,
-    Name as LibTiers,
-    5000.00 as MntReg,
-    0 as Payed,
-    'admin@test.com' as CUser,
-    GETDATE() as DatUser
-FROM TabTiers
-WHERE CodTiers IN (
-    SELECT TOP 1 CodTiers FROM TabTiers ORDER BY CodTiers
-)
-AND NOT EXISTS (
-    SELECT 1 FROM TabReg WHERE CodTiers = TabTiers.CodTiers AND MntReg = 5000
-)
+BEGIN TRY
+    BEGIN TRANSACTION;
 
-DECLARE @IDReg1 INT = SCOPE_IDENTITY()
-INSERT INTO TabRegD (IDReg, MntDebit, MntCredit, ModReg, DatValeur, Banque, NumCompte, Montant)
-VALUES (@IDReg1, 5000, 0, 'Non encore reçu', NULL, '', '', 5000)
+    DECLARE @CreatedBy NVARCHAR(255) = N'admin@test.com';
+    DECLARE @RegIdIsGuid BIT = CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM sys.columns c
+            INNER JOIN sys.types t ON t.user_type_id = c.user_type_id
+            WHERE c.object_id = OBJECT_ID('dbo.TabReg')
+              AND c.name = 'IDReg'
+              AND t.name = 'uniqueidentifier'
+        ) THEN 1 ELSE 0 END;
 
-PRINT '✅ Réglement #1 (Non payé) créé: 5000€'
+    DECLARE @Clients TABLE (
+        rn INT IDENTITY(1,1),
+        CodTiers NVARCHAR(50),
+        LibTiers NVARCHAR(255)
+    );
 
--- 2️⃣ RÉGLEMENT #2 - PARTIELLEMENT PAYÉ
-INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
-SELECT 
-    GETDATE() as DatReg,
-    CodTiers,
-    Name as LibTiers,
-    10000.00 as MntReg,
-    0 as Payed,
-    'admin@test.com' as CUser,
-    GETDATE() as DatUser
-FROM TabTiers
-WHERE CodTiers IN (
-    SELECT TOP 1 CodTiers FROM TabTiers WHERE CodTiers NOT IN (
-        SELECT CodTiers FROM TabReg WHERE MntReg = 5000
-    ) ORDER BY CodTiers
-)
-AND NOT EXISTS (
-    SELECT 1 FROM TabReg WHERE CodTiers = TabTiers.CodTiers AND MntReg = 10000
-)
+    INSERT INTO @Clients (CodTiers, LibTiers)
+    SELECT TOP (3)
+        CONVERT(NVARCHAR(50), CodTiers),
+        COALESCE(Raisoc, CONVERT(NVARCHAR(255), CodTiers))
+    FROM TabTiers
+    WHERE CodTiers IS NOT NULL
+    ORDER BY CONVERT(NVARCHAR(50), CodTiers);
 
-DECLARE @IDReg2 INT = SCOPE_IDENTITY()
-INSERT INTO TabRegD (IDReg, MntDebit, MntCredit, ModReg, DatValeur, Banque, NumCompte, Montant)
-VALUES (@IDReg2, 10000, 6000, 'Virement partiel', GETDATE(), 'BNP Paribas', 'FR12 3456 7890', 10000)
+    IF (SELECT COUNT(*) FROM @Clients) < 3
+    BEGIN
+        THROW 50010, 'Il faut au moins 3 clients dans TabTiers pour générer les données de test.', 1;
+    END;
 
-INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, Solde, TypPiece)
-VALUES (@IDReg2, 'FAV-2024-001', GETDATE(), 10000, 4000, 'Facture')
+    DECLARE @CodTiers1 NVARCHAR(50), @LibTiers1 NVARCHAR(255);
+    DECLARE @CodTiers2 NVARCHAR(50), @LibTiers2 NVARCHAR(255);
+    DECLARE @CodTiers3 NVARCHAR(50), @LibTiers3 NVARCHAR(255);
 
-PRINT '✅ Réglement #2 (Partiellement payé 60%) créé: 10000€ (reçu 6000€)'
+    DECLARE @IDReg1Guid UNIQUEIDENTIFIER = NULL;
+    DECLARE @IDReg2Guid UNIQUEIDENTIFIER = NULL;
+    DECLARE @IDReg3Guid UNIQUEIDENTIFIER = NULL;
+    DECLARE @IDReg1Int INT = NULL;
+    DECLARE @IDReg2Int INT = NULL;
+    DECLARE @IDReg3Int INT = NULL;
 
--- 3️⃣ RÉGLEMENT #3 - PAYÉ
-INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
-SELECT 
-    GETDATE() as DatReg,
-    CodTiers,
-    Name as LibTiers,
-    3500.00 as MntReg,
-    1 as Payed,
-    'admin@test.com' as CUser,
-    GETDATE() as DatUser
-FROM TabTiers
-WHERE CodTiers IN (
-    SELECT TOP 1 CodTiers FROM TabTiers WHERE CodTiers NOT IN (
-        SELECT CodTiers FROM TabReg WHERE MntReg IN (5000, 10000)
-    ) ORDER BY CodTiers
-)
-AND NOT EXISTS (
-    SELECT 1 FROM TabReg WHERE CodTiers = TabTiers.CodTiers AND MntReg = 3500
-)
+    SELECT @CodTiers1 = CodTiers, @LibTiers1 = LibTiers FROM @Clients WHERE rn = 1;
+    SELECT @CodTiers2 = CodTiers, @LibTiers2 = LibTiers FROM @Clients WHERE rn = 2;
+    SELECT @CodTiers3 = CodTiers, @LibTiers3 = LibTiers FROM @Clients WHERE rn = 3;
 
-DECLARE @IDReg3 INT = SCOPE_IDENTITY()
-INSERT INTO TabRegD (IDReg, MntDebit, MntCredit, ModReg, DatValeur, Banque, NumCompte, Montant)
-VALUES (@IDReg3, 3500, 3500, 'Virement complet', GETDATE(), 'Crédit Agricole', 'FR34 5678 9012', 3500)
+    -- 1) Non payé
+    IF NOT EXISTS (SELECT 1 FROM TabReg WHERE CodTiers = @CodTiers1 AND MntReg = 5000)
+    BEGIN
+        IF @RegIdIsGuid = 1
+        BEGIN
+            SET @IDReg1Guid = NEWID();
 
-INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, Solde, TypPiece)
-VALUES (@IDReg3, 'FAV-2024-002', GETDATE(), 3500, 0, 'Facture')
+            INSERT INTO TabReg (IDReg, DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (@IDReg1Guid, GETDATE(), @CodTiers1, @LibTiers1, 5000.00, 0, @CreatedBy, GETDATE());
 
-PRINT '✅ Réglement #3 (Payé 100%) créé: 3500€'
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg1Guid, N'Non encore reçu', 5000, 0, N'', N'', GETDATE(), 5000);
+        END
+        ELSE
+        BEGIN
+            INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (GETDATE(), @CodTiers1, @LibTiers1, 5000.00, 0, @CreatedBy, GETDATE());
 
--- =================================================================
--- VÉRIFICATION
--- =================================================================
+            SET @IDReg1Int = CONVERT(INT, SCOPE_IDENTITY());
 
-PRINT ''
-PRINT '📊 RÉGLEMENT DE TEST CRÉÉS:'
-PRINT '═══════════════════════════════════════════════════════════'
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg1Int, N'Non encore reçu', 5000, 0, N'', N'', GETDATE(), 5000);
+        END
 
-SELECT 
-    IDReg,
-    DatReg,
-    LibTiers,
-    MntReg as 'Montant Total',
-    CASE 
-        WHEN Payed = 1 THEN 'Payé ✅'
-        ELSE 'Non payé ❌'
-    END as 'Statut',
-    CUser,
-    DatUser
-FROM TabReg
-WHERE CUser = 'admin@test.com'
-AND DatUser >= DATEADD(MINUTE, -5, GETDATE())
-ORDER BY IDReg DESC;
+        PRINT '✅ Réglement #1 (Non payé) créé';
+    END;
 
-PRINT ''
-PRINT '💳 DÉTAILS DES PAIEMENTS:'
-PRINT '═══════════════════════════════════════════════════════════'
+    -- 2) Partiellement payé
+    IF NOT EXISTS (SELECT 1 FROM TabReg WHERE CodTiers = @CodTiers2 AND MntReg = 10000)
+    BEGIN
+        IF @RegIdIsGuid = 1
+        BEGIN
+            SET @IDReg2Guid = NEWID();
 
-SELECT 
-    d.IDReg,
-    d.MntDebit as 'Montant débité',
-    d.MntCredit as 'Montant crédité',
-    (d.MntDebit - d.MntCredit) as 'Solde restant',
-    CAST(ROUND((d.MntCredit * 100.0 / NULLIF(d.MntDebit, 0)), 0) AS INT) as 'Pourcentage %',
-    d.ModReg,
-    d.DatValeur
-FROM TabRegD d
-JOIN TabReg r ON d.IDReg = r.IDReg
-WHERE r.CUser = 'admin@test.com'
-ORDER BY d.IDReg DESC;
+            INSERT INTO TabReg (IDReg, DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (@IDReg2Guid, GETDATE(), @CodTiers2, @LibTiers2, 10000.00, 0, @CreatedBy, GETDATE());
 
-PRINT ''
-PRINT '🎯 PIÈCES RATTACHÉES:'
-PRINT '═══════════════════════════════════════════════════════════'
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg2Guid, N'Virement partiel', 10000, 6000, N'BNP Paribas', N'FR12 3456 7890', GETDATE(), 10000);
 
-SELECT 
-    f.IDReg,
-    f.NumPiece,
-    f.MntPiece,
-    f.Solde as 'Solde restant',
-    f.TypPiece
-FROM TabRegF f
-JOIN TabReg r ON f.IDReg = r.IDReg
-WHERE r.CUser = 'admin@test.com'
-ORDER BY f.IDReg DESC;
+            INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, MntReg, TypPiece)
+            VALUES (@IDReg2Guid, N'FAV-2024-001', GETDATE(), 10000, 10000, N'Facture');
+        END
+        ELSE
+        BEGIN
+            INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (GETDATE(), @CodTiers2, @LibTiers2, 10000.00, 0, @CreatedBy, GETDATE());
 
-PRINT ''
-PRINT '✨ Pour afficher vos réglement en frontend:'
-PRINT '   → Allez à /reglements (après login)'
-PRINT '   → Vous verrez les 3 réglement de test'
-PRINT ''
+            SET @IDReg2Int = CONVERT(INT, SCOPE_IDENTITY());
+
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg2Int, N'Virement partiel', 10000, 6000, N'BNP Paribas', N'FR12 3456 7890', GETDATE(), 10000);
+
+            INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, MntReg, TypPiece)
+            VALUES (@IDReg2Int, N'FAV-2024-001', GETDATE(), 10000, 10000, N'Facture');
+        END
+
+        PRINT '✅ Réglement #2 (Partiellement payé 60%) créé';
+    END;
+
+    -- 3) Payé
+    IF NOT EXISTS (SELECT 1 FROM TabReg WHERE CodTiers = @CodTiers3 AND MntReg = 3500)
+    BEGIN
+        IF @RegIdIsGuid = 1
+        BEGIN
+            SET @IDReg3Guid = NEWID();
+
+            INSERT INTO TabReg (IDReg, DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (@IDReg3Guid, GETDATE(), @CodTiers3, @LibTiers3, 3500.00, 1, @CreatedBy, GETDATE());
+
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg3Guid, N'Virement complet', 3500, 3500, N'Crédit Agricole', N'FR34 5678 9012', GETDATE(), 3500);
+
+            INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, MntReg, TypPiece)
+            VALUES (@IDReg3Guid, N'FAV-2024-002', GETDATE(), 3500, 3500, N'Facture');
+        END
+        ELSE
+        BEGIN
+            INSERT INTO TabReg (DatReg, CodTiers, LibTiers, MntReg, Payed, CUser, DatUser)
+            VALUES (GETDATE(), @CodTiers3, @LibTiers3, 3500.00, 1, @CreatedBy, GETDATE());
+
+            SET @IDReg3Int = CONVERT(INT, SCOPE_IDENTITY());
+
+            INSERT INTO TabRegD (IDReg, ModReg, MntDebit, MntCredit, Banque, NumCompte, DatValeur, Montant)
+            VALUES (@IDReg3Int, N'Virement complet', 3500, 3500, N'Crédit Agricole', N'FR34 5678 9012', GETDATE(), 3500);
+
+            INSERT INTO TabRegF (IDReg, NumPiece, MDate, MntPiece, MntReg, TypPiece)
+            VALUES (@IDReg3Int, N'FAV-2024-002', GETDATE(), 3500, 3500, N'Facture');
+        END
+
+        PRINT '✅ Réglement #3 (Payé 100%) créé';
+    END;
+
+    COMMIT TRANSACTION;
+
+    -- =================================================================
+    -- VÉRIFICATION
+    -- =================================================================
+    PRINT '';
+    PRINT '📊 RÉGLEMENT DE TEST CRÉÉS:';
+    PRINT '═══════════════════════════════════════════════════════════';
+
+    SELECT
+        IDReg,
+        DatReg,
+        LibTiers,
+        MntReg AS [Montant Total],
+        CASE WHEN Payed = 1 THEN 'Payé ✅' ELSE 'Non payé ❌' END AS [Statut],
+        CUser,
+        DatUser
+    FROM TabReg
+    WHERE CUser = @CreatedBy
+      AND DatUser >= DATEADD(MINUTE, -10, GETDATE())
+    ORDER BY IDReg DESC;
+
+    PRINT '';
+    PRINT '💳 DÉTAILS DES PAIEMENTS:';
+    PRINT '═══════════════════════════════════════════════════════════';
+
+    SELECT
+        d.IDReg,
+        d.MntDebit AS [Montant débité],
+        d.MntCredit AS [Montant crédité],
+        (d.MntDebit - d.MntCredit) AS [Solde restant],
+        CAST(ROUND((d.MntCredit * 100.0 / NULLIF(d.MntDebit, 0)), 0) AS INT) AS [Pourcentage %],
+        d.ModReg,
+        d.DatValeur
+    FROM TabRegD d
+    INNER JOIN TabReg r ON d.IDReg = r.IDReg
+    WHERE r.CUser = @CreatedBy
+    ORDER BY d.IDReg DESC;
+
+    PRINT '';
+    PRINT '🎯 PIÈCES RATTACHÉES:';
+    PRINT '═══════════════════════════════════════════════════════════';
+
+    SELECT
+        f.IDReg,
+        f.NumPiece,
+        f.MntPiece,
+        f.MntReg,
+        f.TypPiece
+    FROM TabRegF f
+    INNER JOIN TabReg r ON f.IDReg = r.IDReg
+    WHERE r.CUser = @CreatedBy
+    ORDER BY f.IDReg DESC;
+
+    PRINT '';
+    PRINT '✨ Pour afficher vos réglement en frontend:';
+    PRINT '   → Allez à /reglements (après login)';
+    PRINT '   → Vous verrez les 3 réglement de test';
+    PRINT '';
+
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+
+    THROW;
+END CATCH;

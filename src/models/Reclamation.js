@@ -77,6 +77,41 @@ const Reclamation = sequelize.define('TabReclamation', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'Solution'
+    },
+    TicketAdresse: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'TicketAdresse'
+    },
+    TicketVille: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'TicketVille'
+    },
+    TicketPays: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'TicketPays'
+    },
+    TicketCp: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'TicketCp'
+    },
+    TicketAdresseMaps: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'TicketAdresseMaps'
+    },
+    TicketLat: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'TicketLat'
+    },
+    TicketLong: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'TicketLong'
     }
 }, {
     tableName: 'TabReclamation',

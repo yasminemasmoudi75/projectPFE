@@ -10,6 +10,8 @@ router.use(protect);
 // Routes utilisateurs
 router.post('/', restrictTo('Admin'), checkPermission(MODULES.USERS, 'create'), userController.createUser);        // Créer un utilisateur
 router.get('/', checkPermission(MODULES.USERS, 'read'), userController.getAllUsers);        // Récupérer tous les utilisateurs
+router.get('/commercials/assignable', checkPermission(MODULES.CLIENTS, 'read'), userController.getAssignableCommercials);
+router.get('/commercials/devis-filter', checkPermission(MODULES.DEVIS, 'read'), userController.getAssignableCommercials);
 router.get('/:id', checkPermission(MODULES.USERS, 'read'), userController.getUserById);     // Récupérer un utilisateur par ID
 router.put('/:id', checkPermission(MODULES.USERS, 'update'), userController.updateUser);      // Mettre à jour un utilisateur
 router.delete('/:id', restrictTo('Admin'), checkPermission(MODULES.USERS, 'delete'), userController.deleteUser);   // Supprimer un utilisateur

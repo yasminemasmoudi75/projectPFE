@@ -1,11 +1,11 @@
-const { TabReg, TabRegD, TabRegF, Tiers, sequelize } = require('../models');
+const { TabReg, TabRegD, TabRegF, TabModReg, FavMaster, BlvMaster, Tiers, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { resolveUserAccess } = require('../utils/userAccess');
 
 // Determine payment status helper
 const getPaymentStatus = (totalAmount, paidAmount) => {
     const remainingAmount = totalAmount - paidAmount;
-    
+
     if (totalAmount === 0) return 'Aucun montant';
     if (remainingAmount <= 0) return 'Payé';
     if (paidAmount > 0 && remainingAmount < totalAmount * 0.25) return 'Presque payé';
@@ -18,9 +18,9 @@ const buildClientFilter = async (user = {}) => {
     const userEmail = (user?.EmailPro || '').toLowerCase().trim();
     const userLogin = (user?.LoginName || '').toLowerCase().trim();
     const directCodTiers = user?.CodTiers || user?.codTiers || null;
-    
+
     console.log(`🔍 buildClientFilter - email: ${userEmail}, login: ${userLogin}, CodTiers: ${directCodTiers}`);
-    
+
     const orConditions = [];
 
     // Add CodTiers from user object if available (PRIMARY MATCH)
@@ -28,7 +28,7 @@ const buildClientFilter = async (user = {}) => {
         console.log(`✅ Adding direct CodTiers: ${directCodTiers}`);
         orConditions.push({ CodTiers: directCodTiers });
     }
-    
+
     // Lookup CodTiers by Email from Tiers table (SECONDARY MATCH)
     if (userEmail) {
         try {
@@ -36,7 +36,7 @@ const buildClientFilter = async (user = {}) => {
                 where: sequelize.where(sequelize.fn('LOWER', sequelize.col('Email')), Op.eq, userEmail),
                 attributes: ['CodTiers'],
             });
-            
+
             if (tiers?.CodTiers) {
                 console.log(`✅ Found Tiers CodTiers: ${tiers.CodTiers}`);
                 // Only add if not already in conditions
@@ -48,21 +48,21 @@ const buildClientFilter = async (user = {}) => {
             console.error('Error finding Tiers for client filter:', err.message);
         }
     }
-    
+
     console.log(`📋 Final conditions count: ${orConditions.length}`);
     console.log(`📋 Conditions:`, JSON.stringify(orConditions));
-    
+
     if (orConditions.length === 0) {
         console.warn('⚠️ NO conditions found - client will see no data');
         return { CodTiers: '__NO_MATCH__' };
     }
-    
+
     // If only one condition, return it directly
     if (orConditions.length === 1) {
         console.log(`✅ Single condition (no OR needed):`, JSON.stringify(orConditions[0]));
         return orConditions[0];
     }
-    
+
     // Multiple conditions - use OR
     const result = { [Op.or]: orConditions };
     console.log(`✅ Using OR operator with ${orConditions.length} conditions`);
@@ -70,78 +70,89 @@ const buildClientFilter = async (user = {}) => {
 };
 
 // ─── CREATE REGLEMENT ───────────────────────────────────────────────────────────────────
-// Admin crée un nouveau réglement pour un client
 exports.createReglement = async (req, res, next) => {
+    const transaction = await sequelize.transaction();
     try {
-        const { codTiers, libTiers, mntReg, datReg } = req.body;
+        const { codTiers, libTiers, mntReg, datReg, selectedDocs = [], payments = [] } = req.body;
 
-        // Validate required fields
         if (!codTiers || !mntReg) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Code client (codTiers) et montant (mntReg) sont obligatoires'
-            });
+            return res.status(400).json({ status: 'error', message: 'Client et montant obligatoires' });
         }
 
-        // Verify user is admin
-        const userId = req.user?.id || req.user?.UserID;
-        const access = await resolveUserAccess(userId, req.user?.UserRole);
-        
-        if (access?.normalizedRole !== 'admin') {
-            return res.status(403).json({
-                status: 'error',
-                message: 'Seul un administrateur peut créer des réglement'
-            });
-        }
-
-        console.log(`💰 Creating reglement:`, { codTiers, libTiers, mntReg, datReg });
-
-        // Create TabReg (master record)
+        // 1. Create Master Record
         const newReglement = await TabReg.create({
             DatReg: datReg || new Date(),
             CodTiers: codTiers,
             LibTiers: libTiers || codTiers,
             MntReg: parseFloat(mntReg),
-            Payed: false,
+            Payed: true, // If detail lines are provided, we consider it processed
             CUser: req.user?.EmailPro || req.user?.LoginName || 'ADMIN',
             DatUser: new Date(),
-        });
+        }, { transaction });
 
-        console.log(`✅ Created ReglemMaster:`, newReglement.IDReg);
+        // 2. Create Payment Pieces (TabRegD)
+        for (const p of payments) {
+            await TabRegD.create({
+                IDReg: newReglement.IDReg,
+                Echeance: p.echeance || new Date(),
+                ModReg: p.modReg || 'ESPECE',
+                Montant: parseFloat(p.montant),
+                MntCredit: parseFloat(p.montant),
+                MntDebit: 0,
+                NumPieceReg: p.numPiece,
+                Banque: p.banque,
+                DetPieceReg: p.detail,
+                Valid: true,
+                DatValeur: p.echeance || new Date()
+            }, { transaction });
+        }
 
-        // Create initial TabRegD (detail record with 0 payment)
-        const reglemDetail = await TabRegD.create({
-            IDReg: newReglement.IDReg,
-            Montant: parseFloat(mntReg),
-            MntDebit: parseFloat(mntReg),
-            MntCredit: 0, // Initially no payment
-            ModReg: 'À définir',
-            Valid: false,
-            Echeance: datReg || new Date(),
-        });
+        // 3. Link to Documents (TabRegF)
+        for (const docId of selectedDocs) {
+            // Find doc to get details (Nf, Prfx, etc.)
+            let doc = await FavMaster.findOne({ where: { Guid: docId } }) ||
+                await BlvMaster.findOne({ where: { Guid: docId } });
 
-        console.log(`✅ Created ReglemDetail:`, reglemDetail.ID);
+            if (doc) {
+                await TabRegF.create({
+                    IDReg: newReglement.IDReg,
+                    NumPiece: `${doc.Prfx || ''}${doc.Nf}`,
+                    MDate: doc.DatUser || doc.Date,
+                    MntPiece: doc.TotTTC,
+                    MntReg: doc.TotTTC - (doc.MntCredit || 0), // Paying the full remaining balance
+                    Solde: 0, // Fully paid in this simple logic
+                    TypPiece: doc.constructor.name === 'FavMaster' ? 'FA' : 'BL'
+                }, { transaction });
 
-        // Return created reglement
+                // Update document credit/status
+                await doc.update({
+                    MntCredit: doc.TotTTC,
+                    Valider: true
+                }, { transaction });
+            }
+        }
+
+        await transaction.commit();
+
         res.status(201).json({
             status: 'success',
-            message: 'Réglement créé avec succès',
+            message: 'Réglement enregistré avec succès',
             data: {
                 id: newReglement.IDReg,
                 date: newReglement.DatReg,
                 codTiers: newReglement.CodTiers,
                 client: newReglement.LibTiers,
                 totalAmount: newReglement.MntReg,
-                paidAmount: 0,
-                remainingAmount: newReglement.MntReg,
-                isPayed: false,
-                paymentStatus: 'Non payé',
-                paymentPercentage: 0,
-                createdBy: newReglement.CUser,
+                paidAmount: newReglement.MntReg,
+                remainingAmount: 0,
+                isPayed: true,
+                paymentStatus: 'Payé',
+                paymentPercentage: 100
             }
         });
 
     } catch (err) {
+        await transaction.rollback();
         console.error('❌ createReglement:', err);
         next(err);
     }
@@ -150,7 +161,7 @@ exports.getAllReglements = async (req, res, next) => {
     try {
         const { search = '', status = '', page = 1, limit = 100 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
-        
+
         // Get user info
         const userId = req.user?.id || req.user?.UserID;
         const access = await resolveUserAccess(userId, req.user?.UserRole);
@@ -180,7 +191,7 @@ exports.getAllReglements = async (req, res, next) => {
                     { CodTiers: { [Op.like]: `%${search}%` } }
                 ]
             };
-            
+
             // For CLIENTS: Combine client filter AND search filter
             // For ADMIN: Search only (no client restriction)
             if (isClient === true && Object.keys(where).length > 0) {
@@ -197,7 +208,7 @@ exports.getAllReglements = async (req, res, next) => {
 
         // Fetch all reglements
         console.log(`🔎 Fetching reglements with WHERE:`, JSON.stringify(where));
-        
+
         const reglements = await TabReg.findAll({
             where,
             attributes: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'MntTotPieces', 'Payed', 'CUser', 'DatUser'],
@@ -219,7 +230,7 @@ exports.getAllReglements = async (req, res, next) => {
             const countWithoutInclude = await TabReg.count({ where });
             console.log(`📊 Total records in TabReg table: ${totalCount}`);
             console.log(`📊 Records matching WHERE clause: ${countWithoutInclude}`);
-            
+
             // Try without include to debug
             const testReglements = await TabReg.findAll({
                 where,
@@ -235,10 +246,10 @@ exports.getAllReglements = async (req, res, next) => {
             const totalAmount = reg.MntReg || 0;
             const totalDetail = reg.details?.reduce((sum, d) => sum + (d.MntDebit || 0), 0) || 0;
             const actualTotal = totalDetail > 0 ? totalDetail : totalAmount;
-            
+
             // Calculate paid amount
             const paidAmount = reg.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
-            
+
             // Calculate remaining
             const remainingAmount = actualTotal - paidAmount;
 
@@ -279,11 +290,11 @@ exports.getAllReglements = async (req, res, next) => {
         res.json({
             status: 'success',
             data: paginatedReglements,
-            pagination: { 
-                total, 
-                page: parseInt(page), 
-                limit: parseInt(limit), 
-                totalPages: Math.ceil(total / parseInt(limit)) 
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / parseInt(limit))
             },
         });
     } catch (err) {
@@ -296,9 +307,9 @@ exports.getAllReglements = async (req, res, next) => {
 exports.getReglemById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        
+
         console.log(`📋 getReglemById - ID: ${id}, User: ${req.user?.LoginName}`);
-        
+
         const reglement = await TabReg.findByPk(id, {
             include: [{
                 model: TabRegD,
@@ -407,7 +418,7 @@ exports.getReglemStats = async (req, res, next) => {
         reglements.forEach(reg => {
             const amount = reg.MntReg || 0;
             totalAmount += amount;
-            
+
             const paid = reg.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
             totalPaid += paid;
         });
@@ -436,11 +447,11 @@ exports.updateReglemPaymentStatus = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { mntCredit, payed } = req.body;
-        
+
         // Verify user is admin
         const userId = req.user?.id || req.user?.UserID;
         const access = await resolveUserAccess(userId, req.user?.UserRole);
-        
+
         if (access?.normalizedRole !== 'admin') {
             return res.status(403).json({
                 status: 'error',
@@ -508,11 +519,11 @@ exports.updateReglemPaymentStatus = async (req, res, next) => {
 exports.batchUpdatePayments = async (req, res, next) => {
     try {
         const { reglemIds, markAsPayedTotal } = req.body;
-        
+
         // Verify user is admin
         const userId = req.user?.id || req.user?.UserID;
         const access = await resolveUserAccess(userId, req.user?.UserRole);
-        
+
         if (access?.normalizedRole !== 'admin') {
             return res.status(403).json({
                 status: 'error',
@@ -536,7 +547,7 @@ exports.batchUpdatePayments = async (req, res, next) => {
             if (reglement) {
                 if (markAsPayedTotal === true) {
                     reglement.Payed = true;
-                    
+
                     // Also update MntCredit to match total amount
                     const detail = await TabRegD.findOne({ where: { IDReg: reglemId } });
                     if (detail) {
@@ -544,19 +555,76 @@ exports.batchUpdatePayments = async (req, res, next) => {
                         await detail.save();
                     }
                 }
-                
+
                 await reglement.save();
                 updated.push(reglemId);
             }
         }
 
-        res.json({ 
-            status: 'success', 
+        res.json({
+            status: 'success',
             message: `${updated.length} paiements mis à jour`,
             data: { updatedCount: updated.length, reglemIds: updated }
         });
     } catch (err) {
         console.error('❌ batchUpdatePayments:', err);
+        next(err);
+    }
+};
+
+// ─── GET PAYMENT MODES ───────────────────────────────────────────────────────────────────
+exports.getPaymentModes = async (req, res, next) => {
+    try {
+        const modes = await TabModReg.findAll({
+            attributes: [['ModReg', 'label'], ['IDReg', 'value']]
+        });
+        res.json({ status: 'success', data: modes });
+    } catch (err) {
+        console.error('❌ getPaymentModes:', err);
+        next(err);
+    }
+};
+
+// ─── GET UNPAID DOCUMENTS BY CLIENT ────────────────────────────────────────────────────────
+exports.getUnpaidByClient = async (req, res, next) => {
+    try {
+        const { codTiers } = req.params;
+
+        // Fetch unpaid Invoices (FA)
+        const invoices = await FavMaster.findAll({
+            where: {
+                CodTiers: codTiers,
+                [Op.or]: [
+                    { Valider: true },
+                    { Valid: true }
+                ],
+                // Simple logic: total > credit
+                [Op.and]: sequelize.literal('TotTTC > ISNULL(MntCredit, 0)')
+            },
+            attributes: ['Guid', 'Nf', 'Prfx', 'DatUser', 'TotTTC', 'MntCredit']
+        });
+
+        // Fetch unpaid Delivery Notes (BL)
+        const deliveryNotes = await BlvMaster.findAll({
+            where: {
+                CodTiers: codTiers,
+                // Add your project's logic for "unpaid" BLs here
+                // In some systems, BLs are not "paid" directly but transformed to FA
+                // If the user wants to pay BLs directly:
+                [Op.and]: sequelize.literal('TotTTC > ISNULL(MntCredit, 0)')
+            },
+            attributes: ['Guid', 'Nf', 'Prfx', 'DatUser', 'TotTTC', 'MntCredit']
+        });
+
+        // Combine and format
+        const documents = [
+            ...invoices.map(i => ({ id: i.Guid, type: 'FA', num: `${i.Prfx}${i.Nf}`, date: i.DatUser, debit: i.TotTTC, credit: i.MntCredit })),
+            ...deliveryNotes.map(d => ({ id: d.Guid, type: 'BL', num: `${d.Prfx}${d.Nf}`, date: d.DatUser, debit: d.TotTTC, credit: d.MntCredit }))
+        ];
+
+        res.json({ status: 'success', data: documents });
+    } catch (err) {
+        console.error('❌ getUnpaidByClient:', err);
         next(err);
     }
 };

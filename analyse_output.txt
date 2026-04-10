@@ -1,0 +1,233 @@
+﻿≡ƒöì Configuration DB:
+   - Host: 127.0.0.1
+   - Port: 1433
+   - Database: AA
+   - User: sa
+   - Instance: D├⌐faut
+≡ƒöÉ Mode d'authentification: SQL Server (User/Password)
+≡ƒöù Setting up associations...
+Γ£à Associations setup complete.
+============================================================
+   ANALYSE D├ëTAILL├ëE - MODULES RECAP / VISITE / RELEVER
+============================================================
+
+--- ≡ƒôï TabActivite (Activit├⌐s / Visites) ---
+  Guid                                uniqueidentifier [NO]
+  Nf                                  int [YES]
+  Mdate                               datetime [YES]
+  CodTech                             varchar(30) [YES]
+  DesTech                             varchar(250) [YES]
+  CodTiers                            varchar(20) [YES]
+  LibTiers                            varchar(100) [YES]
+  CodContact                          varchar(30) [YES]
+  LibContact                          varchar(250) [YES]
+  Note                                varchar(-1) [YES]
+  Destinataire                        varchar(250) [YES]
+  Objet                               varchar(250) [YES]
+  Attch                               image(2147483647) [YES]
+  EMail                               varchar(30) [YES]
+  EAppel                              varchar(50) [YES]
+  EVisite                             varchar(30) [YES]
+  DateMail                            datetime [YES]
+  DateAppel                           datetime [YES]
+  DateDevis                           datetime [YES]
+  DateVisite                          datetime [YES]
+  LibProj                             varchar(100) [YES]
+  DatPrevDeb                          datetime [YES]
+  DatPrevFin                          datetime [YES]
+  MdatePrev                           int [YES]
+  MdateReal                           int [YES]
+  User                                int [YES]
+  DatUser                             int [YES]
+  DatCreateUser                       date [YES]
+  Type                                int [YES]
+  DesType                             varchar(255) [YES]
+  PLU                                 int [YES]
+  Attach1                             image(2147483647) [YES]
+  Attach2                             image(2147483647) [YES]
+  LIbAt1                              varchar(30) [YES]
+  LibAt2                              varchar(30) [YES]
+  DatDeb                              date [YES]
+  DatFin                              date [YES]
+  codProj                             varchar(30) [YES]
+  Valide                              int [YES]
+  datdrc                              date [YES]
+  categ                               varchar(30) [YES]
+  DurApp                              varchar(30) [YES]
+  datepd                              datetime [YES]
+  IdTech                              varchar(30) [YES]
+  DesAtt1                             varchar(30) [YES]
+  DesAtt2                             varchar(30) [YES]
+  Attnum                              varchar(30) [YES]
+  CodSociete                          varchar(30) [YES]
+  LibSociete                          varchar(100) [YES]
+  DatPrevDebInit                      datetime [YES]
+  DatPrevFinInit                      datetime [YES]
+  ReportCount                         int [YES]
+  LastReportAt                        datetime [YES]
+  lat                                 float [YES]
+  long                                float [YES]
+  isBureau                            bit [YES]
+  ΓåÆ Total: 4 lignes
+
+  Exemple de donn├⌐es:
+   {"Guid":"8A568C43-48B9-434D-BE60-26D0A4A51BBD","Nf":null,"Mdate":"2026-03-12T23:45:00.000Z","CodTech":null,"DesTech":"","CodTiers":"FR411001","LibTiers":null,"CodContact":null,"LibContact":null,"Note":null,"Destinataire":"aaa","Objet":null,"Attch":null,"EMail":null,"EAppel":null,"EVisite":null,"DateMail":null,"DateAppel":null,"DateDevis":null,"DateVisite":null,"LibProj":"Appel","DatPrevDeb":null,"DatPrevFin":null,"MdatePrev":null,"MdateReal":null,"User":null,"DatUser":null,"DatCreateUser":null,"Type":null,"DesType":null,"PLU":null,"Attach1":null,"Attach2":null,"LIbAt1":null,"LibAt2":null,"DatDeb":null,"DatFin":null,"codProj":null,"Valide":0,"datdrc":null,"categ":null,"DurApp":null,"datepd":null,"IdTech":null,"DesAtt1":null,"DesAtt2":null,"Attnum":null,"CodSociete":null,"LibSociete":null,"DatPrevDebInit":null,"DatPrevFinInit":null,"ReportCount":0,"LastReportAt":null,"lat":null,"long":null,"isBureau":null}
+   {"Guid":"DF53752E-0B83-49F1-B1DB-6FA4A6FFC74B","Nf":null,"Mdate":"2026-03-12T23:12:00.000Z","CodTech":null,"DesTech":"mm","CodTiers":"FR411001","LibTiers":null,"CodContact":null,"LibContact":null,"Note":null,"Destinataire":"aaa","Objet":null,"Attch":null,"EMail":null,"EAppel":null,"EVisite":null,"DateMail":null,"DateAppel":null,"DateDevis":null,"DateVisite":null,"LibProj":"Email","DatPrevDeb":null,"DatPrevFin":null,"MdatePrev":null,"MdateReal":null,"User":null,"DatUser":null,"DatCreateUser":null,"Type":null,"DesType":null,"PLU":null,"Attach1":null,"Attach2":null,"LIbAt1":null,"LibAt2":null,"DatDeb":null,"DatFin":null,"codProj":null,"Valide":0,"datdrc":null,"categ":null,"DurApp":null,"datepd":null,"IdTech":null,"DesAtt1":null,"DesAtt2":null,"Attnum":null,"CodSociete":null,"LibSociete":null,"DatPrevDebInit":null,"DatPrevFinInit":null,"ReportCount":0,"LastReportAt":null,"lat":null,"long":null,"isBureau":null}
+   {"Guid":"80ACEC1A-637F-47C8-81DF-77151A1E21B7","Nf":null,"Mdate":"2026-03-11T23:56:00.000Z","CodTech":null,"DesTech":"","CodTiers":"FR411001","LibTiers":null,"CodContact":null,"LibContact":null,"Note":null,"Destinataire":"aaa","Objet":null,"Attch":null,"EMail":null,"EAppel":null,"EVisite":null,"DateMail":null,"DateAppel":null,"DateDevis":null,"DateVisite":null,"LibProj":"Visite","DatPrevDeb":null,"DatPrevFin":null,"MdatePrev":null,"MdateReal":null,"User":null,"DatUser":null,"DatCreateUser":null,"Type":null,"DesType":null,"PLU":null,"Attach1":null,"Attach2":null,"LIbAt1":null,"LibAt2":null,"DatDeb":null,"DatFin":null,"codProj":null,"Valide":0,"datdrc":null,"categ":null,"DurApp":null,"datepd":null,"IdTech":null,"DesAtt1":null,"DesAtt2":null,"Attnum":null,"CodSociete":null,"LibSociete":null,"DatPrevDebInit":null,"DatPrevFinInit":null,"ReportCount":0,"LastReportAt":null,"lat":null,"long":null,"isBureau":null}
+
+--- ≡ƒôï MvtRecap (Module Recap) ---
+  CODTIERS                            varchar(20) [YES]
+  DESTIERS                            varchar(255) [YES]
+  TOTHT                               float [YES]
+  TOTHTRET                            float [YES]
+  REM                                 float [YES]
+  CODTVA                              varchar(100) [YES]
+  FLAGS                               int [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabTournerM (Tourn├⌐es Master - possiblement VISITE) ---
+  Guid                                uniqueidentifier [NO]
+  GuidSrt                             uniqueidentifier [YES]
+  GuidRet                             uniqueidentifier [YES]
+  GuidAlim                            uniqueidentifier [YES]
+  GuidDep                             uniqueidentifier [YES]
+  GuidCreFact                         uniqueidentifier [YES]
+  GuidRegFact                         uniqueidentifier [YES]
+  MDate                               datetime [YES]
+  NF                                  varchar(255) [YES]
+  CodRepres                           varchar(10) [YES]
+  DesRepres                           varchar(255) [YES]
+  CUser                               varchar(50) [YES]
+  DatUser                             datetime [YES]
+  MontantES                           float [YES]
+  MontantChrg                         float [YES]
+  MontantCreditClt                    float [YES]
+  MontantRegClt                       float [YES]
+  MontantTourner                      float [YES]
+  MntDebit                            float [YES]
+  MntCredit                           float [YES]
+  GuidVte                             uniqueidentifier [YES]
+  GuidRegVte                          uniqueidentifier [YES]
+  ACompteTourne                       float [YES]
+  Destinat                            varchar(255) [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabTournerD (Tourn├⌐es D├⌐tail) ---
+  Guid                                uniqueidentifier [NO]
+  ID                                  int [NO]
+  Cause                               varchar(50) [YES]
+  Montant                             float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabTournerF (Tourn├⌐es R├⌐sultats) ---
+  Guid                                uniqueidentifier [NO]
+  GuidDoc                             uniqueidentifier [YES]
+  IDTiers                             uniqueidentifier [YES]
+  CodTiers                            varchar(20) [YES]
+  Raisoc                              varchar(255) [YES]
+  Montant                             float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabTournerR (Tourn├⌐es Relever?) ---
+  Guid                                uniqueidentifier [NO]
+  GuidReg                             uniqueidentifier [NO]
+  ID                                  int [NO]
+  IDTiers                             uniqueidentifier [YES]
+  CodTiers                            varchar(20) [YES]
+  Raisoc                              varchar(255) [YES]
+  Echeance                            datetime [YES]
+  ModReg                              varchar(50) [YES]
+  Montant                             float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabGeoLocAction (G├⌐olocalisation Visites) ---
+  ID                                  int [NO]
+  Latitude                            float [YES]
+  Longitude                           float [YES]
+  DateUser                            datetime [YES]
+  Cuser                               varchar(50) [YES]
+  LibDoc                              varchar(50) [YES]
+  Description                         varchar(255) [YES]
+  NumDoc                              varchar(20) [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabRapportM (Rapports / Recap?) ---
+  CODGPE                              varchar(10) [NO]
+  CODPER                              varchar(10) [NO]
+  MDATE                               datetime [YES]
+  HDEBUT                              datetime [YES]
+  HFIN                                datetime [YES]
+  NOMPER                              varchar(255) [YES]
+  TOTQTPROD                           float [YES]
+  TOTPRES                             float [YES]
+  TOTPROD                             float [YES]
+  TOTALEAS                            float [YES]
+  TOTREND                             float [YES]
+  TOTACTIV                            float [YES]
+  IQ                                  float [YES]
+  ABSCENSE                            float [YES]
+  PAUSE                               float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabRapportRend (Rapport Rendement / R├⌐cap?) ---
+  CODGPE                              varchar(10) [NO]
+  CODPER                              varchar(10) [NO]
+  MDATE                               datetime [NO]
+  CODOF                               varchar(20) [YES]
+  CODART                              varchar(20) [YES]
+  TAILLE                              varchar(10) [YES]
+  PAQNUM                              float [YES]
+  OPRORDRE                            int [YES]
+  DESOPR                              varchar(255) [YES]
+  PAQQTE                              float [YES]
+  BARCODE                             varchar(50) [YES]
+  TEMPSOPR                            float [YES]
+  TEMPSPROD                           float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabTiersHistory (Historique Tiers - possible RELEVER) ---
+  IDTiers                             uniqueidentifier [NO]
+  Niveau                              int [NO]
+  CodTiers                            varchar(20) [YES]
+  MDate                               datetime [YES]
+  Blockage                            bit [YES]
+  Motifs                              varchar(255) [YES]
+  Description                         varchar(255) [YES]
+  PUser                               varchar(50) [YES]
+  DateUser                            datetime [YES]
+  ΓåÆ Total: 1 lignes
+   {"IDTiers":"5E75E2F3-0A6F-49EF-A971-7FF94424F54E","Niveau":1,"CodTiers":"CL220193","MDate":"2024-08-14T13:21:05.000Z","Blockage":false,"Motifs":null,"Description":null,"PUser":"mariem","DateUser":null}
+
+--- ≡ƒôï TabRecouv (Recouvrement des cr├⌐ances) ---
+  IDImp                               uniqueidentifier [NO]
+  MDate                               datetime [YES]
+  IDContact                           uniqueidentifier [YES]
+  CodTiers                            varchar(20) [YES]
+  LibTiers                            varchar(255) [YES]
+  Adresse                             varchar(255) [YES]
+  Echeance                            datetime [YES]
+  ModReg                              varchar(50) [YES]
+  Montant                             float [YES]
+  NumPieceReg                         varchar(50) [YES]
+  DetPieceReg                         varchar(255) [YES]
+  IDDoc                               int [NO]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabFichClt (Fiche Client) ---
+  ID                                  int [NO]
+  CodTiers                            varchar(20) [YES]
+  LibTiers                            nvarchar(255) [YES]
+  Adresse                             varchar(255) [YES]
+  MDate                               datetime [YES]
+  CodArt                              varchar(20) [YES]
+  LibArt                              varchar(255) [YES]
+  PuHT                                float [YES]
+  Qt                                  float [YES]
+  MntTotal                            float [YES]
+  ΓåÆ Total: 0 lignes
+
+--- ≡ƒôï TabPlanComptab.Recap (Comptabilit├⌐) ---
+
+============================================================
+             FIN ANALYSE D├ëTAILL├ëE
+============================================================

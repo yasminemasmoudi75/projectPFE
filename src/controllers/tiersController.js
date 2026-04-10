@@ -126,15 +126,15 @@ const resolveUserFullName = (rawRaisoc) => {
 // Validation supplémentaire pour éviter les troncatures
 const validateUserFields = (email, fullName) => {
     const errors = [];
-    
+
     if (email && email.length > MAX_USER_LOGIN_LENGTH) {
         errors.push(`L'email ne doit pas dépasser ${MAX_USER_LOGIN_LENGTH} caractères`);
     }
-    
+
     if (fullName && fullName.length > MAX_USER_FULLNAME_LENGTH) {
         errors.push(`Le nom complet ne doit pas dépasser ${MAX_USER_FULLNAME_LENGTH} caractères`);
     }
-    
+
     return errors;
 };
 
@@ -461,7 +461,7 @@ exports.createTiers = async (req, res, next) => {
 exports.getAllTiers = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
-        
+
         // Module 11 = Tiers/Clients (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
             '11',
@@ -661,6 +661,74 @@ exports.getVilles = async (req, res, next) => {
 
 
 /**
+ * Récupérer la liste des commerciaux disponibles pour l'utilisateur
+ * (Utilisé par les agents pour affecter un commercial à un client)
+ */
+exports.getAvailableCommercials = async (req, res, next) => {
+    try {
+        const { QueryTypes } = require('sequelize');
+        const userRegion = req.user?.Gouvernorat ?? null;
+        const normalizedRole = String(req.user?.UserRole || '').trim().toLowerCase();
+        const includeAll = req.query?.includeAll === 'true' || req.query?.includeAll === '1';
+
+        console.log(`🔍 Fetching available commercials for ${req.user?.LoginName} (Role: ${normalizedRole}, Region: ${userRegion}, IncludeAll: ${includeAll})`);
+
+        let query = `
+            SELECT 
+                u.USER_ID as id,
+                u.USER_NAME as email,
+                u.REAL_NAME as fullName,
+                u.Gouvernorat,
+                u.GUID as guid,
+                p.PROF_DESCRIPTION as role
+            FROM UCS_USERS u
+            INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
+            INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
+            WHERE LOWER(p.PROF_DESCRIPTION) IN ('commercial', 'commerciale')
+        `;
+
+        const replacements = {};
+
+        // Si includeAll est spécifié, retourner TOUS les commerciaux
+        // Sinon si l'utilisateur est un Agent avec une région, restreindre à sa région
+        if (!includeAll && normalizedRole === 'agent' && userRegion) {
+            query += `
+                AND EXISTS (
+                    SELECT 1
+                    FROM tiersGouvernorat tgReq
+                    INNER JOIN tiersGouvernorat tgUser ON tgUser.id = tgReq.id
+                    WHERE (
+                        tgReq.id = TRY_CONVERT(INT, :userRegion)
+                        OR LOWER(LTRIM(RTRIM(tgReq.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), :userRegion))))
+                    )
+                    AND (
+                        tgUser.id = TRY_CONVERT(INT, u.Gouvernorat)
+                        OR LOWER(LTRIM(RTRIM(tgUser.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), u.Gouvernorat))))
+                    )
+                )
+            `;
+            replacements.userRegion = String(userRegion);
+        }
+
+        const commercials = await sequelize.query(query, {
+            replacements,
+            type: QueryTypes.SELECT
+        });
+
+        res.status(200).json({
+            status: 'success',
+            count: commercials.length,
+            data: commercials
+        });
+    } catch (error) {
+        console.error('Erreur getAvailableCommercials:', error);
+        next(error);
+    }
+};
+
+
+
+/**
  * Envoyer les identifiants (email + nouveau mot de passe) à tous les clients existants
  * Génère un nouveau mot de passe pour chaque client, met à jour le hash en base,
  * puis envoie un email avec les nouveaux identifiants.
@@ -714,7 +782,7 @@ exports.bulkSendCredentials = async (req, res, next) => {
                 } else {
                     // Pas de compte → en créer un (comme dans createTiers)
                     const userFullName = (tiers.Raisoc || email).substring(0, MAX_USER_FULLNAME_LENGTH);
-                    
+
                     // Validation supplémentaire pour éviter les troncatures
                     const validationErrors = validateUserFields(email, userFullName);
                     if (validationErrors.length > 0) {
@@ -722,7 +790,7 @@ exports.bulkSendCredentials = async (req, res, next) => {
                         errors.push({ email, error: validationErrors.join(', ') });
                         continue;
                     }
-                    
+
                     const newUser = await User.create({
                         UserID: await allocateNextUserId(),
                         LoginName: email,
