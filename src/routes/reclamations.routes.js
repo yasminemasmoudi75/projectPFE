@@ -54,12 +54,29 @@ const allowTechnicianOnOwnClaimOrUpdatePermission = (req, res, next) => {
 		if (access?.normalizedRole === 'technicien') {
 			try {
 				const claims = await sequelize.query(
-					`SELECT TechnicienID FROM TabReclamation WHERE ID = :id`,
+					`SELECT TechnicienID, NomTechnicien FROM TabReclamation WHERE ID = :id`,
 					{ replacements: { id: claimId }, type: QueryTypes.SELECT }
 				);
-				
-				if (claims && claims[0] && (claims[0].TechnicienID === userId || claims[0].TechnicienID == userId)) {
-					return next(); // Technician owns this claim
+
+				if (claims && claims[0]) {
+					const claimTechnicienId = claims[0].TechnicienID;
+					const claimTechnicienName = String(claims[0].NomTechnicien || '').trim().toLowerCase();
+					const userFullName = String(req.user?.FullName || '').trim().toLowerCase();
+					const userLogin = String(req.user?.LoginName || '').trim().toLowerCase();
+					const userEmail = String(req.user?.EmailPro || '').trim().toLowerCase();
+
+					const idMatch = claimTechnicienId === userId || claimTechnicienId == userId;
+					const nameMatch = Boolean(
+						claimTechnicienName && (
+							claimTechnicienName === userFullName ||
+							claimTechnicienName === userLogin ||
+							claimTechnicienName === userEmail
+						)
+					);
+
+					if (idMatch || nameMatch) {
+						return next(); // Technician owns this claim
+					}
 				}
 			} catch (dbError) {
 				// If query fails, fall through to permission check
@@ -85,7 +102,7 @@ router.post('/:id/interventions', allowTechnicianOnOwnClaimOrUpdatePermission, c
 router.get('/technician/:technicienID', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getTechnicianReclamations);
 
 // Routes générales (après les routes spécifiques)
-router.get('/', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getAll);
+router.get('/', allowClientOrReadPermission, ctrl.getAll);
 router.get('/:id', allowClientOrReadPermission, ctrl.getById);
 
 // Routes d'ajout/modification/suppression via permissions module
