@@ -206,6 +206,38 @@ const getRepresentativeScope = async (user = {}, normalizedRole = '') => {
 const buildModuleScopeFilter = async (moduleCode, user = {}) => {
   const normalizedRole = normalizeRole(user?.UserRole);
   if (normalizedRole === 'admin') return {};
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIENT role: always filter — show only their own data (no FiltreRepres needed)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (normalizedRole === 'client') {
+    const userEmail = user?.EmailPro || user?.LoginName || user?.email;
+    if (!userEmail) return { [Op.and]: [sequelize.literal('1 = 0')] };
+
+    // Find the client's CodTiers by matching email
+    const clientRow = await sequelize.query(`
+      SELECT CodTiers FROM TabTiers WHERE Email = :email
+    `, { replacements: { email: userEmail }, type: QueryTypes.SELECT });
+
+    const codTiers = clientRow[0]?.CodTiers;
+    if (!codTiers) return { [Op.and]: [sequelize.literal('1 = 0')] };
+
+    const moduleKey = String(moduleCode);
+    // Devis, BCV, BLV, Factures → filter by CodTiers
+    if (['4', '5', '6', '7'].includes(moduleKey)) {
+      return { CodTiers: codTiers };
+    }
+    // Tiers → show only own record
+    if (moduleKey === '11' || moduleKey === '30') {
+      return { CodTiers: codTiers };
+    }
+    // Reclamations → filter by CodTiers
+    if (moduleKey === '51') {
+      return { CodTiers: codTiers };
+    }
+    return { CodTiers: codTiers };
+  }
+
   if (!['commercial', 'agent'].includes(normalizedRole)) return {};
 
   const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
@@ -296,21 +328,21 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
     return { [Op.and]: [sequelize.literal('1 = 0')] };
   }
 
-  // Devis (TabDevm): scope through client portfolio
+  // Devis/BCV/BLV/FAV: scope through client portfolio
   // Note: getRepresentativeScope already returns the list of CodTiers appropriate for this user/role
   // For Commercial: returns their client codes
   // For Agent: returns their region commercials' client codes
-  if (moduleKey === '4') {
+  if (['4', '5', '6', '7'].includes(moduleKey)) {
     // Representatives are already the CodTiers we need - use them directly
     if (representatives.length === 0) {
-      console.log(`   🔍 [filterHelper] Module 4 (Devis): No client codes found, blocking all access`);
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: No client codes found, blocking all access`);
       return { [Op.and]: [sequelize.literal('1 = 0')] };
     }
 
-    console.log(`   🔍 [filterHelper] Module 4 (Devis): Filtering by ${representatives.length} client codes:`, representatives);
+    console.log(`   🔍 [filterHelper] Module ${moduleKey}: Filtering by ${representatives.length} client codes:`, representatives);
     const filterResult = { CodTiers: { [Op.in]: representatives } };
-    console.log(`   🔍 [filterHelper] Module 4 filter object keys:`, Object.keys(filterResult));
-    console.log(`   🔍 [filterHelper] Module 4 filter object symbols:`, Object.getOwnPropertySymbols(filterResult['CodTiers']));
+    console.log(`   🔍 [filterHelper] Module ${moduleKey} filter object keys:`, Object.keys(filterResult));
+    console.log(`   🔍 [filterHelper] Module ${moduleKey} filter object symbols:`, Object.getOwnPropertySymbols(filterResult['CodTiers']));
     return filterResult;
   }
 

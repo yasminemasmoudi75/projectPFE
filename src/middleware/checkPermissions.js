@@ -122,6 +122,24 @@ const checkPermission = (codMod, action) => {
           });
       }
 
+      // Business rule override for Devis module:
+      // - Commercial can update Devis
+      // - Admin can update and delete Devis
+      if (!hasPermission && Number(codMod) === Number(MODULES.DEVIS)) {
+        const isCommercial = userRole === 'commercial';
+        const isAdmin = userRole === 'admin';
+
+        if (action === 'update' && (isCommercial || isAdmin)) {
+          hasPermission = moduleAccessible;
+          permissionName = `${permissionName || 'canEdit'} (role override)`;
+        }
+
+        if (action === 'delete' && isAdmin) {
+          hasPermission = moduleAccessible;
+          permissionName = `${permissionName || 'canDelt'} (role override)`;
+        }
+      }
+
       if (!hasPermission) {
         return res.status(403).json({
           status: 'error',

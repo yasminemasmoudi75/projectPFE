@@ -1,4 +1,4 @@
-const { BlvMaster, BlvDetail, Tiers, sequelize } = require('../models');
+const { BlvMaster, BlvDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { Op, TableHints } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
@@ -87,7 +87,16 @@ exports.getAllBlv = async (req, res, next) => {
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
-            include: [{ model: Tiers, as: 'client' }],
+            include: [{
+                model: Tiers,
+                as: 'client',
+                attributes: ['Raisoc', 'CodTiers', 'Ville', 'MapsRegion', 'Gouvernorat', 'Classe', 'Categorie'],
+                include: [
+                    { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+                ]
+            }],
             order: [['DatUser', 'DESC']],
             limit,
             offset,
@@ -334,7 +343,16 @@ exports.getMyBlv = async (req, res, next) => {
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
-            include: [{ model: Tiers, as: 'client' }],
+            include: [{
+                model: Tiers,
+                as: 'client',
+                attributes: ['Raisoc', 'CodTiers', 'Ville', 'MapsRegion', 'Gouvernorat', 'Classe', 'Categorie'],
+                include: [
+                    { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+                ]
+            }],
             order: [['DatUser', 'DESC']],
             limit,
             offset,

@@ -1,4 +1,4 @@
-const { BcvMaster, BcvDetail, Tiers, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, sequelize } = require('../models');
+const { BcvMaster, BcvDetail, Tiers, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { Op, TableHints } = require('sequelize');
 
 const PDFService = require('../services/pdfService');
@@ -79,6 +79,101 @@ const sanitizeMasterData = (masterData) => {
     return sanitized;
 };
 
+const sanitizeBcvDetailData = (detail = {}) => {
+    const sanitized = { ...detail };
+
+    // Computed/DB-managed fields in TabBcvd must never be written.
+    delete sanitized.MntHT;
+    delete sanitized.MntTVA;
+    delete sanitized.MntFodec;
+    delete sanitized.NetHT;
+
+    // Identity / generated fields.
+    delete sanitized.NoDetail;
+    delete sanitized.Guid;
+
+    return sanitized;
+};
+
+const buildBcvSecurityWhere = async (guid, user) => {
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, user);
+    return { [Op.and]: [{ Guid: guid }, securityWhere] };
+};
+
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+const isEmptyValue = (value) => {
+    if (value === null || value === undefined) return true;
+    return String(value).trim() === '';
+};
+
+const resolveLookupIdByLabel = async (Model, value, transaction) => {
+    if (isEmptyValue(value)) return null;
+
+    const raw = String(value).trim();
+    if (/^\d+$/.test(raw)) return Number(raw);
+
+    const normalized = raw.toLowerCase();
+    const row = await Model.findOne({
+        attributes: ['id'],
+        where: sequelize.where(
+            sequelize.fn('LOWER', sequelize.col('libelle')),
+            normalized
+        ),
+        transaction
+    });
+
+    return row?.id ?? null;
+};
+
+const buildTierPatchFromMaster = async (master = {}, transaction) => {
+    const patch = {};
+
+    if (hasOwn(master, 'Ville')) {
+        patch.Ville = isEmptyValue(master.Ville) ? null : String(master.Ville).trim();
+    }
+
+    if (hasOwn(master, 'MapsRegion')) {
+        patch.MapsRegion = isEmptyValue(master.MapsRegion) ? null : String(master.MapsRegion).trim();
+    } else if (hasOwn(master, 'Ville') && !isEmptyValue(master.Ville)) {
+        patch.MapsRegion = String(master.Ville).trim();
+    }
+
+    if (hasOwn(master, 'Classe')) {
+        if (isEmptyValue(master.Classe)) {
+            patch.Classe = null;
+        } else {
+            const classeId = await resolveLookupIdByLabel(TiersClasse, master.Classe, transaction);
+            if (classeId !== null) patch.Classe = classeId;
+        }
+    }
+
+    if (hasOwn(master, 'Categorie')) {
+        if (isEmptyValue(master.Categorie)) {
+            patch.Categorie = null;
+        } else {
+            const categorieId = await resolveLookupIdByLabel(TiersCategorie, master.Categorie, transaction);
+            if (categorieId !== null) patch.Categorie = categorieId;
+        }
+    }
+
+    const gouvernoratSource = hasOwn(master, 'Gouvernorat')
+        ? master.Gouvernorat
+        : (hasOwn(master, 'Ville') ? master.Ville : undefined);
+
+    if (gouvernoratSource !== undefined) {
+        if (isEmptyValue(gouvernoratSource)) {
+            patch.Gouvernorat = null;
+        } else {
+            const gouvernoratId = await resolveLookupIdByLabel(TiersGouvernorat, gouvernoratSource, transaction);
+            if (gouvernoratId !== null) patch.Gouvernorat = gouvernoratId;
+        }
+    }
+
+    return patch;
+};
+
 /**
  * Récupérer tous les bons de commande (master)
  * Ne consulte que TabBcvm — les devis convertis créent de vrais enregistrements BcvMaster
@@ -97,7 +192,16 @@ exports.getAllBcv = async (req, res, next) => {
 
         const { count, rows } = await BcvMaster.findAndCountAll({
             where,
-            include: [{ model: Tiers, as: 'client' }],
+            include: [{
+                model: Tiers,
+                as: 'client',
+                attributes: ['Raisoc', 'CodTiers', 'Ville', 'MapsRegion', 'Gouvernorat', 'Classe', 'Categorie'],
+                include: [
+                    { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+                ]
+            }],
             order: [['DatUser', 'DESC']],
             limit,
             offset,
@@ -342,6 +446,33 @@ exports.createBcv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
+        if (!master.CodTiers) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Client (CodTiers) est obligatoire' });
+        }
+
+        const selectedTier = await Tiers.findOne({
+            where: { CodTiers: master.CodTiers },
+            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+            transaction
+        });
+
+        if (!selectedTier) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Client sélectionné introuvable' });
+        }
+
+        const tierPatch = await buildTierPatchFromMaster(master, transaction);
+        if (Object.keys(tierPatch).length > 0) {
+            await selectedTier.update(tierPatch, { transaction });
+        }
+
+        // Keep BCV/client textual fields aligned with Tiers to avoid stale display values.
+        master.CodTiers = selectedTier.CodTiers;
+        master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
+        master.Adresse = selectedTier.Adresse || master.Adresse || '';
+        master.Ville = selectedTier.Ville || master.Ville || '';
+
         if (req.user?.UserRole && req.user.UserRole.toLowerCase().includes('commercial')) {
             const codRepres = req.user.id || req.user.UserID;
             master.CodRepres = String(codRepres);
@@ -369,9 +500,7 @@ exports.createBcv = async (req, res, next) => {
         // 3. Créer les détails
         if (details && Array.isArray(details) && details.length > 0) {
             const detailsWithNf = details.map((d) => {
-                const detail = { ...d };
-                delete detail.Guid;
-                delete detail.NoDetail;
+                const detail = sanitizeBcvDetailData(d);
                 return {
                     ...detail,
                     NF: newBcv.Nf,
@@ -434,9 +563,7 @@ exports.updateBcv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Master data is required' });
         }
 
-        const bcvWhere = isCommercialRole(req.user?.UserRole)
-            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-            : { Guid: id };
+        const bcvWhere = await buildBcvSecurityWhere(id, req.user);
 
         const bcv = await BcvMaster.findOne({ where: bcvWhere, transaction });
         if (!bcv) {
@@ -444,8 +571,30 @@ exports.updateBcv = async (req, res, next) => {
             return res.status(404).json({ status: 'error', message: 'Bon de commande non trouvé' });
         }
 
-        if (isCommercialRole(req.user?.UserRole)) {
-            const codRepres = resolveCommercialCodRepresValue(req.user);
+        const targetCodTiers = master.CodTiers || bcv.CodTiers;
+        const selectedTier = await Tiers.findOne({
+            where: { CodTiers: targetCodTiers },
+            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+            transaction
+        });
+
+        if (!selectedTier) {
+            if (transaction && !transaction.finished) await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Client sélectionné introuvable' });
+        }
+
+        const tierPatch = await buildTierPatchFromMaster(master, transaction);
+        if (Object.keys(tierPatch).length > 0) {
+            await selectedTier.update(tierPatch, { transaction });
+        }
+
+        master.CodTiers = selectedTier.CodTiers;
+        master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
+        master.Adresse = selectedTier.Adresse || master.Adresse || '';
+        master.Ville = selectedTier.Ville || master.Ville || '';
+
+        if (req.user?.UserRole && String(req.user.UserRole).toLowerCase().includes('commercial')) {
+            const codRepres = String(req.user?.id || req.user?.UserID || '').trim();
             if (!codRepres) {
                 if (transaction && !transaction.finished) await transaction.rollback();
                 return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
@@ -462,12 +611,15 @@ exports.updateBcv = async (req, res, next) => {
         if (details && Array.isArray(details)) {
             await BcvDetail.destroy({ where: { NF: bcv.Nf }, transaction });
             if (details.length > 0) {
-                const detailsWithNf = details.map((d) => ({
-                    ...d,
-                    NF: bcv.Nf,
-                    ID: bcv.Nf,
-                    Guid: randomUUID()
-                }));
+                const detailsWithNf = details.map((d) => {
+                    const detail = sanitizeBcvDetailData(d);
+                    return {
+                        ...detail,
+                        NF: bcv.Nf,
+                        ID: bcv.Nf,
+                        Guid: randomUUID()
+                    };
+                });
                 await BcvDetail.bulkCreate(detailsWithNf, { transaction });
             }
         }
@@ -508,7 +660,16 @@ exports.getMyBcv = async (req, res, next) => {
 
         const { count, rows } = await BcvMaster.findAndCountAll({
             where,
-            include: [{ model: Tiers, as: 'client' }],
+            include: [{
+                model: Tiers,
+                as: 'client',
+                attributes: ['Raisoc', 'CodTiers', 'Ville', 'MapsRegion', 'Gouvernorat', 'Classe', 'Categorie'],
+                include: [
+                    { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+                    { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+                ]
+            }],
             order: [['DatUser', 'DESC']],
             limit,
             offset,
@@ -536,9 +697,7 @@ exports.deleteBcv = async (req, res, next) => {
     try {
         transaction = await sequelize.transaction();
         const { id } = req.params;
-        const bcvWhere = isCommercialRole(req.user?.UserRole)
-            ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-            : { Guid: id };
+        const bcvWhere = await buildBcvSecurityWhere(id, req.user);
         const bcv = await BcvMaster.findOne({ where: bcvWhere, transaction });
 
         if (!bcv) {

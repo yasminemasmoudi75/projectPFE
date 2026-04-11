@@ -1,4 +1,4 @@
-const { DevisMaster, DevisDetail, BcvMaster, BcvDetail, Tiers, Product, TabSociete, sequelize } = require('../models');
+const { DevisMaster, DevisDetail, BcvMaster, BcvDetail, Tiers, Product, TabSociete, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { Op, TableHints } = require('sequelize');
 
 const PDFService = require('../services/pdfService');
@@ -27,15 +27,23 @@ exports.getAllDevis = async (req, res, next) => {
       req.user
     );
     const { where, limit, offset, page } = filterResult;
-    console.log('✅ [DevisController] Filters applied:', JSON.stringify(where));
+    const listWhere = {
+      [Op.and]: [where, { bTransf: false }]
+    };
+    console.log('✅ [DevisController] Filters applied:', JSON.stringify(listWhere));
 
     console.log('📊 [DevisController] Running query on DevisMaster...');
     const { count, rows } = await DevisMaster.findAndCountAll({
-      where,
+      where: listWhere,
       include: [{
         model: Tiers,
         as: 'tiers',
-        attributes: ['Raisoc', 'CodTiers', 'Ville']
+        attributes: ['Raisoc', 'CodTiers', 'Ville', 'MapsRegion', 'Gouvernorat', 'Classe', 'Categorie'],
+        include: [
+          { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+          { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+          { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+        ]
       }],
       order: [['Nf', 'DESC']],
       limit,
@@ -158,8 +166,9 @@ const sanitizeMasterData = (masterData) => {
   delete sanitized.DatUser;
   delete sanitized.DatCreateUser;
 
-  // Parse and validate all date fields
-  const dateFields = ['MDate', 'DatLiv'];
+  // Parse and validate payload date fields accepted from client.
+  // MDate is a legacy audit datetime and is always set from SQL GETDATE() to avoid timezone serialization issues.
+  const dateFields = ['DatLiv'];
   dateFields.forEach(field => {
     const val = sanitized[field];
     if (!val || val === '' || val === 'null' || val === null) {
@@ -190,6 +199,111 @@ const sanitizeMasterData = (masterData) => {
   return sanitized;
 };
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const isCommercialUser = (user = {}) => {
+  return ['commercial', 'commerciale'].includes(normalizeRole(user?.UserRole));
+};
+
+const isAdminUser = (user = {}) => {
+  return ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole));
+};
+
+const isFiltreRepresEnabledForCommercialDevis = async (transaction) => {
+  const { QueryTypes } = require('sequelize');
+  const rows = await sequelize.query(`
+    SELECT TOP 1 FiltreRepres
+    FROM TabAWProfileAccess
+    WHERE LOWER(ProfileUser) IN ('commercial', 'commerciale')
+      AND CAST(CodMod AS NVARCHAR(20)) = '4'
+  `, {
+    type: QueryTypes.SELECT,
+    transaction
+  });
+
+  const value = rows[0]?.FiltreRepres;
+  return value === 1 || value === true || value === '1';
+};
+
+const buildDevisSecurityWhere = async (guid, user, transaction) => {
+  const filterHelper = require('../utils/filterHelper');
+  const securityWhere = await filterHelper.applyTableDrivenFilters('4', {}, user, transaction);
+  return { [Op.and]: [{ Guid: guid }, securityWhere] };
+};
+
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+const isEmptyValue = (value) => {
+  if (value === null || value === undefined) return true;
+  return String(value).trim() === '';
+};
+
+const resolveLookupIdByLabel = async (Model, value, transaction) => {
+  if (isEmptyValue(value)) return null;
+
+  const raw = String(value).trim();
+  if (/^\d+$/.test(raw)) return Number(raw);
+
+  const normalized = raw.toLowerCase();
+  const row = await Model.findOne({
+    attributes: ['id'],
+    where: sequelize.where(
+      sequelize.fn('LOWER', sequelize.col('libelle')),
+      normalized
+    ),
+    transaction
+  });
+
+  return row?.id ?? null;
+};
+
+const buildTierPatchFromMaster = async (master = {}, transaction) => {
+  const patch = {};
+
+  if (hasOwn(master, 'Ville')) {
+    patch.Ville = isEmptyValue(master.Ville) ? null : String(master.Ville).trim();
+  }
+
+  if (hasOwn(master, 'MapsRegion')) {
+    patch.MapsRegion = isEmptyValue(master.MapsRegion) ? null : String(master.MapsRegion).trim();
+  } else if (hasOwn(master, 'Ville') && !isEmptyValue(master.Ville)) {
+    patch.MapsRegion = String(master.Ville).trim();
+  }
+
+  if (hasOwn(master, 'Classe')) {
+    if (isEmptyValue(master.Classe)) {
+      patch.Classe = null;
+    } else {
+      const classeId = await resolveLookupIdByLabel(TiersClasse, master.Classe, transaction);
+      if (classeId !== null) patch.Classe = classeId;
+    }
+  }
+
+  if (hasOwn(master, 'Categorie')) {
+    if (isEmptyValue(master.Categorie)) {
+      patch.Categorie = null;
+    } else {
+      const categorieId = await resolveLookupIdByLabel(TiersCategorie, master.Categorie, transaction);
+      if (categorieId !== null) patch.Categorie = categorieId;
+    }
+  }
+
+  const gouvernoratSource = hasOwn(master, 'Gouvernorat')
+    ? master.Gouvernorat
+    : (hasOwn(master, 'Ville') ? master.Ville : undefined);
+
+  if (gouvernoratSource !== undefined) {
+    if (isEmptyValue(gouvernoratSource)) {
+      patch.Gouvernorat = null;
+    } else {
+      const gouvernoratId = await resolveLookupIdByLabel(TiersGouvernorat, gouvernoratSource, transaction);
+      if (gouvernoratId !== null) patch.Gouvernorat = gouvernoratId;
+    }
+  }
+
+  return patch;
+};
+
 /**
  * Créer un nouveau devis
  */
@@ -204,10 +318,70 @@ exports.createDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
-    if (req.user?.UserRole && req.user.UserRole.toLowerCase().includes('commercial')) {
-      const codRepres = req.user.id || req.user.UserID;
-      master.CodRepres = String(codRepres);
+    if (!master.CodTiers) {
+      return res.status(400).json({ status: 'error', message: 'Client (CodTiers) est obligatoire' });
     }
+
+    const selectedTier = await Tiers.findOne({
+      where: { CodTiers: master.CodTiers },
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'codRepresTiers', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+      transaction
+    });
+
+    if (!selectedTier) {
+      if (transaction && !transaction.finished) await transaction.rollback();
+      return res.status(400).json({ status: 'error', message: 'Client sélectionné introuvable' });
+    }
+
+    if (isCommercialUser(req.user)) {
+      const currentUserId = String(req.user?.id || req.user?.UserID || '').trim();
+      if (!currentUserId) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        return res.status(403).json({ status: 'error', message: 'Utilisateur commercial invalide' });
+      }
+
+      // Always force representative to logged-in commercial
+      master.CodRepres = currentUserId;
+
+      // If FiltreRepres is enabled for commercial/devis, enforce that selected client belongs to this commercial
+      const filtreRepresEnabled = await isFiltreRepresEnabledForCommercialDevis(transaction);
+      if (filtreRepresEnabled) {
+        const tierRep = String(selectedTier.codRepresTiers || '').trim();
+        if (!tierRep || tierRep !== currentUserId) {
+          if (transaction && !transaction.finished) await transaction.rollback();
+          return res.status(403).json({
+            status: 'error',
+            message: 'Ce client n\'est pas affecté à ce commercial'
+          });
+        }
+      }
+    }
+
+    if (isAdminUser(req.user)) {
+      // Admin can create for any client, but keep Devis <-> Client <-> Commercial link coherent.
+      // If CodRepres is not explicitly provided, inherit client's assigned commercial.
+      if (!master.CodRepres) {
+        const tierRep = String(selectedTier.codRepresTiers || '').trim();
+        if (tierRep) {
+          master.CodRepres = tierRep;
+        }
+      }
+    }
+
+    // Synchronize editable client profile fields from Devis form into TabTiers.
+    const tierPatch = await buildTierPatchFromMaster(master, transaction);
+    if (Object.keys(tierPatch).length > 0) {
+      await selectedTier.update(tierPatch, { transaction });
+    }
+
+    // Always normalize client fields from DB to avoid payload inconsistencies
+    master.CodTiers = selectedTier.CodTiers;
+    master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
+    master.Adresse = selectedTier.Adresse || master.Adresse || '';
+    master.Ville = selectedTier.Ville || master.Ville || '';
+
+    // Track creator login when available
+    master.CUser = req.user?.LoginName || String(req.user?.id || req.user?.UserID || '');
 
 
     // 1. Déterminer le prochain numéro de devis (Nf) si pas fourni
@@ -315,9 +489,7 @@ exports.updateDevis = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Master data is required' });
     }
 
-    const devisWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-      : { Guid: id };
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, transaction);
 
     const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
     if (!devis) {
@@ -327,11 +499,62 @@ exports.updateDevis = async (req, res, next) => {
       return res.status(404).json({ status: 'error', message: 'Devis non trouvé' });
     }
 
+    const targetCodTiers = master.CodTiers || devis.CodTiers;
+    const selectedTier = await Tiers.findOne({
+      where: { CodTiers: targetCodTiers },
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'codRepresTiers', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+      transaction
+    });
+
+    if (!selectedTier) {
+      if (transaction && !transaction.finished) {
+        await transaction.rollback();
+      }
+      return res.status(400).json({ status: 'error', message: 'Client sélectionné introuvable' });
+    }
+
+    if (isCommercialUser(req.user)) {
+      const currentUserId = String(req.user?.id || req.user?.UserID || '').trim();
+      if (!currentUserId) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        return res.status(403).json({ status: 'error', message: 'Utilisateur commercial invalide' });
+      }
+
+      const filtreRepresEnabled = await isFiltreRepresEnabledForCommercialDevis(transaction);
+      if (filtreRepresEnabled) {
+        const tierRep = String(selectedTier.codRepresTiers || '').trim();
+        if (!tierRep || tierRep !== currentUserId) {
+          if (transaction && !transaction.finished) await transaction.rollback();
+          return res.status(403).json({
+            status: 'error',
+            message: 'Ce client n\'est pas affecté à ce commercial'
+          });
+        }
+      }
+    }
+
+    if (isAdminUser(req.user) && !master.CodRepres) {
+      const tierRep = String(selectedTier.codRepresTiers || '').trim();
+      if (tierRep) {
+        master.CodRepres = tierRep;
+      }
+    }
+
+    const tierPatch = await buildTierPatchFromMaster(master, transaction);
+    if (Object.keys(tierPatch).length > 0) {
+      await selectedTier.update(tierPatch, { transaction });
+    }
+
+    master.CodTiers = selectedTier.CodTiers;
+    master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
+    master.Adresse = selectedTier.Adresse || master.Adresse || '';
+    master.Ville = selectedTier.Ville || master.Ville || '';
+
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
 
-    if (isCommercialRole(req.user?.UserRole)) {
-      const codRepres = resolveCommercialCodRepresValue(req.user);
+    if (isCommercialUser(req.user)) {
+      const codRepres = String(req.user?.id || req.user?.UserID || '').trim();
       if (!codRepres) {
         if (transaction && !transaction.finished) await transaction.rollback();
         return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
@@ -341,6 +564,7 @@ exports.updateDevis = async (req, res, next) => {
 
     // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
     masterData.DatUser = sequelize.literal('GETDATE()');
+    masterData.MDate = sequelize.literal('GETDATE()');
 
     // 1. Mettre à jour le master
     await devis.update(masterData, { transaction });
@@ -400,9 +624,7 @@ exports.deleteDevis = async (req, res, next) => {
   try {
     transaction = await sequelize.transaction();
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-      : { Guid: id };
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, transaction);
     const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
 
     if (!devis) {
@@ -435,9 +657,7 @@ exports.deleteDevis = async (req, res, next) => {
 exports.validateDevis = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-      : { Guid: id };
+    const devisWhere = await buildDevisSecurityWhere(id, req.user);
     const devis = await DevisMaster.findOne({ where: devisWhere });
 
     if (!devis) {
@@ -466,9 +686,7 @@ exports.convertDevis = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const devisWhere = isCommercialRole(req.user?.UserRole)
-      ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
-      : { Guid: id };
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, t);
     const devis = await DevisMaster.findOne({
       where: devisWhere,
       include: [{ model: DevisDetail, as: 'details' }],
@@ -632,8 +850,12 @@ exports.getMyDevis = async (req, res, next) => {
       req.user
     );
 
+    const listWhere = {
+      [Op.and]: [where, { bTransf: false }]
+    };
+
     const { count, rows } = await DevisMaster.findAndCountAll({
-      where,
+      where: listWhere,
       include: [
         { model: Tiers, as: 'tiers', attributes: ['CodTiers', 'Raisoc', 'Email'] },
       ],
