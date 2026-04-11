@@ -33,18 +33,21 @@ const UsersList = () => {
     if (showRefresh) setRefreshing(true);
     try {
       const response = await axios.get('/users');
-      if (response.status === 'success' && Array.isArray(response.data)) {
-        const mappedUsers = response.data.map(user => ({
-          id: user.UserID,
-          name: user.FullName || 'Utilisateur sans nom',
-          login: user.LoginName || '',
-          email: user.EmailPro || 'Non spécifié',
-          role: user.UserRole || 'Rôle non défini',
-          status: (user.IsActive === true || user.IsActive === 1) ? 'Actif' : 'Inactif',
-          dept: user.Departement || 'Non assigné'
-        }));
-        setUsers(mappedUsers);
-      }
+      const usersPayload = Array.isArray(response?.data)
+        ? response.data
+        : (Array.isArray(response) ? response : []);
+
+      const mappedUsers = usersPayload.map((user) => ({
+        id: user.UserID,
+        name: user.FullName || 'Utilisateur sans nom',
+        login: user.LoginName || '',
+        email: user.EmailPro || 'Non specifie',
+        role: user.UserRole || 'Role non defini',
+        status: (user.IsActive === true || user.IsActive === 1) ? 'Actif' : 'Inactif',
+        dept: user.Departement || 'Non assigne'
+      }));
+
+      setUsers(mappedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
       toast.error('Impossible de charger la liste des utilisateurs');

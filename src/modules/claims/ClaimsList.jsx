@@ -63,49 +63,121 @@ const ClaimsList = () => {
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [technicianFilter, setTechnicianFilter] = useState('all');
     const [sortMode, setSortMode] = useState('recent');
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
 
-    const fetchClaims = useCallback(async () => {
+    const fetchClaims = useCallback(async (page = currentPage, limit = itemsPerPage) => {
         try {
             setLoading(true);
-            const response = await axios.get('/reclamations');
-            const list = response?.data ?? [];
-            let mapped = (Array.isArray(list) ? list : []).map((rec) => ({
-                id: rec.ID,
-                codTiers: rec.CodTiers,
-                ticket: rec.NumTicket,
-                client: rec.LibTiers || rec.CodTiers || 'Client non défini',
-                object: rec.Objet || 'Sans objet',
-                description: rec.Description || '',
-                date: rec.DateOuverture || rec.createdAt,
-                priority: rec.Priorite || 'Moyenne',
-                status: rec.Statut || 'Ouvert',
-                assignedTo: rec.NomTechnicien || 'Non assigné',
-                assignedToId: rec.TechnicienID || null
-            }));
-            
-            // Filtrer pour les techniciens: seulement leurs réclamations assignées
-            if (isTechnicien) {
-                const techId = user?.UserID;
-                const normalize = (value) => String(value || '').trim().toLowerCase();
-                const technicianNames = [user?.FullName, user?.LoginName, user?.EmailPro]
-                    .map(normalize)
-                    .filter(Boolean);
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+            });
 
-                mapped = mapped.filter(claim => {
-                    const idMatch = claim.assignedToId === techId || String(claim.assignedToId) === String(techId);
-                    const nameMatch = technicianNames.includes(normalize(claim.assignedTo));
-                    return idMatch || nameMatch;
-                });
+            // Add filters as query parameters
+            if (searchTerm.trim()) {
+                params.append('Objet', searchTerm.trim());
+                params.append('LibTiers', searchTerm.trim());
+                params.append('NumTicket', searchTerm.trim());
             }
             
-            setClaims(mapped);
+            if (statusFilter !== 'all') {
+                params.append('Statut', statusFilter);
+            }
+            
+            if (priorityFilter !== 'all') {
+                params.append('Priorite', priorityFilter);
+            }
+            
+            if (technicianFilter !== 'all') {
+                params.append('TechnicienID', technicianFilter);
+            }
+
+            const response = await axios.get(`/reclamations?${params.toString()}`);
+            const result = response?.data;
+            
+            if (result?.data) {
+                let mapped = (Array.isArray(result.data) ? result.data : []).map((rec) => ({
+                    id: rec.ID,
+                    codTiers: rec.CodTiers,
+                    ticket: rec.NumTicket,
+                    client: rec.LibTiers || rec.CodTiers || 'Client non défini',
+                    object: rec.Objet || 'Sans objet',
+                    description: rec.Description || '',
+                    date: rec.DateOuverture || rec.createdAt,
+                    priority: rec.Priorite || 'Moyenne',
+                    status: rec.Statut || 'Ouvert',
+                    assignedTo: rec.NomTechnicien || 'Non assigné',
+                    assignedToId: rec.TechnicienID || null
+                }));
+                
+                // Filtrer pour les techniciens: seulement leurs réclamations assignées
+                if (isTechnicien) {
+                    const techId = user?.UserID;
+                    const normalize = (value) => String(value || '').trim().toLowerCase();
+                    const technicianNames = [user?.FullName, user?.LoginName, user?.EmailPro]
+                        .map(normalize)
+                        .filter(Boolean);
+
+                    mapped = mapped.filter(claim => {
+                        const idMatch = claim.assignedToId === techId || String(claim.assignedToId) === String(techId);
+                        const nameMatch = technicianNames.includes(normalize(claim.assignedTo));
+                        return idMatch || nameMatch;
+                    });
+                }
+
+                setClaims(mapped);
+                setTotalItems(result.pagination?.total || 0);
+                setTotalPages(result.pagination?.pages || 0);
+                setCurrentPage(result.pagination?.page || 1);
+            } else {
+                // Fallback for non-paginated response
+                const list = result ?? [];
+                let mapped = (Array.isArray(list) ? list : []).map((rec) => ({
+                    id: rec.ID,
+                    codTiers: rec.CodTiers,
+                    ticket: rec.NumTicket,
+                    client: rec.LibTiers || rec.CodTiers || 'Client non défini',
+                    object: rec.Objet || 'Sans objet',
+                    description: rec.Description || '',
+                    date: rec.DateOuverture || rec.createdAt,
+                    priority: rec.Priorite || 'Moyenne',
+                    status: rec.Statut || 'Ouvert',
+                    assignedTo: rec.NomTechnicien || 'Non assigné',
+                    assignedToId: rec.TechnicienID || null
+                }));
+                
+                // Filtrer pour les techniciens: seulement leurs réclamations assignées
+                if (isTechnicien) {
+                    const techId = user?.UserID;
+                    const normalize = (value) => String(value || '').trim().toLowerCase();
+                    const technicianNames = [user?.FullName, user?.LoginName, user?.EmailPro]
+                        .map(normalize)
+                        .filter(Boolean);
+
+                    mapped = mapped.filter(claim => {
+                        const idMatch = claim.assignedToId === techId || String(claim.assignedToId) === String(techId);
+                        const nameMatch = technicianNames.includes(normalize(claim.assignedTo));
+                        return idMatch || nameMatch;
+                    });
+                }
+
+                setClaims(mapped);
+                setTotalItems(mapped.length);
+                setTotalPages(1);
+                setCurrentPage(1);
+            }
         } catch (error) {
             console.error('Error fetching reclamations:', error);
             toast.error('Impossible de charger les réclamations');
         } finally {
             setLoading(false);
         }
-    }, [isTechnicien, user?.UserID]);
+    }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, isTechnicien, user?.UserID]);
 
     const fetchTechniciens = useCallback(async () => {
         try {
@@ -191,52 +263,82 @@ const ClaimsList = () => {
         let interval;
         if (isTechnicien) {
             interval = setInterval(() => {
-                fetchClaims();
+                fetchClaims(currentPage, itemsPerPage);
             }, 5000); // 5 secondes
         }
         
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [fetchClaims, fetchTechniciens, isAdmin, isTechnicien]);
+    }, [fetchClaims, fetchTechniciens, isAdmin, isTechnicien, currentPage, itemsPerPage]);
+
+    // Handle filter changes - reset to page 1
+    const handleFilterChange = useCallback(() => {
+        setCurrentPage(1);
+        fetchClaims(1, itemsPerPage);
+    }, [fetchClaims, itemsPerPage]);
+
+    // Effect for filter changes
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            handleFilterChange();
+        }, 300); // Debounce search
+
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm, statusFilter, priorityFilter, technicianFilter, handleFilterChange]);
 
     const filteredClaims = useMemo(() => {
-        const normalize = (value) => String(value || '').toLowerCase().trim();
-        const query = normalize(searchTerm);
+        // Since filtering is now handled by the backend, we mainly do sorting here
+        return [...claims].sort((a, b) => {
+            if (sortMode === 'priority') {
+                const rank = { urgente: 0, urgent: 0, haute: 1, moyenne: 2, normale: 2, basse: 3 };
+                return (rank[String(a.priority || '').toLowerCase()] ?? 99) - (rank[String(b.priority || '').toLowerCase()] ?? 99);
+            }
+            if (sortMode === 'status') {
+                return String(a.status || '').localeCompare(String(b.status || ''));
+            }
+            return new Date(b.date || 0) - new Date(a.date || 0);
+        });
+    }, [claims, sortMode]);
 
-        return [...claims]
-            .filter((claim) => {
-                const matchesSearch = !query || [claim.ticket, claim.client, claim.object, claim.assignedTo]
-                    .some((field) => normalize(field).includes(query));
-                const matchesStatus = statusFilter === 'all' || normalize(claim.status) === normalize(statusFilter);
-                const matchesPriority = priorityFilter === 'all' || normalize(claim.priority) === normalize(priorityFilter);
-                const matchesTechnician = technicianFilter === 'all' || String(claim.assignedToId || '') === String(technicianFilter);
-                return matchesSearch && matchesStatus && matchesPriority && matchesTechnician;
-            })
-            .sort((a, b) => {
-                if (sortMode === 'priority') {
-                    const rank = { urgente: 0, urgent: 0, haute: 1, moyenne: 2, normale: 2, basse: 3 };
-                    return (rank[String(a.priority || '').toLowerCase()] ?? 99) - (rank[String(b.priority || '').toLowerCase()] ?? 99);
-                }
-                if (sortMode === 'status') {
-                    return String(a.status || '').localeCompare(String(b.status || ''));
-                }
-                return new Date(b.date || 0) - new Date(a.date || 0);
-            });
-    }, [claims, searchTerm, statusFilter, priorityFilter, technicianFilter, sortMode]);
+    const stats = useMemo(() => {
+        return claims.reduce(
+            (acc, claim) => {
+                const status = String(claim.status || '').toLowerCase();
 
-    const stats = claims.reduce(
-        (acc, claim) => {
-            const status = String(claim.status || '').toLowerCase();
+                if (status === 'résolu' || status === 'resolu') acc.resolved += 1;
+                else if (status === 'en cours') acc.inProgress += 1;
+                else if (status === 'ouvert' || status === 'nouveau') acc.open += 1;
 
-            if (status === 'résolu' || status === 'resolu') acc.resolved += 1;
-            else if (status === 'en cours') acc.inProgress += 1;
-            else if (status === 'ouvert' || status === 'nouveau') acc.open += 1;
+                return acc;
+            },
+            { open: 0, inProgress: 0, resolved: 0 }
+        );
+    }, [claims]);
 
-            return acc;
-        },
-        { open: 0, inProgress: 0, resolved: 0 }
-    );
+    // Handle page changes
+    const handlePageChange = useCallback((page) => {
+        setCurrentPage(page);
+        fetchClaims(page, itemsPerPage);
+    }, [fetchClaims, itemsPerPage]);
+
+    // Handle items per page change
+    const handleItemsPerPageChange = useCallback((newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1);
+        fetchClaims(1, newLimit);
+    }, [fetchClaims]);
+
+    // Clear all filters
+    const clearFilters = useCallback(() => {
+        setSearchTerm('');
+        setStatusFilter('all');
+        setPriorityFilter('all');
+        setTechnicianFilter('all');
+        setSortMode('recent');
+        setCurrentPage(1);
+        fetchClaims(1, itemsPerPage);
+    }, [fetchClaims, itemsPerPage]);
 
     if (loading) return <LoadingSpinner />;
 
@@ -353,75 +455,131 @@ const ClaimsList = () => {
                     ))}
                 </motion.div>
 
-                {/* Filters Section - Premium */}
-                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/40 backdrop-blur-sm border border-slate-200/60 p-6 sm:p-8 shadow-lg hover:shadow-xl transition-all">
+                {/* Filters Section - Premium Enhanced */}
+                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/40 backdrop-blur-sm border border-slate-200/60 p-6 sm:p-8 shadow-lg hover:shadow-xl transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/2 via-transparent to-cyan-500/2 opacity-0 group-hover:opacity-100 transition-all rounded-2xl" />
                     <div className="relative">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-black text-slate-900">Recherche & Filtres</h3>
-                            <p className="text-sm text-slate-600 mt-2 font-medium">Affinez vos résultats selon vos critères</p>
+                        <div className="mb-8 flex items-center gap-3">
+                            <div className="p-3 bg-gradient-to-br from-blue-100/80 to-cyan-100/60 rounded-xl border border-blue-200/50">
+                                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900">Recherche & Filtres</h3>
+                                <p className="text-sm text-slate-600 mt-2 font-medium">Affinez vos résultats selon vos critères</p>
+                            </div>
                         </div>
 
                         {/* Grid layout depends on if client or admin */}
                         <div className={`grid gap-4 ${isClient ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-5'}`}>
                             <div className={`${isClient ? 'lg:col-span-1' : 'lg:col-span-2'} relative group/input`}>
                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Rechercher..."
-                                    className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-4 pr-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
-                                />
+                                <div className="relative flex items-center">
+                                    <svg className="absolute left-3 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Rechercher par ticket, client, objet..."
+                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-10 pr-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
+                                    />
+                                </div>
                             </div>
                             
                             {/* Status Filter */}
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                            >
-                                <option value="all">Tous les statuts</option>
-                                <option value="Ouvert">Ouvert</option>
-                                <option value="En cours">En cours</option>
-                                <option value="Résolu">Résolu</option>
-                            </select>
+                            <div className="relative group/select">
+                                <div className="absolute inset-0 bg-gradient-to-r from-slate-300/20 to-slate-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
+                                <div className="relative flex items-center">
+                                    <svg className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                    >
+                                        <option value="all">Tous les statuts</option>
+                                        <option value="Ouvert">Ouvert</option>
+                                        <option value="En cours">En cours</option>
+                                        <option value="Résolu">Résolu</option>
+                                    </select>
+                                    <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
 
                             {/* Admin-only filters */}
                             {!isClient && (
                                 <>
-                                    <select
-                                        value={priorityFilter}
-                                        onChange={(e) => setPriorityFilter(e.target.value)}
-                                        className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                    >
-                                        <option value="all">Toutes les priorités</option>
-                                        <option value="Urgente">Urgente</option>
-                                        <option value="Haute">Haute</option>
-                                        <option value="Normale">Normale</option>
-                                        <option value="Basse">Basse</option>
-                                    </select>
+                                    <div className="relative group/select">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-amber-300/20 to-amber-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
+                                        <div className="relative flex items-center">
+                                            <svg className="absolute left-3 h-4 w-4 text-amber-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                            </svg>
+                                            <select
+                                                value={priorityFilter}
+                                                onChange={(e) => setPriorityFilter(e.target.value)}
+                                                className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                            >
+                                                <option value="all">Toutes les priorités</option>
+                                                <option value="Urgente">🔴 Urgente</option>
+                                                <option value="Haute">🟠 Haute</option>
+                                                <option value="Normale">🔵 Normale</option>
+                                                <option value="Basse">⚪ Basse</option>
+                                            </select>
+                                            <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                     {isAdmin && (
-                                        <select
-                                            value={technicianFilter}
-                                            onChange={(e) => setTechnicianFilter(e.target.value)}
-                                            className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                        >
-                                            <option value="all">Tous les techniciens</option>
-                                            {techniciens.map((tech) => (
-                                                <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                            ))}
-                                        </select>
+                                        <div className="relative group/select">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-green-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
+                                            <div className="relative flex items-center">
+                                                <svg className="absolute left-3 h-4 w-4 text-green-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                                <select
+                                                    value={technicianFilter}
+                                                    onChange={(e) => setTechnicianFilter(e.target.value)}
+                                                    className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                                >
+                                                    <option value="all">Tous les techniciens</option>
+                                                    {techniciens.map((tech) => (
+                                                        <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                                    ))}
+                                                </select>
+                                                <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </div>
+                                        </div>
                                     )}
-                                    <select
-                                        value={sortMode}
-                                        onChange={(e) => setSortMode(e.target.value)}
-                                        className="w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                    >
-                                        <option value="recent">Plus récents</option>
-                                        <option value="priority">Par priorité</option>
-                                        <option value="status">Par statut</option>
-                                    </select>
+                                    <div className="relative group/select">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-300/20 to-purple-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
+                                        <div className="relative flex items-center">
+                                            <svg className="absolute left-3 h-4 w-4 text-purple-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                            </svg>
+                                            <select
+                                                value={sortMode}
+                                                onChange={(e) => setSortMode(e.target.value)}
+                                                className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
+                                            >
+                                                <option value="recent">Plus récents</option>
+                                                <option value="priority">Par priorité</option>
+                                                <option value="status">Par statut</option>
+                                            </select>
+                                            <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -433,31 +591,50 @@ const ClaimsList = () => {
                             className="mt-4 flex items-center justify-between text-sm"
                         >
                             <p className="text-slate-700 font-semibold">
-                                <span className="text-blue-600 font-bold">{filteredClaims.length}</span> / <span className="text-slate-500">{claims.length}</span> réclamations
+                                <span className="text-blue-600 font-bold">{filteredClaims.length}</span> / <span className="text-slate-500">{totalItems}</span> réclamations affichées
                             </p>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={clearFilters}
+                                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100/60 border border-slate-300/60 rounded-lg hover:bg-slate-200/60 hover:border-slate-400/60 transition-all"
+                            >
+                                Effacer les filtres
+                            </motion.button>
                         </motion.div>
                     </div>
                 </motion.div>
 
-                {/* Table - Premium */}
-                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/30 backdrop-blur-sm border border-slate-200/60 shadow-lg overflow-hidden">
+                {/* Table - Premium Enhanced */}
+                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/30 backdrop-blur-sm border border-slate-200/60 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
                     <div className="px-6 sm:px-8 py-6 border-b border-slate-200/60 bg-gradient-to-r from-white/80 to-blue-50/40 flex justify-between items-center">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-900">Tickets de Support</h3>
-                            <p className="text-sm text-slate-600 mt-1 font-medium">{isClient ? 'Vos réclamations' : 'Gestion centralisée de tous vos tickets'}</p>
+                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <div className="p-2 bg-blue-100/60 rounded-lg">
+                                    <LifebuoyIcon className="h-5 w-5 text-blue-600" />
+                                </div>
+                                Tickets de Support
+                            </h3>
+                            <p className="text-sm text-slate-600 mt-1 font-medium">
+                                {isClient ? 'Vos réclamations' : 'Gestion centralisée de tous vos tickets'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            Mise à jour en temps réel
                         </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead>
-                                <tr className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/60 bg-slate-50/70">
+                                <tr className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/60 bg-gradient-to-r from-slate-50/70 to-blue-50/40">
                                     <th className="px-6 py-4 font-bold">N° Ticket</th>
                                     <th className="px-6 py-4 font-bold">Objet</th>
                                     <th className="px-6 py-4 font-bold">Priorité</th>
                                     {!isClient && <th className="px-6 py-4 font-bold">Technicien</th>}
                                     <th className="px-6 py-4 font-bold">Statut</th>
                                     <th className="px-6 py-4 text-right font-bold">Date</th>
-                                    {(isClient || isTechnicien) && <th className="px-6 py-4 font-bold text-center">Action</th>}
+                                    {(isClient || isTechnicien) && <th className="px-6 py-4 font-bold text-center">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100/70">
@@ -598,6 +775,97 @@ const ClaimsList = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="px-6 py-4 border-t border-slate-200/60 bg-gradient-to-r from-white/80 to-blue-50/40 flex items-center justify-between"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-slate-600 font-medium">Éléments par page:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                                        className="text-sm border border-slate-300/60 rounded-lg px-2 py-1 bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-300/30"
+                                    >
+                                        <option value={5}>5</option>
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                    </select>
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                    Page {currentPage} sur {totalPages} ({totalItems} éléments au total)
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handlePageChange(1)}
+                                    disabled={currentPage <= 1}
+                                    className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    ⇤ Premier
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage <= 1}
+                                    className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    ← Précédent
+                                </motion.button>
+
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                                        if (pageNum > totalPages) return null;
+                                        
+                                        return (
+                                            <motion.button
+                                                key={pageNum}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                                                    pageNum === currentPage
+                                                        ? 'bg-blue-600 text-white shadow-lg'
+                                                        : 'text-slate-700 bg-white/80 border border-slate-300/60 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </motion.button>
+                                        );
+                                    })}
+                                </div>
+
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage >= totalPages}
+                                    className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Suivant →
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handlePageChange(totalPages)}
+                                    disabled={currentPage >= totalPages}
+                                    className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Dernier ⇥
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    )}
                 </motion.div>
             </div>
         </motion.div>
