@@ -6,6 +6,7 @@ import {
   PlusIcon,
   EyeIcon,
   PencilSquareIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   AdjustmentsHorizontalIcon,
   SparklesIcon,
@@ -24,7 +25,7 @@ import {
   UserIcon,
   BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
-import { fetchDevis } from './devisSlice';
+import { fetchDevis, deleteDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -64,9 +65,16 @@ const rowVariants = {
 const DevisList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate, canEdit } = usePermission(MODULE_CODES.DEVIS);
+  const { canCreate, canEdit, canDelete, isFilterRepresEnabled } = usePermission(MODULE_CODES.DEVIS);
   const { devis, loading, pagination } = useSelector((state) => state.devis);
-  const { currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
+  const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
+  const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
+  const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
+  const isAgentUser = normalizedUserRole === 'agent';
+  const currentUserId = String(currentUser?.UserID || currentUser?.id || currentUser?.USER_ID || '');
+  const canShowEditAction = isCommercialUser || isAdminUser;
+  const canShowDeleteAction = isAdminUser;
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -85,9 +93,28 @@ const DevisList = () => {
   const [allClients, setAllClients] = useState([]);
   const [loadingCommercials, setLoadingCommercials] = useState(false);
 
+  const clientsFromVisibleDevis = useMemo(() => {
+    const uniqueClients = new Map();
+
+    (devis || []).forEach((item) => {
+      const codTiers = String(item.CodTiers || '').trim();
+      if (!codTiers || uniqueClients.has(codTiers)) return;
+
+      uniqueClients.set(codTiers, {
+        CodTiers: item.CodTiers,
+        Raisoc: item.LibTiers || `Client ${item.CodTiers}`,
+        codRepresTiers: item.CodRepres ? String(item.CodRepres) : ''
+      });
+    });
+
+    return Array.from(uniqueClients.values()).sort((a, b) =>
+      String(a.Raisoc || '').localeCompare(String(b.Raisoc || ''), 'fr', { sensitivity: 'base' })
+    );
+  }, [devis]);
+
   // Memoize filtered commercials based on clients available to Agent
   const filteredCommercials = useMemo(() => {
-    if (currentUser?.UserRole === 'Agent' && allClients.length > 0) {
+    if (isAgentUser && isFilterRepresEnabled && allClients.length > 0) {
       // Get unique commercial IDs from clients
       const commercialIdsInRegion = new Set();
       allClients.forEach(client => {
@@ -96,18 +123,22 @@ const DevisList = () => {
         }
       });
       
-      // Filter commercials that have clients in this region
-      return commercials.filter(com => commercialIdsInRegion.has(com.UserID));
+      // Filter commercials that have clients in this region (compare as strings)
+      return commercials.filter(com => commercialIdsInRegion.has(String(com.UserID)));
     }
     return commercials;
-  }, [commercials, currentUser?.UserRole, allClients]);
+        }, [commercials, isAgentUser, allClients, isFilterRepresEnabled]);
 
   // Memoize filtered clients to avoid infinite loops
   const filteredClientsForDropdown = useMemo(() => {
+    if (isCommercialUser && isFilterRepresEnabled) {
+      return allClients.filter((client) => String(client.codRepresTiers || '') === currentUserId);
+    }
+
     return filters.commercial
-      ? allClients.filter(client => client.codRepresTiers == filters.commercial)
+      ? allClients.filter(client => String(client.codRepresTiers || '') === String(filters.commercial))
       : allClients;
-  }, [filters.commercial, allClients]);
+  }, [filters.commercial, allClients, isCommercialUser, currentUserId, isFilterRepresEnabled]);
 
   // Filter handler
   const handleFilterChange = (key, value) => {
@@ -121,7 +152,11 @@ const DevisList = () => {
   const fetchCommercials = async () => {
     try {
       setLoadingCommercials(true);
-      const response = await axios.get('/users/commercials/devis-filter');
+      const params = {
+        moduleCode: String(MODULE_CODES.DEVIS),
+        includeAll: isFilterRepresEnabled ? 'false' : 'true'
+      };
+      const response = await axios.get('/users/commercials/devis-filter', { params });
       const data = response.data;
       const rawList = Array.isArray(data) ? data : data.data || [];
       // Map backend response shape { userId, fullName, label } to { UserID, FullName }
@@ -138,10 +173,10 @@ const DevisList = () => {
     }
   };
 
-  // Fetch clients
+  // Fetch ALL clients for filter dropdowns (no pagination limit)
   const fetchClients = async () => {
     try {
-      const response = await axios.get('/tiers');
+      const response = await axios.get('/tiers?limit=10000');
       const data = response.data;
       const clientsData = Array.isArray(data) ? data : data.data || [];
       setAllClients(clientsData);
@@ -220,6 +255,18 @@ const DevisList = () => {
 
   const refreshData = () => {
     dispatch(fetchDevis({ page: 1, limit: 1000 }));
+  };
+
+  const handleDeleteDevis = async (guid) => {
+    const confirmed = window.confirm('Voulez-vous vraiment supprimer ce devis ?');
+    if (!confirmed) return;
+
+    try {
+      await dispatch(deleteDevis(guid)).unwrap();
+      refreshData();
+    } catch (error) {
+      console.error('Error deleting devis:', error);
+    }
   };
 
   // Export functions
@@ -306,9 +353,21 @@ const DevisList = () => {
 
   useEffect(() => {
     refreshData();
-    fetchCommercials();
-    fetchClients();
-  }, [dispatch, currentUser?.UserRole]);
+    if (!isCommercialUser) {
+      fetchCommercials();
+    } else {
+      setCommercials([]);
+    }
+    if (isFilterRepresEnabled) {
+      fetchClients();
+    }
+  }, [dispatch, currentUser?.UserRole, isCommercialUser, isFilterRepresEnabled]);
+
+  useEffect(() => {
+    if (!isFilterRepresEnabled) {
+      setAllClients(clientsFromVisibleDevis);
+    }
+  }, [isFilterRepresEnabled, clientsFromVisibleDevis]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -569,25 +628,26 @@ const DevisList = () => {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                     />
                   </div>
-                  {/* Commercial Filter */}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <UserIcon className="h-3.5 w-3.5" />
-                      Commerciale
-                    </label>
-                    <select
-                      value={filters.commercial} 
-                      onChange={(e) => handleFilterChange('commercial', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    >
-                      <option value="">-- Tous les commerciales --</option>
-                      {filteredCommercials.map(com => (
-                        <option key={com.UserID} value={com.UserID}>
-                          {com.FullName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {!isCommercialUser && (
+                    <div className="group">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                        <UserIcon className="h-3.5 w-3.5" />
+                        Commerciale
+                      </label>
+                      <select
+                        value={filters.commercial}
+                        onChange={(e) => handleFilterChange('commercial', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                      >
+                        <option value="">-- Tous les commerciales --</option>
+                        {filteredCommercials.map(com => (
+                          <option key={com.UserID} value={com.UserID}>
+                            {com.FullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   {/* Client Filter */}
                   <div className="group">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
@@ -727,9 +787,9 @@ const DevisList = () => {
                         </div>
                       </td>
                       <td className="px-8 py-4">
-                        {(item.MapsRegion || item.Gouvernorat) ? (
+                        {(item?.tiers?.region?.libelle || item?.tiers?.MapsRegion || item?.tiers?.Ville || item?.tiers?.Gouvernorat || item?.tiers?.gouvernorat || item.MapsRegion || item.Gouvernorat) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 uppercase tracking-widest shadow-sm">
-                            {item.MapsRegion || item.Gouvernorat}
+                            {item?.tiers?.region?.libelle || item?.tiers?.MapsRegion || item?.tiers?.Ville || item?.tiers?.Gouvernorat || item?.tiers?.gouvernorat || item.MapsRegion || item.Gouvernorat}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
@@ -739,16 +799,16 @@ const DevisList = () => {
                         </span>
                       </td>
                       <td className="px-8 py-4">
-                         {item.Categorie ? (
+                         {(item?.tiers?.tiersCategorieObj?.libelle || item.Categorie) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 uppercase tracking-widest shadow-sm">
-                            {item.Categorie}
+                            {item?.tiers?.tiersCategorieObj?.libelle || item.Categorie}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
                       <td className="px-8 py-4">
-                         {item.Classe ? (
+                         {(item?.tiers?.tiersClasse?.libelle || item.Classe) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-700 bg-white border border-slate-300 uppercase tracking-widest shadow-sm">
-                            {item.Classe}
+                            {item?.tiers?.tiersClasse?.libelle || item.Classe}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
@@ -770,13 +830,22 @@ const DevisList = () => {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canEdit && (
+                          {canShowEditAction && (
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/devis/edit/${item.Guid}`); }}
                               className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
                               title="Modifier"
                             >
                               <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                            </button>
+                          )}
+                          {canShowDeleteAction && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteDevis(item.Guid); }}
+                              className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 rounded-xl transition-all hover:-translate-y-0.5"
+                              title="Supprimer"
+                            >
+                              <TrashIcon className="h-4 w-4 stroke-[2.5]" />
                             </button>
                           )}
                           <button

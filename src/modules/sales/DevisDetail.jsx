@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -18,6 +18,8 @@ const DevisDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentDevis: devis, loading, error } = useSelector((state) => state.devis);
+  const [isConverting, setIsConverting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -26,21 +28,31 @@ const DevisDetail = () => {
   }, [dispatch, id]);
 
   const handleValidate = async () => {
+    if (isValidating) return;
     try {
+      setIsValidating(true);
       await dispatch(validateDevis(id)).unwrap();
       toast.success('Devis validé avec succès');
     } catch (err) {
-      toast.error('Erreur lors de la validation');
+      const message = err?.response?.data?.message || 'Erreur lors de la validation';
+      toast.error(message);
+    } finally {
+      setIsValidating(false);
     }
   };
 
   const handleConvert = async () => {
+    if (isConverting) return;
     try {
+      setIsConverting(true);
       await dispatch(convertDevis(id)).unwrap();
       toast.success('Devis converti en commande');
       navigate('/bcv');
     } catch (err) {
-      toast.error('Erreur lors de la conversion');
+      const message = err?.response?.data?.message || 'Erreur lors de la conversion';
+      toast.error(message);
+    } finally {
+      setIsConverting(false);
     }
   };
 
@@ -85,19 +97,21 @@ const DevisDetail = () => {
           {!devis.Valid && (
             <button
               onClick={handleValidate}
+              disabled={isValidating}
               className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-bold text-xs"
             >
               <CheckCircleIcon className="h-4 w-4 inline mr-2" />
-              Valider
+              {isValidating ? 'Validation...' : 'Valider'}
             </button>
           )}
           {!devis.IsConverted && devis.Valid && (
             <button
               onClick={handleConvert}
+              disabled={isConverting}
               className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-bold text-xs"
             >
               <ArrowPathIcon className="h-4 w-4 inline mr-2" />
-              Convertir en BC
+              {isConverting ? 'Conversion...' : 'Convertir en BC'}
             </button>
           )}
           <button

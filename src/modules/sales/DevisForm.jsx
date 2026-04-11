@@ -22,7 +22,7 @@ import {
     XMarkIcon,
     CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import { updateDevis, createDevis, fetchDevisById, clearCurrentDevis } from './devisSlice';
+import { updateDevis, createDevis, fetchDevis, fetchDevisById, clearCurrentDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axiosInstance from '../../app/axios';
@@ -71,6 +71,7 @@ const DevisForm = () => {
 
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
+    const [allProductOptions, setAllProductOptions] = useState([]);
     const [productOptions, setProductOptions] = useState([]);
     const [productLookup, setProductLookup] = useState({});
     const [clients, setClients] = useState([]);
@@ -81,7 +82,7 @@ const DevisForm = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [clientSearch, setClientSearch] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
-    const clientDropdownRef = useState(null);
+    const clientDropdownRef = useRef(null);
 
     const toggleItemExpanded = (tempId) => {
         setExpandedItems(prev => ({
@@ -120,6 +121,7 @@ const DevisForm = () => {
             
             console.log(`✅ Successfully loaded ${normalizedProducts.length} products`);
             
+            setAllProductOptions(normalizedProducts);
             setProductOptions(normalizedProducts);
             setProductLookup((prev) => {
                 const nextLookup = { ...prev };
@@ -276,7 +278,7 @@ const DevisForm = () => {
         }
 
         if (activeProductSearch.length < 2) {
-            setProductOptions([]);
+            setProductOptions(allProductOptions);
             setLoadingProducts(false);
             return;
         }
@@ -331,7 +333,7 @@ const DevisForm = () => {
         }, 350);
 
         return () => clearTimeout(timeoutId);
-    }, [activeProductRowId, activeProductSearch]);
+    }, [activeProductRowId, activeProductSearch, allProductOptions]);
 
     // Fetch initial products on mount
     useEffect(() => {
@@ -381,7 +383,16 @@ const DevisForm = () => {
 
     useEffect(() => {
         if (isEdit && currentDevis) {
-            const { details, ...master } = currentDevis;
+            const { details, tiers, ...master } = currentDevis;
+
+            const tierClasseId = tiers?.Classe;
+            const tierGouvernoratId = tiers?.Gouvernorat ?? tiers?.gouvernorat;
+            const tierCategorieId = tiers?.Categorie;
+
+            const classeLabel = tiersClasses.find(c => String(c.id) === String(tierClasseId))?.libelle || '';
+            const gouvernoratLabel = tiersGouvernorats.find(g => String(g.id) === String(tierGouvernoratId))?.libelle || '';
+            const categorieLabel = tiersCategories.find(c => String(c.id) === String(tierCategorieId))?.libelle || '';
+
             setFormData({
                 ...master,
                 TotRem: master.TotRem || 0,
@@ -393,7 +404,11 @@ const DevisForm = () => {
                 DatLiv: master.DatLiv || null,
                 Valid: master.Valid || false,
                 bTransf: master.bTransf || false,
-                IsConverted: master.IsConverted || false
+                IsConverted: master.IsConverted || false,
+                Classe: master.Classe || classeLabel,
+                Categorie: master.Categorie || categorieLabel,
+                Ville: master.Ville || tiers?.Ville || gouvernoratLabel,
+                MapsRegion: master.MapsRegion || tiers?.MapsRegion || ''
             });
 
             if (details && details.length > 0) {
@@ -401,7 +416,7 @@ const DevisForm = () => {
             }
             setLoading(false);
         }
-    }, [currentDevis, isEdit]);
+    }, [currentDevis, isEdit, tiersClasses, tiersGouvernorats, tiersCategories]);
 
     // Recalculate totals
     useEffect(() => {
@@ -508,7 +523,7 @@ const DevisForm = () => {
                 } : item
             ));
             setActiveProductRowId(null);
-            setProductOptions([]);
+            setProductOptions(allProductOptions);
         }
     };
 
@@ -632,6 +647,9 @@ const DevisForm = () => {
                 await dispatch(createDevis(payload)).unwrap();
                 toast.success('Devis créé avec succès');
             }
+
+            // Force list refresh before redirect so latest values appear immediately.
+            await dispatch(fetchDevis({ page: 1, limit: 1000 })).unwrap();
             navigate('/devis');
         } catch (err) {
             console.error('❌ Erreur complète:', err);

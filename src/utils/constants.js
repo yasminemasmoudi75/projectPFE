@@ -110,7 +110,7 @@ export const MODULE_CODES = {
   // Frontend-only (no database permission check needed)
   DASHBOARD: null,       // Dashboard shown to all users
   ACTIVITES: 41,         // Map to Chargement for now
-  SAV: 31,               // Map to Reglement for now
+  SAV: 51,               // Module Réclamations/SAV (CodMod=51 dans TabAWProfileAccess)
   IA: null,              // Feature route enabled without DB mapping for now
   SETTINGS: null,        // Paramètres shown to all users
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,7 +21,9 @@ import {
   TruckIcon,
   ArrowDownTrayIcon,
   PrinterIcon,
-  TrashIcon
+  TrashIcon,
+  UserIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 import { fetchMyBlv, fetchBlv } from './blvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -31,6 +33,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
+import axios from '../../app/axios';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -63,9 +66,13 @@ const rowVariants = {
 const BlvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canEdit, isModuleActive, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
-  const { isClient, isAuthenticated, loading: authLoading } = useAuth();
+  const { canEdit, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
+  const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
   const { blvList: blv, loading, pagination } = useSelector((state) => state.blv);
+  const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
+  const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
+  const isAgentUser = normalizedUserRole === 'agent';
+  const currentUserId = String(currentUser?.UserID || currentUser?.id || currentUser?.USER_ID || '');
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -75,9 +82,57 @@ const BlvList = () => {
     maxAmount: '',
     minProbability: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    commercial: '',
+    client: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [commercials, setCommercials] = useState([]);
+  const [allClients, setAllClients] = useState([]);
+
+  const clientsFromVisibleBlv = useMemo(() => {
+    const uniqueClients = new Map();
+
+    (blv || []).forEach((item) => {
+      const codTiers = String(item.CodTiers || '').trim();
+      if (!codTiers || uniqueClients.has(codTiers)) return;
+
+      uniqueClients.set(codTiers, {
+        CodTiers: item.CodTiers,
+        Raisoc: item.LibTiers || `Client ${item.CodTiers}`,
+        codRepresTiers: item.CodRepres ? String(item.CodRepres) : ''
+      });
+    });
+
+    return Array.from(uniqueClients.values()).sort((a, b) =>
+      String(a.Raisoc || '').localeCompare(String(b.Raisoc || ''), 'fr', { sensitivity: 'base' })
+    );
+  }, [blv]);
+
+  const filteredCommercials = useMemo(() => {
+    if (isAgentUser && isFilterRepresEnabled && allClients.length > 0) {
+      const commercialIdsInRegion = new Set();
+      allClients.forEach((client) => {
+        if (client.codRepresTiers) {
+          commercialIdsInRegion.add(String(client.codRepresTiers));
+        }
+      });
+
+      return commercials.filter((com) => commercialIdsInRegion.has(String(com.UserID)));
+    }
+
+    return commercials;
+  }, [commercials, isAgentUser, allClients, isFilterRepresEnabled]);
+
+  const filteredClientsForDropdown = useMemo(() => {
+    if (isCommercialUser && isFilterRepresEnabled) {
+      return allClients.filter((client) => String(client.codRepresTiers || '') === currentUserId);
+    }
+
+    return filters.commercial
+      ? allClients.filter((client) => String(client.codRepresTiers || '') === String(filters.commercial))
+      : allClients;
+  }, [filters.commercial, allClients, isCommercialUser, currentUserId, isFilterRepresEnabled]);
 
   // Filter handler
   const handleFilterChange = (key, value) => {
@@ -96,7 +151,9 @@ const BlvList = () => {
       maxAmount: '',
       minProbability: '',
       dateFrom: '',
-      dateTo: ''
+      dateTo: '',
+      commercial: '',
+      client: ''
     });
   };
 
@@ -140,8 +197,47 @@ const BlvList = () => {
       if (itemDate > filterDate) return false;
     }
 
+    if (filters.commercial) {
+      if (item.CodRepres !== filters.commercial) return false;
+    }
+
+    if (filters.client) {
+      if (item.CodTiers !== filters.client) return false;
+    }
+
     return true;
   }) || [];
+
+  const fetchCommercials = async () => {
+    try {
+      const params = {
+        moduleCode: String(MODULE_CODES.LIVRAISONS),
+        includeAll: isFilterRepresEnabled ? 'false' : 'true'
+      };
+      const response = await axios.get('/users/commercials/devis-filter', { params });
+      const data = response.data;
+      const rawList = Array.isArray(data) ? data : data.data || [];
+      const commercialsList = rawList.map((c) => ({
+        UserID: c.userId || c.UserID,
+        FullName: c.fullName || c.FullName || c.label || c.login,
+        LoginName: c.login || c.LoginName
+      }));
+      setCommercials(commercialsList);
+    } catch (error) {
+      console.error('Error fetching commercials:', error);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get('/tiers?limit=10000');
+      const data = response.data;
+      const clientsData = Array.isArray(data) ? data : data.data || [];
+      setAllClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
 
   const refreshData = () => {
     if (!isModuleActive) return;
@@ -234,7 +330,21 @@ const BlvList = () => {
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
-  }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient]);
+    if (!isCommercialUser) {
+      fetchCommercials();
+    } else {
+      setCommercials([]);
+    }
+    if (isFilterRepresEnabled) {
+      fetchClients();
+    }
+  }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient, isCommercialUser, isFilterRepresEnabled]);
+
+  useEffect(() => {
+    if (!isFilterRepresEnabled) {
+      setAllClients(clientsFromVisibleBlv);
+    }
+  }, [isFilterRepresEnabled, clientsFromVisibleBlv]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -483,6 +593,44 @@ const BlvList = () => {
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                     />
                   </div>
+                  {!isCommercialUser && (
+                    <div className="group">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                        <UserIcon className="h-3.5 w-3.5" />
+                        Commerciale
+                      </label>
+                      <select
+                        value={filters.commercial}
+                        onChange={(e) => handleFilterChange('commercial', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                      >
+                        <option value="">-- Tous les commerciales --</option>
+                        {filteredCommercials.map(com => (
+                          <option key={com.UserID} value={com.UserID}>
+                            {com.FullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="group">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                      <BuildingOfficeIcon className="h-3.5 w-3.5" />
+                      Client
+                    </label>
+                    <select
+                      value={filters.client}
+                      onChange={(e) => handleFilterChange('client', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                    >
+                      <option value="">-- Tous les clients --</option>
+                      {filteredClientsForDropdown.map(client => (
+                        <option key={client.CodTiers} value={client.CodTiers}>
+                          {client.Raisoc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Filter Actions */}
@@ -598,9 +746,9 @@ const BlvList = () => {
                         </div>
                       </td>
                       <td className="px-8 py-4">
-                        {(item.MapsRegion || item.Gouvernorat) ? (
+                        {(item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 uppercase tracking-widest shadow-sm">
-                            {item.MapsRegion || item.Gouvernorat}
+                            {item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
@@ -610,16 +758,16 @@ const BlvList = () => {
                         </span>
                       </td>
                       <td className="px-8 py-4">
-                         {item.Categorie ? (
+                         {(item?.client?.tiersCategorieObj?.libelle || item.Categorie) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 uppercase tracking-widest shadow-sm">
-                            {item.Categorie}
+                            {item?.client?.tiersCategorieObj?.libelle || item.Categorie}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>
                       <td className="px-8 py-4">
-                         {item.Classe ? (
+                         {(item?.client?.tiersClasse?.libelle || item.Classe) ? (
                           <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-700 bg-white border border-slate-300 uppercase tracking-widest shadow-sm">
-                            {item.Classe}
+                            {item?.client?.tiersClasse?.libelle || item.Classe}
                           </span>
                         ) : <span className="text-slate-300">-</span>}
                       </td>

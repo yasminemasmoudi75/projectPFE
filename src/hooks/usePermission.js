@@ -152,12 +152,27 @@ const usePermission = (moduleCode = null) => {
     // Si permissions trouvées: utiliser la BD (même si false)
     // Si permissions non trouvées ET admin: autoriser tout
     // Si permissions non trouvées ET non-admin: interdire tout
-    isModuleActive: modulePermissions !== null ? toBool(modulePermissions?.Actif) : isUserAdmin,
-    canCreate: modulePermissions !== null ? toBool(modulePermissions?.canAdd || modulePermissions?.canCreate) : isUserAdmin,
-    canEdit: modulePermissions !== null ? toBool(modulePermissions?.canEdit) : isUserAdmin,
-    canDelete: modulePermissions !== null ? toBool(modulePermissions?.canDelt || modulePermissions?.canDelete) : isUserAdmin,
-    canValidate: modulePermissions !== null ? toBool(modulePermissions?.canValid || modulePermissions?.canValidate) : isUserAdmin,
-    canExport: modulePermissions !== null ? toBool(modulePermissions?.canExport) : isUserAdmin,
+    isModuleActive: modulePermissions !== null
+      ? toBool(modulePermissions?.isActive ?? modulePermissions?.Actif)
+      : isUserAdmin,
+    isFilterRepresEnabled: modulePermissions !== null
+      ? toBool(modulePermissions?.filterRepres ?? modulePermissions?.FiltreRepres)
+      : false,
+    canCreate: modulePermissions !== null
+      ? toBool(modulePermissions?.canCreate ?? modulePermissions?.canAdd)
+      : isUserAdmin,
+    canEdit: modulePermissions !== null
+      ? toBool(modulePermissions?.canEdit)
+      : isUserAdmin,
+    canDelete: modulePermissions !== null
+      ? toBool(modulePermissions?.canDelete ?? modulePermissions?.canDelt)
+      : isUserAdmin,
+    canValidate: modulePermissions !== null
+      ? toBool(modulePermissions?.canValidate ?? modulePermissions?.canValid)
+      : isUserAdmin,
+    canExport: modulePermissions !== null
+      ? toBool(modulePermissions?.canExport)
+      : isUserAdmin,
 
     // Tous les modules
     allPermissions: dbPermissions,
