@@ -1,12 +1,12 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { Op, TableHints } = require('sequelize');
+const { Op, QueryTypes, TableHints } = require('sequelize');
 
 const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
-const { attachAccessToUser, upsertUserAccess } = require('../utils/userAccess');
+const { attachAccessToUser, upsertUserAccess, resolveUserAccess } = require('../utils/userAccess');
 
 const DEFAULT_TIERS_NIVEAU = 0;
 const MAX_COD_TIERS_LENGTH = 20;
@@ -40,9 +40,108 @@ const normalizeNullableBool = (value) => {
     return null;
 };
 
+const normalizePhoneValue = (value) => {
+    if (value === null || value === undefined) return null;
+    const digits = String(value).trim().replace(/\D/g, '');
+    return digits || null;
+};
+
+const normalizeComparablePhone = (value) => {
+    const digits = normalizePhoneValue(value);
+    if (!digits) return null;
+    return digits.length > 8 ? digits.slice(-8) : digits;
+};
+
+const normalizeEmailValue = (value) => {
+    const normalized = normalizeString(value);
+    return normalized ? normalized.toLowerCase() : null;
+};
+
+const findTiersByPhone = async ({ phone, excludeTiersId = null, transaction = null } = {}) => {
+    const comparablePhone = normalizeComparablePhone(phone);
+    if (!comparablePhone) return null;
+
+    const replacements = { phone: comparablePhone };
+    const excludeClause = excludeTiersId ? ' AND IDTiers <> :excludeTiersId' : '';
+    if (excludeTiersId) {
+        replacements.excludeTiersId = excludeTiersId;
+    }
+
+    const rows = await sequelize.query(`
+        SELECT TOP 1 IDTiers, CodTiers, Tel
+        FROM TabTiers
+        CROSS APPLY (
+            SELECT REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(Tel, ''), ' ', ''), '-', ''), '(', ''), ')', ''), '.', ''), '/', ''), '+', '') AS normalizedTel
+        ) AS phoneNorm
+        WHERE RIGHT(phoneNorm.normalizedTel, 8) = :phone
+        ${excludeClause}
+    `, {
+        replacements,
+        type: QueryTypes.SELECT,
+        transaction
+    });
+
+    return rows[0] || null;
+};
+
+const findTiersByEmail = async ({ email, excludeTiersId = null, transaction = null } = {}) => {
+    const normalizedEmail = normalizeEmailValue(email);
+    if (!normalizedEmail) return null;
+
+    const replacements = { email: normalizedEmail };
+    const excludeClause = excludeTiersId ? ' AND IDTiers <> :excludeTiersId' : '';
+    if (excludeTiersId) {
+        replacements.excludeTiersId = excludeTiersId;
+    }
+
+    const rows = await sequelize.query(`
+        SELECT TOP 1 IDTiers, CodTiers, Email
+        FROM TabTiers
+        WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = :email
+        ${excludeClause}
+    `, {
+        replacements,
+        type: QueryTypes.SELECT,
+        transaction
+    });
+
+    return rows[0] || null;
+};
+
 const isCommercialRole = (role) => {
     const normalized = String(role || '').trim().toLowerCase();
     return normalized === 'commercial' || normalized === 'commerciale';
+};
+
+const isAdminRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'admin' || normalized === 'administrateur';
+};
+
+const hasWhereConditions = (whereObj) => {
+    if (!whereObj) return false;
+    if (Object.keys(whereObj).length > 0) return true;
+    if (Object.getOwnPropertySymbols(whereObj).length > 0) return true;
+    return false;
+};
+
+const resolveAutoCodRepresTiers = (payload = {}, user = {}, effectiveRole = null) => {
+    const explicitRepresentative = normalizeString(payload.Commercial ?? payload.codRepresTiers);
+    const creatorRepresRaw = user?.UserID ?? user?.id ?? user?.CodRepres ?? user?.codRepres;
+    const creatorRepres = creatorRepresRaw == null ? null : String(creatorRepresRaw).trim();
+    const role = effectiveRole || user?.UserRole;
+
+    // Commercial creator should always be attached to their own representative id.
+    if (isCommercialRole(role)) {
+        return creatorRepres || explicitRepresentative || null;
+    }
+
+    // Admin creator keeps explicit representative if provided; fallback to creator id.
+    if (isAdminRole(role)) {
+        return explicitRepresentative || creatorRepres || null;
+    }
+
+    return explicitRepresentative || null;
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -188,7 +287,7 @@ const mapTiersPayload = (payload = {}, { forCreate = false, createdBy = null } =
     if (forCreate) {
         mapped.Actif = mapped.Actif ?? true;
         mapped.UserCreate = createdBy || null;
-        mapped.SaveDate = new Date();
+        mapped.SaveDate = sequelize.literal('GETDATE()');
     }
 
     return mapped;
@@ -279,13 +378,21 @@ exports.createTiers = async (req, res, next) => {
     console.log('Transaction started');
 
     try {
+        const creatorUserId = req.user?.UserID || req.user?.id || null;
+        const creatorAccess = await resolveUserAccess(creatorUserId, req.user?.UserRole, { transaction: t });
+        const creatorRole = creatorAccess?.normalizedRole || req.user?.UserRole || '';
+
         const tiersPayload = mapTiersPayload(req.body, {
             forCreate: true,
             createdBy: req.user.LoginName
         });
+        tiersPayload.codRepresTiers = resolveAutoCodRepresTiers(req.body, req.user, creatorRole);
         const normalizedRaisoc = normalizeString(tiersPayload.Raisoc);
-        const normalizedEmail = normalizeString(tiersPayload.Email);
-        const resolvedCodTiers = resolveCodTiers(req.body.CodTiers);
+        const normalizedEmail = normalizeEmailValue(tiersPayload.Email);
+        const normalizedTel = normalizeComparablePhone(tiersPayload.Tel);
+        const requestedCodTiers = normalizeString(req.body.CodTiers);
+        let resolvedCodTiers = resolveCodTiers(requestedCodTiers);
+        const gouvernoratId = normalizeNullableInt(req.body.gouvernorat ?? tiersPayload.gouvernorat);
         const userFullName = resolveUserFullName(normalizedRaisoc);
         const contacts = normalizeContacts(req.body);
         const addresses = normalizeAddresses(req.body);
@@ -298,6 +405,49 @@ exports.createTiers = async (req, res, next) => {
                 message: 'La raison sociale (Raisoc) et l\'email sont obligatoires'
             });
         }
+
+        if (!Number.isInteger(gouvernoratId)) {
+            await t.rollback();
+            return res.status(400).json({
+                status: 'error',
+                message: 'Le gouvernorat est obligatoire',
+                errors: [{ field: 'gouvernorat', message: 'Gouvernorat obligatoire' }]
+            });
+        }
+
+        const existingTierEmail = await findTiersByEmail({ email: normalizedEmail, transaction: t });
+        if (existingTierEmail) {
+            await t.rollback();
+            return res.status(400).json({
+                status: 'error',
+                message: 'Cet email est déjà utilisé par un autre client',
+                errors: [{ field: 'Email', message: 'Email déjà utilisé' }]
+            });
+        }
+
+        if (normalizedTel) {
+            const existingPhone = await findTiersByPhone({ phone: normalizedTel, transaction: t });
+            if (existingPhone) {
+                await t.rollback();
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Ce numéro de téléphone est déjà utilisé par un autre client',
+                    errors: [{ field: 'Tel', message: 'Numéro de téléphone déjà utilisé' }]
+                });
+            }
+        }
+
+        const gouvernoratExists = await TiersGouvernorat.findByPk(gouvernoratId, { transaction: t });
+        if (!gouvernoratExists) {
+            await t.rollback();
+            return res.status(400).json({
+                status: 'error',
+                message: 'Gouvernorat invalide',
+                errors: [{ field: 'gouvernorat', message: 'Gouvernorat introuvable' }]
+            });
+        }
+
+        tiersPayload.gouvernorat = gouvernoratId;
 
         // 2. Validation des champs utilisateur pour éviter les troncatures
         const validationErrors = validateUserFields(normalizedEmail, userFullName);
@@ -318,24 +468,49 @@ exports.createTiers = async (req, res, next) => {
         });
         console.timeEnd('Check-Email');
 
-        const existingTiers = await Tiers.findOne({
-            where: { CodTiers: resolvedCodTiers },
-            transaction: t
-        });
+        if (!requestedCodTiers) {
+            // Retry auto-generation a few times to avoid random collisions.
+            let attempts = 0;
+            let found = null;
+            do {
+                resolvedCodTiers = resolveCodTiers(null);
+                found = await Tiers.findOne({
+                    where: { CodTiers: resolvedCodTiers },
+                    transaction: t
+                });
+                attempts += 1;
+            } while (found && attempts < 6);
 
-        if (existingTiers) {
-            await t.rollback();
-            return res.status(400).json({
-                status: 'error',
-                message: 'Le code client (CodTiers) existe déjà'
+            if (found) {
+                await t.rollback();
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Impossible de générer un code client unique. Réessayez.',
+                    errors: [{ field: 'CodTiers', message: 'Code client auto en conflit' }]
+                });
+            }
+        } else {
+            const existingTiers = await Tiers.findOne({
+                where: { CodTiers: resolvedCodTiers },
+                transaction: t
             });
+
+            if (existingTiers) {
+                await t.rollback();
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Le code client (CodTiers) existe déjà',
+                    errors: [{ field: 'CodTiers', message: 'Code client déjà utilisé' }]
+                });
+            }
         }
 
         if (existingUser) {
             await t.rollback();
             return res.status(400).json({
                 status: 'error',
-                message: 'Cet email est déjà associé à un utilisateur existant'
+                message: 'Cet email est déjà associé à un utilisateur existant',
+                errors: [{ field: 'Email', message: 'Email déjà utilisé' }]
             });
         }
 
@@ -462,8 +637,16 @@ exports.getAllTiers = async (req, res, next) => {
             req.user
         );
 
+        let finalWhere = where;
+        if (isCommercialRole(req.user?.UserRole)) {
+            const commercialScope = buildCommercialTiersWhere(req.user);
+            finalWhere = hasWhereConditions(where)
+                ? { [Op.and]: [where, commercialScope] }
+                : commercialScope;
+        }
+
         const { count, rows } = await Tiers.findAndCountAll({
-            where,
+            where: finalWhere,
             order: [['Raisoc', 'ASC']],
             limit,
             offset,
@@ -487,7 +670,13 @@ exports.getAllTiers = async (req, res, next) => {
  */
 exports.getTiersById = async (req, res, next) => {
     try {
-        const tiers = await Tiers.findByPk(req.params.id, {
+        const tiers = await Tiers.findOne({
+            where: {
+                [Op.or]: [
+                    { IDTiers: req.params.id },
+                    { CodTiers: req.params.id }
+                ]
+            },
             include: [
                 { model: TiersClasse, as: 'tiersClasse' },
                 { model: TiersGouvernorat, as: 'region' },
@@ -520,6 +709,37 @@ exports.getTiersById = async (req, res, next) => {
     }
 };
 
+exports.checkTierEmailUnique = async (req, res, next) => {
+    try {
+        const email = normalizeEmailValue(req.query?.email);
+        const excludeId = normalizeString(req.query?.excludeId);
+
+        if (!email) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Email manquant'
+            });
+        }
+
+        const existingTier = await findTiersByEmail({ email, excludeTiersId: excludeId || null });
+        if (existingTier) {
+            return res.status(200).json({
+                status: 'success',
+                unique: false,
+                message: 'Cet email est déjà utilisé par un autre client'
+            });
+        }
+
+        return res.status(200).json({
+            status: 'success',
+            unique: true,
+            message: 'Email disponible'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 /**
  * Mettre à jour un client
  */
@@ -533,11 +753,29 @@ exports.updateTiers = async (req, res, next) => {
         }
 
         const allowedUpdates = mapTiersPayload(req.body, { forCreate: false });
+        const updatedPhone = normalizeComparablePhone(allowedUpdates.Tel);
         Object.keys(allowedUpdates).forEach((key) => {
             if (allowedUpdates[key] === undefined) {
                 delete allowedUpdates[key];
             }
         });
+
+        if (updatedPhone) {
+            const duplicatePhone = await findTiersByPhone({
+                phone: updatedPhone,
+                excludeTiersId: tiers.IDTiers,
+                transaction: t
+            });
+
+            if (duplicatePhone) {
+                await t.rollback();
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Ce numéro de téléphone est déjà utilisé par un autre client',
+                    errors: [{ field: 'Tel', message: 'Numéro de téléphone déjà utilisé' }]
+                });
+            }
+        }
 
         await tiers.update(allowedUpdates, { transaction: t });
         await tiers.reload({

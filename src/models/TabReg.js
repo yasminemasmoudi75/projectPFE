@@ -3,9 +3,10 @@ const { sequelize } = require('../config/database');
 
 const TabReg = sequelize.define('TabReg', {
   IDReg: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.UUID,
     primaryKey: true,
-    autoIncrement: true,
+    allowNull: false,
+    defaultValue: DataTypes.UUIDV4,
   },
   IDContact: DataTypes.INTEGER,
   DatReg: DataTypes.DATE,

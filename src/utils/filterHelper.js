@@ -231,18 +231,11 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
     if (moduleKey === '11' || moduleKey === '30') {
       return { CodTiers: codTiers };
     }
-    // Reclamations → filter by CodTiers
-    if (moduleKey === '51') {
+    // Reclamations/SAV → filter by CodTiers
+    if (moduleKey === '31' || moduleKey === '51') {
       return { CodTiers: codTiers };
     }
     return { CodTiers: codTiers };
-  }
-
-  if (!['commercial', 'agent'].includes(normalizedRole)) return {};
-
-  const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
-  if (!filtreRepresEnabled) {
-    return {};
   }
 
   const moduleKey = String(moduleCode);
@@ -255,17 +248,24 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
     const userRegion = user?.Gouvernorat ?? user?.gouvernorat ?? null;
     const userId = user?.UserID || user?.id || user?.USER_ID;
 
-    // For Commercial: get their own ID
     if (normalizedRole === 'commercial') {
       if (!userId) {
         console.log(`🔍 [filterHelper] Module ${moduleKey}: No USER_ID for commercial, no filter`);
-        return {};
+        return { [Op.and]: [sequelize.literal('1 = 0')] };
       }
+
       const userIdStr = String(userId);
-      console.log(`   🔍 [filterHelper] Module ${moduleKey} (Tiers): Commercial ${userId} - filtering by codRepresTiers`);
+      console.log(`   🔍 [filterHelper] Module ${moduleKey} (Tiers): Commercial ${userId} - always filtering by codRepresTiers`);
       return {
-        codRepresTiers: userIdStr  // VARCHAR column — use string only to avoid implicit int conversion
+        codRepresTiers: userIdStr
       };
+    }
+
+    if (!['commercial', 'agent'].includes(normalizedRole)) return {};
+
+    const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
+    if (!filtreRepresEnabled) {
+      return {};
     }
 
     // For Agent: get commercials in same region

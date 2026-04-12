@@ -7,7 +7,7 @@ const TabRegD = sequelize.define('TabRegD', {
     primaryKey: true,
     autoIncrement: true,
   },
-  IDReg: DataTypes.INTEGER,
+  IDReg: DataTypes.UUID,
   Echeance: DataTypes.DATE,
   ModReg: DataTypes.STRING(100),
   Montant: DataTypes.FLOAT,

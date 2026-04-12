@@ -10,7 +10,7 @@ const { QueryTypes } = require('sequelize');
 // Appliquer la protection d'authentification à toutes les routes
 router.use(protect);
 
-const RECLAMATIONS_MODULE = MODULES.REGLEMENT;
+const RECLAMATIONS_MODULE = MODULES.RECLAMATIONS;
 const allowClientOrReadPermission = (req, res, next) => {
 	(async () => {
 		const userId = req.user?.id || req.user?.UserID;

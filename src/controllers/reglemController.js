@@ -1,5 +1,6 @@
 const { TabReg, TabRegD, TabRegF, TabModReg, FavMaster, BlvMaster, Tiers, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
 const { resolveUserAccess } = require('../utils/userAccess');
 
 // Determine payment status helper
@@ -11,6 +12,14 @@ const getPaymentStatus = (totalAmount, paidAmount) => {
     if (paidAmount > 0 && remainingAmount < totalAmount * 0.25) return 'Presque payé';
     if (paidAmount > 0) return 'Partiellement payé';
     return 'Non payé';
+};
+
+const isIsoDateOnly = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+
+const toSqlDateLiteral = (value, { endOfDay = false } = {}) => {
+    if (!isIsoDateOnly(value)) return sequelize.literal('GETDATE()');
+    const time = endOfDay ? '23:59:59' : '00:00:00';
+    return sequelize.literal(`CONVERT(datetime, '${value} ${time}', 120)`);
 };
 
 // Build filter for clients - they only see their own payments
@@ -79,22 +88,29 @@ exports.createReglement = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Client et montant obligatoires' });
         }
 
+        const reglementId = uuidv4();
+        console.log(`🧾 createReglement - reglementId: ${reglementId}`);
+
         // 1. Create Master Record
         const newReglement = await TabReg.create({
-            DatReg: datReg || new Date(),
+            IDReg: reglementId,
+            DatReg: toSqlDateLiteral(datReg),
             CodTiers: codTiers,
             LibTiers: libTiers || codTiers,
             MntReg: parseFloat(mntReg),
             Payed: true, // If detail lines are provided, we consider it processed
             CUser: req.user?.EmailPro || req.user?.LoginName || 'ADMIN',
-            DatUser: new Date(),
-        }, { transaction });
+            DatUser: sequelize.literal('GETDATE()'),
+        }, {
+            transaction,
+            fields: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'Payed', 'CUser', 'DatUser'],
+        });
 
         // 2. Create Payment Pieces (TabRegD)
         for (const p of payments) {
             await TabRegD.create({
                 IDReg: newReglement.IDReg,
-                Echeance: p.echeance || new Date(),
+                Echeance: toSqlDateLiteral(p.echeance, { endOfDay: true }),
                 ModReg: p.modReg || 'ESPECE',
                 Montant: parseFloat(p.montant),
                 MntCredit: parseFloat(p.montant),
@@ -103,7 +119,7 @@ exports.createReglement = async (req, res, next) => {
                 Banque: p.banque,
                 DetPieceReg: p.detail,
                 Valid: true,
-                DatValeur: p.echeance || new Date()
+                DatValeur: toSqlDateLiteral(p.echeance, { endOfDay: true })
             }, { transaction });
         }
 
@@ -152,14 +168,20 @@ exports.createReglement = async (req, res, next) => {
         });
 
     } catch (err) {
-        await transaction.rollback();
+        if (transaction && !transaction.finished) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('❌ rollback createReglement failed:', rollbackError);
+            }
+        }
         console.error('❌ createReglement:', err);
-        next(err);
+        return next(err);
     }
 };
 exports.getAllReglements = async (req, res, next) => {
     try {
-        const { search = '', status = '', page = 1, limit = 100 } = req.query;
+        const { search = '', status = '', year = '', date = '', dateFrom = '', dateTo = '', page = 1, limit = 100 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
         // Get user info
@@ -204,6 +226,40 @@ exports.getAllReglements = async (req, res, next) => {
                 console.log(`🔀 ADMIN SEARCH - applying search without client restriction`);
                 where = searchFilter;
             }
+        }
+
+        const yearValue = String(year || '').trim();
+        if (/^\d{4}$/.test(yearValue)) {
+            where[Op.and] = [
+                ...(where[Op.and] || []),
+                sequelize.literal(`YEAR([DatReg]) = ${Number(yearValue)}`),
+            ];
+        }
+
+        const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+        const exactDateValue = String(date || '').trim();
+        const fromValue = String(dateFrom || '').trim();
+        const toValue = String(dateTo || '').trim();
+
+        if (isIsoDate(exactDateValue)) {
+            where[Op.and] = [
+                ...(where[Op.and] || []),
+                sequelize.literal(`CONVERT(date, [DatReg]) = '${exactDateValue}'`),
+            ];
+        }
+
+        if (isIsoDate(fromValue)) {
+            where[Op.and] = [
+                ...(where[Op.and] || []),
+                sequelize.literal(`CONVERT(date, [DatReg]) >= '${fromValue}'`),
+            ];
+        }
+
+        if (isIsoDate(toValue)) {
+            where[Op.and] = [
+                ...(where[Op.and] || []),
+                sequelize.literal(`CONVERT(date, [DatReg]) <= '${toValue}'`),
+            ];
         }
 
         // Fetch all reglements
@@ -315,12 +371,18 @@ exports.getReglemById = async (req, res, next) => {
                 model: TabRegD,
                 as: 'details',
                 attributes: ['ID', 'Montant', 'MntDebit', 'MntCredit', 'ModReg', 'NumPieceReg', 'DatValeur', 'Banque', 'NumCompte'],
+                required: false,
             }, {
                 model: TabRegF,
                 as: 'pieces',
                 attributes: ['ID', 'NumPiece', 'MDate', 'MntPiece', 'Solde', 'TypPiece'],
+                required: false,
             }],
         });
+
+        console.log(`📦 Reglement found:`, reglement ? 'YES' : 'NO');
+        console.log(`📦 Details count:`, reglement?.details?.length || 0);
+        console.log(`📦 Pieces count:`, reglement?.pieces?.length || 0);
 
         if (!reglement) {
             console.warn(`⚠️ Réglement ${id} not found`);
@@ -575,9 +637,10 @@ exports.batchUpdatePayments = async (req, res, next) => {
 // ─── GET PAYMENT MODES ───────────────────────────────────────────────────────────────────
 exports.getPaymentModes = async (req, res, next) => {
     try {
-        const modes = await TabModReg.findAll({
-            attributes: [['ModReg', 'label'], ['IDReg', 'value']]
-        });
+        const modes = await sequelize.query(
+            `SELECT ModReg AS label, IDReg FROM TabModReg ORDER BY ModReg ASC`,
+            { type: QueryTypes.SELECT }
+        );
         res.json({ status: 'success', data: modes });
     } catch (err) {
         console.error('❌ getPaymentModes:', err);

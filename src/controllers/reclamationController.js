@@ -2,7 +2,7 @@ const Reclamation = require('../models/Reclamation');
 const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
 const { User, Tiers, sequelize } = require('../models');
-const { Op, TableHints } = require('sequelize');
+const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const { resolveUserAccess } = require('../utils/userAccess');
 
@@ -20,6 +20,68 @@ const MAX_LENGTHS = {
     TicketPays: 50,
     TicketCp: 20,
     TicketAdresseMaps: 255,
+};
+
+const RECLAMATION_SCHEMA_CACHE_TTL_MS = 60 * 1000;
+let reclamationSchemaCache = {
+    loadedAt: 0,
+    columns: null,
+};
+
+const getReclamationColumns = async () => {
+    const now = Date.now();
+    if (
+        reclamationSchemaCache.columns &&
+        now - reclamationSchemaCache.loadedAt < RECLAMATION_SCHEMA_CACHE_TTL_MS
+    ) {
+        return reclamationSchemaCache.columns;
+    }
+
+    const rows = await sequelize.query(
+        `
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = 'TabReclamation'
+        `,
+        { type: QueryTypes.SELECT }
+    );
+
+    const columns = new Set(rows.map((row) => row.COLUMN_NAME));
+    reclamationSchemaCache = {
+        loadedAt: now,
+        columns,
+    };
+
+    return columns;
+};
+
+const getReclamationSelectableAttributes = async () => {
+    const columns = await getReclamationColumns();
+    const attributes = Object.entries(Reclamation.rawAttributes)
+        .filter(([attrName, definition]) => columns.has(definition.field || attrName))
+        .map(([attrName]) => attrName);
+
+    return attributes.length ? attributes : undefined;
+};
+
+const getReclamationDefaultOrder = async () => {
+    const columns = await getReclamationColumns();
+    return columns.has('DateOuverture') ? [['DateOuverture', 'DESC']] : [['ID', 'DESC']];
+};
+
+const findReclamationByPkSafe = async (id, options = {}) => {
+    const attributes = options.attributes || await getReclamationSelectableAttributes();
+    return Reclamation.findByPk(id, { ...options, attributes });
+};
+
+const findReclamationOneSafe = async (options = {}) => {
+    const attributes = options.attributes || await getReclamationSelectableAttributes();
+    return Reclamation.findOne({ ...options, attributes });
+};
+
+const findReclamationAndCountAllSafe = async (options = {}) => {
+    const attributes = options.attributes || await getReclamationSelectableAttributes();
+    return Reclamation.findAndCountAll({ ...options, attributes });
 };
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : value);
@@ -130,7 +192,10 @@ const getNextInterventionNumbers = async () => {
 // Auto-generate ticket number: REC-YYYY-XXXX
 const generateNumTicket = async () => {
     const year = new Date().getFullYear();
-    const last = await Reclamation.findOne({ order: [['ID', 'DESC']] });
+    const last = await findReclamationOneSafe({
+        attributes: ['ID'],
+        order: [['ID', 'DESC']],
+    });
     const seq = ((last?.ID || 0) + 1).toString().padStart(4, '0');
     return `REC-${year}-${seq}`;
 };
@@ -139,17 +204,73 @@ const generateNumTicket = async () => {
 exports.getAll = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const queryForPermissions = { ...req.query };
+        delete queryForPermissions.Date;
+        delete queryForPermissions.DateFrom;
+        delete queryForPermissions.DateTo;
         
-        // Module 47 = Support/Reclamations (Table-driven filters from TabRoleFilterVisibility)
+        // Module 31 = Reclamations/SAV (aligned with TabAWProfileAccess CodMod)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '47',
-            req.query,
+            '31',
+            queryForPermissions,
             req.user
         );
 
-        const { count, rows } = await Reclamation.findAndCountAll({
+        // Add manual filters for reclamations
+        const { Objet, LibTiers, NumTicket, Statut, Priorite, TechnicienID, Date: filterDate, DateFrom, DateTo } = req.query;
+
+        if (Objet || LibTiers || NumTicket) {
+            const searchConditions = [];
+            if (Objet) searchConditions.push({ Objet: { [Op.like]: `%${Objet}%` } });
+            if (LibTiers) searchConditions.push({ LibTiers: { [Op.like]: `%${LibTiers}%` } });
+            if (NumTicket) searchConditions.push({ NumTicket: { [Op.like]: `%${NumTicket}%` } });
+            if (searchConditions.length > 0) {
+                where[Op.or] = searchConditions;
+            }
+        }
+
+        if (Statut && Statut !== 'all') {
+            where.Statut = Statut;
+        }
+
+        if (Priorite && Priorite !== 'all') {
+            where.Priorite = Priorite;
+        }
+
+        if (TechnicienID && TechnicienID !== 'all') {
+            where.TechnicienID = TechnicienID;
+        }
+
+        const reclamationColumns = await getReclamationColumns();
+        if (reclamationColumns.has('DateOuverture') && (filterDate || DateFrom || DateTo)) {
+            const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+            const andConditions = [];
+
+            if (filterDate && isIsoDate(filterDate)) {
+                andConditions.push(
+                    sequelize.literal(`CONVERT(date, [DateOuverture]) = '${filterDate}'`)
+                );
+            } else {
+                if (DateFrom && isIsoDate(DateFrom)) {
+                    andConditions.push(
+                        sequelize.literal(`CONVERT(date, [DateOuverture]) >= '${DateFrom}'`)
+                    );
+                }
+                if (DateTo && isIsoDate(DateTo)) {
+                    andConditions.push(
+                        sequelize.literal(`CONVERT(date, [DateOuverture]) <= '${DateTo}'`)
+                    );
+                }
+            }
+
+            if (andConditions.length > 0) {
+                where[Op.and] = [...(where[Op.and] || []), ...andConditions];
+            }
+        }
+
+        const { count, rows } = await findReclamationAndCountAllSafe({
             where,
-            order: [['DateOuverture', 'DESC']],
+            order: await getReclamationDefaultOrder(),
             limit,
             offset,
             tableHint: TableHints.NOLOCK
@@ -168,7 +289,7 @@ exports.getAll = async (req, res, next) => {
 // ─── GET BY ID ─────────────────────────────────────────────────────────────────
 exports.getById = async (req, res, next) => {
     try {
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
 
         const userId = req.user?.id || req.user?.UserID;
@@ -284,53 +405,63 @@ exports.create = async (req, res, next) => {
         payload.Statut = payload.Statut || 'Ouvert';
         payload.CUser = truncateString(req.user?.LoginName || req.user?.EmailPro || 'admin', MAX_LENGTHS.CUser);
 
+        const existingColumns = await getReclamationColumns();
+        const optionalLocationColumns = [
+            'TicketAdresse',
+            'TicketVille',
+            'TicketPays',
+            'TicketCp',
+            'TicketAdresseMaps',
+            'TicketLat',
+            'TicketLong',
+        ];
+        const missingLocationColumns = optionalLocationColumns.filter((column) => !existingColumns.has(column));
+        if (missingLocationColumns.length) {
+            console.warn(
+                `⚠️ TabReclamation missing columns (${missingLocationColumns.join(', ')}). Proceeding without them.`
+            );
+        }
+
+        const insertColumns = [];
+        const insertValues = [];
+        const columnToSqlValue = {
+            CodTiers: ':CodTiers',
+            LibTiers: ':LibTiers',
+            Objet: ':Objet',
+            Description: ':Description',
+            TypeReclamation: ':TypeReclamation',
+            Priorite: ':Priorite',
+            Statut: ':Statut',
+            NomTechnicien: ':NomTechnicien',
+            TechnicienID: ':TechnicienID',
+            DateOuverture: 'GETDATE()',
+            DateResolution: ':DateResolution',
+            CUser: ':CUser',
+            Solution: ':Solution',
+            NumTicket: ':NumTicket',
+            TicketAdresse: ':TicketAdresse',
+            TicketVille: ':TicketVille',
+            TicketPays: ':TicketPays',
+            TicketCp: ':TicketCp',
+            TicketAdresseMaps: ':TicketAdresseMaps',
+            TicketLat: ':TicketLat',
+            TicketLong: ':TicketLong',
+        };
+
+        Object.entries(columnToSqlValue).forEach(([column, sqlValue]) => {
+            if (existingColumns.has(column)) {
+                insertColumns.push(column);
+                insertValues.push(sqlValue);
+            }
+        });
+
         await sequelize.query(
             `
                 INSERT INTO TabReclamation (
-                    CodTiers,
-                    LibTiers,
-                    Objet,
-                    Description,
-                    TypeReclamation,
-                    Priorite,
-                    Statut,
-                    NomTechnicien,
-                    TechnicienID,
-                    DateOuverture,
-                    DateResolution,
-                    CUser,
-                    Solution,
-                    NumTicket,
-                    TicketAdresse,
-                    TicketVille,
-                    TicketPays,
-                    TicketCp,
-                    TicketAdresseMaps,
-                    TicketLat,
-                    TicketLong
+                    ${insertColumns.join(',\n                    ')}
                 )
                 VALUES (
-                    :CodTiers,
-                    :LibTiers,
-                    :Objet,
-                    :Description,
-                    :TypeReclamation,
-                    :Priorite,
-                    :Statut,
-                    :NomTechnicien,
-                    :TechnicienID,
-                    GETDATE(),
-                    :DateResolution,
-                    :CUser,
-                    :Solution,
-                    :NumTicket,
-                    :TicketAdresse,
-                    :TicketVille,
-                    :TicketPays,
-                    :TicketCp,
-                    :TicketAdresseMaps,
-                    :TicketLat,
-                    :TicketLong
+                    ${insertValues.join(',\n                    ')}
                 )
             `,
             {
@@ -359,7 +490,7 @@ exports.create = async (req, res, next) => {
             }
         );
 
-        const rec = await Reclamation.findOne({ where: { NumTicket: payload.NumTicket } });
+        const rec = await findReclamationOneSafe({ where: { NumTicket: payload.NumTicket } });
         res.status(201).json({ status: 'success', message: 'Réclamation créée', data: rec });
     } catch (err) {
         console.error('❌ create reclamation:', err);
@@ -378,7 +509,7 @@ exports.create = async (req, res, next) => {
 // ─── UPDATE ────────────────────────────────────────────────────────────────────
 exports.update = async (req, res, next) => {
     try {
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
 
         const payload = { ...req.body };
@@ -401,18 +532,43 @@ exports.updateStatus = async (req, res, next) => {
         const { statut } = req.body;
         if (!statut) return res.status(400).json({ status: 'error', message: 'Statut requis' });
 
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
 
-        const update = { Statut: statut };
-        if (['Résolu', 'Fermé'].includes(statut) && !rec.DateResolution) {
-            update.DateResolution = new Date();
-        }
+        const shouldSetResolutionDate = ['résolu', 'resolu', 'fermé', 'ferme'].includes(
+            String(statut).trim().toLowerCase()
+        );
 
-        await rec.update(update);
-        res.json({ status: 'success', message: `Statut mis à jour : ${statut}`, data: rec });
+        await sequelize.query(
+            `
+                UPDATE TabReclamation
+                SET
+                    Statut = :statut,
+                    DateResolution = CASE
+                        WHEN :shouldSetResolutionDate = 1 AND DateResolution IS NULL THEN GETDATE()
+                        ELSE DateResolution
+                    END
+                WHERE ID = :id
+            `,
+            {
+                replacements: {
+                    id: req.params.id,
+                    statut,
+                    shouldSetResolutionDate: shouldSetResolutionDate ? 1 : 0,
+                },
+            }
+        );
+
+        const updated = await findReclamationByPkSafe(req.params.id);
+        res.json({ status: 'success', message: `Statut mis à jour : ${statut}`, data: updated });
     } catch (err) {
         console.error('❌ updateStatus reclamation:', err);
+        if (err?.name === 'SequelizeDatabaseError' || err?.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                status: 'error',
+                message: err.original?.message || err.message || 'Impossible de mettre à jour le statut',
+            });
+        }
         next(err);
     }
 };
@@ -420,7 +576,7 @@ exports.updateStatus = async (req, res, next) => {
 // ─── DELETE ────────────────────────────────────────────────────────────────────
 exports.remove = async (req, res, next) => {
     try {
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
         await rec.destroy();
         res.json({ status: 'success', message: 'Réclamation supprimée' });
@@ -464,9 +620,91 @@ exports.assignTechnician = async (req, res, next) => {
             UserIDType: typeof technician.UserID
         });
 
+        // FK on TabReclamation.TechnicienID points to dbo.Sec_Users(UserID).
+        // Resolve a valid Sec_Users.UserID for this technician (create if needed).
+        const loginName = String(technician.EmailPro || technician.LoginName || `user${parsedTechnicienID}`)
+            .trim()
+            .slice(0, 100);
+        const fullName = String(technician.FullName || technician.LoginName || `Technicien ${parsedTechnicienID}`)
+            .trim()
+            .slice(0, 255);
+
+        let secTechnicienId = parsedTechnicienID;
+        const secUserById = await sequelize.query(
+            `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE UserID = :userId`,
+            {
+                replacements: { userId: parsedTechnicienID },
+                type: QueryTypes.SELECT,
+            }
+        );
+
+        if (!secUserById.length) {
+            const secUserByLogin = await sequelize.query(
+                `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE LOWER(LoginName) = LOWER(:loginName)`,
+                {
+                    replacements: { loginName },
+                    type: QueryTypes.SELECT,
+                }
+            );
+
+            if (secUserByLogin.length) {
+                secTechnicienId = Number(secUserByLogin[0].UserID);
+                console.log('✅ [AssignTechnician] Reusing existing Sec_Users by login:', {
+                    loginName,
+                    secTechnicienId,
+                });
+            } else {
+                const inserted = await sequelize.query(
+                    `
+                        INSERT INTO dbo.Sec_Users (
+                            LoginName,
+                            FullName,
+                            Password,
+                            LastAccess,
+                            Enabled,
+                            CreatedDate,
+                            LastAccTime,
+                            CreatedTime,
+                            AccessCount
+                        )
+                        VALUES (
+                            :loginName,
+                            :fullName,
+                            '',
+                            NULL,
+                            1,
+                            GETDATE(),
+                            GETDATE(),
+                            GETDATE(),
+                            0
+                        );
+                        SELECT CAST(SCOPE_IDENTITY() AS INT) AS UserID;
+                    `,
+                    {
+                        replacements: {
+                            loginName,
+                            fullName,
+                        },
+                        type: QueryTypes.SELECT,
+                    }
+                );
+
+                secTechnicienId = Number(inserted?.[0]?.UserID);
+                if (!Number.isFinite(secTechnicienId)) {
+                    throw new Error('Creation Sec_Users reussie mais UserID genere introuvable');
+                }
+
+                console.log('✅ [AssignTechnician] Sec_Users row created for technician:', {
+                    loginName,
+                    fullName,
+                    secTechnicienId,
+                });
+            }
+        }
+
         // Vérifier que la réclamation existe
         console.log(`🔍 [AssignTechnician] Searching for reclamation with ID = ${req.params.id}...`);
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) {
             const errMsg = `Réclamation avec ID ${req.params.id} non trouvée`;
             console.error('❌ [AssignTechnician]', errMsg);
@@ -483,78 +721,16 @@ exports.assignTechnician = async (req, res, next) => {
         const technicianDisplayName = technician.FullName || technician.EmailPro || technician.LoginName;
         const technicienIDToSave = Number(parsedTechnicienID);
 
-        // Check actual FK parent metadata before setting TechnicienID to avoid 409 conflicts.
-        let canSetTechnicienId = false;
-        let fkParentSchema = null;
-        let fkParentTable = null;
-        let fkUserColumn = null;
-        try {
-            const [fkRows] = await sequelize.query(
-                `
-                SELECT TOP 1
-                    s2.name AS ParentSchema,
-                    t2.name AS ParentTable,
-                    c2.name AS ParentColumn
-                FROM sys.foreign_keys fk
-                JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-                JOIN sys.tables t1 ON fkc.parent_object_id = t1.object_id
-                JOIN sys.columns c1 ON c1.object_id = t1.object_id AND c1.column_id = fkc.parent_column_id
-                JOIN sys.tables t2 ON fkc.referenced_object_id = t2.object_id
-                JOIN sys.schemas s2 ON t2.schema_id = s2.schema_id
-                JOIN sys.columns c2 ON c2.object_id = t2.object_id AND c2.column_id = fkc.referenced_column_id
-                WHERE t1.name = 'TabReclamation' AND c1.name = 'TechnicienID'
-                `
-            );
-
-            const fkMeta = fkRows?.[0] || {};
-            fkParentSchema = fkMeta.ParentSchema || null;
-            fkParentTable = fkMeta.ParentTable || null;
-            fkUserColumn = fkMeta.ParentColumn || null;
-
-            if (fkParentSchema && fkParentTable && fkUserColumn) {
-                const [existsRows] = await sequelize.query(
-                    `SELECT CASE WHEN EXISTS (SELECT 1 FROM [${fkParentSchema}].[${fkParentTable}] WHERE [${fkUserColumn}] = :techId) THEN 1 ELSE 0 END AS existsInParent`,
-                    { replacements: { techId: technicienIDToSave } }
-                );
-                canSetTechnicienId = Number(existsRows?.[0]?.existsInParent) === 1;
-            }
-
-            console.log('🔍 [AssignTechnician] FK check resolved parent:', {
-                fkParentSchema,
-                fkParentTable,
-                fkUserColumn,
-                technicianExistsInParent: canSetTechnicienId,
-                techId: technicienIDToSave,
-            });
-        } catch (fkCheckErr) {
-            console.warn('⚠️ [AssignTechnician] FK pre-check failed, fallback to NomTechnicien only:', fkCheckErr?.message);
-            canSetTechnicienId = false;
-        }
-
         const updatePayload = {
             NomTechnicien: technicianDisplayName,
             Statut: 'En cours',
-            TechnicienID: canSetTechnicienId ? technicienIDToSave : null,
+            TechnicienID: secTechnicienId,
         };
 
         console.log('👤 [AssignTechnician] Final update payload:', updatePayload);
 
-        try {
-            await rec.update(updatePayload);
-            console.log('✅ [AssignTechnician] Update succeeded');
-        } catch (updateErr) {
-            // Last safety net: if FK still fails, keep assignment by name/status only.
-            if (updateErr?.name === 'SequelizeForeignKeyConstraintError') {
-                console.warn('⚠️ [AssignTechnician] FK conflict on TechnicienID, retrying without TechnicienID');
-                await rec.update({
-                    NomTechnicien: technicianDisplayName,
-                    Statut: 'En cours',
-                    TechnicienID: null,
-                });
-            } else {
-                throw updateErr;
-            }
-        }
+        await rec.update(updatePayload);
+        console.log('✅ [AssignTechnician] Update succeeded');
 
         // --- AUTOMATION: Create DI and BT ---
         try {
@@ -598,7 +774,7 @@ exports.assignTechnician = async (req, res, next) => {
         // ------------------------------------
         
         console.log('🔄 [AssignTechnician] Reloading reclamation from database to confirm update...');
-        const updated = await Reclamation.findByPk(req.params.id, {
+        const updated = await findReclamationByPkSafe(req.params.id, {
             include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }]
         });
 
@@ -607,9 +783,7 @@ exports.assignTechnician = async (req, res, next) => {
             TechnicienID: updated.TechnicienID,
             NomTechnicien: updated.NomTechnicien,
             Statut: updated.Statut,
-            SavedSuccessfully: canSetTechnicienId
-                ? String(updated.TechnicienID) === String(technicienIDToSave)
-                : Boolean(updated.NomTechnicien)
+            SavedSuccessfully: String(updated.TechnicienID) === String(secTechnicienId)
         });
 
         console.log('✅ [AssignTechnician] Assignment SUCCESS! Sending response...');
@@ -631,7 +805,7 @@ exports.assignTechnician = async (req, res, next) => {
 // ─── REMOVE TECHNICIAN ASSIGNMENT ──────────────────────────────────────────────
 exports.removeTechnicianAssignment = async (req, res, next) => {
     try {
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) {
             return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
         }
@@ -657,7 +831,7 @@ exports.removeTechnicianAssignment = async (req, res, next) => {
 // ─── ADD INTERVENTION ──────────────────────────────────────────────────────────
 exports.addIntervention = async (req, res, next) => {
     try {
-        const rec = await Reclamation.findByPk(req.params.id);
+        const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) {
             return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
         }
@@ -707,7 +881,7 @@ exports.addIntervention = async (req, res, next) => {
             await rec.update({ Statut: 'En cours' });
         }
 
-        const updated = await Reclamation.findByPk(req.params.id, {
+        const updated = await findReclamationByPkSafe(req.params.id, {
             include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }]
         });
         const interventions = await fetchInterventionsForReclamation(updated);
@@ -743,10 +917,10 @@ exports.getTechnicianReclamations = async (req, res, next) => {
         if (statut) where.Statut = statut;
         if (priorite) where.Priorite = priorite;
 
-        const { count, rows } = await Reclamation.findAndCountAll({
+        const { count, rows } = await findReclamationAndCountAllSafe({
             where,
             include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }],
-            order: [['DateOuverture', 'DESC']],
+            order: await getReclamationDefaultOrder(),
             limit: parseInt(limit),
             offset,
         });
@@ -788,9 +962,9 @@ exports.getMyMyClaims = async (req, res, next) => {
             [Op.or]: identities.map((identity) => ({ CUser: identity }))
         };
 
-        const { count, rows } = await Reclamation.findAndCountAll({
+        const { count, rows } = await findReclamationAndCountAllSafe({
             where,
-            order: [['DateOuverture', 'DESC']],
+            order: await getReclamationDefaultOrder(),
             limit: parseInt(limit),
             offset,
         });
