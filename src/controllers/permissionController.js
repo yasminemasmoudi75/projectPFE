@@ -1,5 +1,6 @@
 const { sequelize } = require('../config/database');
 const { QueryTypes } = require('sequelize');
+const { resolveUserAccess, getRoleAliases } = require('../utils/userAccess');
 
 /**
  * Récupère toutes les permissions de l'utilisateur connecté
@@ -14,12 +15,16 @@ exports.getMyPermissions = async (req, res) => {
 
     console.log('🔐 getMyPermissions - User:', { userId, userRole });
 
-    if (!userId || !userRole) {
+    if (!userId) {
       return res.status(401).json({
         status: 'error',
         message: 'Non authentifié'
       });
     }
+
+    const access = await resolveUserAccess(userId, userRole);
+    const effectiveRole = access?.normalizedRole || String(userRole || '').toLowerCase();
+    const aliases = getRoleAliases(effectiveRole);
 
     // Récupérer les permissions du rôle depuis la BD
     const permissions = await sequelize.query(`
@@ -35,19 +40,20 @@ exports.getMyPermissions = async (req, res) => {
         CASE WHEN CanImp = 1 THEN 1 ELSE 0 END as canExport,
         CASE WHEN canPDF = 1 THEN 1 ELSE 0 END as canPDF
       FROM TabAWProfileAccess
-      WHERE LOWER(ProfileUser) = LOWER(:userRole)
-      ORDER BY CodMod
+      WHERE LOWER(ProfileUser) IN (:aliases)
+      ORDER BY CASE WHEN LOWER(ProfileUser) = :preferredRole THEN 0 ELSE 1 END, CodMod
     `, {
-      replacements: { userRole },
+      replacements: { aliases, preferredRole: effectiveRole },
       type: QueryTypes.SELECT
     });
 
-    console.log(`✅ Permissions trouvées: ${permissions.length} pour rôle ${userRole}`);
+    console.log(`✅ Permissions trouvées: ${permissions.length} pour rôle ${effectiveRole}`);
 
     const response = {
       status: 'success',
       data: {
         userRole,
+        normalizedRole: effectiveRole,
         totalPermissions: permissions.length,
         activeModules: permissions.filter(p => p.isActive === 1).length,
         permissions: permissions.map(p => ({
@@ -87,18 +93,23 @@ exports.getModulePermission = async (req, res) => {
   try {
     const { codMod } = req.params;
     const userRole = req.user?.UserRole;
+    const userId = req.user?.id || req.user?.UserID;
 
     console.log('🔐 getModulePermission - Role:', userRole, 'Module:', codMod);
 
-    if (!userRole || !codMod) {
+    if (!userId || !codMod) {
       return res.status(400).json({
         status: 'error',
         message: 'Paramètres manquants'
       });
     }
 
+    const access = await resolveUserAccess(userId, userRole);
+    const effectiveRole = access?.normalizedRole || String(userRole || '').toLowerCase();
+    const aliases = getRoleAliases(effectiveRole);
+
     const permission = await sequelize.query(`
-      SELECT 
+      SELECT TOP 1
         CodMod as moduleCode,
         LibMod as moduleName,
         CASE WHEN Actif = 1 THEN 1 ELSE 0 END as isActive,
@@ -106,10 +117,10 @@ exports.getModulePermission = async (req, res) => {
         CASE WHEN canEdit = 1 THEN 1 ELSE 0 END as canEdit,
         CASE WHEN canDelt = 1 THEN 1 ELSE 0 END as canDelete
       FROM TabAWProfileAccess
-      WHERE LOWER(ProfileUser) = LOWER(:userRole) AND CodMod = :codMod
-      LIMIT 1
+      WHERE LOWER(ProfileUser) IN (:aliases) AND CodMod = :codMod
+      ORDER BY CASE WHEN LOWER(ProfileUser) = :preferredRole THEN 0 ELSE 1 END
     `, {
-      replacements: { userRole, codMod: parseInt(codMod) },
+      replacements: { aliases, preferredRole: effectiveRole, codMod: parseInt(codMod) },
       type: QueryTypes.SELECT
     });
 

@@ -29,6 +29,24 @@ const normalizeReference = (value) => (typeof value === 'string' ? value.trim() 
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
+/**
+ * Build scope filter for commercial users' activities
+ * Commercial users should only see their own activities (User = their UserID)
+ */
+const buildCommercialActivityScope = (reqUser) => {
+  const normalizedRole = String(reqUser?.UserRole || '').trim().toLowerCase();
+  if (!['commercial', 'commerciale'].includes(normalizedRole)) {
+    return null;
+  }
+  
+  const userId = reqUser?.UserID;
+  if (!userId) {
+    return { [Op.and]: [sequelize.literal('1 = 0')] };
+  }
+  
+  return { User: userId };
+};
+
 
 const serializeActivite = (activite) => {
   const plainActivite = activite?.toJSON ? activite.toJSON() : activite;
@@ -257,9 +275,11 @@ exports.getAllActivites = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
     const selectedCommercial = String(req.query?.commercial || req.query?.userId || '').trim();
+    const selectedTierId = String(req.query?.tierId || '').trim();
     const queryForTableFilters = { ...req.query };
     delete queryForTableFilters.commercial;
     delete queryForTableFilters.userId;
+    delete queryForTableFilters.tierId;
     
     // Module 45 = Activités (Table-driven filters from TabRoleFilterVisibility)
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
@@ -269,12 +289,35 @@ exports.getAllActivites = async (req, res, next) => {
     );
 
     let finalWhere = where;
-    if (selectedCommercial && /^\d+$/.test(selectedCommercial)) {
-      const commercialWhere = { User: Number(selectedCommercial) };
+    
+    // ✅ Force commercial users to see only their own activities
+    const commercialScope = buildCommercialActivityScope(req.user);
+    if (commercialScope) {
       const hasWhere = where && (
         Object.keys(where).length > 0 || Object.getOwnPropertySymbols(where).length > 0
       );
-      finalWhere = hasWhere ? { [Op.and]: [where, commercialWhere] } : commercialWhere;
+      finalWhere = hasWhere ? { [Op.and]: [where, commercialScope] } : commercialScope;
+    }
+    
+    if (selectedCommercial && /^\d+$/.test(selectedCommercial)) {
+      const commercialWhere = { User: Number(selectedCommercial) };
+      const hasWhere = finalWhere && (
+        Object.keys(finalWhere).length > 0 || Object.getOwnPropertySymbols(finalWhere).length > 0
+      );
+      finalWhere = hasWhere ? { [Op.and]: [finalWhere, commercialWhere] } : commercialWhere;
+    }
+
+    if (selectedTierId) {
+      const tier = await resolveTierReference(selectedTierId);
+      if (!tier) {
+        return res.json(filterHelper.formatPaginatedResponse([], 0, page, limit));
+      }
+
+      const tierWhere = { CodTiers: tier.CodTiers };
+      const hasWhere = finalWhere && (
+        Object.keys(finalWhere).length > 0 || Object.getOwnPropertySymbols(finalWhere).length > 0
+      );
+      finalWhere = hasWhere ? { [Op.and]: [finalWhere, tierWhere] } : tierWhere;
     }
 
     const { count, rows } = await Activite.findAndCountAll({

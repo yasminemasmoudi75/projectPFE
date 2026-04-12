@@ -204,16 +204,20 @@ const generateNumTicket = async () => {
 exports.getAll = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const queryForPermissions = { ...req.query };
+        delete queryForPermissions.Date;
+        delete queryForPermissions.DateFrom;
+        delete queryForPermissions.DateTo;
         
-        // Module 51 = Reclamations (aligned with TabAWProfileAccess CodMod)
+        // Module 31 = Reclamations/SAV (aligned with TabAWProfileAccess CodMod)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '51',
-            req.query,
+            '31',
+            queryForPermissions,
             req.user
         );
 
         // Add manual filters for reclamations
-        const { Objet, LibTiers, NumTicket, Statut, Priorite, TechnicienID } = req.query;
+        const { Objet, LibTiers, NumTicket, Statut, Priorite, TechnicienID, Date: filterDate, DateFrom, DateTo } = req.query;
 
         if (Objet || LibTiers || NumTicket) {
             const searchConditions = [];
@@ -235,6 +239,33 @@ exports.getAll = async (req, res, next) => {
 
         if (TechnicienID && TechnicienID !== 'all') {
             where.TechnicienID = TechnicienID;
+        }
+
+        const reclamationColumns = await getReclamationColumns();
+        if (reclamationColumns.has('DateOuverture') && (filterDate || DateFrom || DateTo)) {
+            const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+            const andConditions = [];
+
+            if (filterDate && isIsoDate(filterDate)) {
+                andConditions.push(
+                    sequelize.literal(`CONVERT(date, [DateOuverture]) = '${filterDate}'`)
+                );
+            } else {
+                if (DateFrom && isIsoDate(DateFrom)) {
+                    andConditions.push(
+                        sequelize.literal(`CONVERT(date, [DateOuverture]) >= '${DateFrom}'`)
+                    );
+                }
+                if (DateTo && isIsoDate(DateTo)) {
+                    andConditions.push(
+                        sequelize.literal(`CONVERT(date, [DateOuverture]) <= '${DateTo}'`)
+                    );
+                }
+            }
+
+            if (andConditions.length > 0) {
+                where[Op.and] = [...(where[Op.and] || []), ...andConditions];
+            }
         }
 
         const { count, rows } = await findReclamationAndCountAllSafe({

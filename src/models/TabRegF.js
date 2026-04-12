@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const TabRegF = sequelize.define('TabRegF', {
-  IDReg: DataTypes.INTEGER,
+  IDReg: DataTypes.UUID,
   IDPieces: DataTypes.INTEGER,
   NumPiece: DataTypes.STRING(100),
   MDate: DataTypes.DATE,
