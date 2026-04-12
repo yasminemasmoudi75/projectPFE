@@ -84,6 +84,8 @@ const ClientForm = () => {
     const [tiersClasses, setTiersClasses] = useState([]);
     const [tiersGouvernorats, setTiersGouvernorats] = useState([]);
     const [tiersCategories, setTiersCategories] = useState([]);
+    const [emailCheckMessage, setEmailCheckMessage] = useState('');
+    const [emailChecking, setEmailChecking] = useState(false);
 
     useEffect(() => {
         const fetchTiersClasses = async () => {
@@ -241,6 +243,39 @@ const ClientForm = () => {
         setAddresses((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
     };
 
+    const checkEmailUniqueness = async () => {
+        const email = String(formData.Email || '').trim();
+        if (!email) {
+            setEmailCheckMessage('');
+            return true;
+        }
+
+        setEmailChecking(true);
+        try {
+            const response = await axios.get('/tiers/check-email', {
+                params: {
+                    email,
+                    excludeId: isEdit ? id : undefined
+                }
+            });
+
+            const payload = response?.data ?? response;
+            if (payload?.unique === false) {
+                setEmailCheckMessage(payload?.message || 'Cet email est déjà utilisé.');
+                return false;
+            }
+
+            setEmailCheckMessage('');
+            return true;
+        } catch (error) {
+            console.error('Error checking email uniqueness:', error);
+            setEmailCheckMessage('');
+            return true;
+        } finally {
+            setEmailChecking(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -253,6 +288,17 @@ const ClientForm = () => {
         const hasInvalidContactPhone = contacts.some((c) => !isPhoneValid(c.Tel));
         if (hasInvalidContactPhone) {
             toast.error('Les téléphones des contacts doivent contenir exactement 8 chiffres.');
+            return;
+        }
+
+        if (!String(formData.gouvernorat || '').trim()) {
+            toast.error('Le gouvernorat est obligatoire.');
+            return;
+        }
+
+        const emailUnique = await checkEmailUniqueness();
+        if (!emailUnique) {
+            toast.error('Cet email est déjà utilisé par un autre client.');
             return;
         }
 
@@ -460,12 +506,13 @@ const ClientForm = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="label-modern">Gouvernorat</label>
+                                    <label className="label-modern">Gouvernorat *</label>
                                     <select
                                         name="gouvernorat"
                                         value={formData.gouvernorat}
                                         onChange={handleChange}
                                         className="input-modern"
+                                        required
                                     >
                                         <option value="">Sélectionner un gouvernorat</option>
                                         {tiersGouvernorats.map((g) => (
@@ -538,11 +585,20 @@ const ClientForm = () => {
                                             type="email"
                                             name="Email"
                                             value={formData.Email}
-                                            onChange={handleChange}
+                                            onChange={(e) => {
+                                                setEmailCheckMessage('');
+                                                handleChange(e);
+                                            }}
+                                            onBlur={checkEmailUniqueness}
                                             className="input-modern pl-12"
                                             placeholder="contact@entreprise.com"
                                         />
                                     </div>
+                                    {emailCheckMessage ? (
+                                        <p className="mt-2 text-sm text-rose-600">{emailCheckMessage}</p>
+                                    ) : emailChecking ? (
+                                        <p className="mt-2 text-sm text-slate-500">Vérification de l'email...</p>
+                                    ) : null}
                                 </div>
                                 <div>
                                     <label className="label-modern">Téléphone</label>
@@ -779,8 +835,21 @@ const ClientForm = () => {
                                     <input type="text" name="AdresseMaps" value={formData.AdresseMaps} onChange={handleChange} className="input-modern" />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Gouvernorat</label>
-                                    <input type="text" name="gouvernorat" value={formData.gouvernorat} onChange={handleChange} className="input-modern" />
+                                    <label className="label-modern">Gouvernorat *</label>
+                                    <select
+                                        name="gouvernorat"
+                                        value={formData.gouvernorat}
+                                        onChange={handleChange}
+                                        className="input-modern"
+                                        required
+                                    >
+                                        <option value="">Sélectionner un gouvernorat</option>
+                                        {tiersGouvernorats.map((g) => (
+                                            <option key={`extra-${g.id}`} value={g.id}>
+                                                {g.libelle}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="label-modern">Maps Ville</label>

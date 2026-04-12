@@ -148,7 +148,7 @@ const ClaimDetail = () => {
                         </motion.div>
                     </div>
 
-                    {userIsAdmin && !isClosed && (
+                    {(userIsAdmin || userIsTechnicien) && !isClosed && (
                         <motion.button
                             whileHover={{ scale: 1.05, boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)' }} 
                             whileTap={{ scale: 0.98 }}

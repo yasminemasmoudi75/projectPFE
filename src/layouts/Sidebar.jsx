@@ -164,8 +164,6 @@ const SidebarContent = () => {
     if (item.moduleCode == null) return true;
     // Hide SAV module for commercial users
     if (item.name === 'SAV' && role === 'commercial') return false;
-    // Hide Clients (admin) module from non-admin users
-    if (item.name === 'Clients' && role !== 'admin') return false;
     // Hide Users (admin) module from non-admin users
     if (item.name === 'Utilisateurs' && role !== 'admin') return false;
     // Hide Admin section from non-admin users

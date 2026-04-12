@@ -37,6 +37,7 @@ const ClaimsList = lazy(() => import('../modules/claims/ClaimsList'));
 const ClaimDetail = lazy(() => import('../modules/claims/ClaimDetail'));
 const ClaimForm = lazy(() => import('../modules/claims/ClaimForm'));
 const ClaimInterventionForm = lazy(() => import('../modules/claims/ClaimInterventionForm'));
+const ReglemsList = lazy(() => import('../modules/reglements/ReglemsList'));
 const Calendar = lazy(() => import('../modules/activities/CalendarView'));
 const Objectifs = lazy(() => import('../modules/goals/Objectifs'));
 const ObjectifForm = lazy(() => import('../modules/goals/ObjectifForm'));
@@ -441,6 +442,14 @@ const routes = [
             ),
           }
         ]
+      },
+      {
+        path: 'reglements',
+        element: (
+          <SuspenseWrapper>
+            <ReglemsList />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: 'calendar',

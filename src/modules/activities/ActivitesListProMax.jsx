@@ -41,7 +41,7 @@ const extractArrayPayload = (payload) => {
 const ActivitesListProMax = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate } = usePermission(MODULE_CODES.CHARGEMENT);
+  const { canCreate } = usePermission(MODULE_CODES.VISITES);
   const { activites, loading } = useSelector((state) => state.activites);
 
   const [filterType, setFilterType] = useState('All');

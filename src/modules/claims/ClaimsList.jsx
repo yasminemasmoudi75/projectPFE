@@ -7,6 +7,7 @@ import {
     ArrowPathIcon,
     EyeIcon,
     LifebuoyIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +16,7 @@ import { formatDate } from '../../utils/format';
 import axios from '../../app/axios';
 import toast from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,6 +56,7 @@ const STATUS = {
 const ClaimsList = () => {
     const navigate = useNavigate();
     const { user, isClient, isTechnicien, isAdmin } = useAuth();
+    const { canCreate: canAddReclamation } = usePermission(31);
     const [loading, setLoading] = useState(true);
     const [claims, setClaims] = useState([]);
     const [techniciens, setTechniciens] = useState([]);
@@ -62,7 +65,10 @@ const ClaimsList = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [technicianFilter, setTechnicianFilter] = useState('all');
+    const [dateFilter, setDateFilter] = useState('');
     const [sortMode, setSortMode] = useState('recent');
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
     
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -95,6 +101,10 @@ const ClaimsList = () => {
             
             if (technicianFilter !== 'all') {
                 params.append('TechnicienID', technicianFilter);
+            }
+
+            if (dateFilter) {
+                params.append('Date', dateFilter);
             }
 
             const response = await axios.get(`/reclamations?${params.toString()}`);
@@ -177,7 +187,7 @@ const ClaimsList = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, isTechnicien, user?.UserID]);
+    }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, user?.UserID]);
 
     const fetchTechniciens = useCallback(async () => {
         try {
@@ -249,6 +259,26 @@ const ClaimsList = () => {
         }
     };
 
+    const handleDeleteClaim = async (claimId) => {
+        try {
+            setDeletingId(claimId);
+            const response = await axios.delete(`/reclamations/${claimId}`);
+            
+            if (response?.status === 'success' || response?.status === 200) {
+                setClaims((prev) => prev.filter((claim) => claim.id !== claimId));
+                toast.success('Réclamation supprimée avec succès');
+                setDeleteConfirm(null);
+            } else {
+                toast.error('Erreur lors de la suppression');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            toast.error(error?.response?.data?.message || 'Impossible de supprimer la réclamation');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     useEffect(() => {
         // Clients voient uniquement les leurs
         // Techniciens voient leurs réclamations assignées
@@ -285,7 +315,7 @@ const ClaimsList = () => {
         }, 300); // Debounce search
 
         return () => clearTimeout(timeoutId);
-    }, [searchTerm, statusFilter, priorityFilter, technicianFilter, handleFilterChange]);
+    }, [searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, handleFilterChange]);
 
     const filteredClaims = useMemo(() => {
         // Since filtering is now handled by the backend, we mainly do sorting here
@@ -300,6 +330,21 @@ const ClaimsList = () => {
             return new Date(b.date || 0) - new Date(a.date || 0);
         });
     }, [claims, sortMode]);
+
+    const effectiveTotalItems = totalItems > 0 ? totalItems : filteredClaims.length;
+    const effectiveTotalPages = Math.max(
+        1,
+        totalPages > 0 ? totalPages : Math.ceil(filteredClaims.length / itemsPerPage)
+    );
+
+    const displayedClaims = useMemo(() => {
+        // Backend paginated response: keep server page data as-is.
+        if (totalPages > 0) return filteredClaims;
+
+        // Fallback: paginate locally when backend response is not paginated.
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredClaims.slice(start, start + itemsPerPage);
+    }, [filteredClaims, totalPages, currentPage, itemsPerPage]);
 
     const stats = useMemo(() => {
         return claims.reduce(
@@ -319,15 +364,19 @@ const ClaimsList = () => {
     // Handle page changes
     const handlePageChange = useCallback((page) => {
         setCurrentPage(page);
-        fetchClaims(page, itemsPerPage);
-    }, [fetchClaims, itemsPerPage]);
+        if (totalPages > 0) {
+            fetchClaims(page, itemsPerPage);
+        }
+    }, [fetchClaims, itemsPerPage, totalPages]);
 
     // Handle items per page change
     const handleItemsPerPageChange = useCallback((newLimit) => {
         setItemsPerPage(newLimit);
         setCurrentPage(1);
-        fetchClaims(1, newLimit);
-    }, [fetchClaims]);
+        if (totalPages > 0) {
+            fetchClaims(1, newLimit);
+        }
+    }, [fetchClaims, totalPages]);
 
     // Clear all filters
     const clearFilters = useCallback(() => {
@@ -335,6 +384,7 @@ const ClaimsList = () => {
         setStatusFilter('all');
         setPriorityFilter('all');
         setTechnicianFilter('all');
+        setDateFilter('');
         setSortMode('recent');
         setCurrentPage(1);
         fetchClaims(1, itemsPerPage);
@@ -390,7 +440,7 @@ const ClaimsList = () => {
                             transition={{ delay: 0.4 }}
                             className="flex flex-wrap gap-3 pt-4"
                         >
-                            {(isAdmin || isClient) && (
+                            {(isAdmin || isClient || canAddReclamation) && (
                                 <motion.button
                                     whileHover={{ scale: 1.05, y: -3 }}
                                     whileTap={{ scale: 0.95 }}
@@ -472,7 +522,7 @@ const ClaimsList = () => {
                         </div>
 
                         {/* Grid layout depends on if client or admin */}
-                        <div className={`grid gap-4 ${isClient ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-5'}`}>
+                        <div className={`grid gap-4 ${isClient ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-6'}`}>
                             <div className={`${isClient ? 'lg:col-span-1' : 'lg:col-span-2'} relative group/input`}>
                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
                                 <div className="relative flex items-center">
@@ -509,6 +559,23 @@ const ClaimsList = () => {
                                     <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
+                                </div>
+                            </div>
+
+                            <div className="relative group/input">
+                                <div className="absolute inset-0 bg-gradient-to-r from-cyan-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
+                                <div className="relative flex items-center">
+                                    <svg className="absolute left-3 h-4 w-4 text-cyan-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <input
+                                        type="date"
+                                        value={dateFilter}
+                                        onChange={(e) => setDateFilter(e.target.value)}
+                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-3 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
+                                        title="Date"
+                                        aria-label="Date"
+                                    />
                                 </div>
                             </div>
 
@@ -591,7 +658,7 @@ const ClaimsList = () => {
                             className="mt-4 flex items-center justify-between text-sm"
                         >
                             <p className="text-slate-700 font-semibold">
-                                <span className="text-blue-600 font-bold">{filteredClaims.length}</span> / <span className="text-slate-500">{totalItems}</span> réclamations affichées
+                                <span className="text-blue-600 font-bold">{displayedClaims.length}</span> / <span className="text-slate-500">{effectiveTotalItems}</span> réclamations affichées
                             </p>
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
@@ -634,7 +701,7 @@ const ClaimsList = () => {
                                     {!isClient && <th className="px-6 py-4 font-bold">Technicien</th>}
                                     <th className="px-6 py-4 font-bold">Statut</th>
                                     <th className="px-6 py-4 text-right font-bold">Date</th>
-                                    {(isClient || isTechnicien) && <th className="px-6 py-4 font-bold text-center">Actions</th>}
+                                    {(isClient || isTechnicien || isAdmin) && <th className="px-6 py-4 font-bold text-center">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100/70">
@@ -657,7 +724,7 @@ const ClaimsList = () => {
                                                 </motion.div>
                                             </td>
                                         </motion.tr>
-                                    ) : filteredClaims.map((claim, idx) => (
+                                    ) : displayedClaims.map((claim, idx) => (
                                         <motion.tr
                                             key={claim.id}
                                             variants={rowVariants}
@@ -743,7 +810,7 @@ const ClaimsList = () => {
                                             <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-slate-600 font-medium group-hover/row:text-slate-800 transition-all">
                                                 {formatDate(claim.date)}
                                             </td>
-                                            {(isClient || isTechnicien) && (
+                                            {(isClient || isTechnicien || isAdmin) && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                         <motion.button
@@ -766,6 +833,18 @@ const ClaimsList = () => {
                                                                 <PlusIcon className="h-4 w-4" />
                                                             </motion.button>
                                                         )}
+                                                        {isAdmin && (
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.08 }}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={() => setDeleteConfirm(claim.id)}
+                                                                disabled={deletingId === claim.id}
+                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-100/70 border border-rose-300/40 rounded-lg hover:bg-rose-100 hover:border-rose-400/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                title="Supprimer"
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                            </motion.button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             )}
@@ -777,7 +856,7 @@ const ClaimsList = () => {
                     </div>
 
                     {/* Pagination Controls */}
-                    {totalPages > 1 && (
+                    {effectiveTotalPages > 1 && (
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -798,7 +877,7 @@ const ClaimsList = () => {
                                     </select>
                                 </div>
                                 <div className="text-sm text-slate-600">
-                                    Page {currentPage} sur {totalPages} ({totalItems} éléments au total)
+                                    Page {currentPage} sur {effectiveTotalPages} ({effectiveTotalItems} éléments au total)
                                 </div>
                             </div>
 
@@ -823,9 +902,9 @@ const ClaimsList = () => {
                                 </motion.button>
 
                                 <div className="flex items-center gap-1">
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                                        if (pageNum > totalPages) return null;
+                                    {Array.from({ length: Math.min(5, effectiveTotalPages) }, (_, i) => {
+                                        const pageNum = Math.max(1, Math.min(effectiveTotalPages - 4, currentPage - 2)) + i;
+                                        if (pageNum > effectiveTotalPages) return null;
                                         
                                         return (
                                             <motion.button
@@ -849,7 +928,7 @@ const ClaimsList = () => {
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage >= totalPages}
+                                    disabled={currentPage >= effectiveTotalPages}
                                     className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
                                     Suivant →
@@ -857,8 +936,8 @@ const ClaimsList = () => {
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
-                                    onClick={() => handlePageChange(totalPages)}
-                                    disabled={currentPage >= totalPages}
+                                    onClick={() => handlePageChange(effectiveTotalPages)}
+                                    disabled={currentPage >= effectiveTotalPages}
                                     className="px-3 py-2 text-sm font-medium text-slate-700 bg-white/80 border border-slate-300/60 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
                                     Dernier ⇥
@@ -868,6 +947,74 @@ const ClaimsList = () => {
                     )}
                 </motion.div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {deleteConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center"
+                        onClick={() => setDeleteConfirm(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="p-3 bg-rose-100 rounded-xl">
+                                    <ExclamationCircleIcon className="h-6 w-6 text-rose-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900">Supprimer la réclamation ?</h3>
+                                    <p className="text-sm text-slate-600">Cette action est irréversible</p>
+                                </div>
+                            </div>
+
+                            <p className="text-sm text-slate-600 mb-6">
+                                Êtes-vous sûr de vouloir supprimer la réclamation{' '}
+                                <span className="font-bold text-slate-900">
+                                    {claims.find((c) => c.id === deleteConfirm)?.ticket || deleteConfirm}
+                                </span>? Tous les détails et interventions associées seront supprimés.
+                            </p>
+
+                            <div className="flex gap-3">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-all"
+                                >
+                                    Annuler
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => handleDeleteClaim(deleteConfirm)}
+                                    disabled={deletingId === deleteConfirm}
+                                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {deletingId === deleteConfirm ? (
+                                        <>
+                                            <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                                            Suppression...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TrashIcon className="h-4 w-4" />
+                                            Supprimer
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };

@@ -35,6 +35,8 @@ const ClientsList = () => {
     const [commercialsList, setCommercialsList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [filters, setFilters] = useState({
         status: '',
         city: '',
@@ -48,7 +50,7 @@ const ClientsList = () => {
     const fetchClients = async (showRefresh = false) => {
         if (showRefresh) setRefreshing(true);
         try {
-            const response = await axios.get('/tiers?sort=recent');
+            const response = await axios.get('/tiers?sort=recent&limit=10000');
             const payload = response?.data ?? response;
             const list = payload?.data ?? payload;
 
@@ -120,6 +122,23 @@ const ClientsList = () => {
                 matchesPaymentType && matchesEmail && matchesPhone && matchesClientCode;
         });
     }, [clients, searchTerm, filters]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredClients.length / itemsPerPage));
+
+    const paginatedClients = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredClients.slice(start, start + itemsPerPage);
+    }, [filteredClients, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filters, itemsPerPage]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     // Export functions
     const exportToCSV = () => {
@@ -240,6 +259,7 @@ const ClientsList = () => {
             phone: '',
             clientCode: ''
         });
+        setCurrentPage(1);
     };
 
     const hasActiveFilters = Object.values(filters).some(f => f !== '');
@@ -538,7 +558,7 @@ const ClientsList = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredClients.map((client) => (
+                                paginatedClients.map((client) => (
                                     <tr
                                         key={client.IDTiers}
                                         className="group hover:bg-blue-50/30 transition-all cursor-pointer"
@@ -629,9 +649,48 @@ const ClientsList = () => {
                     </table>
                 </div>
 
+                {filteredClients.length > 0 && (
+                    <div className="px-8 py-4 border-t border-slate-100/50 bg-white/70 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                            <span>Éléments par page</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                className="input-modern py-1.5 px-2 text-xs w-20"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Précédent
+                            </button>
+                            <span className="text-xs font-semibold text-slate-600 min-w-20 text-center">
+                                Page {currentPage} / {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Suivant
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <div className="px-8 py-4 bg-slate-50/50 border-t border-slate-100/50 text-xs font-medium text-slate-500 flex justify-between items-center">
-                    <span>Affichage de {filteredClients.length} sur {clients.length} clients</span>
+                    <span>
+                        Affichage de {paginatedClients.length} sur {filteredClients.length} clients filtrés ({clients.length} au total)
+                    </span>
                     <span className="text-slate-400">NexusCRM v2.0</span>
                 </div>
             </div>

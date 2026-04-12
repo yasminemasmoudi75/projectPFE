@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axios from '../../app/axios';
+import useAuth from '../../hooks/useAuth';
 
 const pageVariants = {
     hidden: { opacity: 0, y: 24 },
@@ -32,11 +33,13 @@ const cardVariants = {
 
 const ClaimForm = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [clients, setClients] = useState([]);
     const [step, setStep] = useState(1);
     const [searchClient, setSearchClient] = useState('');
+    const isClientUser = user?.UserRole?.toLowerCase() === 'client';
 
     const [formData, setFormData] = useState({
         CodTiers: '',
@@ -55,13 +58,27 @@ const ClaimForm = () => {
         const fetchClients = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get('/tiers');
-                const list = response?.data ?? [];
+                const response = await axios.get('/tiers?limit=10000');
+                const list = response?.data?.data ?? response?.data ?? [];
                 const normalized = (Array.isArray(list) ? list : []).map((client) => ({
                     ...client,
                     LibTiers: client.LibTiers || client.Raisoc || client.CodTiers
                 }));
                 setClients(normalized);
+
+                // Auto-select client for Client role users
+                if (isClientUser && user?.EmailPro) {
+                    const matchingClient = normalized.find(
+                        (c) => String(c.Email || '').toLowerCase() === String(user.EmailPro || '').toLowerCase()
+                    );
+                    if (matchingClient) {
+                        setFormData((prev) => ({
+                            ...prev,
+                            CodTiers: matchingClient.CodTiers,
+                            LibTiers: matchingClient.LibTiers || matchingClient.Raisoc || matchingClient.CodTiers
+                        }));
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching clients:', error);
                 toast.error('Impossible de charger la liste des clients');
@@ -71,7 +88,7 @@ const ClaimForm = () => {
         };
 
         fetchClients();
-    }, []);
+    }, [isClientUser, user?.EmailPro]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -175,24 +192,33 @@ const ClaimForm = () => {
                                         accent="from-blue-600 to-indigo-600"
                                     >
                                         <div className="space-y-3">
-                                            <label className="block text-sm font-bold text-slate-700">Rechercher un client</label>
-                                            <div className="relative">
-                                                <FunnelIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                                <input
-                                                    type="text"
-                                                    value={searchClient}
-                                                    onChange={(e) => setSearchClient(e.target.value)}
-                                                    placeholder="Nom, code ou raison sociale"
-                                                    className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 py-4 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10"
-                                                />
-                                            </div>
+                                            {!isClientUser && (
+                                                <>
+                                                    <label className="block text-sm font-bold text-slate-700">Rechercher un client</label>
+                                                    <div className="relative">
+                                                        <FunnelIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                        <input
+                                                            type="text"
+                                                            value={searchClient}
+                                                            onChange={(e) => setSearchClient(e.target.value)}
+                                                            placeholder="Nom, code ou raison sociale"
+                                                            className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 py-4 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
 
                                             <label className="block text-sm font-bold text-slate-700">Client *</label>
                                             <select
                                                 name="CodTiers"
                                                 value={formData.CodTiers}
                                                 onChange={handleChange}
-                                                className="w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-200 bg-white px-5 py-4 font-bold outline-none transition-all hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10"
+                                                disabled={isClientUser}
+                                                className={`w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-5 py-4 font-bold outline-none transition-all focus:ring-4 focus:ring-blue-600/10 ${
+                                                    isClientUser
+                                                        ? 'cursor-not-allowed bg-slate-50 text-slate-600'
+                                                        : 'cursor-pointer hover:border-slate-300 focus:border-blue-600'
+                                                }`}
                                                 required
                                             >
                                                 <option value="">Choisir un client...</option>
@@ -202,6 +228,9 @@ const ClaimForm = () => {
                                                     </option>
                                                 ))}
                                             </select>
+                                            {isClientUser && formData.CodTiers && (
+                                                <p className="text-xs text-blue-600">Votre entreprise a été sélectionnée automatiquement.</p>
+                                            )}
                                         </div>
 
                                         {formData.CodTiers && (

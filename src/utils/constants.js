@@ -96,6 +96,7 @@ export const MODULE_CODES = {
   CALENDRIER: 8,         // Module Calendrier
   CLIENTS: 30,           // Module Client
   REGLEMENT: 51,         // Module Reglement (nouveau code dédié)
+  SAV: 31,               // Module Réclamations/SAV (CodMod=31 dans TabAWProfileAccess)
   MENU: 32,              // Menu
   TOURNEE: 40,           // Module Tournée
   CHARGEMENT: 41,        // Module Chargement
@@ -110,7 +111,6 @@ export const MODULE_CODES = {
   // Frontend-only (no database permission check needed)
   DASHBOARD: null,       // Dashboard shown to all users
   ACTIVITES: 41,         // Map to Chargement for now
-  SAV: 51,               // Module Réclamations/SAV (CodMod=51 dans TabAWProfileAccess)
   IA: null,              // Feature route enabled without DB mapping for now
   SETTINGS: null,        // Paramètres shown to all users
 };

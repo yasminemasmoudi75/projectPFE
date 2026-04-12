@@ -42,7 +42,7 @@ const extractArrayPayload = (payload) => {
 const ActivitesList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate } = usePermission(MODULE_CODES.CHARGEMENT);
+  const { canCreate } = usePermission(MODULE_CODES.VISITES);
   const { activites, loading } = useSelector((state) => state.activites);
   const { user } = useSelector((state) => state.auth);
 
@@ -359,21 +359,24 @@ const ActivitesList = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Commercial</label>
-              <select
-                value={selectedCommercial}
-                onChange={(e) => setSelectedCommercial(e.target.value)}
-                className="input-modern w-full text-xs"
-              >
-                <option value="">Tous les commerciaux</option>
-                {commerciaux.map(c => (
-                  <option key={c.UserID} value={String(c.UserID)}>
-                    {c.FullName || c.LoginName || `User #${c.UserID}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Commercial filter - Hidden for commercial users, visible for admin/agents */}
+            {!['commercial', 'commerciale'].includes(String(user?.UserRole || '').toLowerCase()) && (
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Commercial</label>
+                <select
+                  value={selectedCommercial}
+                  onChange={(e) => setSelectedCommercial(e.target.value)}
+                  className="input-modern w-full text-xs"
+                >
+                  <option value="">Tous les commerciaux</option>
+                  {commerciaux.map(c => (
+                    <option key={c.UserID} value={String(c.UserID)}>
+                      {c.FullName || c.LoginName || `User #${c.UserID}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Période</label>

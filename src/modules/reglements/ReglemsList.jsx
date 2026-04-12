@@ -6,6 +6,7 @@ import { formatDate, formatCurrency } from '../../utils/format';
 import { MODULE_CODES } from '../../utils/constants';
 import ReglemPaymentModal from './ReglemPaymentModal';
 import ReglemForm from './ReglemForm';
+import ReglemDetailModal from './ReglemDetailModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PlusIcon,
@@ -14,6 +15,7 @@ import {
   CurrencyDollarIcon,
   CheckCircleIcon,
   DocumentTextIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 
 const ReglemsList = () => {
@@ -27,7 +29,7 @@ const ReglemsList = () => {
   const [filters, setFilters] = useState({
     search: '',
     status: '',
-    year: new Date().getFullYear().toString(),
+    date: '',
     page: 1,
     limit: 10,
   });
@@ -40,6 +42,14 @@ const ReglemsList = () => {
   const [selectedReglement, setSelectedReglement] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [detailReglementId, setDetailReglementId] = useState(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const toDateOnly = (value) => {
+    if (!value) return '';
+    const raw = typeof value === 'string' ? value : new Date(value).toISOString();
+    return raw.slice(0, 10);
+  };
 
   // Fetch statistics
   useEffect(() => {
@@ -54,10 +64,11 @@ const ReglemsList = () => {
         const params = new URLSearchParams({
           search: filters.search,
           status: filters.status,
-          year: filters.year,
           page: filters.page,
           limit: filters.limit,
         });
+
+        if (filters.date) params.set('date', filters.date);
         
         console.log('📋 Fetching reglements:', `/reglements?${params}`);
         const res = await axios.get(`/reglements?${params}`);
@@ -94,8 +105,8 @@ const ReglemsList = () => {
     setFilters({ ...filters, status: e.target.value, page: 1 });
   };
 
-  const handleYearChange = (e) => {
-    setFilters({ ...filters, year: e.target.value, page: 1 });
+  const handleDateChange = (e) => {
+    setFilters({ ...filters, date: e.target.value, page: 1 });
   };
 
   const handlePageChange = (newPage) => {
@@ -114,6 +125,22 @@ const ReglemsList = () => {
     console.log('❌ Closing payment modal');
     setIsModalOpen(false);
     setSelectedReglement(null);
+  };
+
+  // Open detail modal
+  const openDetailModal = (reglement) => {
+    console.log('📖 Opening detail modal for reglement:', reglement);
+    console.log('📖 Reglement ID:', reglement.id);
+    console.log('📖 Reglement type:', typeof reglement.id);
+    setDetailReglementId(reglement.id);
+    setIsDetailOpen(true);
+  };
+
+  // Close detail modal
+  const closeDetailModal = () => {
+    console.log('📖 Closing detail modal');
+    setIsDetailOpen(false);
+    setDetailReglementId(null);
   };
 
   // Handle successful payment recording
@@ -339,21 +366,13 @@ const ReglemsList = () => {
             <option value="Presque payé">🟢 Presque payé</option>
             <option value="Non payé">🔴 Non payé</option>
           </select>
-          <select
-            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white min-w-fit"
-            value={filters.year}
-            onChange={handleYearChange}
-         >
-            <option value="">Toutes les années</option>
-            {[...Array(5)].map((_, i) => {
-              const year = new Date().getFullYear() - i;
-              return (
-                <option key={year} value={year.toString()}>
-                  📅 {year}
-                </option>
-              );
-            })}
-          </select>
+          <input
+            type="date"
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            value={filters.date}
+            onChange={handleDateChange}
+            title="Filtrer par date"
+          />
         </div>
       </motion.div>
 
@@ -412,7 +431,7 @@ const ReglemsList = () => {
                       className="border-b border-slate-100 hover:bg-blue-50 transition-colors"
                     >
                       <td className="px-6 py-4 text-slate-700 font-medium">
-                        {formatDate(reg.date)}
+                        {formatDate(toDateOnly(reg.date))}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -460,14 +479,27 @@ const ReglemsList = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => openPaymentModal(reg)}
-                          className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
-                        >
-                          💳 Paiement
-                        </motion.button>
+                        <div className="flex gap-2 justify-center">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => openDetailModal(reg)}
+                            className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors flex items-center gap-1"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                            Détails
+                          </motion.button>
+                          {user?.UserRole !== 'Client' && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => openPaymentModal(reg)}
+                              className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
+                            >
+                              💳 Paiement
+                            </motion.button>
+                          )}
+                        </div>
                       </td>
                     </motion.tr>
                   ))}
@@ -552,6 +584,13 @@ const ReglemsList = () => {
             setIsModalOpen(true);
           }, 300);
         }}
+      />
+
+      {/* Detail Modal */}
+      <ReglemDetailModal
+        isOpen={isDetailOpen}
+        onClose={closeDetailModal}
+        reglementId={detailReglementId}
       />
     </motion.div>
   );
