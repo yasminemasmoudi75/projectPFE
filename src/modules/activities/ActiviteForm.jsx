@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -13,9 +14,10 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
 
 const extractArrayPayload = (response) => {
-  const payload = response?.data;
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
+  // L'intercepteur axios retourne déjà response.data, donc traiter directement
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (response?.pagination && Array.isArray(response?.data)) return response.data;
   return [];
 };
 
@@ -38,6 +40,27 @@ const projectMatchesTier = (project, tierReference) => {
   return references.includes(String(tierReference));
 };
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const isAdminRole = (role) => ['admin', 'administrateur'].includes(normalizeRole(role));
+
+const filterTiersLocally = (tiersList, { q, codRepres, prospectOnly }) => {
+  const normalizedQ = String(q || '').trim().toLowerCase();
+  const normalizedRepres = String(codRepres || '').trim();
+
+  return (tiersList || []).filter((tier) => {
+    const matchesQ = !normalizedQ || [tier?.Raisoc, tier?.CodTiers, tier?.Email, tier?.Tel]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedQ));
+
+    const matchesRepres = !normalizedRepres || String(tier?.codRepresTiers || '') === normalizedRepres;
+    const isProspect = Boolean(tier?.Fictif) || Number(tier?.Niveau || 0) > 0;
+    const matchesProspect = !prospectOnly || isProspect;
+
+    return matchesQ && matchesRepres && matchesProspect;
+  });
+};
+
 const ActiviteForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,13 +68,22 @@ const ActiviteForm = () => {
   const location = useLocation();
   const defaultProjetId = !isEdit ? location.state?.defaultProjetId : null;
   const defaultTierId = !isEdit ? location.state?.defaultTierId : null;
+  const { user } = useSelector((state) => state.auth);
+  const isAdminUser = isAdminRole(user?.UserRole);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [tiersLoading, setTiersLoading] = useState(false);
 
   const [tiers, setTiers] = useState([]);
+  const [commercials, setCommercials] = useState([]);
+  const [commercialsLoading, setCommercialsLoading] = useState(false);
+  const [selectedTierSnapshot, setSelectedTierSnapshot] = useState(null);
   const [allProjets, setAllProjets] = useState([]); // Tous les projets
   const [filteredProjets, setFilteredProjets] = useState([]); // Projets filtrés par client
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [representativeCode, setRepresentativeCode] = useState('');
+  const [prospectOnly, setProspectOnly] = useState(false);
 
   const [formData, setFormData] = useState({
     Type_Activite: 'Appel',
@@ -67,6 +99,12 @@ const ActiviteForm = () => {
     return allProjets.find((p) => String(p.ID_Projet) === String(formData.ID_Projet)) || null;
   }, [allProjets, formData.ID_Projet]);
 
+  const tierOptions = useMemo(() => {
+    if (!selectedTierSnapshot) return tiers;
+    const hasSelected = tiers.some((item) => String(item.IDTiers || item.CodTiers) === String(selectedTierSnapshot.IDTiers || selectedTierSnapshot.CodTiers));
+    return hasSelected ? tiers : [selectedTierSnapshot, ...tiers];
+  }, [tiers, selectedTierSnapshot]);
+
   const formatBudget = (value) => {
     if (value === null || value === undefined || value === '') return '--';
     const parsed = Number(String(value).replace(',', '.'));
@@ -81,19 +119,16 @@ const ActiviteForm = () => {
     return d.toLocaleDateString('fr-FR');
   };
 
-  // Charger les listes clients / projets au montage
+  // Charger les projets au montage
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [tiersRes, projetsRes] = await Promise.all([
-          axios.get('/tiers'),
+        const [projetsRes] = await Promise.all([
           axios.get('/projets', { params: { page: 1, limit: 100 } }),
         ]);
 
-        const tiersData = extractArrayPayload(tiersRes);
         const projetsData = extractArrayPayload(projetsRes);
 
-        setTiers(tiersData);
         setAllProjets(projetsData);
 
         if (!isEdit && (defaultProjetId || defaultTierId)) {
@@ -139,6 +174,82 @@ const ActiviteForm = () => {
   }, [defaultProjetId, defaultTierId, isEdit]);
 
   useEffect(() => {
+    const fetchCommercials = async () => {
+      try {
+        setCommercialsLoading(true);
+        const response = await axios.get('/users/commercials/activites-filter', {
+          params: {
+            moduleCode: 45,
+            includeAll: isAdminUser ? 1 : undefined
+          }
+        });
+
+        const rows = extractArrayPayload(response);
+        const mapped = rows.map((row) => ({
+          userId: String(row.userId || row.UserID || row.value || ''),
+          label: row.label || row.fullName || row.FullName || row.login || row.LoginName || 'Commercial'
+        })).filter((row) => row.userId);
+
+        setCommercials(mapped);
+
+        const isCommercialUser = normalizeRole(user?.UserRole) === 'commercial' || normalizeRole(user?.UserRole) === 'commerciale';
+        if (isCommercialUser && user?.UserID) {
+          setRepresentativeCode(String(user.UserID));
+        }
+      } catch (error) {
+        console.error('Error fetching commercials for activities:', error);
+      } finally {
+        setCommercialsLoading(false);
+      }
+    };
+
+    fetchCommercials();
+  }, [isAdminUser, user?.UserID, user?.UserRole]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      try {
+        setTiersLoading(true);
+        const response = await axios.get('/activites/tiers-lookup', {
+          params: {
+            q: clientSearchTerm || undefined,
+            codRepres: representativeCode || undefined,
+            prospectOnly: prospectOnly ? 1 : undefined,
+            limit: 40
+          }
+        });
+        const lookupData = extractArrayPayload(response);
+
+        if (Array.isArray(lookupData) && lookupData.length > 0) {
+          setTiers(lookupData);
+          return;
+        }
+
+        // Fallback when endpoint is degraded or returns empty unexpectedly.
+        const fallbackRes = await axios.get('/tiers', { params: { page: 1, limit: 200 } });
+        const fallbackList = extractArrayPayload(fallbackRes);
+        const filteredFallback = filterTiersLocally(fallbackList, {
+          q: clientSearchTerm,
+          codRepres: representativeCode,
+          prospectOnly
+        }).slice(0, 40);
+
+        setTiers(filteredFallback.map((item) => ({
+          ...item,
+          isProspect: Boolean(item?.Fictif) || Number(item?.Niveau || 0) > 0
+        })));
+      } catch (error) {
+        console.error('Error searching tiers for activities:', error);
+        toast.error('Recherche client temporairement indisponible');
+      } finally {
+        setTiersLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [clientSearchTerm, representativeCode, prospectOnly, isAdminUser]);
+
+  useEffect(() => {
     const fetchActivite = async () => {
       if (!isEdit) return;
       try {
@@ -155,6 +266,18 @@ const ActiviteForm = () => {
           IDTiers: activite.IDTiers || '',
           ID_Projet: activite.ID_Projet || '',
         });
+
+        if (activite?.tiers) {
+          const tierSnapshot = {
+            IDTiers: activite.tiers.IDTiers,
+            CodTiers: activite.tiers.CodTiers,
+            Raisoc: activite.tiers.Raisoc,
+            codRepresTiers: activite.tiers.codRepresTiers,
+            isProspect: false
+          };
+          setSelectedTierSnapshot(tierSnapshot);
+          setClientSearchTerm(activite.tiers.Raisoc || activite.tiers.CodTiers || '');
+        }
       } catch (error) {
         console.error('Error fetching activite:', error);
         toast.error("Impossible de charger l'activité");
@@ -177,6 +300,13 @@ const ActiviteForm = () => {
 
   const handleClientChange = (e) => {
     const { value } = e.target;
+    const selectedTier = tierOptions.find((t) => String(t.IDTiers || t.CodTiers) === String(value)) || null;
+
+    if (selectedTier) {
+      setSelectedTierSnapshot(selectedTier);
+      setClientSearchTerm(selectedTier.Raisoc || selectedTier.CodTiers || '');
+    }
+
     const clientProjets = value
       ? allProjets.filter((p) => projectMatchesTier(p, value))
       : allProjets;
@@ -192,6 +322,20 @@ const ActiviteForm = () => {
         ? (clientProjets.some(p => p.ID_Projet === prev.ID_Projet) ? prev.ID_Projet : '')
         : prev.ID_Projet
     }));
+  };
+
+  const handleCommercialChange = (value) => {
+    setRepresentativeCode(value);
+
+    // Reset selected client/project when switching commercial,
+    // so the next selection always belongs to the chosen portfolio.
+    setSelectedTierSnapshot(null);
+    setFormData((prev) => ({
+      ...prev,
+      IDTiers: '',
+      ID_Projet: ''
+    }));
+    setFilteredProjets(allProjets);
   };
 
   const handleProjetChange = (e) => {
@@ -225,11 +369,20 @@ const ActiviteForm = () => {
     setSaving(true);
 
     try {
+      const selectedProjet = allProjets.find(
+        (p) => String(p.ID_Projet) === String(formData.ID_Projet)
+      );
+      const payload = {
+        ...formData,
+        ID_Projet: formData.ID_Projet || selectedProjet?.ID_Projet || '',
+        Nf: selectedProjet?.nf ?? null
+      };
+
       if (isEdit) {
-        await axios.put(`/activites/${id}`, formData);
+        await axios.put(`/activites/${id}`, payload);
         toast.success("Activité mise à jour");
       } else {
-        await axios.post('/activites', formData);
+        await axios.post('/activites', payload);
         toast.success('Activité créée avec succès');
       }
       
@@ -381,7 +534,41 @@ const ActiviteForm = () => {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="label-modern">Client</label>
+                <label className="label-modern">
+                  {isAdminUser ? 'Filtre par Commercial' : 'Clients'}
+                </label>
+                {isAdminUser && (
+                  <select
+                    value={representativeCode}
+                    onChange={(e) => handleCommercialChange(e.target.value)}
+                    className="input-modern mb-2"
+                  >
+                    <option value="">Tous les commerciaux</option>
+                    {commercials.map((item) => (
+                      <option key={item.userId} value={item.userId}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {commercialsLoading && isAdminUser && (
+                  <p className="text-[11px] text-slate-500 mb-2">Chargement des commerciaux...</p>
+                )}
+                <input
+                  type="text"
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  placeholder="Rechercher par raison sociale, code, email ou tel"
+                  className="input-modern mb-2"
+                />
+                <label className="flex items-center gap-2 text-xs text-slate-600 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={prospectOnly}
+                    onChange={(e) => setProspectOnly(e.target.checked)}
+                  />
+                  Prospects uniquement
+                </label>
                 <select
                   name="IDTiers"
                   value={formData.IDTiers}
@@ -389,12 +576,17 @@ const ActiviteForm = () => {
                   className="input-modern"
                 >
                   <option value="">Aucun client</option>
-                  {tiers.map(t => (
+                  {tierOptions.map(t => (
                     <option key={t.IDTiers || t.CodTiers} value={t.IDTiers || t.CodTiers}>
-                      {t.Raisoc || t.NomTiers || t.CodTiers || t.IDTiers}
+                      {(t.Raisoc || t.NomTiers || t.CodTiers || t.IDTiers)
+                        + (t.CodTiers ? ` (${t.CodTiers})` : '')
+                        + (t.isProspect ? ' - Prospect' : '')}
                     </option>
                   ))}
                 </select>
+                {tiersLoading && (
+                  <p className="text-[11px] text-slate-500 mt-1">Recherche clients en cours...</p>
+                )}
               </div>
 
               <div>

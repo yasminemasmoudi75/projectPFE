@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from '../../app/axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -16,6 +16,34 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { fetchProjetById, createProjet, updateProjet } from './projetSlice';
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+const isAdminRole = (role) => ['admin', 'administrateur'].includes(normalizeRole(role));
+
+const filterTiersLocally = (tiersList, { q, codRepres, prospectOnly }) => {
+  const normalizedQ = String(q || '').trim().toLowerCase();
+  const normalizedRepres = String(codRepres || '').trim();
+
+  return (tiersList || []).filter((tier) => {
+    const matchesQ = !normalizedQ || [tier?.Raisoc, tier?.CodTiers, tier?.Email, tier?.Tel]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(normalizedQ));
+
+    const matchesRepres = !normalizedRepres || String(tier?.codRepresTiers || '') === normalizedRepres;
+    const isProspect = Boolean(tier?.Fictif) || Number(tier?.Niveau || 0) > 0;
+    const matchesProspect = !prospectOnly || isProspect;
+
+    return matchesQ && matchesRepres && matchesProspect;
+  });
+};
+
+const extractArrayPayload = (response) => {
+    // L'intercepteur axios retourne déjà response.data, donc traiter directement
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data)) return response.data;
+    if (response?.pagination && Array.isArray(response?.data)) return response.data;
+    return [];
+};
+
 const ProjetForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -23,9 +51,18 @@ const ProjetForm = () => {
     const isEdit = Boolean(id);
     const { currentProjet, loading: reduxLoading } = useSelector((state) => state.projets);
 
+    const { user } = useSelector((state) => state.auth);
+    const isAdminUser = isAdminRole(user?.UserRole);
+
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
     const [tiers, setTiers] = useState([]);
+    const [commercials, setCommercials] = useState([]);
+    const [commercialsLoading, setCommercialsLoading] = useState(false);
+    const [clientSearchTerm, setClientSearchTerm] = useState('');
+    const [representativeCode, setRepresentativeCode] = useState('');
+    const [tiersLoading, setTiersLoading] = useState(false);
+    const [selectedTierSnapshot, setSelectedTierSnapshot] = useState(null);
 
     const [formData, setFormData] = useState({
         Nom_Projet: '',
@@ -39,17 +76,94 @@ const ProjetForm = () => {
         Alerte_IA_Risque: false
     });
 
+    // Fetch commercials on mount
     useEffect(() => {
-        const fetchTiers = async () => {
+        const fetchCommercials = async () => {
             try {
-                const response = await axios.get('/tiers');
-                setTiers(response.data?.data || response.data || []);
+                setCommercialsLoading(true);
+                const response = await axios.get('/users/commercials/activites-filter', {
+                    params: {
+                        moduleCode: 46,
+                        includeAll: isAdminUser ? 1 : undefined
+                    }
+                });
+
+                const rows = extractArrayPayload(response);
+                const mapped = rows.map((row) => ({
+                    userId: String(row.userId || row.UserID || row.value || ''),
+                    label: row.label || row.fullName || row.FullName || row.login || row.LoginName || 'Commercial'
+                })).filter((row) => row.userId);
+
+                setCommercials(mapped);
+
+                const isCommercialUser = normalizeRole(user?.UserRole) === 'commercial' || normalizeRole(user?.UserRole) === 'commerciale';
+                if (isCommercialUser && user?.UserID) {
+                    setRepresentativeCode(String(user.UserID));
+                }
             } catch (error) {
-                console.error('Error fetching tiers:', error);
+                console.error('Error fetching commercials for projets:', error);
+            } finally {
+                setCommercialsLoading(false);
             }
         };
-        fetchTiers();
 
+        fetchCommercials();
+    }, [isAdminUser, user?.UserID, user?.UserRole]);
+
+    // Fetch clients with search and commercial filter
+    useEffect(() => {
+        const timeoutId = setTimeout(async () => {
+            try {
+                setTiersLoading(true);
+                const response = await axios.get('/projets/tiers-lookup', {
+                    params: {
+                        q: clientSearchTerm || undefined,
+                        codRepres: representativeCode || undefined,
+                        limit: 80
+                    }
+                });
+                const lookupData = extractArrayPayload(response);
+
+                if (Array.isArray(lookupData) && lookupData.length > 0) {
+                    setTiers(lookupData);
+                    return;
+                }
+
+                // Fallback when endpoint is unavailable
+                const fallbackRes = await axios.get('/tiers', { params: { page: 1, limit: 200 } });
+                const fallbackList = extractArrayPayload(fallbackRes);
+                const filteredFallback = filterTiersLocally(fallbackList, {
+                    q: clientSearchTerm,
+                    codRepres: representativeCode
+                }).slice(0, 80);
+
+                setTiers(filteredFallback);
+            } catch (error) {
+                console.error('Error fetching tiers lookup for projets:', error);
+            } finally {
+                setTiersLoading(false);
+            }
+        }, 250);
+
+        return () => clearTimeout(timeoutId);
+    }, [clientSearchTerm, representativeCode]);
+
+    const handleCommercialChange = (value) => {
+        setRepresentativeCode(value);
+        setSelectedTierSnapshot(null);
+        setFormData((prev) => ({
+            ...prev,
+            IDTiers: ''
+        }));
+    };
+
+    const tierOptions = useMemo(() => {
+        if (!selectedTierSnapshot) return tiers;
+        const hasSelected = tiers.some((item) => String(item.IDTiers || item.CodTiers) === String(selectedTierSnapshot.IDTiers || selectedTierSnapshot.CodTiers));
+        return hasSelected ? tiers : [selectedTierSnapshot, ...tiers];
+    }, [tiers, selectedTierSnapshot]);
+
+    useEffect(() => {
         if (isEdit) {
             dispatch(fetchProjetById(id));
         }
@@ -205,36 +319,81 @@ const ProjetForm = () => {
                                     required
                                 />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="label-modern">Client (Tiers) *</label>
+                            <div>
+                                <label className="label-modern">
+                                    {isAdminUser ? 'Filtre par Commercial' : 'Client'}
+                                </label>
+                                {isAdminUser && (
                                     <select
-                                        name="IDTiers"
-                                        value={formData.IDTiers}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        required
+                                        value={representativeCode}
+                                        onChange={(e) => handleCommercialChange(e.target.value)}
+                                        className="input-modern mb-2"
                                     >
-                                        <option value="">Sélectionner un client...</option>
-                                        {tiers.map(t => (
-                                            <option key={t.IDTiers || t.CodTiers} value={t.CodTiers || t.IDTiers}>{t.Raisoc}</option>
+                                        <option value="">Tous les commerciaux</option>
+                                        {commercials.map((item) => (
+                                            <option key={item.userId} value={item.userId}>
+                                                {item.label}
+                                            </option>
                                         ))}
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="label-modern">Budget Alloué (TND)</label>
-                                    <div className="relative">
-                                        <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input
-                                            type="number" min="0"
-                                            name="Budget_Alloue"
-                                            value={formData.Budget_Alloue}
-                                            onChange={handleChange}
-                                            onKeyDown={preventNegativeInput}
-                                            className="input-modern pl-12"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
+                                )}
+                                {commercialsLoading && isAdminUser && (
+                                    <p className="text-[11px] text-slate-500 mb-2">Chargement des commerciaux...</p>
+                                )}
+                                <input
+                                    type="text"
+                                    value={clientSearchTerm}
+                                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                                    placeholder="Rechercher par raison sociale, code, email ou tel"
+                                    className="input-modern mb-2"
+                                />
+                                <select
+                                    name="IDTiers"
+                                    value={formData.IDTiers}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        handleChange(e);
+                                        if (value) {
+                                            const selected = tierOptions.find(t => (t.CodTiers || t.IDTiers) === value);
+                                            if (selected) {
+                                                setSelectedTierSnapshot({
+                                                    IDTiers: selected.IDTiers,
+                                                    CodTiers: selected.CodTiers,
+                                                    Raisoc: selected.Raisoc,
+                                                    codRepresTiers: selected.codRepresTiers
+                                                });
+                                            }
+                                        }
+                                    }}
+                                    className="input-modern"
+                                    required
+                                >
+                                    <option value="">Sélectionner un client...</option>
+                                    {tierOptions.map(t => (
+                                        <option key={t.IDTiers || t.CodTiers} value={t.CodTiers || t.IDTiers}>
+                                            {(t.Raisoc || t.NomTiers || t.CodTiers || t.IDTiers)
+                                                + (t.CodTiers ? ` (${t.CodTiers})` : '')}
+                                        </option>
+                                    ))}
+                                </select>
+                                {tiersLoading && (
+                                    <p className="text-[11px] text-slate-500 mt-1">Recherche clients en cours...</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="label-modern">Budget Alloué (TND)</label>
+                                <div className="relative">
+                                    <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <input
+                                        type="number" min="0"
+                                        name="Budget_Alloue"
+                                        value={formData.Budget_Alloue}
+                                        onChange={handleChange}
+                                        onKeyDown={preventNegativeInput}
+                                        className="input-modern pl-12"
+                                        placeholder="0.00"
+                                    />
                                 </div>
                             </div>
                         </div>
