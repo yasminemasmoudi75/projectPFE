@@ -33,6 +33,7 @@ const ClientsList = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [clients, setClients] = useState([]);
     const [commercialsList, setCommercialsList] = useState([]);
+    const [tiersGouvernorats, setTiersGouvernorats] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -40,6 +41,7 @@ const ClientsList = () => {
     const [filters, setFilters] = useState({
         status: '',
         city: '',
+        classe: '',
         commercial: '',
         paymentType: '',
         email: '',
@@ -70,6 +72,17 @@ const ClientsList = () => {
 
     useEffect(() => {
         fetchClients();
+        const fetchTiersGouvernorats = async () => {
+            try {
+                const response = await axios.get('/tiers-gouvernorats');
+                setTiersGouvernorats(response.data.data || response.data || []);
+            } catch (error) {
+                console.error('Error fetching tiers gouvernorats:', error);
+            }
+        };
+
+        fetchTiersGouvernorats();
+
         // Fetch commercials filtered by filtrerepres
         const fetchCommerciaux = async () => {
             try {
@@ -100,8 +113,14 @@ const ClientsList = () => {
                 (filters.status === 'inactive' && c.Actif === false) ||
                 (filters.status === 'fictif' && c.Fictif === true);
 
-            const matchesCity = !filters.city ||
-                (c.Ville || '').toLowerCase() === filters.city.toLowerCase();
+            const selectedCity = String(filters.city || '').trim();
+            const clientCityId = String(c.Gouvernorat ?? c.gouvernorat ?? c.region?.id ?? c.Region?.id ?? c.tiersGouvernorat?.id ?? c.TiersGouvernorat?.id ?? '').trim();
+            const clientCityLabel = String(c.region?.libelle || c.Region?.libelle || c.tiersGouvernorat?.libelle || c.TiersGouvernorat?.libelle || c.Ville || '').trim().toLowerCase();
+            const matchesCity = !selectedCity || clientCityId === selectedCity || clientCityLabel === selectedCity.toLowerCase();
+
+            const clientClasse = (c.tiersClasse?.libelle || c.Classe || '').toString().trim().toLowerCase();
+            const selectedClasse = String(filters.classe || '').trim().toLowerCase();
+            const matchesClasse = !selectedClasse || clientClasse === selectedClasse;
 
             const matchesCommercial = !filters.commercial ||
                 String(c.codRepresTiers || '') === filters.commercial;
@@ -118,7 +137,7 @@ const ClientsList = () => {
             const matchesClientCode = !filters.clientCode ||
                 (c.CodTiers || '').toLowerCase().includes(filters.clientCode.toLowerCase());
 
-            return matchesSearch && matchesStatus && matchesCity && matchesCommercial &&
+            return matchesSearch && matchesStatus && matchesCity && matchesClasse && matchesCommercial &&
                 matchesPaymentType && matchesEmail && matchesPhone && matchesClientCode;
         });
     }, [clients, searchTerm, filters]);
@@ -224,13 +243,25 @@ const ClientsList = () => {
 
     const stats = useMemo(() => ({
         total: clients.length,
-        active: clients.length,
+        active: clients.filter(c => c.Actif === true).length,
         revenue: '—'
     }), [clients]);
 
     // Extract unique values for filter dropdowns
     const uniqueCities = useMemo(() => {
-        return [...new Set(clients.map(c => c.Ville).filter(Boolean))].sort();
+        const byId = new Map();
+        tiersGouvernorats.forEach((g) => {
+            const id = String(g.id || '').trim();
+            const libelle = String(g.libelle || '').trim();
+            if (!id || !libelle || byId.has(id)) return;
+            byId.set(id, { id, libelle });
+        });
+
+        return Array.from(byId.values()).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
+    }, [tiersGouvernorats]);
+
+    const uniqueClasses = useMemo(() => {
+        return [...new Set(clients.map(c => c.tiersClasse?.libelle || c.Classe).filter(Boolean))].sort();
     }, [clients]);
 
     // Use backend-fetched commercials (filtered by filtrerepres) if available,
@@ -253,6 +284,7 @@ const ClientsList = () => {
         setFilters({
             status: '',
             city: '',
+            classe: '',
             commercial: '',
             paymentType: '',
             email: '',
@@ -431,15 +463,30 @@ const ClientsList = () => {
 
                             {/* City Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Ville</label>
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Gouvernorat</label>
                                 <select
                                     value={filters.city}
                                     onChange={(e) => handleFilterChange('city', e.target.value)}
                                     className="input-modern text-sm"
                                 >
-                                    <option value="">Toutes les villes</option>
+                                    <option value="">Tous les gouvernorats</option>
                                     {uniqueCities.map(city => (
-                                        <option key={city} value={city}>{city}</option>
+                                        <option key={city.id} value={city.id}>{city.libelle}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Class Filter */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Classe</label>
+                                <select
+                                    value={filters.classe}
+                                    onChange={(e) => handleFilterChange('classe', e.target.value)}
+                                    className="input-modern text-sm"
+                                >
+                                    <option value="">Toutes les classes</option>
+                                    {uniqueClasses.map(classe => (
+                                        <option key={classe} value={classe}>{classe}</option>
                                     ))}
                                 </select>
                             </div>
@@ -528,7 +575,6 @@ const ClientsList = () => {
                             <tr className="bg-slate-50/30 text-left border-b border-slate-100/50">
                                 <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Client</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Localisation</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Classe</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fonction</th>
                                 <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Catégorie</th>
@@ -540,7 +586,7 @@ const ClientsList = () => {
                         <tbody className="divide-y divide-slate-100/50">
                             {filteredClients.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="px-8 py-20 text-center">
+                                    <td colSpan="8" className="px-8 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                                                 <UserGroupIcon className="h-8 w-8" />
@@ -589,12 +635,6 @@ const ClientsList = () => {
                                                     <PhoneIcon className="h-4 w-4 text-blue-500" />
                                                     {client.Tel || 'Non renseigné'}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                <MapPinIcon className="h-4 w-4 text-emerald-500" />
-                                                {client.region?.libelle || client.Region?.libelle || client.tiersGouvernorat?.libelle || client.TiersGouvernorat?.libelle || client.Ville || 'Non renseigné'}
                                             </div>
                                         </td>
                                         <td className="px-8 py-5">
