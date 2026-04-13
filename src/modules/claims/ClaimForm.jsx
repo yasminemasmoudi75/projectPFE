@@ -67,10 +67,15 @@ const ClaimForm = () => {
                 setClients(normalized);
 
                 // Auto-select client for Client role users
-                if (isClientUser && user?.EmailPro) {
-                    const matchingClient = normalized.find(
-                        (c) => String(c.Email || '').toLowerCase() === String(user.EmailPro || '').toLowerCase()
-                    );
+                if (isClientUser) {
+                    const userCodTiers = String(user?.CodTiers || user?.codTiers || '').trim().toLowerCase();
+                    const userEmail = String(user?.EmailPro || user?.LoginName || '').trim().toLowerCase();
+                    const matchingClient = normalized.find((c) => {
+                        const clientCodTiers = String(c.CodTiers || '').trim().toLowerCase();
+                        const clientEmail = String(c.Email || c.email || '').trim().toLowerCase();
+                        return (userCodTiers && clientCodTiers === userCodTiers) || (userEmail && clientEmail === userEmail);
+                    }) || normalized[0] || null;
+
                     if (matchingClient) {
                         setFormData((prev) => ({
                             ...prev,
@@ -88,7 +93,7 @@ const ClaimForm = () => {
         };
 
         fetchClients();
-    }, [isClientUser, user?.EmailPro]);
+    }, [isClientUser, user?.CodTiers, user?.EmailPro, user?.LoginName]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;

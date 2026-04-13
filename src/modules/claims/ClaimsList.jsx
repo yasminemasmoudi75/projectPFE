@@ -191,9 +191,13 @@ const ClaimsList = () => {
 
     const fetchTechniciens = useCallback(async () => {
         try {
-            const response = await axios.get('/users');
-            const users = response?.data ?? [];
-            const techs = (Array.isArray(users) ? users : [])
+            const response = await axios.get('/users?limit=1000');
+            const payload = response?.data ?? response ?? {};
+            const users = Array.isArray(payload?.data)
+                ? payload.data
+                : (Array.isArray(payload) ? payload : []);
+
+            const techs = users
                 .filter((u) => String(u.UserRole || '').toLowerCase() === 'technicien')
                 .map((u) => ({
                     id: u.UserID,
