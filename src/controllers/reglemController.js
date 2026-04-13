@@ -1,6 +1,6 @@
 const { TabReg, TabRegD, TabRegF, TabModReg, FavMaster, BlvMaster, Tiers, sequelize } = require('../models');
 const { Op, QueryTypes } = require('sequelize');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { resolveUserAccess } = require('../utils/userAccess');
 
 // Determine payment status helper
@@ -88,7 +88,7 @@ exports.createReglement = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Client et montant obligatoires' });
         }
 
-        const reglementId = uuidv4();
+        const reglementId = randomUUID();
         console.log(`🧾 createReglement - reglementId: ${reglementId}`);
 
         // 1. Create Master Record

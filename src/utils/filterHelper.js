@@ -211,12 +211,17 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
   // CLIENT role: always filter — show only their own data (no FiltreRepres needed)
   // ═══════════════════════════════════════════════════════════════════════════
   if (normalizedRole === 'client') {
+    const directCodTiers = user?.CodTiers || user?.codTiers || null;
+    if (directCodTiers) {
+      return { CodTiers: directCodTiers };
+    }
+
     const userEmail = user?.EmailPro || user?.LoginName || user?.email;
     if (!userEmail) return { [Op.and]: [sequelize.literal('1 = 0')] };
 
-    // Find the client's CodTiers by matching email
+    // Find the client's CodTiers by matching email as fallback
     const clientRow = await sequelize.query(`
-      SELECT CodTiers FROM TabTiers WHERE Email = :email
+      SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))
     `, { replacements: { email: userEmail }, type: QueryTypes.SELECT });
 
     const codTiers = clientRow[0]?.CodTiers;
