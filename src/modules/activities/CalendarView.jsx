@@ -151,17 +151,20 @@ const CalendarView = () => {
 
     useEffect(() => {
         const fetchUserActivities = async () => {
-            if (!user || !selectedUserId) return;
+            if (!user) return;
             
             setLoading(true);
             try {
+                const params = {};
+                if (selectedUserId) {
+                    params.userId = selectedUserId;
+                }
+                
                 const response = await axios.get('/activites', {
-                    params: {
-                        userId: selectedUserId
-                    }
+                    params
                 });
 
-                const fetchedEvents = (response.data || []).map(activite => ({
+                const fetchedEvents = (Array.isArray(response) ? response : response?.data || []).map(activite => ({
                     id: activite.ID_Activite,
                     title: activite.Type_Activite + ' - ' + (activite.tiers?.Raisoc || 'Client inconnu'),
                     date: activite.Date_Activite ? new Date(activite.Date_Activite).toISOString().split('T')[0] : '',

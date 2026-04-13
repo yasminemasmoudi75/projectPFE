@@ -26,9 +26,22 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignorer les actions non-sérialisables si nécessaire
+        // Garder les checks en dev mais éviter les warnings coûteux sur de gros payloads.
         ignoredActions: ['persist/PERSIST'],
+        ignoredPaths: [
+          'devis.devis',
+          'devis.currentDevis',
+          'projets.projets',
+          'activites.activites',
+          'bcv.bcv',
+          'blv.blv',
+          'fav.fav'
+        ],
+        warnAfter: 256,
       },
+      immutableCheck: {
+        warnAfter: 128,
+      }
     }),
   devTools: import.meta.env.MODE !== 'production',
 });
