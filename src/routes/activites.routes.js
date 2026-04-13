@@ -7,6 +7,7 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 router.use(protect);
 
 router.get('/', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getAllActivites);
+router.get('/tiers-lookup', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.lookupActivityTiers);
 router.get('/:id', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getActiviteById);
 router.post('/', checkPermission(MODULES.ACTIVITES, 'create'), activiteController.createActivite);
 router.patch('/:id/validate', checkPermission(MODULES.ACTIVITES, 'update'), activiteController.validateActivite);

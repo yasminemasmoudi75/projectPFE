@@ -47,6 +47,40 @@ const buildCommercialActivityScope = (reqUser) => {
   return { User: userId };
 };
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const isAdminRole = (role) => ['admin', 'administrateur'].includes(normalizeRole(role));
+
+const hasWhereConditions = (whereObj) => {
+  if (!whereObj) return false;
+  if (Object.keys(whereObj).length > 0) return true;
+  if (Object.getOwnPropertySymbols(whereObj).length > 0) return true;
+  return false;
+};
+
+const parseBoolean = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (value == null) return false;
+
+  const normalized = String(value).trim().toLowerCase();
+  return ['1', 'true', 'yes', 'oui', 'on'].includes(normalized);
+};
+
+const isCommercialRole = (role) => ['commercial', 'commerciale'].includes(normalizeRole(role));
+
+const isAgentRole = (role) => normalizeRole(role) === 'agent';
+
+const ACTIVITY_STATUSES = ['Planifié', 'En cours', 'Terminé', 'Annulé'];
+
+const normalizeActivityStatus = (value) => {
+  const raw = String(value || '').trim();
+  if (ACTIVITY_STATUSES.includes(raw)) {
+    return raw;
+  }
+
+  return null;
+};
+
 
 const serializeActivite = (activite) => {
   const plainActivite = activite?.toJSON ? activite.toJSON() : activite;
@@ -58,12 +92,14 @@ const serializeActivite = (activite) => {
   return {
     ...plainActivite,
     Valide: Number(plainActivite.Valide || 0),
-    Statut: Number(plainActivite.Valide || 0) === 1 ? 'Terminé' : (plainActivite.Statut || 'Planifié'),
+    Statut: normalizeActivityStatus(plainActivite.Categ)
+      || (Number(plainActivite.Valide || 0) === 1 ? 'Terminé' : 'Planifié'),
     ID_Utilisateur: plainActivite.utilisateur?.UserID ?? plainActivite.User ?? null,
     IDTiers: plainActivite.tiers?.IDTiers ?? null,
     CodTiers: plainActivite.CodTiers ?? plainActivite.tiers?.CodTiers ?? null,
     ID_Projet: plainActivite.projet?.ID_Projet ?? null,
-    Nf: plainActivite.Nf ?? plainActivite.projet?.nf ?? null
+    Nf: plainActivite.Nf ?? plainActivite.projet?.nf ?? null,
+    CodProj: plainActivite.CodProj ?? plainActivite.projet?.Code_Pro ?? null
   };
 };
 
@@ -96,7 +132,7 @@ const resolveTierReference = async (tierReference) => {
 const resolveProjetReference = async (projetReference) => {
   const normalizedReference = normalizeReference(projetReference);
 
-  if (!normalizedReference) {
+  if (!normalizedReference || ['null', 'undefined'].includes(String(normalizedReference).toLowerCase())) {
     return null;
   }
 
@@ -112,7 +148,36 @@ const resolveProjetReference = async (projetReference) => {
     });
   }
 
+  if (!projet) {
+    projet = await Projet.findOne({
+      where: { Code_Pro: String(normalizedReference) },
+      attributes: ['ID_Projet', 'Nom_Projet', 'Code_Pro', 'nf']
+    });
+  }
+
   return projet;
+};
+
+const ensureProjectNf = async (projet) => {
+  if (!projet) {
+    return null;
+  }
+
+  const currentNf = Number.parseInt(projet.nf, 10);
+  if (Number.isFinite(currentNf) && currentNf > 0) {
+    return currentNf;
+  }
+
+  const maxNf = await Projet.max('nf');
+  const parsedMaxNf = Number.parseInt(maxNf, 10);
+  const nextNf = (Number.isFinite(parsedMaxNf) ? parsedMaxNf : 0) + 1;
+
+  await Projet.update(
+    { nf: nextNf },
+    { where: { ID_Projet: projet.ID_Projet } }
+  );
+
+  return nextNf;
 };
 
 const resolveUserReference = async (userReference) => {
@@ -164,8 +229,8 @@ const loadActiviteById = async (id) => {
 
   const plainActivite = activite.toJSON();
 
-  // Some legacy rows link project through TabActivite.Nf but the eager association can be empty.
-  if (!plainActivite.projet && plainActivite.Nf != null) {
+  // Some legacy rows link project through TabActivite.Nf/codProj but the eager association can be empty.
+  if (!plainActivite.projet && (plainActivite.Nf != null || plainActivite.CodProj)) {
     const projectAttributes = ['ID_Projet', 'Nom_Projet', 'Code_Pro', 'nf'];
     let fallbackProjet = await Projet.findOne({
       where: { nf: plainActivite.Nf },
@@ -175,6 +240,13 @@ const loadActiviteById = async (id) => {
     if (!fallbackProjet) {
       fallbackProjet = await Projet.findOne({
         where: { ID_Projet: String(plainActivite.Nf) },
+        attributes: projectAttributes
+      });
+    }
+
+    if (!fallbackProjet && plainActivite.CodProj) {
+      fallbackProjet = await Projet.findOne({
+        where: { Code_Pro: String(plainActivite.CodProj) },
         attributes: projectAttributes
       });
     }
@@ -221,7 +293,7 @@ exports.createActivite = async (req, res, next) => {
     }
 
     const tierReference = IDTiers ?? CodTiers;
-    const projetReference = ID_Projet ?? Nf;
+    const projetReference = normalizeReference(ID_Projet ?? Nf);
     const assignedUserReference = req.user ? req.user.UserID : null;
 
     const [tier, projet, assignedUser] = await Promise.all([
@@ -243,17 +315,20 @@ exports.createActivite = async (req, res, next) => {
     }
 
     const secUserId = await resolveSecUserId(assignedUser.UserID);
+    const projectNf = await ensureProjectNf(projet);
+    const normalizedStatus = normalizeActivityStatus(Statut) || 'Planifié';
 
     const newActivite = await Activite.create({
       User: secUserId,
       Destinataire: assignedUser?.FullName || assignedUser?.LoginName || null,
       CodTiers: tier?.CodTiers || null,
-      Nf: projet?.nf || null,
+      Nf: projectNf,
+      CodProj: projet?.Code_Pro || null,
+      Categ: normalizedStatus,
       Type_Activite,
       Description,
       Date_Activite: sanitizedDate,
-      Statut: Statut || 'Planifié',
-      Valide: Number(Valide) === 1 || Statut === 'Terminé' ? 1 : 0
+      Valide: Number(Valide) === 1 || normalizedStatus === 'Terminé' ? 1 : 0
     });
 
     const createdActivite = await loadActiviteById(newActivite.Guid);
@@ -391,8 +466,10 @@ exports.updateActivite = async (req, res, next) => {
       updateData.Date_Activite = sanitizeDate(updateData.Date_Activite);
     }
 
-    if (Object.prototype.hasOwnProperty.call(updateData, 'Statut') && updateData.Statut === 'Terminé') {
-      updateData.Valide = 1;
+    if (Object.prototype.hasOwnProperty.call(updateData, 'Statut')) {
+      const normalizedStatus = normalizeActivityStatus(updateData.Statut);
+      updateData.Categ = normalizedStatus || 'Planifié';
+      updateData.Valide = updateData.Categ === 'Terminé' ? 1 : 0;
     }
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'Valide')) {
@@ -428,10 +505,11 @@ exports.updateActivite = async (req, res, next) => {
       Object.prototype.hasOwnProperty.call(updateData, 'ID_Projet') ||
       Object.prototype.hasOwnProperty.call(updateData, 'Nf')
     ) {
-      const projetReference = updateData.ID_Projet ?? updateData.Nf;
+      const projetReference = normalizeReference(updateData.ID_Projet ?? updateData.Nf);
 
       if (!projetReference) {
         updateData.Nf = null;
+        updateData.CodProj = null;
       } else {
         const projet = await resolveProjetReference(projetReference);
 
@@ -439,7 +517,8 @@ exports.updateActivite = async (req, res, next) => {
           throw buildInvalidReferenceError('Projet introuvable pour l\'activité');
         }
 
-        updateData.Nf = projet.nf;
+        updateData.Nf = await ensureProjectNf(projet);
+        updateData.CodProj = projet?.Code_Pro || null;
       }
     }
 
@@ -474,7 +553,7 @@ exports.validateActivite = async (req, res, next) => {
       return res.status(404).json({ status: 'error', message: 'Activité non trouvée' });
     }
 
-    await activite.update({ Valide: 1 });
+    await activite.update({ Valide: 1, Categ: 'Terminé' });
 
     const updatedActivite = await loadActiviteById(req.params.id);
 
@@ -507,5 +586,130 @@ exports.deleteActivite = async (req, res, next) => {
     res.status(200).json({ status: 'success', message: 'Activité supprimée' });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * Recherche clients pour formulaire d'activites
+ * - Scope standard module 11 (tiers)
+ * - Non-admin peut etendre la recherche a un autre portefeuille via codRepres
+ * - Option prospectOnly pour lister uniquement les prospects
+ */
+exports.lookupActivityTiers = async (req, res, next) => {
+  try {
+    const query = String(req.query?.q || '').trim();
+    const codRepres = String(req.query?.codRepres || '').trim();
+    const prospectOnly = parseBoolean(req.query?.prospectOnly);
+
+    const requestedLimit = Number.parseInt(req.query?.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(5, Math.min(requestedLimit, 100))
+      : 30;
+
+    const reqRole = req.user?.UserRole;
+    const reqUserId = String(req.user?.UserID || req.user?.id || '').trim();
+
+    let securityWhere = {};
+
+    // Admin sees all clients.
+    if (isAdminRole(reqRole)) {
+      securityWhere = {};
+    } else if (isCommercialRole(reqRole)) {
+      // Commercial sees own portfolio by default.
+      if (!reqUserId) {
+        securityWhere = { [Op.and]: [sequelize.literal('1 = 0')] };
+      } else {
+        securityWhere = { codRepresTiers: reqUserId };
+      }
+    } else if (isAgentRole(reqRole)) {
+      // Agent keeps existing centralized scope logic.
+      const filterHelper = require('../utils/filterHelper');
+      securityWhere = await filterHelper.applyTableDrivenFilters('11', {}, req.user);
+    }
+
+    const searchConditions = [];
+    if (query) {
+      const likePattern = `%${query}%`;
+      searchConditions.push({
+        [Op.or]: [
+          { Raisoc: { [Op.like]: likePattern } },
+          { CodTiers: { [Op.like]: likePattern } },
+          { Email: { [Op.like]: likePattern } },
+          { Tel: { [Op.like]: likePattern } }
+        ]
+      });
+    }
+
+    if (prospectOnly) {
+      searchConditions.push({
+        [Op.or]: [
+          { Fictif: true },
+          { Niveau: { [Op.gt]: 0 } }
+        ]
+      });
+    }
+
+    if (codRepres) {
+      // Strict representative filter: when a commercial is selected,
+      // only that commercial's clients must be returned.
+      const codRepresWhere = { codRepresTiers: codRepres };
+      securityWhere = hasWhereConditions(securityWhere)
+        ? { [Op.and]: [securityWhere, codRepresWhere] }
+        : codRepresWhere;
+    }
+
+    const whereParts = [];
+    if (hasWhereConditions(securityWhere)) {
+      whereParts.push(securityWhere);
+    }
+    whereParts.push(...searchConditions);
+
+    const where = whereParts.length > 0 ? { [Op.and]: whereParts } : {};
+
+    const rows = await Tiers.findAll({
+      where,
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Email', 'Tel', 'codRepresTiers', 'Niveau', 'Fictif'],
+      order: [['Raisoc', 'ASC']],
+      limit
+    });
+
+    const data = rows.map((row) => {
+      const plain = row.toJSON ? row.toJSON() : row;
+      return {
+        IDTiers: plain.IDTiers,
+        CodTiers: plain.CodTiers,
+        Raisoc: plain.Raisoc,
+        Email: plain.Email,
+        Tel: plain.Tel,
+        codRepresTiers: plain.codRepresTiers,
+        isProspect: Boolean(plain.Fictif) || Number(plain.Niveau || 0) > 0
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data,
+      meta: {
+        q: query,
+        codRepres: codRepres || null,
+        prospectOnly,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error('lookupActivityTiers failed:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      data: [],
+      meta: {
+        degraded: true,
+        reason: 'lookup_failed'
+      }
+    });
   }
 };
