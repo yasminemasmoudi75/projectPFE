@@ -403,71 +403,81 @@ const ActiviteForm = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="animate-fade-in min-h-screen pb-16">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-5">
-          <button
-            onClick={() => navigate(-1)}
-            className="group h-12 w-12 bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-300 rounded-2xl transition-all shadow-soft flex items-center justify-center"
-          >
-            <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="badge badge-primary">
-                <SparklesIcon className="h-3 w-3 mr-1" />
-                Journal d'activités
-              </span>
+    <div className="animate-fade-in space-y-6 pb-12">
+      {/* Header - Inspired Design */}
+      <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <button
+              onClick={() => navigate(-1)}
+              className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+            </button>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+                <SparklesIcon className="h-3 w-3" />
+                Journal CRM
+              </div>
+              <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+                {isEdit ? 'Modifier une activité' : 'Nouvelle activité'}
+              </h1>
+              <p className="text-slate-600 mt-1 text-sm">
+                {isEdit ? 'Mettre à jour les détails de l\'interaction' : 'Enregistrer une nouvelle interaction client'}
+              </p>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              {isEdit ? 'Modifier une activité' : 'Nouvelle activité'}
-            </h1>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => location.state?.from === 'calendar' ? navigate('/calendar') : navigate('/activites')}
-            className="btn-outline"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="btn-soft-primary flex items-center gap-2"
-          >
-            {saving ? (
-              <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <CheckIcon className="h-4 w-4 stroke-[2.5]" />
-            )}
-            <span>{isEdit ? 'Enregistrer' : 'Enregistrer'}</span>
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => location.state?.from === 'calendar' ? navigate('/calendar') : navigate('/activites')}
+              className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all disabled:opacity-60 flex items-center gap-2"
+            >
+              {saving ? (
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <CheckIcon className="h-4 w-4" />
+              )}
+              <span>{isEdit ? 'Enregistrer' : 'Créer l\'activité'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-8">
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-4">
-              <div className="icon-shape icon-shape-sm shadow-glow-blue">
-                <ChatBubbleLeftEllipsisIcon className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Détails de l'interaction</h2>
-                <p className="text-xs text-slate-500">Canal, description et statut de l'activité</p>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Form Content */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="card-luxury shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-sky-500 text-white flex items-center justify-center">
+                  <ChatBubbleLeftEllipsisIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Détails de l'interaction</h2>
+                  <p className="text-sm text-slate-600">Canal, description et statut de l'activité</p>
+                </div>
               </div>
             </div>
-            <div className="p-8 space-y-6">
+            <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="label-modern">Canal de contact *</label>
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                    Canal de contact *
+                  </label>
                   <select
                     name="Type_Activite"
                     value={formData.Type_Activite}
                     onChange={handleChange}
-                    className="input-modern h-12 py-0"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                     required
                   >
                     <option>Appel</option>
@@ -478,12 +488,14 @@ const ActiviteForm = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="label-modern">Statut *</label>
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                    Statut *
+                  </label>
                   <select
                     name="Statut"
                     value={formData.Statut}
                     onChange={handleChange}
-                    className="input-modern h-12 py-0"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                     required
                   >
                     <option>Planifié</option>
@@ -495,27 +507,31 @@ const ActiviteForm = () => {
               </div>
 
               <div>
-                <label className="label-modern">Description</label>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Description
+                </label>
                 <textarea
                   name="Description"
                   value={formData.Description}
                   onChange={handleChange}
                   rows={4}
                   placeholder="Notez les points clés de l'échange..."
-                  className="input-modern resize-none"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none resize-none"
                 />
               </div>
 
               <div>
-                <label className="label-modern">Horodatage précis *</label>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Horodatage précis *
+                </label>
                 <div className="relative">
-                  <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                   <input
                     type="datetime-local"
                     name="Date_Activite"
                     value={formData.Date_Activite}
                     onChange={handleChange}
-                    className="input-modern pl-12"
+                    className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                     required
                   />
                 </div>
@@ -524,24 +540,24 @@ const ActiviteForm = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-8">
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-3">
-              <div className="icon-shape icon-shape-sm bg-slate-800">
-                <DocumentTextIcon className="h-4 w-4 text-white" />
-              </div>
-              <h2 className="text-sm font-bold text-slate-800">Rattachements (optionnels)</h2>
+        {/* Sidebar */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="card-luxury shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                Rattachements (optionnels)
+              </h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="label-modern">
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                   {isAdminUser ? 'Filtre par Commercial' : 'Clients'}
                 </label>
                 {isAdminUser && (
                   <select
                     value={representativeCode}
                     onChange={(e) => handleCommercialChange(e.target.value)}
-                    className="input-modern mb-2"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
                   >
                     <option value="">Tous les commerciaux</option>
                     {commercials.map((item) => (
@@ -552,20 +568,21 @@ const ActiviteForm = () => {
                   </select>
                 )}
                 {commercialsLoading && isAdminUser && (
-                  <p className="text-[11px] text-slate-500 mb-2">Chargement des commerciaux...</p>
+                  <p className="text-xs text-slate-500 mb-2">Chargement des commerciaux...</p>
                 )}
                 <input
                   type="text"
                   value={clientSearchTerm}
                   onChange={(e) => setClientSearchTerm(e.target.value)}
                   placeholder="Rechercher par raison sociale, code, email ou tel"
-                  className="input-modern mb-2"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none mb-3"
                 />
-                <label className="flex items-center gap-2 text-xs text-slate-600 mb-2">
+                <label className="flex items-center gap-2 text-xs text-slate-600 mb-3">
                   <input
                     type="checkbox"
                     checked={prospectOnly}
                     onChange={(e) => setProspectOnly(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
                   />
                   Prospects uniquement
                 </label>
@@ -573,7 +590,7 @@ const ActiviteForm = () => {
                   name="IDTiers"
                   value={formData.IDTiers}
                   onChange={handleClientChange}
-                  className="input-modern"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                 >
                   <option value="">Aucun client</option>
                   {tierOptions.map(t => (
@@ -585,17 +602,19 @@ const ActiviteForm = () => {
                   ))}
                 </select>
                 {tiersLoading && (
-                  <p className="text-[11px] text-slate-500 mt-1">Recherche clients en cours...</p>
+                  <p className="text-xs text-slate-500 mt-2">Recherche clients en cours...</p>
                 )}
               </div>
 
               <div>
-                <label className="label-modern">Projet lié</label>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Projet lié
+                </label>
                 <select
                   name="ID_Projet"
                   value={formData.ID_Projet}
                   onChange={handleProjetChange}
-                  className="input-modern"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                 >
                   <option value="">Aucun projet</option>
                   {filteredProjets.map(p => (

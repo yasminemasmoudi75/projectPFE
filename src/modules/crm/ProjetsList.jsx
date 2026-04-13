@@ -130,83 +130,98 @@ const ProjetsList = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="animate-fade-in space-y-8 pb-12">
-      {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="badge badge-primary">
-              <BriefcaseIcon className="h-3 w-3 mr-1" />
+    <div className="animate-fade-in space-y-6 pb-12">
+      {/* Header - Inspired Design */}
+      <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+              <BriefcaseIcon className="h-3 w-3" />
               Opérations CRM
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest border border-slate-200">
-              <RocketLaunchIcon className="h-3.5 w-3.5" />
-              Projets
-            </span>
+            </div>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+              Projets & Opportunités
+            </h1>
+            <p className="text-slate-600 mt-1 text-sm">
+              Suivez l'avancement, les budgets et les échéances de vos chantiers.
+            </p>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Projets & Opportunités</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">
-            Suivez l'avancement, les budgets et les échéances de vos chantiers.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => dispatch(fetchProjets({ page: 1, limit: 12 }))}
-            className="h-10 w-10 flex items-center justify-center bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-soft hover:shadow-glow-blue transition-all border border-slate-200"
-            title="Rafraîchir"
-          >
-            <ArrowPathIcon className="h-5 w-5" />
-          </button>
-          {canCreate && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/projets/new')}
-              className="btn-soft-primary flex items-center gap-2"
+              onClick={() => dispatch(fetchProjets({ page: 1, limit: 12 }))}
+              className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all"
+              title="Rafraîchir"
             >
-              <PlusIcon className="h-4 w-4 stroke-[3]" />
-              Nouveau Projet
+              <ArrowPathIcon className="h-5 w-5" />
             </button>
-          )}
+            {canCreate && (
+              <button
+                onClick={() => navigate('/projets/new')}
+                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Nouveau Projet
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="card-luxury p-6">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Résultats</p>
-          <p className="text-3xl font-extrabold text-slate-900">{stats.total}</p>
-          <p className="text-xs text-slate-500 font-medium mt-1">projets visibles</p>
-        </div>
-        <div className="card-luxury p-6">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Budget (filtré)</p>
-          <p className="text-2xl font-extrabold text-slate-900">{formatCurrency(stats.totalBudget)}</p>
-          <p className="text-xs text-slate-500 font-medium mt-1">total alloué</p>
-        </div>
-        <div className="card-luxury p-6">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Avancement</p>
-          <p className="text-2xl font-extrabold text-slate-900">{stats.avgProgress}%</p>
-          <p className="text-xs text-slate-500 font-medium mt-1">moyenne</p>
-        </div>
-        <div className="card-luxury p-6">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Échéance</p>
-          <p className="text-2xl font-extrabold text-slate-900">{stats.dueSoon}</p>
-          <p className="text-xs text-slate-500 font-medium mt-1">dans 14 jours</p>
-        </div>
-      </div>
+      {/* Quick Stats - Inspired Design */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Projets', value: stats.total, sub: 'projets visibles', icon: BriefcaseIcon, color: 'sky' },
+          { label: 'Budget Total', value: formatCurrency(stats.totalBudget), sub: 'total alloué', icon: CurrencyDollarIcon, color: 'emerald' },
+          { label: 'Avancement', value: `${stats.avgProgress}%`, sub: 'moyenne', icon: ChartBarIcon, color: 'amber' },
+          { label: 'Échéances', value: stats.dueSoon, sub: 'dans 14 jours', icon: CalendarDaysIcon, color: 'violet' },
+        ].map((stat, i) => {
+          const colorMap = {
+            sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
+            emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
+            amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
+            violet: { bg: 'bg-violet-50', text: 'text-violet-500', bar: 'bg-violet-400' },
+          };
+          const colors = colorMap[stat.color];
 
-      {/* Search + Filters */}
-      <div className="card-luxury p-0 overflow-hidden">
-        <div className="p-4 sm:p-6 space-y-4">
-          <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
-            <div className="relative flex-1 w-full group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-transform group-focus-within:scale-110 group-focus-within:text-blue-500">
-                <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+          return (
+            <div
+              key={i}
+              className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group"
+            >
+              <div className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
+                      {stat.label}
+                    </p>
+                    <h3 className="text-2xl font-bold text-slate-800">
+                      {stat.value}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">{stat.sub}</p>
+                  </div>
+                  <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                    <stat.icon className={`h-5 w-5 ${colors.text}`} />
+                  </div>
+                </div>
+                <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
               </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Search + Filters - Inspired Design */}
+      <div className="card-luxury shadow-sm">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
+            <div className="relative flex-1 w-full">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Rechercher par projet, client, ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border-2 border-slate-100 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
               />
             </div>
 
@@ -214,10 +229,10 @@ const ProjetsList = () => {
               <button
                 type="button"
                 onClick={() => setShowFilters((v) => !v)}
-                className={`px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap border-2 active:scale-95 ${
+                className={`px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 whitespace-nowrap border ${
                   showFilters
-                    ? 'bg-slate-100 border-slate-300 text-slate-800'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                    ? 'bg-sky-50 border-sky-200 text-sky-600'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <FunnelIcon className="h-4 w-4" />
@@ -232,7 +247,7 @@ const ProjetsList = () => {
                   setDateFrom('');
                   setDateTo('');
                 }}
-                className="px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap border-2 active:scale-95 bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600"
+                className="px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 whitespace-nowrap border bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 title="Réinitialiser"
               >
                 <XMarkIcon className="h-4 w-4" />
@@ -242,16 +257,16 @@ const ProjetsList = () => {
           </div>
 
           {showFilters && (
-            <div className="pt-2 border-t border-slate-100/80">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+            <div className="pt-4 border-t border-slate-200 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                     Phase
                   </label>
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="input-modern h-10 text-xs w-full"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   >
                     <option value="All">Toutes les phases</option>
                     {availableTypes.map((phase) => (
@@ -262,13 +277,13 @@ const ProjetsList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                     Commercial
                   </label>
                   <select
                     value={selectedCommercial}
                     onChange={(e) => setSelectedCommercial(e.target.value)}
-                    className="input-modern h-10 text-xs w-full"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   >
                     <option value="">Tous les commerciaux</option>
                     {commerciaux.map((c) => (
@@ -279,25 +294,25 @@ const ProjetsList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                     Créé après
                   </label>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="input-modern h-10 text-xs w-full"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
+                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                     Créé avant
                   </label>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="input-modern h-10 text-xs w-full"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   />
                 </div>
               </div>

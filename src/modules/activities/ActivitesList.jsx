@@ -235,75 +235,67 @@ const ActivitesList = () => {
   };
 
   return (
-    <div className="animate-fade-in space-y-8 pb-12">
-      {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="badge badge-primary">
-              <SparklesIcon className="h-3 w-3 mr-1" />
+    <div className="animate-fade-in space-y-6 pb-12">
+      {/* Header - Inspired Design */}
+      <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+              <SparklesIcon className="h-3 w-3" />
               Journal CRM
-            </span>
+            </div>
+            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+              Journal d'Activités
+            </h1>
+            <p className="text-slate-600 mt-1 flex items-center gap-2">
+              <ClockIcon className="h-4 w-4 text-sky-500" />
+              Historique des interactions clients
+            </p>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Journal d'Activités</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-            <ClockIcon className="h-4 w-4 text-blue-500" /> Historique des interactions clients en temps réel
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={refreshActivites}
-            className={`p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all shadow-soft ${refreshing ? 'animate-spin' : ''}`}
-            title="Rafraîchir"
-          >
-            <ArrowPathIcon className="h-5 w-5" />
-          </button>
-
-          {canCreate && (
-            <div className="flex bg-white p-1.5 rounded-2xl shadow-soft border border-slate-200 items-center">
-              <button
-                onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Appel' })); setIsAddModalOpen(true); }}
-                className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                title="Appel"
-              >
-                <PhoneIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => { setNewActivity(prev => ({ ...prev, Type_Activite: 'Email' })); setIsAddModalOpen(true); }}
-                className="p-2.5 text-blue-400 hover:bg-blue-50 rounded-xl transition-all"
-                title="Email"
-              >
-                <EnvelopeIcon className="h-5 w-5" />
-              </button>
-              <div className="w-px h-5 bg-slate-200 mx-2"></div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={refreshActivites}
+              className={`p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all ${refreshing ? 'animate-spin' : ''}`}
+              title="Rafraîchir"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+            </button>
+            {canCreate && (
               <button
                 onClick={() => navigate('/activites/new')}
-                className="btn-soft-primary flex items-center gap-2 h-10 px-6"
+                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
               >
-                <PlusIcon className="h-4 w-4 stroke-[3]" /> Nouvel Événement
+                <PlusIcon className="h-4 w-4" />
+                Nouvelle Activité
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Filters Card */}
-      <div className="card-luxury p-0 overflow-hidden">
-        <div className="px-8 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/50 to-transparent flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Filtres & Segmentation</h3>
-          <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-            <FunnelIcon className="h-3 w-3" />
-            Vue filtrée en temps réel
-          </span>
+      {/* Filters Card - Inspired Design */}
+      <div className="card-luxury shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+              Filtres & Segmentation
+            </h3>
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              <FunnelIcon className="h-3 w-3" />
+              Vue filtrée en temps réel
+            </span>
+          </div>
         </div>
-        <div className="p-6 space-y-5">
-          {/* Filtre par Canal - Boutons en ligne */}
-          <div>
-            <h4 className="text-[11px] font-semibold text-slate-600 mb-2 uppercase tracking-widest">Canal</h4>
+        <div className="p-6">
+          {/* Channel Filters */}
+          <div className="mb-6">
+            <h4 className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
+              Canal
+            </h4>
             <div className="flex flex-wrap gap-2">
               {[
-                { name: 'Flux Global', icon: AdjustmentsHorizontalIcon, type: 'All' },
+                { name: 'Tous', icon: AdjustmentsHorizontalIcon, type: 'All' },
                 { name: 'Appels', icon: PhoneIcon, type: 'Appel' },
                 { name: 'Emails', icon: EnvelopeIcon, type: 'Email' },
                 { name: 'Réunions', icon: UserGroupIcon, type: 'Réunion' },
@@ -313,10 +305,11 @@ const ActivitesList = () => {
                 <button
                   key={item.type}
                   onClick={() => setFilterType(item.type)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all border ${filterType === item.type
-                      ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
-                      : 'bg-white border-slate-200/60 text-slate-500 hover:bg-slate-50'
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all border ${
+                    filterType === item.type
+                      ? 'bg-sky-50 border-sky-200 text-sky-600 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -325,14 +318,16 @@ const ActivitesList = () => {
             </div>
           </div>
 
-          {/* Filtres par Client, Projet, Commercial, Date - en grille */}
+          {/* Additional Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Client</label>
+              <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                Client
+              </label>
               <select
                 value={selectedTier}
                 onChange={(e) => setSelectedTier(e.target.value)}
-                className="input-modern w-full text-xs"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
               >
                 <option value="">Tous les clients</option>
                 {tiers.map(t => (
@@ -344,11 +339,13 @@ const ActivitesList = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Projet</label>
+              <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                Projet
+              </label>
               <select
                 value={selectedProjet}
                 onChange={(e) => setSelectedProjet(e.target.value)}
-                className="input-modern w-full text-xs"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
               >
                 <option value="">Tous les projets</option>
                 {filteredProjetsForFilters.map(p => (
@@ -362,11 +359,13 @@ const ActivitesList = () => {
             {/* Commercial filter - Hidden for commercial users, visible for admin/agents */}
             {!['commercial', 'commerciale'].includes(String(user?.UserRole || '').toLowerCase()) && (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Commercial</label>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Commercial
+                </label>
                 <select
                   value={selectedCommercial}
                   onChange={(e) => setSelectedCommercial(e.target.value)}
-                  className="input-modern w-full text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                 >
                   <option value="">Tous les commerciaux</option>
                   {commerciaux.map(c => (
@@ -379,20 +378,22 @@ const ActivitesList = () => {
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Période</label>
+              <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                Période
+              </label>
               <div className="flex gap-2">
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="input-modern text-xs"
+                  className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   placeholder="Du"
                 />
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="input-modern text-xs"
+                  className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                   placeholder="Au"
                 />
               </div>
@@ -403,93 +404,80 @@ const ActivitesList = () => {
 
       {/* Main Content */}
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Activités</p>
-                <p className="text-2xl font-extrabold text-slate-800">
-                  {activityStats.total}
-                </p>
-              </div>
-              <div className="icon-shape bg-gradient-blue shadow-glow-blue">
-                <ChatBubbleLeftEllipsisIcon className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            <div className="h-1 bg-gradient-blue"></div>
-          </div>
+        {/* Stats Cards - Inspired Design */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Activités', value: activityStats.total, icon: ChatBubbleLeftEllipsisIcon, color: 'sky' },
+            { label: 'Terminées', value: activityStats.done, icon: CheckCircleIcon, color: 'emerald' },
+            { label: 'Planifiées', value: activityStats.planned, icon: CalendarIcon, color: 'amber' },
+            { label: 'En cours', value: activityStats.inProgress, icon: ArrowPathIcon, color: 'violet' },
+          ].map((stat, i) => {
+            const colorMap = {
+              sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
+              emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
+              amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
+              violet: { bg: 'bg-violet-50', text: 'text-violet-500', bar: 'bg-violet-400' },
+            };
+            const colors = colorMap[stat.color];
 
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Terminées</p>
-                <p className="text-2xl font-extrabold text-emerald-700 flex items-baseline gap-2">
-                  {activityStats.done}
-                </p>
+            return (
+              <div
+                key={i}
+                className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group"
+              >
+                <div className="p-5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
+                        {stat.label}
+                      </p>
+                      <h3 className="text-2xl font-bold text-slate-800">
+                        {stat.value}
+                      </h3>
+                    </div>
+                    <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                      <stat.icon className={`h-5 w-5 ${colors.text}`} />
+                    </div>
+                  </div>
+                  <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
+                </div>
               </div>
-              <div className="icon-shape bg-gradient-success shadow-glow-emerald">
-                <CheckCircleIcon className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            <div className="h-1 bg-gradient-success"></div>
-          </div>
-
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Planifiées</p>
-                <p className="text-2xl font-extrabold text-amber-700">
-                  {activityStats.planned}
-                </p>
-              </div>
-              <div className="icon-shape bg-gradient-warning shadow-lg shadow-amber-200">
-                <CalendarIcon className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            <div className="h-1 bg-gradient-warning"></div>
-          </div>
-
-          <div className="card-luxury p-0 overflow-hidden">
-            <div className="p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">En cours</p>
-                <p className="text-2xl font-extrabold text-blue-700">
-                  {activityStats.inProgress}
-                </p>
-              </div>
-              <div className="icon-shape bg-gradient-blue-cyan shadow-glow-blue">
-                <ArrowPathIcon className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            <div className="h-1 bg-gradient-blue-cyan"></div>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Search Bar */}
-        <div className="card-luxury p-0 overflow-hidden">
+        {/* Search Bar - Inspired Design */}
+        <div className="card-luxury shadow-sm">
           <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 px-2">
-              <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-black ${filterType === 'All' ? 'bg-slate-100 text-slate-600' : getTypeColor(filterType)}`}>
-                {filterType === 'All' ? '∞' : filterType.charAt(0)}
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                filterType === 'All'
+                  ? 'bg-slate-100 text-slate-500'
+                  : `${getTypeColor(filterType).replace('text-', 'bg-').replace('600', '50')} ${getTypeColor(filterType)}`
+              }`}>
+                {filterType === 'All' ? (
+                  <AdjustmentsHorizontalIcon className="h-5 w-5" />
+                ) : (
+                  getActivityIcon(filterType)
+                )}
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-tighter">
+                <h2 className="text-sm font-semibold text-slate-800">
                   Journal {filterType === 'All' ? 'Omnicanal' : filterType}
                 </h2>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                <p className="text-xs text-slate-500">
                   {filteredActivites.length} interaction(s)
                 </p>
               </div>
             </div>
-            <div className="relative w-full sm:w-[320px]">
-              <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <div className="relative w-full sm:w-80">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 placeholder="Rechercher dans les notes, les types..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-modern pl-11 h-11"
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
               />
             </div>
           </div>
@@ -515,46 +503,43 @@ const ActivitesList = () => {
               </div>
             ) : (
               filteredActivites.map((activite) => (
-                <div key={activite.ID_Activite} className="border border-slate-100 rounded-2xl bg-white px-4 py-4 hover:border-blue-200 hover:shadow-sm transition-all">
+                <div key={activite.ID_Activite} className="group border border-slate-200 rounded-xl bg-white px-6 py-5 hover:border-blue-300 hover:shadow-lg transition-all">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className={`flex-shrink-0 h-10 w-10 rounded-xl flex items-center justify-center ${getTypeColor(activite.Type_Activite)}`}>
+                    <div className={`flex-shrink-0 h-12 w-12 rounded-xl flex items-center justify-center ${getTypeColor(activite.Type_Activite)} group-hover:scale-110 transition-transform`}>
                       {getActivityIcon(activite.Type_Activite)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h3 className="text-sm font-bold text-slate-900">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="text-base font-bold text-slate-800">
                           {activite.Type_Activite}
                         </h3>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(activite.Statut)}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${getStatusColor(activite.Statut)}`}>
                           {activite.Statut}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">{activite.Description || 'Aucune description'}</p>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-500">
+                      <p className="text-sm text-slate-600 mb-3 leading-relaxed">{activite.Description || 'Aucune description'}</p>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
                         <span className="flex items-center gap-1.5">
-                          <ClockIcon className="h-4 w-4" />
+                          <ClockIcon className="h-4 w-4 text-slate-400" />
                           {new Date(activite.Date_Activite).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <CalendarIcon className="h-4 w-4" />
+                          <CalendarIcon className="h-4 w-4 text-slate-400" />
                           {new Date(activite.Date_Activite).toLocaleDateString('fr-FR')}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <UserIcon className="h-4 w-4" />
+                          <UserIcon className="h-4 w-4 text-slate-400" />
                           {activite.utilisateur?.FullName || 'Collaborateur'}
                         </span>
-                        {activite.IDTiers && (
+                        {activite.tier && (
                           <span className="flex items-center gap-1.5">
-                            <BuildingOfficeIcon className="h-4 w-4" />
-                            {activite.IDTiers.substring(0, 8)}...
+                            <BuildingOfficeIcon className="h-4 w-4 text-slate-400" />
+                            {activite.tier.Raisoc || activite.tier.NomTiers || 'Client'}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 sm:self-center">
-                      <button className="h-9 w-9 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-xl transition-all border border-slate-100">
-                        <EllipsisVerticalIcon className="h-5 w-5" />
-                      </button>
                       {Number(activite.Valide) !== 1 && (
                         <button
                           onClick={async () => {
@@ -566,16 +551,16 @@ const ActivitesList = () => {
                               toast.error('Erreur lors de la validation');
                             }
                           }}
-                          className="btn-outline border-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white px-4 py-2 flex items-center gap-1 text-xs"
+                          className="px-4 py-2 text-xs font-bold text-emerald-700 hover:text-white hover:bg-emerald-600 rounded-lg border border-emerald-200 transition-all"
                         >
-                          <CheckCircleIcon className="h-3.5 w-3.5" /> Valider
+                          Valider
                         </button>
                       )}
                       <button
                         onClick={() => navigate(`/activites/${activite.ID_Activite}`)}
-                        className="btn-outline border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 flex items-center gap-1 text-xs"
+                        className="px-4 py-2 text-xs font-bold text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg border border-blue-200 transition-all"
                       >
-                        Détails <ChevronRightIcon className="h-3 w-3" />
+                        Voir détails
                       </button>
                     </div>
                   </div>
@@ -588,26 +573,29 @@ const ActivitesList = () => {
 
       {/* Modal - New Activity */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Nouvelle interaction</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex justify-between items-center border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Nouvelle activité</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Enregistrer une interaction client</p>
+              </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
               >
-                <XMarkIcon className="h-6 w-6" />
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAddActivity} className="p-6 space-y-4">
+            <form onSubmit={handleAddActivity} className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Canal</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Canal</label>
                   <select
                     value={newActivity.Type_Activite}
                     onChange={(e) => setNewActivity({ ...newActivity, Type_Activite: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                   >
                     <option>Appel</option>
                     <option>Email</option>
@@ -617,11 +605,11 @@ const ActivitesList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Statut</label>
                   <select
                     value={newActivity.Statut}
                     onChange={(e) => setNewActivity({ ...newActivity, Statut: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                   >
                     <option>Planifié</option>
                     <option>En cours</option>
@@ -632,33 +620,33 @@ const ActivitesList = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Description</label>
                 <textarea
                   value={newActivity.Description}
                   onChange={(e) => setNewActivity({ ...newActivity, Description: e.target.value })}
                   rows="3"
                   placeholder="Détails de l'interaction..."
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date et heure</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Date et heure</label>
                 <input
                   type="datetime-local"
                   value={newActivity.Date_Activite}
                   onChange={(e) => setNewActivity({ ...newActivity, Date_Activite: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Client</label>
                   <select
                     value={newActivity.IDTiers || ''}
                     onChange={(e) => setNewActivity({ ...newActivity, IDTiers: e.target.value, ID_Projet: '' })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                   >
                     <option value="">Sélectionner un client</option>
                     {tiers.map((tier) => (
@@ -670,11 +658,11 @@ const ActivitesList = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Projet lié</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Projet lié</label>
                   <select
                     value={newActivity.ID_Projet || ''}
                     onChange={(e) => setNewActivity({ ...newActivity, ID_Projet: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                   >
                     <option value="">Sélectionner un projet</option>
                     {projets
@@ -691,12 +679,19 @@ const ActivitesList = () => {
                 </div>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+                >
+                  Annuler
+                </button>
                 <button
                   type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                 >
-                  Enregistrer
+                  Enregistrer l'activité
                 </button>
               </div>
             </form>
