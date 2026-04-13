@@ -51,6 +51,16 @@ const Activite = sequelize.define('Activite', {
     allowNull: true,
     field: 'CodTiers'
   },
+  CodProj: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'codProj'
+  },
+  Categ: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    field: 'categ'
+  },
   Valide: {
     type: DataTypes.INTEGER,
     allowNull: true,

@@ -1,6 +1,6 @@
 const { Projet, Tiers } = require('../models');
 const { sequelize } = require('../config/database');
-const { Op, TableHints } = require('sequelize');
+const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
 
@@ -12,6 +12,28 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const isAdminRole = (role) => ['admin', 'administrateur'].includes(normalizeRole(role));
+
+const isCommercialRole = (role) => ['commercial', 'commerciale'].includes(normalizeRole(role));
+
+const isAgentRole = (role) => normalizeRole(role) === 'agent';
+
+const hasWhereConditions = (whereObj) => {
+  if (!whereObj) return false;
+  if (Object.keys(whereObj).length > 0) return true;
+  if (Object.getOwnPropertySymbols(whereObj).length > 0) return true;
+  return false;
+};
+
+const parseBoolean = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (value == null) return false;
+
+  const normalized = String(value).trim().toLowerCase();
+  return ['1', 'true', 'yes', 'oui', 'on'].includes(normalized);
+};
 
 const resolveTierReference = async (tierReference) => {
   if (!tierReference) {
@@ -37,6 +59,129 @@ const resolveTierReference = async (tierReference) => {
 
   return tier;
 };
+
+/**
+ * Lookup Tiers (Clients) for Projet creation with commercial filtering
+ * GET /api/projets/tiers-lookup
+ */
+exports.lookupProjetTiers = async (req, res, next) => {
+  try {
+    const query = String(req.query?.q || '').trim();
+    const codRepres = String(req.query?.codRepres || '').trim();
+    const prospectOnly = parseBoolean(req.query?.prospectOnly);
+
+    const requestedLimit = Number.parseInt(req.query?.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(5, Math.min(requestedLimit, 100))
+      : 30;
+
+    const reqRole = req.user?.UserRole;
+    const reqUserId = String(req.user?.UserID || req.user?.id || '').trim();
+
+    let securityWhere = {};
+
+    // Admin sees all clients
+    if (isAdminRole(reqRole)) {
+      securityWhere = {};
+    } else if (isCommercialRole(reqRole)) {
+      // Commercial sees own portfolio by default
+      if (!reqUserId) {
+        securityWhere = { [Op.and]: [sequelize.literal('1 = 0')] };
+      } else {
+        securityWhere = { codRepresTiers: reqUserId };
+      }
+    } else if (isAgentRole(reqRole)) {
+      // Agent keeps existing centralized scope logic
+      const filterHelper = require('../utils/filterHelper');
+      securityWhere = await filterHelper.applyTableDrivenFilters('11', {}, req.user);
+    }
+
+    const searchConditions = [];
+    if (query) {
+      const likePattern = `%${query}%`;
+      searchConditions.push({
+        [Op.or]: [
+          { Raisoc: { [Op.like]: likePattern } },
+          { CodTiers: { [Op.like]: likePattern } },
+          { Email: { [Op.like]: likePattern } },
+          { Tel: { [Op.like]: likePattern } }
+        ]
+      });
+    }
+
+    if (prospectOnly) {
+      searchConditions.push({
+        [Op.or]: [
+          { Fictif: true },
+          { Niveau: { [Op.gt]: 0 } }
+        ]
+      });
+    }
+
+    if (codRepres) {
+      // Strict representative filter: when a commercial is selected,
+      // only that commercial's clients must be returned.
+      const codRepresWhere = { codRepresTiers: codRepres };
+      securityWhere = hasWhereConditions(securityWhere)
+        ? { [Op.and]: [securityWhere, codRepresWhere] }
+        : codRepresWhere;
+    }
+
+    const whereParts = [];
+    if (hasWhereConditions(securityWhere)) {
+      whereParts.push(securityWhere);
+    }
+    whereParts.push(...searchConditions);
+
+    const where = whereParts.length > 0 ? { [Op.and]: whereParts } : {};
+
+    const rows = await Tiers.findAll({
+      where,
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Email', 'Tel', 'codRepresTiers', 'Niveau', 'Fictif'],
+      order: [['Raisoc', 'ASC']],
+      limit
+    });
+
+    const data = rows.map((row) => {
+      const plain = row.toJSON ? row.toJSON() : row;
+      return {
+        IDTiers: plain.IDTiers,
+        CodTiers: plain.CodTiers,
+        Raisoc: plain.Raisoc,
+        Email: plain.Email,
+        Tel: plain.Tel,
+        codRepresTiers: plain.codRepresTiers,
+        isProspect: Boolean(plain.Fictif) || Number(plain.Niveau || 0) > 0
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data,
+      meta: {
+        q: query,
+        codRepres: codRepres || null,
+        prospectOnly,
+        limit,
+        count: data.length
+      }
+    });
+  } catch (error) {
+    console.error('lookupProjetTiers failed:', {
+      query: req.query,
+      user: req.user?.UserID,
+      error: error.message
+    });
+
+    res.status(200).json({
+      status: 'degraded',
+      message: 'Lookup endpoint failed, fallback to /tiers',
+      degraded: true,
+      data: []
+    });
+  }
+};
+
 /**
  * Créer un nouveau projet
  */
@@ -216,7 +361,7 @@ exports.getProjetById = async (req, res, next) => {
     const include = [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }];
 
     let projet = await Projet.findOne({
-      where: { [Op.and]: [{ ID_Projet: id }, securityWhere] },
+      where: { [Op.and]: [{ ID_Projet: req.params.id }, securityWhere] },
       include
     });
 
