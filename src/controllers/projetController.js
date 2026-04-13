@@ -211,6 +211,7 @@ exports.getProjets = async (req, res, next) => {
  */
 exports.getProjetById = async (req, res, next) => {
   try {
+    const { id } = req.params;
     const filterHelper = require('../utils/filterHelper');
     const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
     const include = [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }];
@@ -391,20 +392,20 @@ exports.updateProjet = async (req, res, next) => {
  */
 exports.deleteProjet = async (req, res, next) => {
   try {
+    const { id } = req.params;
     const filterHelper = require('../utils/filterHelper');
     const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
     
-    const deleted = await Projet.destroy({
+    const projet = await Projet.findOne({
       where: { [Op.and]: [{ ID_Projet: id }, securityWhere] }
     });
 
-    if (!deleted) {
+    if (!projet) {
       return res.status(404).json({
         status: 'error',
         message: 'Projet non trouvé ou accès refusé'
       });
     }
-
 
     await projet.destroy();
 

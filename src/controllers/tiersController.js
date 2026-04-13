@@ -647,6 +647,11 @@ exports.getAllTiers = async (req, res, next) => {
 
         const { count, rows } = await Tiers.findAndCountAll({
             where: finalWhere,
+            include: [
+                { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
+                { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
+                { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+            ],
             order: [['Raisoc', 'ASC']],
             limit,
             offset,
