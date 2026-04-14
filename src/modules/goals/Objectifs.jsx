@@ -22,7 +22,9 @@ import {
     DocumentTextIcon,
     ArrowPathIcon,
     EyeIcon,
-    TagIcon
+    TagIcon,
+    MagnifyingGlassIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import {
     AreaChart,
@@ -53,49 +55,79 @@ const ICON_MAP = {
     FlagIcon
 };
 
-// Color Map helper for Tailwind
+// Color Map helper for Tailwind - Updated for new design
 const COLOR_MAP = {
     blue: {
         bg: 'bg-blue-500',
         text: 'text-blue-600',
-        border: 'hover:border-blue-300',
+        border: 'border-blue-100',
         light: 'bg-blue-50',
-        glow: 'shadow-glow-blue'
+        glow: 'shadow-glow-blue',
+        gradient: 'from-blue-400 to-blue-500',
+        fill: '#3b82f6'
     },
     emerald: {
         bg: 'bg-emerald-500',
         text: 'text-emerald-600',
-        border: 'hover:border-emerald-300',
+        border: 'border-emerald-100',
         light: 'bg-emerald-50',
-        glow: 'shadow-glow-success'
+        glow: 'shadow-glow-success',
+        gradient: 'from-emerald-400 to-emerald-500',
+        fill: '#10b981'
     },
     indigo: {
         bg: 'bg-indigo-500',
         text: 'text-indigo-600',
-        border: 'hover:border-indigo-300',
+        border: 'border-indigo-100',
         light: 'bg-indigo-50',
-        glow: 'shadow-glow-indigo'
+        glow: 'shadow-glow-indigo',
+        gradient: 'from-indigo-400 to-indigo-500',
+        fill: '#6366f1'
+    },
+    violet: {
+        bg: 'bg-violet-500',
+        text: 'text-violet-600',
+        border: 'border-violet-100',
+        light: 'bg-violet-50',
+        glow: 'shadow-glow-violet',
+        gradient: 'from-violet-400 to-violet-500',
+        fill: '#8b5cf6'
+    },
+    cyan: {
+        bg: 'bg-cyan-500',
+        text: 'text-cyan-600',
+        border: 'border-cyan-100',
+        light: 'bg-cyan-50',
+        glow: 'shadow-glow-cyan',
+        gradient: 'from-cyan-400 to-cyan-500',
+        fill: '#06b6d4'
     },
     rose: {
         bg: 'bg-rose-500',
         text: 'text-rose-600',
-        border: 'hover:border-rose-300',
+        border: 'border-rose-100',
         light: 'bg-rose-50',
-        glow: 'shadow-glow-rose'
+        glow: 'shadow-glow-rose',
+        gradient: 'from-rose-400 to-rose-500',
+        fill: '#f43f5e'
     },
     amber: {
         bg: 'bg-amber-500',
         text: 'text-amber-600',
-        border: 'hover:border-amber-300',
+        border: 'border-amber-100',
         light: 'bg-amber-50',
-        glow: 'shadow-glow-warning'
+        glow: 'shadow-glow-warning',
+        gradient: 'from-amber-400 to-amber-500',
+        fill: '#f59e0b'
     },
     slate: {
         bg: 'bg-slate-500',
         text: 'text-slate-600',
-        border: 'hover:border-slate-300',
+        border: 'border-slate-100',
         light: 'bg-slate-50',
-        glow: 'shadow-glow-slate'
+        glow: 'shadow-glow-slate',
+        gradient: 'from-slate-400 to-slate-500',
+        fill: '#64748b'
     }
 };
 
@@ -106,9 +138,9 @@ const getGoalVisuals = (type) => {
         case 'Nouveaux Clients':
             return { color: 'emerald', icon: UsersIcon, unit: 'Clients' };
         case 'Nombre de Rendez-vous':
-            return { color: 'indigo', icon: CalendarIcon, unit: 'RDV' };
+            return { color: 'violet', icon: CalendarIcon, unit: 'RDV' };
         case 'Validation Devis':
-            return { color: 'blue', icon: DocumentTextIcon, unit: 'TND' };
+            return { color: 'cyan', icon: DocumentTextIcon, unit: 'TND' };
         case 'Volume de Ventes':
             return { color: 'rose', icon: ShoppingBagIcon, unit: 'Unités' };
         case 'Marge Brute':
@@ -145,13 +177,30 @@ const Objectifs = () => {
         { id: 10, name: 'Octobre' }, { id: 11, name: 'Novembre' }, { id: 12, name: 'Décembre' }
     ];
 
-    const chartData = [
-        { month: 'Oct', sales: 12000 },
-        { month: 'Nov', sales: 15000 },
-        { month: 'Déc', sales: 18000 },
-        { month: 'Jan', sales: 21500 },
-        { month: 'Fév', sales: 18450 },
-    ];
+    const chartData = useMemo(() => {
+        if (!allObjectifs || allObjectifs.length === 0) return [];
+
+        const monthNames = ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+        
+        // Initialiser les données pour tous les mois
+        const monthlyData = Array(12).fill(0).map((_, index) => ({
+            month: monthNames[index],
+            sales: 0,
+            originalIndex: index // Pour le tri
+        }));
+
+        allObjectifs.forEach(obj => {
+            if (obj.DateDebut) {
+                const date = new Date(obj.DateDebut);
+                const monthIndex = date.getMonth();
+                const realised = parseFloat(obj.Montant_Realise_Actuel) || 0;
+                monthlyData[monthIndex].sales += realised;
+            }
+        });
+
+        // Filtrer pour ne garder que les mois avec des données
+        return monthlyData.filter(d => d.sales > 0);
+    }, [allObjectifs]);
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -459,36 +508,212 @@ const Objectifs = () => {
                 </div>
             </div>
 
-            {/* KPI Summary Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Atteinte Cible', value: `${Math.round(globalProgress)}%`, sub: 'Progress. Globale', color: 'blue', icon: ArrowTrendingUpIcon, gradient: 'bg-gradient-blue' },
-                    { label: 'Objectif Mensuel', value: `${(totalTarget / 1000).toFixed(1)}k`, sub: 'TND / Période', color: 'cyan', icon: BanknotesIcon, gradient: 'bg-gradient-blue-cyan' },
-                    { label: 'Réalisé à date', value: `${(totalRealised / 1000).toFixed(1)}k`, sub: 'TND cumulés', color: 'emerald', icon: CheckCircleIcon, gradient: 'bg-gradient-success' },
-                    { label: 'Reste à faire', value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`, sub: 'écart restant', color: 'amber', icon: FlagIcon, gradient: 'bg-gradient-warning' },
-                ].map((kpi, i) => (
-                    <div key={i} className="card-luxury p-0 overflow-hidden group">
-                        <div className="p-6 flex items-start justify-between">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{kpi.label}</p>
-                                <div className="flex items-baseline gap-1.5">
-                                    <h3 className="text-2xl font-extrabold text-slate-800">{kpi.value}</h3>
-                                    <span className="text-[10px] font-bold text-slate-400">{kpi.sub}</span>
+                    {
+                        label: "Atteinte Cible",
+                        value: `${Math.round(globalProgress)}%`,
+                        sub: "Progression globale",
+                        color: "blue",
+                        icon: ArrowTrendingUpIcon,
+                        trend: globalProgress > 50 ? "up" : "down",
+                    },
+                    {
+                        label: "Objectif Total",
+                        value: `${(totalTarget / 1000).toFixed(1)}k`,
+                        sub: "TND / Période",
+                        color: "cyan",
+                        icon: FlagIcon,
+                    },
+                    {
+                        label: "Réalisé",
+                        value: `${(totalRealised / 1000).toFixed(1)}k`,
+                        sub: "TND cumulés",
+                        color: "emerald",
+                        icon: ChartBarIcon,
+                        trend: "up",
+                    },
+                    {
+                        label: "Écart",
+                        value: `${((totalTarget - totalRealised) / 1000).toFixed(1)}k`,
+                        sub: "Reste à faire",
+                        color: "amber",
+                        icon: FlagIcon,
+                    },
+                ].map((kpi, i) => {
+                    const config = COLOR_MAP[kpi.color];
+                    return (
+                        <div
+                            key={i}
+                            className="card-luxury p-5 hover:border-blue-300/50 transition-all group"
+                        >
+                            <div className="flex items-start justify-between mb-4">
+                                <div className={`p-2.5 rounded-xl ${config.light} border ${config.border}`}>
+                                    <kpi.icon className={`h-5 w-5 ${config.text}`} />
                                 </div>
+                                {kpi.trend && (
+                                    <div
+                                        className={`flex items-center gap-1 text-xs font-medium ${
+                                            kpi.trend === "up" ? "text-emerald-500" : "text-rose-500"
+                                        }`}
+                                    >
+                                        {kpi.trend === "up" ? (
+                                            <ArrowUpIcon className="h-3 w-3" />
+                                        ) : (
+                                            <ArrowDownIcon className="h-3 w-3" />
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div className={`icon-shape shadow-soft group-hover:scale-110 transition-transform ${kpi.gradient}`}>
-                                <kpi.icon className="h-5 w-5 text-white" />
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                                {kpi.label}
+                            </p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-2xl font-bold text-slate-800">{kpi.value}</span>
+                                <span className="text-xs text-slate-400">{kpi.sub}</span>
                             </div>
                         </div>
-                        <div className={`h-1 ${kpi.gradient}`}></div>
+                    );
+                })}
+            </div>
+
+            {/* Chart + Ranking Side by Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Area Chart */}
+                <div className="card-luxury p-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-lg font-semibold text-slate-800">Évolution CA</h2>
+                            <p className="text-xs text-slate-400">Performance mensuelle</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                            <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                Réalisé
+                            </span>
+                        </div>
                     </div>
-                ))}
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                <XAxis
+                                    dataKey="month"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                                    tickFormatter={(value) => `${value / 1000}k`}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: "white",
+                                        border: "1px solid #e2e8f0",
+                                        borderRadius: "0.75rem",
+                                        padding: "0.75rem",
+                                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                    }}
+                                    formatter={(value) => [`${value.toLocaleString()} TND`]}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="sales"
+                                    stroke="#3b82f6"
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    fill="url(#colorSales)"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Team Ranking */}
+                <div className="card-luxury p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-100">
+                            <TrophyIcon className="h-5 w-5 text-amber-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-slate-800">Classement Équipe</h2>
+                            <p className="text-xs text-slate-400">Par avancement des objectifs</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {commercialRanking.slice(0, 5).map((item, index) => {
+                            const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+                            const medal = index < 3 ? medalColors[index] : null;
+
+                            return (
+                                <div
+                                    key={item.userId}
+                                    className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+                                >
+                                    <div
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                                        style={{
+                                            backgroundColor: medal || "#f1f5f9",
+                                            color: medal ? "#fff" : "#64748b",
+                                        }}
+                                    >
+                                        {index + 1}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-800 truncate">
+                                            {item.user?.FullName || `User #${item.userId}`}
+                                        </p>
+                                        <p className="text-xs text-slate-400 truncate">
+                                            {item.user?.PosteOccupe || "Non défini"}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${
+                                                    item.progress >= 100
+                                                        ? "bg-emerald-500"
+                                                        : item.progress >= 50
+                                                        ? "bg-blue-500"
+                                                        : "bg-amber-500"
+                                                }`}
+                                                style={{ width: `${Math.min(item.progress, 100)}%` }}
+                                            />
+                                        </div>
+                                        <span
+                                            className={`text-sm font-bold min-w-[50px] text-right ${
+                                                item.progress >= 100
+                                                    ? "text-emerald-500"
+                                                    : item.progress >= 50
+                                                    ? "text-blue-500"
+                                                    : "text-amber-500"
+                                            }`}
+                                        >
+                                            {Math.round(item.progress)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             {/* Section Objectifs Mensuels */}
-            <div className="card-luxury p-8">
+            <div className="card-luxury p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-extrabold text-slate-800">Objectif Mensuelle</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">Objectifs Mensuels</h2>
                     <button
                         onClick={() => navigate('/objectifs/new', {
                             state: {
@@ -498,13 +723,13 @@ const Objectifs = () => {
                                 selectedYear: parseInt(selectedYear)
                             }
                         })}
-                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors"
                     >
-                        <PlusIcon className="h-4 w-4" /> Ajouter Objectif
+                        <PlusIcon className="h-4 w-4" /> Ajouter
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {reduxLoading && filteredObjectifs.filter(o => o.TypePeriode === 'Mensuel' || !o.TypePeriode).length === 0 ? (
                         <div className="col-span-full py-20 flex justify-center">
                             <LoadingSpinner />
@@ -516,133 +741,96 @@ const Objectifs = () => {
                             const Icon = visuals.icon;
 
                             return (
-                                <div key={goal.ID_Objectif} className={`card-luxury p-8 group flex flex-col ${config.border}`}>
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className={`icon-shape icon-shape-sm shadow-soft ${config.bg}`}>
-                                            <Icon className="h-5 w-5 text-white" />
+                                <div key={goal.ID_Objectif} className={`card-luxury p-5 group flex flex-col border ${config.border} hover:border-blue-300 transition-all`}>
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className={`p-2 rounded-lg ${config.light} border ${config.border}`}>
+                                            <Icon className={`h-4 w-4 ${config.text}`} />
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
                                                     state: { objectif: goal }
                                                 })}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Modifier l'objectif"
+                                                className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
+                                                title="Modifier"
                                             >
                                                 <EyeIcon className="h-4 w-4" />
                                             </button>
                                             <div className="text-right">
-                                                <p className={`text-2xl font-black ${config.text} tracking-tight`}>{Math.round(progress)}%</p>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Achévement</span>
+                                                <p className={`text-xl font-bold ${config.text}`}>{Math.round(progress)}%</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="mb-8">
-                                        <h4 className="text-base font-bold text-slate-800 mb-1">{goal.TypeObjectif}</h4>
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
-                                            {goal.Libelle_Indicateur && (
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{goal.Libelle_Indicateur}</p>
-                                            )}
-                                            {goal.Semaine && (
-                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[9px] font-bold">
-                                                    Semaine: {goal.Semaine}
-                                                </span>
-                                            )}
-                                            {(goal.DateDebut || goal.DateFin) && (
-                                                <span className="inline-flex items-center text-[9px] font-medium text-slate-400">
-                                                    <CalendarIcon className="h-3 w-3 mr-1" />
-                                                    {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr') : '...'} au {goal.DateFin ? new Date(goal.DateFin).toLocaleDateString('fr') : '...'}
-                                                </span>
-                                            )}
-                                        </div>
+                                    <h4 className="text-sm font-semibold text-slate-800 mb-1">{goal.TypeObjectif}</h4>
+                                    {goal.Libelle_Indicateur && (
+                                        <p className="text-xs text-slate-400 mb-3">{goal.Libelle_Indicateur}</p>
+                                    )}
 
-                                        <div className="flex items-baseline gap-2 mt-4">
-                                            <span className={`text-2xl font-black text-slate-800`}>{(goal.Montant_Realise_Actuel || 0).toLocaleString()}</span>
-                                            <span className="text-xs font-bold text-slate-400">/ {(goal.MontantCible || 0).toLocaleString()} {visuals.unit}</span>
-                                        </div>
-                                        <div className="mt-2 text-[10px] font-bold">
-                                            <span className={`px-2 py-0.5 rounded-full ${goal.Statut === 'Atteint' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                {goal.Statut || 'En cours'}
-                                            </span>
-                                        </div>
+                                    <div className="flex items-baseline gap-2 mb-3">
+                                        <span className="text-lg font-bold text-slate-800">
+                                            {(goal.Montant_Realise_Actuel || 0).toLocaleString()}
+                                        </span>
+                                        <span className="text-xs text-slate-400">
+                                            / {(goal.MontantCible || 0).toLocaleString()} {visuals.unit}
+                                        </span>
                                     </div>
 
-                                    <div className="mt-auto space-y-6">
-                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-1000 ${config.bg} ${config.glow}`}
-                                                style={{ width: `${progress}%` }}
-                                            ></div>
-                                        </div>
+                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${config.bg}`}
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
+                                    </div>
 
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="number" min="0"
-                                                placeholder="Nouveau montant..."
-                                                onKeyPress={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        handleUpdateProgress(goal.ID_Objectif, e.target.value, e.target);
-                                                    }
-                                                }}
-                                                className="input-modern px-4 py-2 text-xs h-10"
-                                            />
-                                            <button
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.previousSibling;
-                                                    handleUpdateProgress(goal.ID_Objectif, input.value, input);
-                                                }}
-                                                className={`h-10 w-10 shrink-0 flex items-center justify-center text-white rounded-xl shadow-soft transition-all active:scale-95 ${config.bg} hover:brightness-110`}
-                                                title="Mettre à jour le montant réalisé"
-                                            >
-                                                <PlusIcon className="h-4 w-4 stroke-[3]" />
-                                            </button>
-                                        </div>
+                                    <div className="flex items-center gap-2 mt-auto">
+                                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${goal.Statut === 'Atteint' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'}`}>
+                                            {goal.Statut || 'En cours'}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                            <CalendarIcon className="h-3 w-3" />
+                                            {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr') : '...'} - {goal.DateFin ? new Date(goal.DateFin).toLocaleDateString('fr') : '...'}
+                                        </span>
                                     </div>
                                 </div>
                             );
                         }) : (
-                            <div className="col-span-full py-20 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
-                                <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-soft mb-6">
-                                    <FlagIcon className="h-8 w-8" />
+                            <div className="col-span-full py-16 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                                <div className="h-12 w-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 mb-4">
+                                    <FlagIcon className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-sm font-bold text-slate-500 mb-1">Aucun objectif trouvé</h3>
-                                <p className="text-xs text-slate-400 mb-6">Aucun objectif ne correspond aux filtres sélectionnés</p>
+                                <h3 className="text-xs font-bold text-slate-500 mb-1">Aucun objectif trouvé</h3>
+                                <p className="text-[10px] text-slate-400 mb-4">Modifiez les filtres pour afficher les résultats</p>
                                 <button
                                     onClick={() => {
                                         setFilterType('all');
                                         setFilterStatus('all');
                                         setSearchTerm('');
                                     }}
-                                    className="btn-soft-primary px-8 font-bold"
+                                    className="btn-soft-primary px-6 text-[10px] font-bold py-2"
                                 >
-                                    Réinitialiser les filtres
+                                    Réinitialiser
                                 </button>
                             </div>
                         )}
 
-                {/* Create New Objectif Card */}
-                {filteredObjectifs.length > 0 && (
+                    {/* Add New Card */}
                     <button
                         onClick={() => navigate('/objectifs/new')}
-                        className="card-luxury p-8 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
+                        className="rounded-2xl p-5 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-3 hover:border-blue-300 hover:bg-blue-50/20 transition-all group min-h-[180px]"
                     >
-                        <div className="h-16 w-16 bg-white rounded-2xl shadow-soft flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all">
-                            <PlusIcon className="h-8 w-8 stroke-[3]" />
+                        <div className="h-10 w-10 bg-white rounded-xl shadow-soft flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all">
+                            <PlusIcon className="h-5 w-5 stroke-[3]" />
                         </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Nouvel Objectif</h4>
-                            <p className="text-xs text-slate-400 mt-1 font-medium">Définir une nouvelle cible</p>
-                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nouvel Objectif</p>
                     </button>
-                )}
                 </div>
             </div>
 
             {/* Section Objectifs Hebdomadaires */}
-            <div className="card-luxury p-8">
+            <div className="card-luxury p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-extrabold text-slate-800">Objectif hebdomadaire</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">Objectifs Hebdomadaires</h2>
                     <button
                         onClick={() => navigate('/objectifs/new', {
                             state: {
@@ -652,13 +840,13 @@ const Objectifs = () => {
                                 selectedYear: parseInt(selectedYear)
                             }
                         })}
-                        className="btn-soft-primary flex items-center gap-2 text-sm font-bold"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors"
                     >
-                        <PlusIcon className="h-4 w-4" /> Ajouter Période
+                        <PlusIcon className="h-4 w-4" /> Ajouter
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {reduxLoading && filteredObjectifs.filter(o => o.TypePeriode === 'Hebdomadaire').length === 0 ? (
                         <div className="col-span-full py-20 flex justify-center">
                             <LoadingSpinner />
@@ -667,57 +855,43 @@ const Objectifs = () => {
                             const progress = Math.min(((goal.Montant_Realise_Actuel || 0) / (goal.MontantCible || 1)) * 100, 100);
                             const visuals = getGoalVisuals(goal.TypeObjectif);
                             const config = COLOR_MAP[visuals.color] || COLOR_MAP.blue;
-                            const Icon = visuals.icon;
 
                             return (
-                                <div key={goal.ID_Objectif} className={`card-luxury p-6 group flex flex-col ${config.border}`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className={`icon-shape icon-shape-sm shadow-soft ${config.bg}`}>
-                                            <CalendarIcon className="h-5 w-5 text-white" />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => navigate(`/objectifs/edit/${goal.ID_Objectif}`, {
-                                                    state: { objectif: goal }
-                                                })}
-                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Modifier l'objectif"
-                                            >
-                                                <EyeIcon className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                <div key={goal.ID_Objectif} className="card-luxury p-4 border border-slate-100 hover:border-blue-300 transition-all">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-medium text-slate-500">
+                                            {goal.Semaine || "Semaine"}
+                                        </span>
+                                        <span
+                                            className={`text-sm font-bold ${
+                                                progress >= 100
+                                                    ? "text-emerald-500"
+                                                    : progress >= 50
+                                                    ? "text-blue-500"
+                                                    : "text-amber-500"
+                                            }`}
+                                        >
+                                            {Math.round(progress)}%
+                                        </span>
                                     </div>
 
-                                    <div className="mb-4">
-                                        <h4 className="text-sm font-bold text-slate-800 mb-2">{goal.Semaine || 'Semaine non définie'}</h4>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <h4 className="text-sm font-medium text-slate-800 mb-2">{goal.TypeObjectif}</h4>
+
+                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${config.bg}`}
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs text-slate-400">
+                                        <span>
+                                            {goal.Montant_Realise_Actuel || 0} / {goal.MontantCible || 0}
+                                        </span>
+                                        <span className="flex items-center gap-1">
                                             <CalendarIcon className="h-3 w-3" />
-                                            <span>
-                                                {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr-FR') : '...'}
-                                                {' → '}
-                                                {goal.DateFin ? new Date(goal.DateFin).toLocaleDateString('fr-FR') : '...'}
-                                            </span>
-                                        </div>
-                                        {goal.utilisateur && (
-                                            <p className="text-xs text-slate-400 mt-1">
-                                                {goal.utilisateur.FullName || goal.utilisateur.LoginName}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-auto">
-                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-1000 ${config.bg}`}
-                                                style={{ width: `${progress}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="font-bold text-slate-600">{Math.round(progress)}%</span>
-                                            <span className="text-slate-400">
-                                                {goal.Montant_Realise_Actuel || 0} / {goal.MontantCible || 0}
-                                            </span>
-                                        </div>
+                                            {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr') : "..."}
+                                        </span>
                                     </div>
                                 </div>
                             );
@@ -742,125 +916,6 @@ const Objectifs = () => {
                 </div>
             </div>
 
-            {/* Classement Performance équipe - Liste de tous les commerciaux classés par avancement */}
-            {commercialRanking.length > 0 && (
-                <div className="card-luxury p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="icon-shape icon-shape-sm bg-gradient-to-br from-blue-500 to-blue-600">
-                            <TrophyIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-black text-slate-800">Classement Performance équipe</h2>
-                            <p className="text-xs font-medium text-slate-500">
-                                Liste de tous les commerciaux classés par avancement • Toutes les données
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-slate-200">
-                                    <th className="text-left py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rang</th>
-                                    <th className="text-left py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Commercial</th>
-                                    <th className="text-left py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Poste</th>
-                                    <th className="text-right py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Statut</th>
-                                    <th className="text-right py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Avancement</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {commercialRanking.map((item, index) => {
-                                    const isCurrentUser = item.userId === currentUser?.UserID;
-                                    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']; // Or, Argent, Bronze
-                                    const medal = index < 3 ? medalColors[index] : null;
-
-                                    return (
-                                        <tr
-                                            key={item.userId}
-                                            className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isCurrentUser ? 'bg-blue-50' : ''}`}
-                                        >
-                                            <td className="py-4 px-4">
-                                                <div className="flex items-center justify-center w-10 h-10 rounded-full font-black text-sm"
-                                                    style={{
-                                                        backgroundColor: medal ? medal : '#f1f5f9',
-                                                        color: medal ? '#fff' : '#64748b'
-                                                    }}
-                                                >
-                                                    #{index + 1}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    {item.user?.PhotoProfil ? (
-                                                        <img
-                                                            src={getImageUrl(item.user.PhotoProfil)}
-                                                            alt={item.user.FullName}
-                                                            className="w-10 h-10 rounded-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                                                            {item.user?.FullName?.charAt(0)?.toUpperCase() || 'U'}
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="font-bold text-slate-800 text-sm">
-                                                            {item.user?.FullName || `Utilisateur #${item.userId}`}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500">
-                                                            {item.user?.EmailPro || 'Email non disponible'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-4">
-                                                <span className="text-sm font-medium text-slate-600">
-                                                    {item.user?.PosteOccupe || 'Non défini'}
-                                                </span>
-                                            </td>
-                                            <td className="py-4 px-4 text-right">
-                                                {item.user ? (
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
-                                                        item.user.IsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                                                    }`}>
-                                                        {item.user.IsActive ? 'Actif' : 'Inactif'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
-                                                        Inconnu
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="py-4 px-4 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <div className="flex-1 max-w-[120px]">
-                                                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full transition-all ${
-                                                                    item.progress >= 100 ? 'bg-green-500' :
-                                                                    item.progress >= 50 ? 'bg-blue-500' :
-                                                                    'bg-orange-500'
-                                                                }`}
-                                                                style={{ width: `${Math.min(item.progress, 100)}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <span className={`text-lg font-black min-w-[60px] ${
-                                                        item.progress >= 100 ? 'text-green-600' :
-                                                        item.progress >= 50 ? 'text-blue-600' :
-                                                        'text-orange-600'
-                                                    }`}>
-                                                        {Math.round(item.progress)}%
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

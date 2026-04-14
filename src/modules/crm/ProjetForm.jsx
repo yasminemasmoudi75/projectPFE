@@ -245,48 +245,47 @@ const ProjetForm = () => {
     if (loading || (isEdit && reduxLoading)) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in min-h-screen pb-16 space-y-8">
-            <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/70 p-6 md:p-8 shadow-xl shadow-slate-200/40">
-                <div className="absolute -top-10 -right-8 h-36 w-36 rounded-full bg-blue-200/30 blur-2xl" />
-                <div className="absolute -bottom-10 left-10 h-28 w-28 rounded-full bg-indigo-200/30 blur-2xl" />
-
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="animate-fade-in space-y-6 pb-12">
+            {/* Header - Inspired Design */}
+            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                     <div className="flex items-center gap-5">
                         <button
                             onClick={() => navigate(-1)}
-                            className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200/50 text-slate-500 hover:text-blue-600 hover:border-blue-200 rounded-2xl transition-all shadow-soft flex items-center justify-center"
+                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
                         >
-                            <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
+                            <ArrowLeftIcon className="h-5 w-5" />
                         </button>
                         <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="badge badge-primary">
-                                    <SparklesIcon className="h-3 w-3 mr-1" />
-                                    Gestion Projets
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest">
-                                    {isEdit ? 'Mode Edition' : 'Nouveau'}
-                                </span>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+                                <SparklesIcon className="h-3 w-3" />
+                                Gestion Projets
                             </div>
-                            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
                                 {isEdit ? 'Modifier le Projet' : 'Nouvelle Initiative'}
                             </h1>
-                            <p className="text-sm text-slate-500 font-medium mt-1">
+                            <p className="text-slate-600 mt-1 text-sm">
                                 Renseignez les informations du projet pour un suivi optimal.
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button type="button" onClick={() => navigate('/projets')} className="btn-outline">Annuler</button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/projets')}
+                            className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all"
+                        >
+                            Annuler
+                        </button>
                         <button
                             onClick={handleSubmit}
                             disabled={saving}
-                            className="btn-soft-primary flex items-center gap-2"
+                            className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all disabled:opacity-60 flex items-center gap-2"
                         >
                             {saving ? (
                                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
-                                <CheckIcon className="h-4 w-4 stroke-[2.5]" />
+                                <CheckIcon className="h-4 w-4" />
                             )}
                             <span>{isEdit ? 'Enregistrer' : 'Lancer le Projet'}</span>
                         </button>
@@ -294,40 +293,45 @@ const ProjetForm = () => {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 space-y-8">
-                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
-                        <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-4">
-                            <div className="icon-shape icon-shape-sm shadow-glow-primary">
-                                <BriefcaseIcon className="h-4 w-4 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-base font-bold text-slate-800">Informations Clés</h2>
-                                <p className="text-xs text-slate-500">Définition et client rattaché</p>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-8 space-y-6">
+                    {/* Informations Clés */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-xl bg-sky-500 text-white flex items-center justify-center">
+                                    <BriefcaseIcon className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-800">Informations Clés</h2>
+                                    <p className="text-sm text-slate-600">Définition et client rattaché</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="p-6 space-y-6">
                             <div>
-                                <label className="label-modern">Nom du Projet *</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                    Nom du Projet *
+                                </label>
                                 <input
                                     type="text"
                                     name="Nom_Projet"
                                     value={formData.Nom_Projet}
                                     onChange={handleChange}
-                                    className="input-modern text-lg font-semibold"
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-lg font-semibold text-slate-800 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
                                     placeholder="Ex: Refonte Site E-commerce"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="label-modern">
+                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                                     {isAdminUser ? 'Filtre par Commercial' : 'Client'}
                                 </label>
                                 {isAdminUser && (
                                     <select
                                         value={representativeCode}
                                         onChange={(e) => handleCommercialChange(e.target.value)}
-                                        className="input-modern mb-2"
+                                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
                                     >
                                         <option value="">Tous les commerciaux</option>
                                         {commercials.map((item) => (
@@ -338,14 +342,14 @@ const ProjetForm = () => {
                                     </select>
                                 )}
                                 {commercialsLoading && isAdminUser && (
-                                    <p className="text-[11px] text-slate-500 mb-2">Chargement des commerciaux...</p>
+                                    <p className="text-xs text-slate-500 mb-2">Chargement des commerciaux...</p>
                                 )}
                                 <input
                                     type="text"
                                     value={clientSearchTerm}
                                     onChange={(e) => setClientSearchTerm(e.target.value)}
                                     placeholder="Rechercher par raison sociale, code, email ou tel"
-                                    className="input-modern mb-2"
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none mb-3"
                                 />
                                 <select
                                     name="IDTiers"
@@ -365,7 +369,7 @@ const ProjetForm = () => {
                                             }
                                         }
                                     }}
-                                    className="input-modern"
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                     required
                                 >
                                     <option value="">Sélectionner un client...</option>
@@ -377,21 +381,23 @@ const ProjetForm = () => {
                                     ))}
                                 </select>
                                 {tiersLoading && (
-                                    <p className="text-[11px] text-slate-500 mt-1">Recherche clients en cours...</p>
+                                    <p className="text-xs text-slate-500 mt-2">Recherche clients en cours...</p>
                                 )}
                             </div>
 
                             <div>
-                                <label className="label-modern">Budget Alloué (TND)</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                    Budget Alloué (TND)
+                                </label>
                                 <div className="relative">
-                                    <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                    <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                     <input
                                         type="number" min="0"
                                         name="Budget_Alloue"
                                         value={formData.Budget_Alloue}
                                         onChange={handleChange}
                                         onKeyDown={preventNegativeInput}
-                                        className="input-modern pl-12"
+                                        className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -399,21 +405,26 @@ const ProjetForm = () => {
                         </div>
                     </div>
 
-                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
-                        <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-50/80 to-transparent flex items-center gap-4">
-                            <div className="icon-shape icon-shape-sm shadow-glow-blue" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)' }}>
-                                <ChartBarIcon className="h-4 w-4 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-base font-bold text-slate-800">Suivi et Avancement</h2>
-                                <p className="text-xs text-slate-500">Statut et progression du projet</p>
+                    {/* Suivi et Avancement */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-xl bg-violet-500 text-white flex items-center justify-center">
+                                    <ChartBarIcon className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-800">Suivi et Avancement</h2>
+                                    <p className="text-sm text-slate-600">Statut et progression du projet</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="p-8">
+                        <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="label-modern">Phase Actuelle</label>
-                                    <select name="Phase" value={formData.Phase} onChange={handleChange} className="input-modern">
+                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                        Phase Actuelle
+                                    </label>
+                                    <select name="Phase" value={formData.Phase} onChange={handleChange} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none">
                                         <option>Nouveau</option>
                                         <option>Analyse</option>
                                         <option>Conception</option>
@@ -423,41 +434,47 @@ const ProjetForm = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="label-modern">Avancement (%)</label>
+                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                        Avancement (%)
+                                    </label>
                                     <input
                                         type="range"
                                         name="Avancement"
                                         value={formData.Avancement}
                                         onChange={handleChange}
-                                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mt-4"
+                                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-500 mt-4"
                                     />
-                                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mt-2">
+                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
                                         <span>0%</span>
-                                        <span className="text-blue-600">{formData.Avancement}%</span>
+                                        <span className="text-sky-600 font-semibold">{formData.Avancement}%</span>
                                         <span>100%</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="label-modern">Priorité</label>
-                                    <div className="flex gap-4 mt-2">
+                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                        Priorité
+                                    </label>
+                                    <div className="flex gap-3 mt-2">
                                         {['Basse', 'Normale', 'Haute'].map(p => (
-                                            <label key={p} className={`flex-1 flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.Priorite === p ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                                            <label key={p} className={`flex-1 flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.Priorite === p ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                                                 <input type="radio" name="Priorite" value={p} checked={formData.Priorite === p} onChange={handleChange} className="hidden" />
-                                                <span className="text-xs font-bold uppercase tracking-wider">{p}</span>
+                                                <span className="text-xs font-semibold uppercase tracking-wider">{p}</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="label-modern">Date d'échéance</label>
+                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                                        Date d'échéance
+                                    </label>
                                     <div className="relative">
-                                        <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                         <input
                                             type="date"
                                             name="Date_Echeance"
                                             value={formData.Date_Echeance}
                                             onChange={handleChange}
-                                            className="input-modern pl-12"
+                                            className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                         />
                                     </div>
                                 </div>
@@ -466,21 +483,20 @@ const ProjetForm = () => {
                     </div>
                 </div>
 
-                <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-6 self-start">
-                    <div className="card-luxury p-0 overflow-hidden shadow-lg shadow-slate-200/30">
-                        <div className="px-6 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-3">
-                            <div className="icon-shape icon-shape-sm bg-slate-800">
-                                <DocumentTextIcon className="h-4 w-4 text-white" />
-                            </div>
-                            <h2 className="text-sm font-bold text-slate-800">Note Privée</h2>
+                <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 self-start">
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                                Note Privée
+                            </h2>
                         </div>
                         <div className="p-6">
                             <textarea
                                 name="Note_Privee"
                                 value={formData.Note_Privee}
                                 onChange={handleChange}
-                                rows="6"
-                                className="input-modern resize-none text-sm"
+                                rows="8"
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none resize-none"
                                 placeholder="Instructions internes, détails techniques..."
                             ></textarea>
                         </div>
