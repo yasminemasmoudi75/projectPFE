@@ -37,16 +37,14 @@ const MouvementsPage = () => {
       
       if (filters.docType) params.append('docType', filters.docType);
       if (filters.codTiers) params.append('codTiers', filters.codTiers);
-      
-      // Toujours envoyer les deux dates - si pas de dateDebut, utiliser aujourd'hui
-      const today = new Date().toISOString().split('T')[0];
-      const dateDebut = filters.dateDebut || today;
-      const dateFin = filters.dateFin || filters.dateDebut || today;
-      
-      console.log('🗓️ Filter dates:', { filters_dateDebut: filters.dateDebut, filters_dateFin: filters.dateFin, send_dateDebut: dateDebut, send_dateFin: dateFin });
-      
-      params.append('dateDebut', dateDebut);
-      params.append('dateFin', dateFin);
+
+      // N'envoyer les dates que si l'utilisateur filtre réellement par date
+      if (filters.dateDebut) {
+        params.append('dateDebut', filters.dateDebut);
+      }
+      if (filters.dateFin) {
+        params.append('dateFin', filters.dateFin);
+      }
       
       // Ajouter timestamp pour forcer le navigateur à ne pas utiliser le cache
       params.append('_t', Date.now());

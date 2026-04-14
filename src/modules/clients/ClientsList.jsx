@@ -33,6 +33,7 @@ const ClientsList = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [clients, setClients] = useState([]);
     const [commercialsList, setCommercialsList] = useState([]);
+    const [tiersClasses, setTiersClasses] = useState([]);
     const [tiersGouvernorats, setTiersGouvernorats] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -81,7 +82,17 @@ const ClientsList = () => {
             }
         };
 
+        const fetchTiersClasses = async () => {
+            try {
+                const response = await axios.get('/tiers-classes');
+                setTiersClasses(response.data.data || response.data || []);
+            } catch (error) {
+                console.error('Error fetching tiers classes:', error);
+            }
+        };
+
         fetchTiersGouvernorats();
+        fetchTiersClasses();
 
         // Fetch commercials filtered by filtrerepres
         const fetchCommerciaux = async () => {
@@ -118,9 +129,12 @@ const ClientsList = () => {
             const clientCityLabel = String(c.region?.libelle || c.Region?.libelle || c.tiersGouvernorat?.libelle || c.TiersGouvernorat?.libelle || c.Ville || '').trim().toLowerCase();
             const matchesCity = !selectedCity || clientCityId === selectedCity || clientCityLabel === selectedCity.toLowerCase();
 
-            const clientClasse = (c.tiersClasse?.libelle || c.Classe || '').toString().trim().toLowerCase();
-            const selectedClasse = String(filters.classe || '').trim().toLowerCase();
-            const matchesClasse = !selectedClasse || clientClasse === selectedClasse;
+            const selectedClasse = String(filters.classe || '').trim();
+            const clientClasseId = String(c.tiersClasse?.id ?? c.Classe ?? '').trim();
+            const clientClasseLabel = String(c.tiersClasse?.libelle || '').trim().toLowerCase();
+            const matchesClasse = !selectedClasse
+                || clientClasseId === selectedClasse
+                || clientClasseLabel === selectedClasse.toLowerCase();
 
             const matchesCommercial = !filters.commercial ||
                 String(c.codRepresTiers || '') === filters.commercial;
@@ -261,8 +275,16 @@ const ClientsList = () => {
     }, [tiersGouvernorats]);
 
     const uniqueClasses = useMemo(() => {
-        return [...new Set(clients.map(c => c.tiersClasse?.libelle || c.Classe).filter(Boolean))].sort();
-    }, [clients]);
+        const byId = new Map();
+        tiersClasses.forEach((cl) => {
+            const id = String(cl.id || '').trim();
+            const libelle = String(cl.libelle || '').trim();
+            if (!id || !libelle || byId.has(id)) return;
+            byId.set(id, { id, libelle });
+        });
+
+        return Array.from(byId.values()).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
+    }, [tiersClasses]);
 
     // Use backend-fetched commercials (filtered by filtrerepres) if available,
     // fallback to extracting from loaded clients
@@ -486,7 +508,7 @@ const ClientsList = () => {
                                 >
                                     <option value="">Toutes les classes</option>
                                     {uniqueClasses.map(classe => (
-                                        <option key={classe} value={classe}>{classe}</option>
+                                        <option key={classe.id} value={classe.id}>{classe.libelle}</option>
                                     ))}
                                 </select>
                             </div>

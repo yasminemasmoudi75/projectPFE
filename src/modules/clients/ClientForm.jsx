@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from '../../app/axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -84,6 +84,7 @@ const ClientForm = () => {
     const [tiersClasses, setTiersClasses] = useState([]);
     const [tiersGouvernorats, setTiersGouvernorats] = useState([]);
     const [tiersCategories, setTiersCategories] = useState([]);
+    const [commercialsList, setCommercialsList] = useState([]);
     const [emailCheckMessage, setEmailCheckMessage] = useState('');
     const [emailChecking, setEmailChecking] = useState(false);
 
@@ -115,9 +116,25 @@ const ClientForm = () => {
             }
         };
 
+        const fetchCommercials = async () => {
+            try {
+                const response = await axios.get('/users/commercials/assignable');
+                const data = response.data;
+                const rawList = Array.isArray(data) ? data : data.data || [];
+                setCommercialsList(rawList.map((c) => ({
+                    UserID: c.userId || c.UserID,
+                    FullName: c.fullName || c.FullName || c.label || c.login,
+                    LoginName: c.login || c.LoginName
+                })));
+            } catch (error) {
+                console.error('Error fetching commercials:', error);
+            }
+        };
+
         fetchTiersClasses();
         fetchTiersGouvernorats();
         fetchTiersCategories();
+        fetchCommercials();
 
         if (isEdit) {
             const fetchClient = async () => {
@@ -202,6 +219,16 @@ const ClientForm = () => {
             fetchClient();
         }
     }, [id, isEdit, navigate]);
+
+    const selectedClassLabel = useMemo(() => {
+        const classId = String(formData.Classe || '').trim();
+        if (!classId) return '';
+
+        const selectedClass = tiersClasses.find((cl) => String(cl.id) === classId);
+        return String(selectedClass?.libelle || '').trim().toLowerCase();
+    }, [formData.Classe, tiersClasses]);
+
+    const canAssignCommercial = selectedClassLabel === 'prospect';
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -293,6 +320,11 @@ const ClientForm = () => {
 
         if (!String(formData.gouvernorat || '').trim()) {
             toast.error('Le gouvernorat est obligatoire.');
+            return;
+        }
+
+        if (String(formData.Commercial || '').trim() && !canAssignCommercial) {
+            toast.error('Seuls les clients de classe Prospect peuvent être affectés à un commercial.');
             return;
         }
 
@@ -922,11 +954,25 @@ const ClientForm = () => {
                                     value={formData.Commercial}
                                     onChange={handleChange}
                                     className="input-modern"
+                                    disabled={!canAssignCommercial}
                                 >
                                     <option value="">Sélectionner...</option>
-                                    <option value="Admin">Administrateur</option>
-                                    <option value="Commercial1">Commercial 1</option>
+                                    {commercialsList.map((commercial) => (
+                                        <option key={commercial.UserID || commercial.LoginName} value={String(commercial.LoginName || commercial.UserID || '')}>
+                                            {commercial.FullName || commercial.LoginName || commercial.UserID}
+                                        </option>
+                                    ))}
                                 </select>
+                                {!canAssignCommercial && (
+                                    <p className="mt-2 text-[11px] text-slate-500">
+                                        L’affectation commerciale est réservée aux clients de classe Prospect.
+                                    </p>
+                                )}
+                                {canAssignCommercial && (
+                                    <p className="mt-2 text-[11px] text-emerald-600">
+                                        À l’enregistrement, la classe sera automatiquement basculée en Passif.
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="label-modern">Conditions de Paiement</label>

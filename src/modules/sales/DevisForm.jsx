@@ -59,6 +59,57 @@ const toNonNegativeNumber = (value, fallback = 0) => {
     return Math.max(0, parsed);
 };
 
+const calculateDetailAmounts = (item = {}) => {
+    const qt = toNonNegativeNumber(item.Qt, 0);
+    const puHT = toNonNegativeNumber(item.PuHT, 0);
+    const remisePercent = toNonNegativeNumber(item.Remise, 0);
+    const tva = toNonNegativeNumber(item.Tva, 0);
+
+    const brutHT = qt * puHT;
+    const mntRem = brutHT * (remisePercent / 100);
+    const mntHT = Math.max(0, brutHT - mntRem);
+    const mntTVA = mntHT * (tva / 100);
+
+    return {
+        ...item,
+        MntRem: mntRem,
+        MntTVA: mntTVA,
+        MntHT: mntHT,
+        MntFodec: toNonNegativeNumber(item.MntFodec, 0),
+        MntFrais: toNonNegativeNumber(item.MntFrais, 0),
+        PuTTC: puHT + (puHT * (tva / 100))
+    };
+};
+
+const createDetailItem = (overrides = {}) => calculateDetailAmounts({
+    tempId: Date.now(),
+    CodArt: '',
+    LibArt: '',
+    ExLibArt: '',
+    Qt: 1,
+    PuHT: 0,
+    PuTTC: 0,
+    Tva: 19,
+    MntRem: 0,
+    MntTVA: 0,
+    MntHT: 0,
+    MntFodec: 0,
+    PvPub: 0,
+    CodColor: '',
+    DesColor: '',
+    CodTaille: '',
+    Taille: '',
+    PuDev: 0,
+    MntFrais: 0,
+    NumBL: '',
+    DateBL: null,
+    Codabar: '',
+    NumImport: '',
+    DatImport: null,
+    productSearch: '',
+    ...overrides
+});
+
 const DevisForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -240,33 +291,7 @@ const DevisForm = () => {
     const [clientCin, setClientCin] = useState('');
 
     const [items, setItems] = useState([
-        { 
-            tempId: Date.now(), 
-            CodArt: '', 
-            LibArt: '', 
-            ExLibArt: '',
-            Qt: 1, 
-            PuHT: 0,
-            PuTTC: 0,
-            Tva: 19,
-            MntRem: 0,
-            MntTVA: 0,
-            MntHT: 0,
-            MntFodec: 0,
-            PvPub: 0,
-            CodColor: '',
-            DesColor: '',
-            CodTaille: '',
-            Taille: '',
-            PuDev: 0,
-            MntFrais: 0,
-            NumBL: '',
-            DateBL: null,
-            Codabar: '',
-            NumImport: '',
-            DatImport: null,
-            productSearch: '' 
-        }
+        createDetailItem()
     ]);
 
     const activeProductSearch = items.find(item => item.tempId === activeProductRowId)?.productSearch?.trim() || '';
@@ -355,7 +380,13 @@ const DevisForm = () => {
     useEffect(() => {
         const fetchClients = async () => {
             try {
-                const response = await axiosInstance.get('/tiers');
+                const response = await axiosInstance.get('/tiers', {
+                    params: {
+                        page: 1,
+                        limit: 10000,
+                        sort: 'recent'
+                    }
+                });
                 // axiosInstance interceptor returns response.data directly
                 if (response.data && Array.isArray(response.data)) {
                     setClients(response.data);
@@ -412,7 +443,7 @@ const DevisForm = () => {
             });
 
             if (details && details.length > 0) {
-                setItems(details.map(d => ({ ...d, tempId: d.NoDetail || Math.random() })));
+                setItems(details.map(d => calculateDetailAmounts({ ...d, tempId: d.NoDetail || Math.random() })));
             }
             setLoading(false);
         }
@@ -420,18 +451,8 @@ const DevisForm = () => {
 
     // Recalculate totals
     useEffect(() => {
-        const subTotal = items.reduce((sum, item) => {
-            const qt = toNonNegativeNumber(item.Qt, 0);
-            const puHT = toNonNegativeNumber(item.PuHT, 0);
-            return sum + (qt * puHT);
-        }, 0);
-
-        const totalTva = items.reduce((sum, item) => {
-            const qt = toNonNegativeNumber(item.Qt, 0);
-            const puHT = toNonNegativeNumber(item.PuHT, 0);
-            const tva = toNonNegativeNumber(item.Tva, 0);
-            return sum + (qt * puHT * (tva / 100));
-        }, 0);
+        const subTotal = items.reduce((sum, item) => sum + toNonNegativeNumber(item.MntHT, 0), 0);
+        const totalTva = items.reduce((sum, item) => sum + toNonNegativeNumber(item.MntTVA, 0), 0);
 
         const totalRem = toNonNegativeNumber(formData.TotRem, 0);
         const totalTTC = subTotal + totalTva - totalRem;
@@ -457,33 +478,7 @@ const DevisForm = () => {
     };
 
     const addItem = () => {
-        setItems([...items, { 
-            tempId: Date.now(), 
-            CodArt: '', 
-            LibArt: '', 
-            ExLibArt: '',
-            Qt: 1, 
-            PuHT: 0,
-            PuTTC: 0,
-            Tva: 19,
-            MntRem: 0,
-            MntTVA: 0,
-            MntHT: 0,
-            MntFodec: 0,
-            PvPub: 0,
-            CodColor: '',
-            DesColor: '',
-            CodTaille: '',
-            Taille: '',
-            PuDev: 0,
-            MntFrais: 0,
-            NumBL: '',
-            DateBL: null,
-            Codabar: '',
-            NumImport: '',
-            DatImport: null,
-            productSearch: '' 
-        }]);
+        setItems((prev) => [...prev, createDetailItem()]);
     };
 
     const removeItem = (tempId) => {
@@ -497,7 +492,11 @@ const DevisForm = () => {
             ? toNonNegativeNumber(value, 0)
             : value;
 
-        setItems(items.map(item => item.tempId === tempId ? { ...item, [field]: normalizedValue } : item));
+        setItems((prev) => prev.map((item) => (
+            item.tempId === tempId
+                ? calculateDetailAmounts({ ...item, [field]: normalizedValue })
+                : item
+        )));
     };
 
     const handleProductSearchChange = (tempId, value) => {
@@ -511,8 +510,8 @@ const DevisForm = () => {
             const selectedPrice = Number.parseFloat(selectedProduct.PrixVente);
             const selectedTva = Number.parseFloat(selectedProduct.Tva);
 
-            setItems(items.map(item =>
-                item.tempId === tempId ? {
+            setItems((prev) => prev.map((item) => (
+                item.tempId === tempId ? calculateDetailAmounts({
                     ...item,
                     IDArt: selectedProduct.IDArt,
                     CodArt: selectedProduct.CodArt,
@@ -520,8 +519,8 @@ const DevisForm = () => {
                     productSearch: getProductSearchLabel(selectedProduct),
                     PuHT: Number.isFinite(selectedPrice) ? selectedPrice : 0,
                     Tva: Number.isFinite(selectedTva) ? selectedTva : 19
-                } : item
-            ));
+                }) : item
+            )));
             setActiveProductRowId(null);
             setProductOptions(allProductOptions);
         }
@@ -553,7 +552,7 @@ const DevisForm = () => {
             (client.CodTiers && client.CodTiers.toLowerCase().includes(search)) ||
             (client.Email && client.Email.toLowerCase().includes(search))
         );
-    }).slice(0, 20); // Limit to 20 results for performance
+    });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
