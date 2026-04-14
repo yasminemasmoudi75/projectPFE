@@ -118,6 +118,67 @@ const isAdminRole = (role) => {
     return normalized === 'admin' || normalized === 'administrateur';
 };
 
+const normalizeClassLabel = (value) => String(value || '').trim().toLowerCase();
+
+const buildCommercialAssignmentError = (message) => {
+    const error = new Error(message);
+    error.statusCode = 400;
+    return error;
+};
+
+const getTiersClassByLabel = async (label, transaction = null) => {
+    const normalizedLabel = normalizeClassLabel(label);
+    if (!normalizedLabel) return null;
+
+    return TiersClasse.findOne({
+        where: sequelize.where(sequelize.fn('LOWER', sequelize.col('libelle')), normalizedLabel),
+        transaction
+    });
+};
+
+const resolveCommercialAssignment = async ({
+    currentTier = null,
+    requestedClassId = null,
+    requestedCommercial = null,
+    transaction = null
+} = {}) => {
+    const currentCommercialValue = normalizeNullableString(currentTier?.codRepresTiers);
+    const requestedCommercialValue = normalizeNullableString(requestedCommercial);
+    const effectiveClassId = normalizeNullableInt(requestedClassId ?? currentTier?.Classe);
+    const effectiveClass = effectiveClassId ? await TiersClasse.findByPk(effectiveClassId, { transaction }) : null;
+    const effectiveClassLabel = normalizeClassLabel(effectiveClass?.libelle || currentTier?.tiersClasse?.libelle);
+    const hasCommercial = Boolean(requestedCommercialValue || currentCommercialValue);
+    const isNewAssignment = Boolean(requestedCommercialValue) && requestedCommercialValue !== currentCommercialValue;
+
+    if (!hasCommercial) {
+        return {
+            commercialValue: null,
+            classId: effectiveClassId
+        };
+    }
+
+    if (isNewAssignment && effectiveClassLabel !== 'prospect') {
+        throw buildCommercialAssignmentError('Seuls les clients de classe Prospect peuvent être affectés à un commercial');
+    }
+
+    if (effectiveClassLabel === 'prospect' || normalizeClassLabel(currentTier?.tiersClasse?.libelle) === 'prospect') {
+        const passifClass = await getTiersClassByLabel('passif', transaction);
+        if (!passifClass) {
+            throw buildCommercialAssignmentError('La classe Passif est introuvable');
+        }
+
+        return {
+            commercialValue: requestedCommercialValue || currentCommercialValue,
+            classId: passifClass.id
+        };
+    }
+
+    return {
+        commercialValue: requestedCommercialValue || currentCommercialValue,
+        classId: effectiveClassId
+    };
+};
+
 const hasWhereConditions = (whereObj) => {
     if (!whereObj) return false;
     if (Object.keys(whereObj).length > 0) return true;
@@ -449,6 +510,14 @@ exports.createTiers = async (req, res, next) => {
 
         tiersPayload.gouvernorat = gouvernoratId;
 
+        const commercialAssignment = await resolveCommercialAssignment({
+            requestedClassId: tiersPayload.Classe,
+            requestedCommercial: tiersPayload.codRepresTiers,
+            transaction: t
+        });
+        tiersPayload.Classe = commercialAssignment.classId ?? tiersPayload.Classe;
+        tiersPayload.codRepresTiers = commercialAssignment.commercialValue;
+
         // 2. Validation des champs utilisateur pour éviter les troncatures
         const validationErrors = validateUserFields(normalizedEmail, userFullName);
         if (validationErrors.length > 0) {
@@ -595,6 +664,13 @@ exports.createTiers = async (req, res, next) => {
         });
     } catch (error) {
         console.error('❌ [CREATE TIERS ERROR]:', error.name, error.message);
+        if (error.statusCode === 400) {
+            if (t && !t.finished) await t.rollback().catch(() => { });
+            return res.status(400).json({
+                status: 'error',
+                message: error.message
+            });
+        }
         if (error.errors) {
             error.errors.forEach(err => console.error(`   - Champ: ${err.path}, Message: ${err.message}`));
         }
@@ -751,7 +827,10 @@ exports.checkTierEmailUnique = async (req, res, next) => {
 exports.updateTiers = async (req, res, next) => {
     const t = await sequelize.transaction();
     try {
-        const tiers = await Tiers.findByPk(req.params.id, { transaction: t });
+        const tiers = await Tiers.findByPk(req.params.id, {
+            include: [{ model: TiersClasse, as: 'tiersClasse' }],
+            transaction: t
+        });
         if (!tiers) {
             await t.rollback();
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
@@ -764,6 +843,15 @@ exports.updateTiers = async (req, res, next) => {
                 delete allowedUpdates[key];
             }
         });
+
+        const commercialAssignment = await resolveCommercialAssignment({
+            currentTier: tiers,
+            requestedClassId: allowedUpdates.Classe ?? tiers.Classe,
+            requestedCommercial: allowedUpdates.codRepresTiers,
+            transaction: t
+        });
+        allowedUpdates.Classe = commercialAssignment.classId ?? allowedUpdates.Classe ?? tiers.Classe;
+        allowedUpdates.codRepresTiers = commercialAssignment.commercialValue ?? tiers.codRepresTiers;
 
         if (updatedPhone) {
             const duplicatePhone = await findTiersByPhone({
@@ -824,6 +912,12 @@ exports.updateTiers = async (req, res, next) => {
     } catch (error) {
         if (t && !t.finished) {
             await t.rollback().catch(() => { });
+        }
+        if (error.statusCode === 400) {
+            return res.status(400).json({
+                status: 'error',
+                message: error.message
+            });
         }
         next(error);
     }
