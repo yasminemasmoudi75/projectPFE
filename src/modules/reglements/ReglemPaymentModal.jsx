@@ -1,14 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from '../../app/axios';
 import { formatCurrency } from '../../utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const ReglemPaymentModal = ({ reglement, isOpen, onClose, onSuccess }) => {
-  const [mntCredit, setMntCredit] = useState(reglement?.paidAmount || 0);
-  const [payed, setPayed] = useState(reglement?.isPayed || false);
+  const [mntCredit, setMntCredit] = useState('0');
+  const [payed, setPayed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen || !reglement) return;
+
+    const initialPaid = Number(reglement.paidAmount || 0);
+    const initialTotal = Number(reglement.totalAmount || 0);
+    const normalizedPaid = Number.isFinite(initialPaid) ? initialPaid : 0;
+    const normalizedTotal = Number.isFinite(initialTotal) ? initialTotal : 0;
+
+    setMntCredit(String(normalizedPaid));
+    setPayed(Boolean(reglement.isPayed) || normalizedPaid >= normalizedTotal - 0.001);
+    setError(null);
+  }, [isOpen, reglement]);
+
+  const numericCredit = Number.parseFloat(String(mntCredit ?? '').replace(',', '.'));
+  const safeCredit = Number.isFinite(numericCredit) ? numericCredit : 0;
+  const safeTotal = Number(reglement?.totalAmount || 0);
+  const clampedCredit = Math.max(0, Math.min(safeCredit, safeTotal));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,10 +34,10 @@ const ReglemPaymentModal = ({ reglement, isOpen, onClose, onSuccess }) => {
     setError(null);
 
     try {
-      console.log('💳 Submitting payment:', { mntCredit, payed });
+      console.log('💳 Submitting payment:', { mntCredit: clampedCredit, payed });
 
       const response = await axios.put(`/reglements/${reglement.id}`, {
-        mntCredit: parseFloat(mntCredit),
+        mntCredit: clampedCredit,
         payed: payed,
       });
 
@@ -41,8 +59,8 @@ const ReglemPaymentModal = ({ reglement, isOpen, onClose, onSuccess }) => {
 
   if (!isOpen || !reglement) return null;
 
-  const calculatedRemaining = reglement.totalAmount - mntCredit;
-  const calculatedPercentage = reglement.totalAmount > 0 ? Math.round((mntCredit / reglement.totalAmount) * 100) : 0;
+  const calculatedRemaining = safeTotal - clampedCredit;
+  const calculatedPercentage = safeTotal > 0 ? Math.round((clampedCredit / safeTotal) * 100) : 0;
 
   return (
     <AnimatePresence>
@@ -113,7 +131,7 @@ const ReglemPaymentModal = ({ reglement, isOpen, onClose, onSuccess }) => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0.001"
                 min="0"
                 max={reglement.totalAmount}
                 value={mntCredit}
@@ -141,7 +159,7 @@ const ReglemPaymentModal = ({ reglement, isOpen, onClose, onSuccess }) => {
                 ></motion.div>
               </div>
               <div className="flex justify-between text-xs text-slate-600">
-                <span>Payé: <span className="font-bold text-emerald-600">{formatCurrency(mntCredit)}</span></span>
+                <span>Payé: <span className="font-bold text-emerald-600">{formatCurrency(clampedCredit)}</span></span>
                 <span>Restant: <span className="font-bold text-orange-600">{formatCurrency(Math.max(0, calculatedRemaining))}</span></span>
               </div>
             </div>

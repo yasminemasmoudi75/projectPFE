@@ -4,10 +4,19 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import axios from '../../app/axios';
 import { formatCurrency, formatDate } from '../../utils/format';
 
+const getLocalDateInputValue = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const defaultFormState = () => ({
     codTiers: '',
     libTiers: '',
-    datReg: new Date().toISOString().split('T')[0],
+    datReg: getLocalDateInputValue(),
+    existingReglementId: '',
     modReg: 'ESPECE',
     numPiece: '',
     banque: '',
@@ -17,6 +26,16 @@ const defaultFormState = () => ({
 const toNumber = (value) => {
     const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
     return Number.isFinite(parsed) ? Math.round(parsed * 1000) / 1000 : 0;
+};
+
+const toDateOnlyLocal = (value) => {
+    if (!value) return '';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const getDocKey = (doc) => `${doc.type}:${doc.id}`;
@@ -40,6 +59,8 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
     const [loadingClients, setLoadingClients] = useState(false);
     const [loadingModes, setLoadingModes] = useState(false);
     const [loadingDocs, setLoadingDocs] = useState(false);
+    const [existingReglements, setExistingReglements] = useState([]);
+    const [loadingExistingReglements, setLoadingExistingReglements] = useState(false);
 
     const normalizedModReg = String(formData.modReg || '').toUpperCase();
     const requiresReference = ['CHEQUE', 'VIREMENT', 'TRAITE', 'EFFET'].includes(normalizedModReg);
@@ -67,9 +88,17 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         const search = String(docFilters.search || '').trim().toLowerCase();
         const from = String(docFilters.dateFrom || '').trim();
         const to = String(docFilters.dateTo || '').trim();
+        const selectedReglementId = String(formData.existingReglementId || '').trim();
 
         return documents.filter((doc) => {
             if (docFilters.type && doc.type !== docFilters.type) return false;
+
+            const openedReglementId = String(doc.openReglementId || '').trim();
+            if (selectedReglementId) {
+                if (openedReglementId !== selectedReglementId) return false;
+            } else if (openedReglementId) {
+                return false;
+            }
 
             if (search) {
                 const inText = `${doc.num || ''} ${doc.type || ''}`.toLowerCase();
@@ -82,7 +111,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
 
             return true;
         });
-    }, [documents, docFilters]);
+    }, [documents, docFilters, formData.existingReglementId]);
 
     const selectedPieces = useMemo(() => {
         return documents
@@ -102,6 +131,12 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         return selectedPieces.filter((piece) => piece.allocatedAmount < (piece.remaining - 0.01)).length;
     }, [selectedPieces]);
 
+    const selectedExistingReglement = useMemo(() => {
+        const id = String(formData.existingReglementId || '').trim();
+        if (!id) return null;
+        return existingReglements.find((reg) => String(reg.id || '').trim() === id) || null;
+    }, [existingReglements, formData.existingReglementId]);
+
     useEffect(() => {
         if (!isOpen) return;
         fetchClients();
@@ -111,6 +146,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         setError('');
         setSelectedAllocations({});
         setDocuments([]);
+        setExistingReglements([]);
         setDocFilters({ search: '', type: '', dateFrom: '', dateTo: '' });
         setFormData(defaultFormState());
     }, [isOpen]);
@@ -118,7 +154,27 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
     useEffect(() => {
         if (!isOpen || !formData.codTiers) return;
         fetchUnpaidDocuments(formData.codTiers, docFilters.dateFrom, docFilters.dateTo);
+        fetchClientOpenReglements(formData.codTiers);
     }, [isOpen, formData.codTiers, docFilters.dateFrom, docFilters.dateTo]);
+
+    const fetchClientOpenReglements = async (codTiers) => {
+        if (!codTiers) {
+            setExistingReglements([]);
+            return;
+        }
+
+        try {
+            setLoadingExistingReglements(true);
+            const response = await axios.get(`/reglements/client/${encodeURIComponent(codTiers)}/open`);
+            const payload = response?.data?.data || response?.data || [];
+            setExistingReglements(Array.isArray(payload) ? payload : []);
+        } catch (err) {
+            setExistingReglements([]);
+            console.error('Error loading open reglements:', err);
+        } finally {
+            setLoadingExistingReglements(false);
+        }
+    };
 
     const fetchPaymentModes = async () => {
         try {
@@ -194,6 +250,9 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                     debit,
                     credit,
                     remaining: Math.max(0, remaining),
+                    openReglementId: doc.openReglementId || null,
+                    openReglementDate: doc.openReglementDate || null,
+                    openReglementRemaining: toNumber(doc.openReglementRemaining || 0),
                 };
             }).filter((doc) => doc.remaining > 0) : [];
 
@@ -231,6 +290,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             ...prev,
             codTiers,
             libTiers: client?.LibelleComplet || client?.Nom || client?.LibTiers || client?.Raisoc || codTiers,
+            existingReglementId: '',
         }));
         setSelectedAllocations({});
         setDocuments([]);
@@ -290,6 +350,18 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             return;
         }
 
+        const hasExistingReglement = String(formData.existingReglementId || '').trim().length > 0;
+        const invalidOpenLink = selectedPieces.find((piece) => {
+            const openId = String(piece.openReglementId || '').trim();
+            if (!hasExistingReglement) return Boolean(openId);
+            return openId && openId !== String(formData.existingReglementId || '').trim();
+        });
+
+        if (invalidOpenLink) {
+            setError('Une ou plusieurs pièces sont liées à un autre règlement en cours.');
+            return;
+        }
+
         try {
             setLoading(true);
             setError('');
@@ -300,6 +372,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                 libTiers: formData.libTiers,
                 mntReg: totalAllocated,
                 datReg: formData.datReg,
+                existingReglementId: formData.existingReglementId || null,
                 selectedPieces: selectedPieces.map((piece) => ({
                     id: piece.id,
                     type: piece.type,
@@ -316,6 +389,10 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                     }
                 ]
             };
+
+            if (!hasExistingReglement) {
+                payload.mntRegTarget = toNumber(selectedPieces.reduce((sum, piece) => sum + toNumber(piece.remaining), 0));
+            }
 
             const response = await axios.post('/reglements', payload);
             const createdReglement = response?.data?.data || response?.data;
@@ -445,6 +522,41 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                     </div>
                                 </div>
 
+                                {formData.codTiers && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Règlement existant (tranche)</label>
+                                        <select
+                                            name="existingReglementId"
+                                            value={formData.existingReglementId}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setFormData((prev) => ({ ...prev, existingReglementId: value }));
+                                                setSelectedAllocations({});
+                                                setError('');
+                                            }}
+                                            disabled={loading || loadingExistingReglements}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="">Nouveau règlement (pièces non liées)</option>
+                                            {existingReglements.map((reg) => (
+                                                <option key={reg.id} value={reg.id}>
+                                                    {reg.id} | Restant {formatCurrency(reg.remainingAmount)} | {formatDate(toDateOnlyLocal(reg.date))}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {selectedExistingReglement && (
+                                            <p className="text-xs text-blue-700 mt-2">
+                                                Tranche sur règlement {selectedExistingReglement.id} - restant {formatCurrency(selectedExistingReglement.remainingAmount)}
+                                            </p>
+                                        )}
+                                        {!selectedExistingReglement && formData.codTiers && (
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                En mode nouveau règlement, seules les pièces non liées à un règlement en cours sont proposées.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {(requiresReference || requiresBank) && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
@@ -560,7 +672,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                                                 />
                                                             </td>
                                                             <td className="px-3 py-2 font-medium text-slate-800">{doc.type} - {doc.num}</td>
-                                                            <td className="px-3 py-2 text-slate-600">{formatDate(String(doc.date || '').slice(0, 10))}</td>
+                                                            <td className="px-3 py-2 text-slate-600">{formatDate(toDateOnlyLocal(doc.date))}</td>
                                                             <td className="px-3 py-2 text-right">{formatCurrency(doc.debit)}</td>
                                                             <td className="px-3 py-2 text-right text-emerald-700">{formatCurrency(doc.credit)}</td>
                                                             <td className="px-3 py-2 text-right font-semibold text-orange-700">{formatCurrency(doc.remaining)}</td>
@@ -568,7 +680,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                                                 <input
                                                                     type="number"
                                                                     min="0"
-                                                                    step="0.01"
+                                                                    step="0.001"
                                                                     max={doc.remaining}
                                                                     value={selected ? selectedAllocations[key] : ''}
                                                                     onChange={(e) => handleAllocationChange(doc, e.target.value)}

@@ -30,6 +30,7 @@ import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 import axios from '../../app/axios';
+import DocumentReglementHistoryModal from '../reglements/DocumentReglementHistoryModal';
 
 // --- Animation Variants ---
 const containerVariants = {
@@ -85,6 +86,7 @@ const FavList = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
   const [allClients, setAllClients] = useState([]);
+  const [historyTarget, setHistoryTarget] = useState(null);
 
   const clientsFromVisibleFav = useMemo(() => {
     const uniqueClients = new Map();
@@ -698,6 +700,20 @@ const FavList = () => {
                             </button>
                           )}
                           <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryTarget({
+                                id: item.Guid,
+                                type: 'FA',
+                                label: `${item.Prfx || ''}${item.Nf || ''}`,
+                              });
+                            }}
+                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 rounded-xl transition-all hover:-translate-y-0.5"
+                            title="Détails règlements"
+                          >
+                            <DocumentTextIcon className="h-4 w-4 stroke-[2.5]" />
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/fav/${item.Guid}`); }}
                             className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all hover:-translate-y-0.5"
                             title="Détails"
@@ -765,6 +781,14 @@ const FavList = () => {
           </div>
         )}
       </motion.div>
+
+      <DocumentReglementHistoryModal
+        isOpen={Boolean(historyTarget)}
+        onClose={() => setHistoryTarget(null)}
+        documentId={historyTarget?.id}
+        documentType={historyTarget?.type}
+        documentLabel={historyTarget?.label}
+      />
     </motion.div>
   );
 };

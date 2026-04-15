@@ -51,25 +51,30 @@ const ReglemsList = () => {
 
   const toDateOnly = (value) => {
     if (!value) return '';
-    const raw = typeof value === 'string' ? value : new Date(value).toISOString();
-    return raw.slice(0, 10);
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const loadReglements = async () => {
+  const loadReglements = async (overrideFilters = null) => {
     try {
       setLoading(true);
+      const activeFilters = overrideFilters || filters;
       const params = new URLSearchParams({
-        search: filters.search,
-        status: filters.status,
-        page: filters.page,
-        limit: filters.limit,
+        search: activeFilters.search,
+        status: activeFilters.status,
+        page: activeFilters.page,
+        limit: activeFilters.limit,
       });
 
-      if (filters.date) params.set('date', filters.date);
-      if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-      if (filters.dateTo) params.set('dateTo', filters.dateTo);
-      if (filters.codTiers) params.set('codTiers', filters.codTiers);
-      if (filters.codRepres) params.set('codRepres', filters.codRepres);
+      if (activeFilters.date) params.set('date', activeFilters.date);
+      if (activeFilters.dateFrom) params.set('dateFrom', activeFilters.dateFrom);
+      if (activeFilters.dateTo) params.set('dateTo', activeFilters.dateTo);
+      if (activeFilters.codTiers) params.set('codTiers', activeFilters.codTiers);
+      if (activeFilters.codRepres) params.set('codRepres', activeFilters.codRepres);
 
       const res = await axios.get(`/reglements?${params}`);
       setReglements(res.data.data || res.data);
@@ -655,7 +660,7 @@ const ReglemsList = () => {
           }
 
           setFilters((prev) => ({ ...prev, page: 1 }));
-          loadReglements();
+          loadReglements({ ...filters, page: 1 });
           fetchStats();
         }}
       />

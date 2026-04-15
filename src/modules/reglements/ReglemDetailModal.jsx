@@ -11,8 +11,12 @@ const ReglemDetailModal = ({ isOpen, onClose, reglementId }) => {
 
     const toDateOnly = (value) => {
         if (!value) return '';
-        const raw = typeof value === 'string' ? value : new Date(value).toISOString();
-        return raw.slice(0, 10);
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
 
     const fetchReglemDetail = useCallback(async () => {
@@ -169,19 +173,25 @@ const ReglemDetailModal = ({ isOpen, onClose, reglementId }) => {
                                                 <table className="w-full text-sm text-gray-600">
                                                     <thead className="bg-gray-100">
                                                         <tr>
+                                                            <th className="px-4 py-2 text-left font-semibold text-gray-700">Référence</th>
                                                             <th className="px-4 py-2 text-left font-semibold text-gray-700">Mode</th>
+                                                            <th className="px-4 py-2 text-left font-semibold text-gray-700">Banque</th>
                                                             <th className="px-4 py-2 text-right font-semibold text-gray-700">Montant</th>
                                                             <th className="px-4 py-2 text-right font-semibold text-gray-700">Crédit</th>
                                                             <th className="px-4 py-2 text-center font-semibold text-gray-700">Date Valeur</th>
+                                                            <th className="px-4 py-2 text-left font-semibold text-gray-700">Détail</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-200">
                                                         {reglement.details.map((detail) => (
                                                             <tr key={detail.ID} className="hover:bg-gray-50">
+                                                                <td className="px-4 py-2">{detail.NumPieceReg || '-'}</td>
                                                                 <td className="px-4 py-2">{detail.ModReg || 'ESPECE'}</td>
+                                                                <td className="px-4 py-2">{detail.Banque || '-'}</td>
                                                                 <td className="px-4 py-2 text-right font-medium">{formatCurrency(detail.Montant)}</td>
                                                                 <td className="px-4 py-2 text-right font-bold text-emerald-600">{formatCurrency(detail.MntCredit)}</td>
                                                                 <td className="px-4 py-2 text-center">{formatDate(toDateOnly(detail.DatValeur))}</td>
+                                                                <td className="px-4 py-2">{detail.DetPieceReg || '-'}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
