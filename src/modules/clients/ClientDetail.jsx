@@ -316,144 +316,172 @@ const ClientDetail = () => {
     ];
 
     return (
-        <div className="animate-fade-in space-y-8 pb-12">
-            {/* Professional Header section */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="flex items-center gap-6">
-                    <button
-                        onClick={() => navigate('/clients')}
-                        className="h-12 w-12 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:from-blue-50 hover:to-blue-100 rounded-2xl shadow-soft flex items-center justify-center transition-all duration-300"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5 stroke-[2.5]" />
-                    </button>
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">{client.LibTiers}</h1>
-                            <span className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 text-blue-700 text-xs font-extrabold uppercase tracking-wider rounded-full shadow-sm">
-                                {client.Type}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
-                            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent font-black">Réf. {client.CodTiers}</span>
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                            <span><MapPinIcon className="h-3.5 w-3.5 inline mr-1 text-slate-400" />{client.Ville || 'Ville non renseignée'}, {client.Pays || 'Tunisie'}</span>
+        <div className="animate-fade-in space-y-6 pb-12">
+            {/* Professional Header - Modern Design */}
+            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <button
+                            onClick={() => navigate('/clients')}
+                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
+                        >
+                            <ArrowLeftIcon className="h-5 w-5" />
+                        </button>
+                        <div>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+                                <UserCircleIcon className="h-3 w-3" />
+                                Fiche Client
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{client.LibTiers}</h1>
+                            <div className="flex items-center gap-3 mt-2 text-sm">
+                                <span className="font-semibold text-slate-600">Réf. {client.CodTiers}</span>
+                                <span className="h-1 w-1 rounded-full bg-slate-300"></span>
+                                <span className="flex items-center gap-1.5 text-slate-500">
+                                    <MapPinIcon className="h-4 w-4 text-sky-500" />
+                                    {client.Ville || 'Ville non renseignée'}, {client.Pays || 'Tunisie'}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate(`/clients/edit/${id}`)}
-                        className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-xs font-bold uppercase tracking-wider hover:border-blue-300 hover:text-blue-600 hover:shadow-soft transition-all duration-300"
-                    >
-                        <PencilIcon className="h-4 w-4 inline mr-2" />
-                        Éditer Fiche
-                    </button>
-                    <button
-                        onClick={() => navigate(`/clients/${id}/reglements`)}
-                        className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-xs font-bold uppercase tracking-wider hover:border-emerald-300 hover:text-emerald-600 hover:shadow-soft transition-all duration-300"
-                    >
-                        <BanknotesIcon className="h-4 w-4 inline mr-2" />
-                        Règlements
-                    </button>
-                    <button
-                        onClick={() => navigate('/devis/new')}
-                        className="btn-soft-primary flex items-center gap-2 rounded-2xl px-6 py-3"
-                    >
-                        <PlusIcon className="h-5 w-5 stroke-[3]" />
-                        <span>Nouveau Devis</span>
-                    </button>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate(`/clients/edit/${id}`)}
+                            className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all flex items-center gap-2"
+                        >
+                            <PencilIcon className="h-4 w-4" />
+                            Modifier
+                        </button>
+                        <button
+                            onClick={() => navigate(`/clients/${id}/reglements`)}
+                            className="px-5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-all flex items-center gap-2"
+                        >
+                            <BanknotesIcon className="h-4 w-4" />
+                            Règlements
+                        </button>
+                        <button
+                            onClick={() => navigate('/devis/new')}
+                            className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <PlusIcon className="h-4 w-4" />
+                            Nouveau Devis
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Professional Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat, i) => (
-                    <div key={i} className="card-luxury p-7 group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-slate-100 hover:border-blue-200">
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">{stat.label}</p>
-                                <p className="text-2xl font-black text-slate-900 group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent transition-all">{stat.value}</p>
-                            </div>
-                            <div className={`${stat.gradient} rounded-2xl p-3 shadow-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                                <stat.icon className="h-6 w-6 text-white" />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'C.A Total', value: `${client.ChiffreAffairesTotal.toLocaleString('fr-FR')} TND`, icon: ChartBarIcon, color: 'sky' },
+                    { label: 'Encours', value: `${client.Solde.toLocaleString('fr-FR')} TND`, icon: DocumentTextIcon, color: client.Solde > 5000 ? 'amber' : 'emerald' },
+                    { label: 'Devis', value: client.NombreDevis, icon: DocumentTextIcon, color: 'violet' },
+                    { label: 'Projets', value: clientProjets.length, icon: BriefcaseIcon, color: 'sky' },
+                ].map((stat, i) => {
+                    const colorMap = {
+                        sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
+                        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
+                        amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
+                        violet: { bg: 'bg-violet-50', text: 'text-violet-500', bar: 'bg-violet-400' },
+                    };
+                    const colors = colorMap[stat.color];
+                    return (
+                        <div key={i} className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group">
+                            <div className="p-5">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                                        <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
+                                    </div>
+                                    <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                                        <stat.icon className={`h-5 w-5 ${colors.text}`} />
+                                    </div>
+                                </div>
+                                <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Content Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                 {/* Sidebar Info */}
-                <div className="lg:col-span-4 space-y-8">
-                    <div className="card-luxury p-0 overflow-hidden border border-slate-100 hover:border-blue-200 transition-all duration-300">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center gap-3 bg-gradient-to-r from-slate-50 via-blue-50/30 to-slate-50">
-                            <div className="h-10 w-10 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center text-blue-700 border border-blue-200 shadow-soft">
-                                <IdentificationIcon className="h-5 w-5" />
+                <div className="lg:col-span-4 space-y-6">
+                    {/* Identity Card */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
+                                    <IdentificationIcon className="h-5 w-5" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800">Fiche Identité</h3>
                             </div>
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Fiche Identité</h3>
                         </div>
-                        <div className="p-8 space-y-7">
+                        <div className="p-6 space-y-5">
                             {[
                                 { icon: PhoneIcon, label: 'Ligne Directe', value: client.Tel },
-                                { icon: EnvelopeIcon, label: 'Emailing / Facturation', value: client.Email },
+                                { icon: EnvelopeIcon, label: 'Email', value: client.Email },
                                 { icon: MapPinIcon, label: 'Siège Social', value: `${client.Adresse || '—'}, ${client.Cp || client.CodePostal || '—'} ${client.Ville || '—'}` },
                                 { icon: IdentificationIcon, label: 'Identifiant Fiscal', value: client.CodTva || client.MatriculeFiscale },
-                                { icon: UserCircleIcon, label: 'Commercial Assigné', value: client.codRepresTiers || client.Commercial },
+                                { icon: UserCircleIcon, label: 'Commercial', value: client.codRepresTiers || client.Commercial },
                             ].map((item, i) => (
-                                <div key={i} className="group cursor-default hover:bg-blue-50/40 p-4 rounded-xl transition-all duration-300">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2.5">{item.label}</p>
-                                    <div className="flex items-start gap-4">
-                                        <div className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5 group-hover:text-blue-700 transition-colors">
+                                <div key={i} className="group hover:bg-sky-50/50 p-3 rounded-xl transition-all">
+                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">{item.label}</p>
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-5 w-5 text-sky-500 flex-shrink-0 mt-0.5">
                                             <item.icon className="h-full w-full" />
                                         </div>
-                                        <p className="text-sm font-semibold text-slate-700 leading-tight group-hover:text-slate-900 transition-all">{item.value}</p>
+                                        <p className="text-sm font-medium text-slate-700">{item.value}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="card-luxury p-0 overflow-hidden border border-slate-100 hover:border-emerald-200 transition-all duration-300">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center gap-3 bg-gradient-to-r from-slate-50 via-emerald-50/30 to-slate-50">
-                            <div className="h-10 w-10 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center text-emerald-700 border border-emerald-200 shadow-soft">
-                                <UserGroupIcon className="h-5 w-5" />
+                    {/* Contacts & Adresses Card */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                    <UserGroupIcon className="h-5 w-5" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800">Contacts & Adresses</h3>
                             </div>
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Contacts & Adresses</h3>
                         </div>
-                        <div className="p-8 space-y-8">
+                        <div className="p-6 space-y-6">
                             <div>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <p className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Contacts</p>
-                                    <span className="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold">{contacts.length}</span>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Contacts</p>
+                                    <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium">{contacts.length}</span>
                                 </div>
                                 {contacts.length === 0 ? (
                                     <p className="text-xs text-slate-400 italic">Aucun contact enregistré</p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {contacts.map((contact, index) => (
-                                            <div key={`contact-${index}`} className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50/30 to-teal-50/30 p-4 hover:border-emerald-200 hover:shadow-soft transition-all duration-300">
-                                                <p className="text-sm font-bold text-slate-800 mb-1">{contact.Responsable || '—'}</p>
-                                                <p className="text-xs text-slate-500 flex items-center gap-2"><PhoneIcon className="h-3 w-3" />{contact.Tel || '—'}</p>
+                                            <div key={`contact-${index}`} className="rounded-xl border border-emerald-100 bg-emerald-50/30 p-3">
+                                                <p className="text-sm font-semibold text-slate-800 mb-1">{contact.Responsable || '—'}</p>
+                                                <p className="text-xs text-slate-500 flex items-center gap-1.5"><PhoneIcon className="h-3 w-3" />{contact.Tel || '—'}</p>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
 
-                            <div className="border-t border-slate-100 pt-6">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <p className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Adresses</p>
-                                    <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-[10px] font-bold">{addresses.length}</span>
+                            <div className="border-t border-slate-200 pt-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Adresses</p>
+                                    <span className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-xs font-medium">{addresses.length}</span>
                                 </div>
                                 {addresses.length === 0 ? (
                                     <p className="text-xs text-slate-400 italic">Aucune adresse enregistrée</p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {addresses.map((address, index) => (
-                                            <div key={`address-${index}`} className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/30 to-cyan-50/30 p-4 hover:border-blue-200 hover:shadow-soft transition-all duration-300">
-                                                <p className="text-sm font-bold text-slate-800 flex items-start gap-2"><MapPinIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />{address.Adresse || '—'}</p>
+                                            <div key={`address-${index}`} className="rounded-xl border border-sky-100 bg-sky-50/30 p-3">
+                                                <p className="text-sm font-semibold text-slate-800 flex items-start gap-2"><MapPinIcon className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-500" />{address.Adresse || '—'}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -464,65 +492,64 @@ const ClientDetail = () => {
                 </div>
 
                 {/* Main Activities/Tabs Area */}
-                <div className="lg:col-span-8 flex flex-col gap-8">
-                    <div className="card-luxury p-0 flex-1 flex flex-col overflow-hidden border border-slate-100 hover:border-slate-200 transition-all duration-300">
-                        {/* Professional Tabs */}
-                        <div className="flex border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50/30">
-                            {[
-                                { id: 'infos', label: 'Infos Complètes' },
-                                { id: 'activities', label: 'Journal Activités' },
-                                { id: 'devis', label: 'Documents Devis' },
-                                { id: 'projets', label: 'Suivi Projets' },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`px-8 py-4 text-[11px] font-bold uppercase tracking-wider transition-all relative group ${activeTab === tab.id
-                                        ? 'text-blue-700 bg-blue-50/50'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50/50'
-                                        }`}
-                                >
-                                    {tab.label}
-                                    {activeTab === tab.id && (
-                                        <div className="absolute bottom-0 left-8 right-8 h-1.5 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-t-full shadow-lg shadow-blue-300/30"></div>
-                                    )}
-                                </button>
-                            ))}
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                    <div className="card-luxury shadow-sm flex-1 flex flex-col">
+                        {/* Modern Tabs */}
+                        <div className="border-b border-slate-200 bg-slate-50/50 px-6">
+                            <div className="flex gap-1">
+                                {[
+                                    { id: 'infos', label: 'Infos Complètes' },
+                                    { id: 'activities', label: 'Journal Activités' },
+                                    { id: 'devis', label: 'Documents Devis' },
+                                    { id: 'projets', label: 'Suivi Projets' },
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`px-5 py-3.5 text-sm font-medium transition-all relative ${activeTab === tab.id
+                                            ? 'text-sky-700 bg-white rounded-t-lg shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/50 rounded-t-lg'
+                                            }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Professional Panel Content */}
-                        <div className="p-8 flex-1 bg-white/50">
+                        {/* Panel Content */}
+                        <div className="p-6 flex-1 bg-white">
                             {activeTab === 'infos' && (
                                 <div className="space-y-4">
                                     {infoSections.map((section) => {
                                         const isExpanded = expandedSections[section.id];
 
                                         return (
-                                            <div key={section.id} className="border border-slate-200 rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all duration-300">
+                                            <div key={section.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white hover:shadow-md transition-all">
                                                 <button
                                                     onClick={() => setExpandedSections(prev => ({ ...prev, [section.id]: !isExpanded }))}
-                                                    className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-all duration-300 bg-gradient-to-r from-slate-50 to-slate-100"
+                                                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-all bg-slate-50"
                                                 >
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="h-9 w-9 rounded-lg flex items-center justify-center text-blue-600 bg-blue-50/50">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-9 w-9 rounded-lg flex items-center justify-center text-sky-600 bg-sky-100">
                                                             <section.icon className="h-5 w-5" />
                                                         </div>
                                                         <div className="text-left">
-                                                            <h4 className="text-sm font-black uppercase tracking-wider text-slate-700">{section.title}</h4>
-                                                            <p className="text-xs text-slate-500 font-medium mt-0.5">{section.fields.length} champs</p>
+                                                            <h4 className="text-sm font-semibold text-slate-800">{section.title}</h4>
+                                                            <p className="text-xs text-slate-500 mt-0.5">{section.fields.length} champs</p>
                                                         </div>
                                                     </div>
                                                     <ChevronDownIcon className={`h-5 w-5 text-slate-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                                 </button>
 
                                                 {isExpanded && (
-                                                    <div className="px-6 py-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div className="px-5 py-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         {section.fields.map(([label, value]) => {
                                                             const hasValue = value !== null && value !== undefined && value !== '' && value !== false;
                                                             return (
-                                                                <div key={label} className={`py-3 px-4 rounded-xl transition-all duration-200 ${hasValue ? 'bg-blue-50/40 border border-blue-100 hover:border-blue-200' : 'bg-slate-50/40'}`}>
-                                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">{label}</p>
-                                                                    <p className={`text-sm font-semibold ${hasValue ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                                                                <div key={label} className={`py-3 px-4 rounded-lg transition-all ${hasValue ? 'bg-sky-50/50 border border-sky-100' : 'bg-slate-50/50'}`}>
+                                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">{label}</p>
+                                                                    <p className={`text-sm font-medium ${hasValue ? 'text-slate-800' : 'text-slate-400 italic'}`}>
                                                                         {formatFieldValue(value)}
                                                                     </p>
                                                                 </div>
@@ -537,38 +564,38 @@ const ClientDetail = () => {
                             )}
 
                             {activeTab === 'activities' && (
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {loadingActivities ? (
-                                        <div className="flex justify-center py-10 text-xs text-slate-400">
+                                        <div className="flex justify-center py-10 text-sm text-slate-400">
                                             Chargement du journal d'activités...
                                         </div>
                                     ) : activitiesError ? (
-                                        <p className="text-xs text-rose-500">{activitiesError}</p>
+                                        <p className="text-sm text-rose-500">{activitiesError}</p>
                                     ) : clientActivities.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-                                            <div className="h-20 w-20 bg-slate-100 rounded-3xl flex items-center justify-center mb-4">
-                                                <ClockIcon className="h-10 w-10 text-slate-300" />
+                                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                                            <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                                                <ClockIcon className="h-8 w-8 text-slate-400" />
                                             </div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aucune activité liée</p>
+                                            <p className="text-sm font-medium text-slate-500">Aucune activité liée</p>
                                         </div>
                                     ) : (
                                         clientActivities.map((activity) => {
                                             const date = activity.Date_Activite ? new Date(activity.Date_Activite) : null;
                                             return (
-                                                <div key={activity.ID_Activite} className="flex items-center gap-6 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
-                                                    <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-gradient-blue group-hover:text-white transition-all shadow-sm">
+                                                <div key={activity.ID_Activite} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/30 transition-all group">
+                                                    <div className="h-11 w-11 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center group-hover:bg-sky-500 group-hover:text-white transition-all">
                                                         {activity.Type_Activite === 'Appel' ? <PhoneIcon className="h-5 w-5" /> : <EnvelopeIcon className="h-5 w-5" />}
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="flex items-center justify-between mb-1">
-                                                            <span className="text-sm font-extrabold text-slate-800">{activity.Type_Activite}</span>
+                                                            <span className="text-sm font-semibold text-slate-800">{activity.Type_Activite}</span>
                                                             {date && (
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                                <span className="text-xs text-slate-500">
                                                                     {date.toLocaleDateString('fr-FR')} • {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-xs font-semibold text-slate-500 line-clamp-1">{activity.Description || 'Aucune description'}</p>
+                                                        <p className="text-sm text-slate-600 line-clamp-1">{activity.Description || 'Aucune description'}</p>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -577,7 +604,7 @@ const ClientDetail = () => {
                                                                 state: { fromClientId: client.IDTiers },
                                                             })
                                                         }
-                                                        className="p-2 text-slate-300 hover:text-blue-600 transition-colors"
+                                                        className="p-2 text-slate-400 hover:text-sky-600 transition-colors"
                                                     >
                                                         <ArrowUpRightIcon className="h-5 w-5" />
                                                     </button>
@@ -594,9 +621,9 @@ const ClientDetail = () => {
                                                 },
                                             })
                                         }
-                                        className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:border-blue-200 hover:text-blue-500 transition-all"
+                                        className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-500 hover:border-sky-300 hover:text-sky-600 transition-all"
                                     >
-                                        Consigner une nouvelle interaction
+                                        + Consigner une nouvelle interaction
                                     </button>
                                 </div>
                             )}
@@ -634,26 +661,26 @@ const ClientDetail = () => {
                             )}
 
                             {activeTab === 'projets' && (
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {loadingProjets ? (
-                                        <div className="flex justify-center py-10 text-xs text-slate-400">
+                                        <div className="flex justify-center py-10 text-sm text-slate-400">
                                             Chargement des projets...
                                         </div>
                                     ) : projetsError ? (
-                                        <p className="text-xs text-rose-500">{projetsError}</p>
+                                        <p className="text-sm text-rose-500">{projetsError}</p>
                                     ) : clientProjets.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-                                            <div className="h-16 w-16 bg-blue-50 rounded-3xl flex items-center justify-center mb-4 text-blue-500 border border-blue-100">
-                                                <BriefcaseIcon className="h-8 w-8" />
+                                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                                            <div className="h-14 w-14 bg-sky-100 rounded-2xl flex items-center justify-center mb-4 text-sky-500">
+                                                <BriefcaseIcon className="h-7 w-7" />
                                             </div>
-                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Aucun projet lié</p>
-                                            <p className="text-[10px] font-medium text-slate-400 mt-2 uppercase">Créez un projet depuis le module Projets</p>
+                                            <p className="text-sm font-medium text-slate-500">Aucun projet lié</p>
+                                            <p className="text-xs text-slate-400 mt-2">Créez un projet depuis le module Projets</p>
                                         </div>
                                     ) : (
                                         clientProjets.map((projet) => (
                                             <div
                                                 key={projet.ID_Projet}
-                                                className="flex items-center justify-between p-5 rounded-2xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-soft transition-all group cursor-pointer"
+                                                className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-200 hover:border-sky-300 hover:shadow-md transition-all group cursor-pointer"
                                                 onClick={() =>
                                                     navigate(`/projets/${projet.ID_Projet}`, {
                                                         state: { fromClientId: client.IDTiers },
@@ -661,26 +688,26 @@ const ClientDetail = () => {
                                                 }
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="h-11 w-11 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-gradient-blue group-hover:text-white transition-all">
+                                                    <div className="h-11 w-11 bg-slate-50 rounded-xl flex items-center justify-center text-slate-600 group-hover:bg-sky-500 group-hover:text-white transition-all">
                                                         <BriefcaseIcon className="h-5 w-5" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-extrabold text-slate-800 tracking-tight line-clamp-1">
+                                                        <p className="text-sm font-semibold text-slate-800 line-clamp-1">
                                                             {projet.Nom_Projet}
                                                         </p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">
+                                                        <p className="text-xs text-slate-500">
                                                             {projet.Phase || 'Phase non définie'}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-6">
-                                                    <span className="text-sm font-black text-slate-800 w-24 text-right">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-sm font-semibold text-slate-800">
                                                         {formatCurrency(projet.Budget_Alloue || 0)}
                                                     </span>
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                                    <span className="text-xs text-slate-500">
                                                         {projet.Date_Echeance ? formatDate(projet.Date_Echeance) : 'Sans échéance'}
                                                     </span>
-                                                    <div className="p-2 text-slate-300 group-hover:text-blue-600 transition-colors">
+                                                    <div className="p-2 text-slate-400 group-hover:text-sky-600 transition-colors">
                                                         <ArrowUpRightIcon className="h-5 w-5" />
                                                     </div>
                                                 </div>
@@ -689,11 +716,6 @@ const ClientDetail = () => {
                                     )}
                                 </div>
                             )}
-                        </div>
-                        {/* Bottom Action Bar */}
-                        <div className="p-4 bg-slate-50/50 border-t border-slate-100/50 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase px-8">
-                            <span>Fiche certifiée par Système CRM</span>
-                            <span className="flex items-center gap-1"><SparklesIcon className="h-3.5 w-3.5 text-blue-500" /> Nexus Engnine V1.2</span>
                         </div>
                     </div>
                 </div>

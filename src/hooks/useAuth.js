@@ -1,5 +1,6 @@
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { USER_ROLES } from '../utils/constants';
+import { logout } from '../auth/authSlice';
 
 const normalizeRole = (role) => (role || '').toString().trim().toLowerCase();
 
@@ -11,6 +12,11 @@ const useAuth = () => {
   const { user, accessToken, refreshToken, isAuthenticated, loading } = useSelector(
     (state) => state.auth
   );
+  const dispatch = useDispatch();
+
+  const handleLogout = () => {
+    dispatch(logout());
+  };
 
   return {
     user,
@@ -18,6 +24,7 @@ const useAuth = () => {
     refreshToken,
     isAuthenticated,
     loading,
+    logout: handleLogout,
     isAdmin: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.ADMIN),
     isCommercial: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.COMMERCIAL),
     isAgent: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.AGENT),

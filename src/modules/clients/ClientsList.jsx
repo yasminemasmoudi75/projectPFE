@@ -321,113 +321,98 @@ const ClientsList = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in space-y-8 pb-12">
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="badge badge-primary">
-                            <SparklesIcon className="h-3 w-3 mr-1" />
+        <div className="animate-fade-in space-y-6 pb-12">
+            {/* Header - Modern Design */}
+            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+                            <UserGroupIcon className="h-3 w-3" />
                             Gestion CRM
-                        </span>
+                        </div>
+                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Portefeuille Clients</h1>
+                        <p className="text-slate-600 mt-1 flex items-center gap-2 text-sm">
+                            <BuildingOffice2Icon className="h-4 w-4 text-sky-500" />
+                            Gérez votre portefeuille de clients et partenaires
+                        </p>
                     </div>
-                    <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Clients</h1>
-                    <p className="text-sm font-medium text-slate-500 mt-1">
-                        Gérez votre portefeuille de clients et partenaires
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => fetchClients(true)}
-                        className={`p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all shadow-soft ${refreshing ? 'animate-spin' : ''}`}
-                        title="Rafraîchir"
-                    >
-                        <ArrowPathIcon className="h-5 w-5" />
-                    </button>
-                    
-                    {/* Export Buttons */}
-                    <button
-                        onClick={exportToCSV}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-semibold hover:bg-emerald-100 transition-colors shadow-soft"
-                        title="Exporter en CSV"
-                    >
-                        <ArrowDownTrayIcon className="h-5 w-5" />
-                        <span className="hidden sm:inline">CSV</span>
-                    </button>
-                    
-                    <button
-                        onClick={exportToPDF}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold hover:bg-rose-100 transition-colors shadow-soft"
-                        title="Imprimer / PDF"
-                    >
-                        <PrinterIcon className="h-5 w-5" />
-                        <span className="hidden sm:inline">PDF</span>
-                    </button>
-                    
-                    {canCreate && (
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={() => navigate('/clients/new')}
-                            className="btn-soft-primary flex items-center gap-2"
+                            onClick={() => fetchClients(true)}
+                            className={`p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all ${refreshing ? 'animate-spin' : ''}`}
+                            title="Rafraîchir"
                         >
-                            <PlusIcon className="h-4 w-4" />
-                            Nouveau Client
+                            <ArrowPathIcon className="h-5 w-5" />
                         </button>
-                    )}
+                        
+                        {/* Export Buttons */}
+                        <button
+                            onClick={exportToCSV}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors"
+                            title="Exporter en CSV"
+                        >
+                            <ArrowDownTrayIcon className="h-5 w-5" />
+                            <span className="hidden sm:inline">CSV</span>
+                        </button>
+                        
+                        <button
+                            onClick={exportToPDF}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-medium hover:bg-rose-100 transition-colors"
+                            title="Imprimer / PDF"
+                        >
+                            <PrinterIcon className="h-5 w-5" />
+                            <span className="hidden sm:inline">PDF</span>
+                        </button>
+                        
+                        {canCreate && (
+                            <button
+                                onClick={() => navigate('/clients/new')}
+                                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                            >
+                                <PlusIcon className="h-4 w-4" />
+                                Nouveau Client
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="card-luxury p-0 overflow-hidden">
-                    <div className="p-6 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Clients</p>
-                            <p className="text-2xl font-extrabold text-slate-800">
-                                {stats.total}
-                            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                    { label: 'Total Clients', value: stats.total, sub: 'clients enregistrés', icon: UserGroupIcon, color: 'sky' },
+                    { label: 'Clients Actifs', value: `${stats.active}`, sub: '100% actifs', icon: ChartBarIcon, color: 'emerald' },
+                    { label: 'CA Mensuel', value: stats.revenue, sub: 'global', icon: CreditCardIcon, color: 'amber' },
+                ].map((stat, i) => {
+                    const colorMap = {
+                        sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
+                        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
+                        amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
+                    };
+                    const colors = colorMap[stat.color];
+                    return (
+                        <div key={i} className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group">
+                            <div className="p-5">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                                        <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
+                                        <p className="text-xs text-slate-500 mt-1">{stat.sub}</p>
+                                    </div>
+                                    <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                                        <stat.icon className={`h-5 w-5 ${colors.text}`} />
+                                    </div>
+                                </div>
+                                <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
+                            </div>
                         </div>
-                        <div className="icon-shape shadow-glow-blue">
-                            <UserGroupIcon className="h-5 w-5 text-white" />
-                        </div>
-                    </div>
-                    <div className="h-1 bg-gradient-blue"></div>
-                </div>
-
-                <div className="card-luxury p-0 overflow-hidden">
-                    <div className="p-6 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Clients Actifs</p>
-                            <p className="text-2xl font-extrabold text-slate-800 flex items-baseline gap-2">
-                                {stats.active}
-                                <span className="text-xs text-emerald-500 font-bold">100%</span>
-                            </p>
-                        </div>
-                        <div className="icon-shape shadow-soft" style={{ background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' }}>
-                            <ChartBarIcon className="h-5 w-5 text-white" />
-                        </div>
-                    </div>
-                    <div className="h-1 bg-gradient-success"></div>
-                </div>
-
-                <div className="card-luxury p-0 overflow-hidden">
-                    <div className="p-6 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">CA Mensuel (global)</p>
-                            <p className="text-2xl font-extrabold text-slate-800">
-                                {stats.revenue}
-                            </p>
-                        </div>
-                        <div className="icon-shape shadow-soft" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' }}>
-                            <CreditCardIcon className="h-5 w-5 text-white" />
-                        </div>
-                    </div>
-                    <div className="h-1" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' }}></div>
-                </div>
+                    );
+                })}
             </div>
 
             {/* Filters & Search */}
-            <div className="card-luxury p-0 overflow-hidden">
-                <div className="p-6 flex flex-col gap-4">
+            <div className="card-luxury shadow-sm">
+                <div className="p-6">
                     <div className="flex flex-col md:flex-row gap-4 items-center">
                         <div className="relative flex-1 w-full">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -435,34 +420,34 @@ const ClientsList = () => {
                             </div>
                             <input
                                 type="text"
-                                placeholder="Rechercher un client..."
+                                placeholder="Rechercher un client par nom, code, ville, email..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="input-modern pl-11"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                             />
                         </div>
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${showFilters
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'
+                                ? 'bg-sky-100 text-sky-700 border border-sky-200'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:border-sky-300'
                                 }`}
                         >
                             <FunnelIcon className="h-4 w-4" />
-                            Filtres {hasActiveFilters && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{Object.values(filters).filter(f => f !== '').length}</span>}
+                            Filtres {hasActiveFilters && <span className="bg-sky-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{Object.values(filters).filter(f => f !== '').length}</span>}
                         </button>
                     </div>
 
                     {/* Advanced Filters */}
                     {showFilters && (
-                        <div className="border-t border-slate-100 pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="border-t border-slate-200 mt-6 pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Status Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Statut</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Statut</label>
                                 <select
                                     value={filters.status}
                                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                 >
                                     <option value="">Tous les statuts</option>
                                     <option value="active">Actif</option>
@@ -473,23 +458,23 @@ const ClientsList = () => {
 
                             {/* Client Code Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Code Client</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Code Client</label>
                                 <input
                                     type="text"
                                     value={filters.clientCode}
                                     onChange={(e) => handleFilterChange('clientCode', e.target.value)}
                                     placeholder="Filtrer par code..."
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
                                 />
                             </div>
 
                             {/* City Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Gouvernorat</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Gouvernorat</label>
                                 <select
                                     value={filters.city}
                                     onChange={(e) => handleFilterChange('city', e.target.value)}
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                 >
                                     <option value="">Tous les gouvernorats</option>
                                     {uniqueCities.map(city => (
@@ -500,11 +485,11 @@ const ClientsList = () => {
 
                             {/* Class Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Classe</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Classe</label>
                                 <select
                                     value={filters.classe}
                                     onChange={(e) => handleFilterChange('classe', e.target.value)}
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                 >
                                     <option value="">Toutes les classes</option>
                                     {uniqueClasses.map(classe => (
@@ -515,11 +500,11 @@ const ClientsList = () => {
 
                             {/* Commercial Representative Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Commercial</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Commercial</label>
                                 <select
                                     value={filters.commercial}
                                     onChange={(e) => handleFilterChange('commercial', e.target.value)}
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                 >
                                     <option value="">Tous les commerciaux</option>
                                     {uniqueCommercials.map(c => (
@@ -530,11 +515,11 @@ const ClientsList = () => {
 
                             {/* Payment Type Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mode de Paiement</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Mode de Paiement</label>
                                 <select
                                     value={filters.paymentType}
                                     onChange={(e) => handleFilterChange('paymentType', e.target.value)}
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                                 >
                                     <option value="">Tous les modes</option>
                                     {uniquePaymentTypes.map(type => (
@@ -545,25 +530,25 @@ const ClientsList = () => {
 
                             {/* Email Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Email</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Email</label>
                                 <input
                                     type="text"
                                     value={filters.email}
                                     onChange={(e) => handleFilterChange('email', e.target.value)}
                                     placeholder="Filtrer par email..."
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
                                 />
                             </div>
 
                             {/* Phone Filter */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Téléphone</label>
+                                <label className="text-xs text-slate-500 uppercase tracking-wider">Téléphone</label>
                                 <input
                                     type="text"
                                     value={filters.phone}
                                     onChange={(e) => handleFilterChange('phone', e.target.value)}
                                     placeholder="Filtrer par tél..."
-                                    className="input-modern text-sm"
+                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
                                 />
                             </div>
 
@@ -572,7 +557,7 @@ const ClientsList = () => {
                                 <div className="flex items-end">
                                     <button
                                         onClick={handleResetFilters}
-                                        className="w-full px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition-all"
+                                        className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition-all"
                                     >
                                         Réinitialiser les filtres
                                     </button>
@@ -584,31 +569,31 @@ const ClientsList = () => {
             </div>
 
             {/* Main Table Card */}
-            <div className="card-luxury p-0 overflow-hidden">
-                <div className="px-8 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/50 to-transparent flex items-center justify-between">
+            <div className="card-luxury shadow-sm">
+                <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6 flex items-center justify-between">
                     <h3 className="text-sm font-bold text-slate-800">Liste des Partenaires</h3>
-                    <span className="text-xs font-medium text-slate-500">{filteredClients.length} résultats</span>
+                    <span className="text-xs text-slate-500 font-medium">{filteredClients.length} résultats</span>
                 </div>
 
                 {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-slate-50/30 text-left border-b border-slate-100/50">
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Client</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Classe</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fonction</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Catégorie</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Domaine</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gouvernorat</th>
-                                <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                            <tr className="bg-slate-50/30 text-left border-b border-slate-200">
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Client</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Classe</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Fonction</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Catégorie</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Domaine</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gouvernorat</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100/50">
+                        <tbody className="divide-y divide-slate-100">
                             {filteredClients.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="px-8 py-20 text-center">
+                                    <td colSpan="8" className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                                                 <UserGroupIcon className="h-8 w-8" />
@@ -617,7 +602,7 @@ const ClientsList = () => {
                                             {canCreate && (
                                                 <button
                                                     onClick={() => navigate('/clients/new')}
-                                                    className="btn-soft-primary text-xs"
+                                                    className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all text-sm font-medium"
                                                 >
                                                     Ajouter un client
                                                 </button>
@@ -629,66 +614,61 @@ const ClientsList = () => {
                                 paginatedClients.map((client) => (
                                     <tr
                                         key={client.IDTiers}
-                                        className="group hover:bg-blue-50/30 transition-all cursor-pointer"
+                                        className="group hover:bg-sky-50/30 transition-all cursor-pointer"
                                         onClick={() => navigate(`/clients/${client.IDTiers}`)}
                                     >
-                                        <td className="px-8 py-5">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-12 w-12 rounded-2xl bg-gradient-blue flex items-center justify-center font-bold text-white shadow-glow-blue transform transition-transform group-hover:scale-105">
-                                                    {(client.Raisoc || 'C').charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-blue-600 transition-colors">
-                                                        {client.Raisoc || 'Client'}
-                                                    </p>
-                                                    <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                                        {client.CodTiers}
-                                                    </span>
-                                                </div>
+                                        <td className="px-6 py-5">
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-sky-600 transition-colors">
+                                                    {client.Raisoc || 'Client'}
+                                                </p>
+                                                <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                                    {client.CodTiers}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                    <EnvelopeIcon className="h-4 w-4 text-blue-500" />
+                                                    <EnvelopeIcon className="h-4 w-4 text-sky-500" />
                                                     {client.Email || 'Non renseigné'}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                    <PhoneIcon className="h-4 w-4 text-blue-500" />
+                                                    <PhoneIcon className="h-4 w-4 text-sky-500" />
                                                     {client.Tel || 'Non renseigné'}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full font-medium">
                                                 {client.tiersClasse?.libelle || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <p className="text-sm text-slate-600">
                                                 {client.Fonction || 'Non renseigné'}
                                             </p>
                                         </td>
-                                        <td className="px-8 py-5">
-                                            <span className="text-sm text-slate-600 bg-blue-100 px-3 py-1 rounded-full font-medium">
+                                        <td className="px-6 py-5">
+                                            <span className="text-sm text-slate-600 bg-sky-100 px-3 py-1 rounded-full font-medium">
                                                 {client.tiersCategorieObj?.libelle || client.Categorie || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <p className="text-sm text-slate-600">
                                                 {client.Domaine || 'Non renseigné'}
                                             </p>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <span className="text-sm text-slate-600 bg-amber-100 px-3 py-1 rounded-full font-medium">
                                                 {client.region?.libelle || client.Region?.libelle || client.tiersGouvernorat?.libelle || client.TiersGouvernorat?.libelle || '-'}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-5">
                                             <div className="flex justify-end gap-1">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.IDTiers}`); }}
-                                                    className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                                                    className="p-2.5 text-slate-400 hover:text-sky-600 hover:bg-sky-100 rounded-xl transition-all"
                                                     title="Voir"
                                                 >
                                                     <EyeIcon className="h-5 w-5" />

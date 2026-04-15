@@ -87,6 +87,62 @@ const ClientForm = () => {
     const [commercialsList, setCommercialsList] = useState([]);
     const [emailCheckMessage, setEmailCheckMessage] = useState('');
     const [emailChecking, setEmailChecking] = useState(false);
+    
+    // Stepped form state
+    const [currentStep, setCurrentStep] = useState(1);
+    const [completedSteps, setCompletedSteps] = useState(new Set([1]));
+    const totalSteps = 4;
+
+    // Validation functions for each step
+    const validateStep1 = () => {
+        return formData.Raisoc && formData.CodTiers;
+    };
+
+    const validateStep2 = () => {
+        return formData.gouvernorat;
+    };
+
+    const validateStep3 = () => {
+        return true; // Optional fields
+    };
+
+    const validateStep4 = () => {
+        return true; // Optional fields
+    };
+
+    const canProceedToNext = () => {
+        switch (currentStep) {
+            case 1: return validateStep1();
+            case 2: return validateStep2();
+            case 3: return validateStep3();
+            case 4: return validateStep4();
+            default: return false;
+        }
+    };
+
+    const handleNextStep = () => {
+        if (currentStep < totalSteps) {
+            const newCompleted = new Set(completedSteps);
+            newCompleted.add(currentStep + 1);
+            setCompletedSteps(newCompleted);
+            setCurrentStep(currentStep + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handlePreviousStep = () => {
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const goToStep = (step) => {
+        if (step >= 1 && step <= totalSteps) {
+            setCurrentStep(step);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     useEffect(() => {
         const fetchTiersClasses = async () => {
@@ -367,105 +423,151 @@ const ClientForm = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in min-h-screen pb-16">
-            {/* Decorative Background Elements */}
-            <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-1/4 w-96 h-96 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-gradient-to-tr from-cyan-200/20 to-blue-200/20 rounded-full blur-3xl"></div>
-            </div>
-
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div className="flex items-center gap-5">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200/50 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-2xl transition-all shadow-soft-md flex items-center justify-center"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
-                    </button>
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="badge badge-primary">
-                                <SparklesIcon className="h-3 w-3 mr-1" />
+        <div className="animate-fade-in space-y-6 pb-12">
+            {/* Header - Modern Design */}
+            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
+                        >
+                            <ArrowLeftIcon className="h-5 w-5" />
+                        </button>
+                        <div>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
+                                <BuildingOffice2Icon className="h-3 w-3" />
                                 Gestion Tiers
-                            </span>
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+                                {isEdit ? 'Modifier Client' : 'Nouveau Partenaire'}
+                            </h1>
+                            <p className="text-slate-600 mt-1 text-sm">
+                                {isEdit ? 'Modifier les informations du client' : 'Créer un nouveau client dans le système'}
+                            </p>
                         </div>
-                        <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-                            {isEdit ? 'Modifier Client' : 'Nouveau Partenaire'}
-                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/clients')}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={saving}
+                            className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium disabled:opacity-50"
+                        >
+                            {saving ? (
+                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <CheckIcon className="h-4 w-4" />
+                            )}
+                            <span>{isEdit ? 'Sauvegarder' : 'Créer le Client'}</span>
+                        </button>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button
-                        type="button"
-                        onClick={() => navigate('/clients')}
-                        className="btn-outline"
-                    >
-                        Annuler
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={saving}
-                        className="btn-soft-primary flex items-center gap-2"
-                    >
-                        {saving ? (
-                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        ) : (
-                            <CheckIcon className="h-4 w-4 stroke-[2.5]" />
-                        )}
-                        <span>{isEdit ? 'Sauvegarder' : 'Créer le Client'}</span>
-                    </button>
-                </div>
+
+                {/* Step Progress Indicator - Only for new clients */}
+                {!isEdit && (
+                    <div className="mt-8 pt-6 border-t border-slate-200">
+                        <div className="flex items-center justify-between">
+                            {[
+                                { step: 1, label: 'Identité', icon: IdentificationIcon },
+                                { step: 2, label: 'Contact', icon: MapPinIcon },
+                                { step: 3, label: 'Contacts+', icon: PhoneIcon },
+                                { step: 4, label: 'Infos+', icon: CreditCardIcon },
+                            ].map(({ step, label, icon: Icon }) => {
+                                const isCompleted = completedSteps.has(step) && step !== currentStep;
+                                const isCurrent = currentStep === step;
+
+                                return (
+                                    <div key={step} className="flex-1 flex items-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => goToStep(step)}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all w-full ${
+                                                isCurrent
+                                                    ? 'bg-sky-500 text-white shadow-md'
+                                                    : isCompleted
+                                                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer'
+                                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 cursor-pointer'
+                                            }`}
+                                        >
+                                            <div className={`h-7 w-7 rounded flex items-center justify-center ${
+                                                isCurrent ? 'bg-white/20' : isCompleted ? 'bg-emerald-100' : 'bg-slate-200'
+                                            }`}>
+                                                {isCompleted ? <CheckIcon className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                                            </div>
+                                            <div className="text-left hidden sm:block">
+                                                <p className="text-[10px] font-semibold">{label}</p>
+                                            </div>
+                                        </button>
+                                        {step < 4 && (
+                                            <div className={`h-0.5 flex-1 mx-2 rounded-full ${isCompleted ? 'bg-emerald-300' : 'bg-slate-200'}`} />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
                 {/* Left Column - Main Forms */}
-                <div className="lg:col-span-8 space-y-8">
+                <div className="lg:col-span-8 space-y-6">
 
-                    {/* Identity Section */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/80 to-transparent flex items-center gap-4">
-                            <div className="icon-shape icon-shape-sm shadow-glow-primary">
-                                <IdentificationIcon className="h-4 w-4 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-base font-bold text-slate-800">Identité Juridique</h2>
-                                <p className="text-xs text-slate-500">Informations légales et identification</p>
+                    {/* Step 1: Identity Section */}
+                    {(currentStep === 1 || isEdit) && (
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
+                                    <IdentificationIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-800">Étape 1: Identité Juridique</h2>
+                                    <p className="text-xs text-slate-500">Informations légales et identification</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="label-modern">Raison Sociale *</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Raison Sociale *</label>
                                     <input
                                         type="text"
                                         name="Raisoc"
                                         value={formData.Raisoc}
                                         onChange={handleChange}
-                                        className="input-modern text-lg font-semibold"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-semibold focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="Ex: Entreprise ABC International"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Code Tiers *</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Code Tiers *</label>
                                     <input
                                         type="text"
                                         name="CodTiers"
                                         value={formData.CodTiers}
                                         onChange={handleChange}
-                                        className="input-modern font-mono uppercase tracking-wider"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-mono uppercase tracking-wider focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="CLI-0001"
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Type de Client</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Type de Client</label>
                                     <select
                                         name="Type"
                                         value={formData.Type}
                                         onChange={handleChange}
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                     >
                                         <option>Client Professionnel</option>
                                         <option>PME / PMI</option>
@@ -474,145 +576,60 @@ const ClientForm = () => {
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="label-modern">Matricule Fiscale</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Matricule Fiscale</label>
                                     <input
                                         type="text"
                                         name="MatriculeFiscale"
                                         value={formData.MatriculeFiscale}
                                         onChange={handleChange}
-                                        className="input-modern font-mono"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-mono focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="1234567/A/M/000"
                                     />
                                 </div>
                             </div>
                         </div>
+                        
+                        {/* Navigation Buttons - Step 1 */}
+                        {!isEdit && (
+                            <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/clients')}
+                                    className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleNextStep}
+                                    className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                >
+                                    Suivant →
+                                </button>
+                            </div>
+                        )}
                     </div>
+                    )}
 
-                    {/* Informations Personnelles Section */}
-                    <div className="card-shadow rounded-xl border border-slate-200">
-                        <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-8 py-5 flex items-center gap-4 border-b border-slate-200">
-                            <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-blue-600 rounded"></div>
-                            <div>
-                                <h2 className="text-base font-bold text-slate-800">Informations Personnelles</h2>
-                                <p className="text-xs text-slate-500">Détails de contact et professionnels</p>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="label-modern">Prénom</label>
-                                    <input
-                                        type="text"
-                                        name="Prenom"
-                                        value={formData.Prenom}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        placeholder="Jean"
-                                    />
+                    {/* Step 2: Contact & Localisation */}
+                    {(currentStep === 2 || isEdit) && (
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                    <MapPinIcon className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Nom</label>
-                                    <input
-                                        type="text"
-                                        name="Nom"
-                                        value={formData.Nom}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        placeholder="Dupont"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="label-modern">Classe</label>
-                                    <select
-                                        name="Classe"
-                                        value={formData.Classe}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                    >
-                                        <option value="">Sélectionner une classe</option>
-                                        {tiersClasses.map((cl) => (
-                                            <option key={cl.id} value={cl.id}>
-                                                {cl.libelle}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="label-modern">Gouvernorat *</label>
-                                    <select
-                                        name="gouvernorat"
-                                        value={formData.gouvernorat}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        required
-                                    >
-                                        <option value="">Sélectionner un gouvernorat</option>
-                                        {tiersGouvernorats.map((g) => (
-                                            <option key={g.id} value={g.id}>
-                                                {g.libelle}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="label-modern">Fonction</label>
-                                    <input
-                                        type="text"
-                                        name="Fonction"
-                                        value={formData.Fonction}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        placeholder="Ex: Directeur Commercial"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="label-modern">Catégorie</label>
-                                    <select
-                                        name="Categorie"
-                                        value={formData.Categorie}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                    >
-                                        <option value="">Sélectionner une catégorie</option>
-                                        {tiersCategories.map((cat) => (
-                                            <option key={cat.id} value={cat.id}>
-                                                {cat.libelle}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="label-modern">Domaine</label>
-                                    <input
-                                        type="text"
-                                        name="Domaine"
-                                        value={formData.Domaine}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        placeholder="Ex: Logiciels, Matériel, Services"
-                                    />
+                                    <h2 className="text-sm font-bold text-slate-800">Étape 2: Contact & Localisation</h2>
+                                    <p className="text-xs text-slate-500">Coordonnées et adresse du siège</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Contact & Address Section */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-emerald-50/80 to-transparent flex items-center gap-4">
-                            <div className="icon-shape icon-shape-sm shadow-glow-success" style={{ background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' }}>
-                                <MapPinIcon className="h-4 w-4 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-base font-bold text-slate-800">Contact & Localisation</h2>
-                                <p className="text-xs text-slate-500">Coordonnées et adresse du siège</p>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="label-modern">Email Professionnel</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Email Professionnel</label>
                                     <div className="relative">
-                                        <EnvelopeIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                         <input
                                             type="email"
                                             name="Email"
@@ -622,7 +639,7 @@ const ClientForm = () => {
                                                 handleChange(e);
                                             }}
                                             onBlur={checkEmailUniqueness}
-                                            className="input-modern pl-12"
+                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                             placeholder="contact@entreprise.com"
                                         />
                                     </div>
@@ -633,24 +650,21 @@ const ClientForm = () => {
                                     ) : null}
                                 </div>
                                 <div>
-                                    <label className="label-modern">Téléphone</label>
-                                    <div className="relative">
-                                        <PhoneIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            name="Tel"
-                                            value={formData.Tel}
-                                            onChange={handleChange}
-                                            inputMode="numeric"
-                                            maxLength={8}
-                                            pattern="[0-9]{8}"
-                                            className="input-modern pl-12"
-                                            placeholder="71000000"
-                                        />
-                                    </div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Téléphone</label>
+                                    <input
+                                        type="text"
+                                        name="Tel"
+                                        value={formData.Tel}
+                                        onChange={handleChange}
+                                        inputMode="numeric"
+                                        maxLength={8}
+                                        pattern="[0-9]{8}"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                        placeholder="71000000"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Mobile</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Mobile</label>
                                     <input
                                         type="text"
                                         name="Gsm"
@@ -659,72 +673,109 @@ const ClientForm = () => {
                                         inputMode="numeric"
                                         maxLength={8}
                                         pattern="[0-9]{8}"
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="98000000"
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Site Web</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Site Web</label>
                                     <input
                                         type="text"
                                         name="www"
                                         value={formData.www}
                                         onChange={handleChange}
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="https://entreprise.tn"
                                     />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-2"></div>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="label-modern">Adresse Complète</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Adresse Complète</label>
                                     <textarea
                                         name="Adresse"
                                         value={formData.Adresse}
                                         onChange={handleChange}
                                         rows="3"
-                                        className="input-modern resize-none"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all resize-none"
                                         placeholder="Numéro, rue, immeuble, étage..."
                                     ></textarea>
                                 </div>
-                                <div className="md:col-span-2">
-                                    <label className="label-modern">Région</label>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Ville</label>
                                     <input
                                         type="text"
                                         name="Ville"
                                         value={formData.Ville}
                                         onChange={handleChange}
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="Ex: Tunis, Ariana, Sousse..."
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Code Postal</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Code Postal</label>
                                     <input
                                         type="text"
                                         name="CodePostal"
                                         value={formData.CodePostal}
                                         onChange={handleChange}
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="1000"
                                     />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Pays</label>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Pays</label>
                                     <input
                                         type="text"
                                         name="Pays"
                                         value={formData.Pays}
                                         onChange={handleChange}
-                                        className="input-modern"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
                                         placeholder="Tunisie"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Gouvernorat *</label>
+                                    <select
+                                        name="gouvernorat"
+                                        value={formData.gouvernorat}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                        required
+                                    >
+                                        <option value="">Sélectionner un gouvernorat</option>
+                                        {tiersGouvernorats.map((g) => (
+                                            <option key={g.id} value={g.id}>
+                                                {g.libelle}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
+                        
+                        {/* Navigation Buttons - Step 2 */}
+                        {!isEdit && (
+                            <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
+                                <button
+                                    type="button"
+                                    onClick={handlePreviousStep}
+                                    className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                                >
+                                    ← Précédent
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleNextStep}
+                                    className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                >
+                                    Suivant →
+                                </button>
+                            </div>
+                        )}
                     </div>
-
+                    )}
+                
+                    {/* Step 3: Contacts Multiples */}
+                    {(currentStep === 3 || isEdit) && (
                     <div className="card-luxury p-0 overflow-hidden">
                         <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-50/70 to-transparent flex items-center gap-4">
                             <div className="icon-shape icon-shape-sm shadow-glow-primary">
@@ -776,7 +827,7 @@ const ClientForm = () => {
                                     ))}
                                 </div>
                             </div>
-
+                
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-sm font-bold text-slate-800">Adresses</h3>
@@ -808,15 +859,38 @@ const ClientForm = () => {
                                 </div>
                             </div>
                         </div>
+                
+                        {/* Navigation Buttons */}
+                        {!isEdit && (
+                            <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
+                                <button
+                                    type="button"
+                                    onClick={handlePreviousStep}
+                                    className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
+                                >
+                                    ← Précédent
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleNextStep}
+                                    className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                >
+                                    Suivant →
+                                </button>
+                            </div>
+                        )}
                     </div>
-
+                    )}
+                
+                    {/* Step 4: Informations Complémentaires */}
+                    {(currentStep === 4 || isEdit) && (
                     <div className="card-luxury p-0 overflow-hidden">
                         <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-amber-50/80 to-transparent flex items-center gap-4">
                             <div className="icon-shape icon-shape-sm" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' }}>
                                 <CreditCardIcon className="h-4 w-4 text-white" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-800">Informations Complémentaires Tiers</h2>
+                                <h2 className="text-base font-bold text-slate-800">Informations Complémentaires</h2>
                                 <p className="text-xs text-slate-500">Champs avancés de TabTiers</p>
                             </div>
                         </div>
@@ -867,23 +941,6 @@ const ClientForm = () => {
                                     <input type="text" name="AdresseMaps" value={formData.AdresseMaps} onChange={handleChange} className="input-modern" />
                                 </div>
                                 <div>
-                                    <label className="label-modern">Gouvernorat *</label>
-                                    <select
-                                        name="gouvernorat"
-                                        value={formData.gouvernorat}
-                                        onChange={handleChange}
-                                        className="input-modern"
-                                        required
-                                    >
-                                        <option value="">Sélectionner un gouvernorat</option>
-                                        {tiersGouvernorats.map((g) => (
-                                            <option key={`extra-${g.id}`} value={g.id}>
-                                                {g.libelle}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
                                     <label className="label-modern">Maps Ville</label>
                                     <input type="text" name="MapsVille" value={formData.MapsVille} onChange={handleChange} className="input-modern" />
                                 </div>
@@ -904,7 +961,7 @@ const ClientForm = () => {
                                     <input type="text" name="MapsSubRegion" value={formData.MapsSubRegion} onChange={handleChange} className="input-modern" />
                                 </div>
                             </div>
-
+                
                             <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
                                 {[
                                     ['Actif', 'Actif'],
@@ -928,68 +985,77 @@ const ClientForm = () => {
                                     </label>
                                 ))}
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Column - Commercial & Info */}
-                <div className="lg:col-span-4 space-y-8">
-
-                    {/* Commercial Settings */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-6 py-5 border-b border-slate-100/50 bg-gradient-to-r from-rose-50/80 to-transparent flex items-center gap-3">
-                            <div className="icon-shape icon-shape-sm" style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #fb7185 100%)' }}>
-                                <CreditCardIcon className="h-4 w-4 text-white" />
+                
+                            {/* Commercial Settings Inline */}
+                            <div className="mt-8 pt-6 border-t border-slate-200">
+                                <h3 className="text-sm font-bold text-slate-800 mb-4">Paramètres Commerciaux</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="label-modern">Représentant</label>
+                                        <select
+                                            name="Commercial"
+                                            value={formData.Commercial}
+                                            onChange={handleChange}
+                                            className="input-modern"
+                                            disabled={!canAssignCommercial}
+                                        >
+                                            <option value="">Sélectionner...</option>
+                                            {commercialsList.map((commercial) => (
+                                                <option key={commercial.UserID || commercial.LoginName} value={String(commercial.LoginName || commercial.UserID || '')}>
+                                                    {commercial.FullName || commercial.LoginName || commercial.UserID}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {!canAssignCommercial && (
+                                            <p className="mt-2 text-[11px] text-slate-500">
+                                                L'affectation commerciale est réservée aux clients de classe Prospect.
+                                            </p>
+                                        )}
+                                        {canAssignCommercial && (
+                                            <p className="mt-2 text-[11px] text-emerald-600">
+                                                À l'enregistrement, la classe sera automatiquement basculée en Passif.
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="label-modern">Conditions de Paiement</label>
+                                        <select
+                                            name="ConditionPaiement"
+                                            value={formData.ConditionPaiement}
+                                            onChange={handleChange}
+                                            className="input-modern"
+                                        >
+                                            <option>Comptant</option>
+                                            <option>30 jours</option>
+                                            <option>30 jours fin de mois</option>
+                                            <option>60 jours</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-sm font-bold text-slate-800">Commercial</h2>
-                                <p className="text-[10px] text-slate-500">Paramètres de vente</p>
-                            </div>
                         </div>
-                        <div className="p-6 space-y-5">
-                            <div>
-                                <label className="label-modern">Représentant</label>
-                                <select
-                                    name="Commercial"
-                                    value={formData.Commercial}
-                                    onChange={handleChange}
-                                    className="input-modern"
-                                    disabled={!canAssignCommercial}
+                
+                        {/* Navigation Buttons */}
+                        {!isEdit && (
+                            <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
+                                <button
+                                    type="button"
+                                    onClick={handlePreviousStep}
+                                    className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
                                 >
-                                    <option value="">Sélectionner...</option>
-                                    {commercialsList.map((commercial) => (
-                                        <option key={commercial.UserID || commercial.LoginName} value={String(commercial.LoginName || commercial.UserID || '')}>
-                                            {commercial.FullName || commercial.LoginName || commercial.UserID}
-                                        </option>
-                                    ))}
-                                </select>
-                                {!canAssignCommercial && (
-                                    <p className="mt-2 text-[11px] text-slate-500">
-                                        L’affectation commerciale est réservée aux clients de classe Prospect.
-                                    </p>
-                                )}
-                                {canAssignCommercial && (
-                                    <p className="mt-2 text-[11px] text-emerald-600">
-                                        À l’enregistrement, la classe sera automatiquement basculée en Passif.
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="label-modern">Conditions de Paiement</label>
-                                <select
-                                    name="ConditionPaiement"
-                                    value={formData.ConditionPaiement}
-                                    onChange={handleChange}
-                                    className="input-modern"
+                                    ← Précédent
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-medium shadow-lg shadow-emerald-200/50 transition-all"
                                 >
-                                    <option>Comptant</option>
-                                    <option>30 jours</option>
-                                    <option>30 jours fin de mois</option>
-                                    <option>60 jours</option>
-                                </select>
+                                    ✓ Enregistrer
+                                </button>
                             </div>
-                        </div>
+                        )}
                     </div>
+                    )}
+
                 </div>
 
             </form>

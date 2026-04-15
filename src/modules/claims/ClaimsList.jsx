@@ -405,300 +405,214 @@ const ClaimsList = () => {
             </div>
 
             <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pt-8">
-                {/* Hero Header - Premium Look */}
-                <motion.div variants={itemVariants} className="group rounded-3xl bg-gradient-to-br from-white via-slate-50 to-blue-50/60 backdrop-blur-xl border border-slate-200/60 p-8 sm:p-12 shadow-lg hover:shadow-xl transition-all overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/3 via-transparent to-cyan-500/3 opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-3xl" />
-                    <div className="absolute -top-32 -right-32 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500" />
-                    
-                    <div className="relative space-y-6">
-                        <motion.div 
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="flex items-center gap-3"
-                        >
-                            <div className="p-3 bg-gradient-to-br from-blue-100/80 to-cyan-100/60 rounded-xl border border-blue-200/50 group-hover:border-blue-300 transition-all">
-                                <LifebuoyIcon className="h-6 w-6 text-blue-600" />
+                {/* Header */}
+                <motion.div variants={itemVariants} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                        <div className="flex items-start gap-4">
+                            <div className="h-14 w-14 bg-sky-50 rounded-xl flex items-center justify-center">
+                                <LifebuoyIcon className="h-7 w-7 text-sky-600" />
                             </div>
-                            <span className="text-sm font-bold text-blue-700 uppercase tracking-widest">Support & SAV</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-3 tracking-tight">
-                                {isAdmin ? 'Gestion des Réclamations' : isTechnicien ? 'Mes Réclamations' : 'Mes Tickets'}
-                            </h1>
-                            <p className="text-lg text-slate-600 max-w-2xl leading-relaxed font-medium">
-                                {isAdmin 
-                                    ? 'Suivez et gérez l\'ensemble de vos tickets avec efficacité et professionnalisme.'
-                                    : isTechnicien 
-                                    ? 'Gérez vos interventions assignées et ajoutez des actions à vos réclamations.'
-                                    : 'Suivez les statuts de vos demandes de support.'}
-                            </p>
-                        </motion.div>
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.4 }}
-                            className="flex flex-wrap gap-3 pt-4"
-                        >
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">
+                                    {isAdmin ? 'Gestion des Réclamations' : isTechnicien ? 'Mes Réclamations' : 'Mes Tickets'}
+                                </h1>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {isAdmin 
+                                        ? 'Suivez et gérez l\'ensemble de vos tickets avec efficacité.'
+                                        : isTechnicien 
+                                        ? 'Gérez vos interventions assignées et ajoutez des actions.'
+                                        : 'Suivez les statuts de vos demandes de support.'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
                             {(isAdmin || isClient || canAddReclamation) && (
                                 <motion.button
-                                    whileHover={{ scale: 1.05, y: -3 }}
+                                    whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => navigate('/claims/new')}
-                                    className="px-7 py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-blue-400/30 group/btn"
+                                    className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg shadow-sm transition-all flex items-center gap-2"
                                 >
-                                    <PlusIcon className="h-5 w-5 inline mr-2 group-hover/btn:rotate-90 transition-transform" />
+                                    <PlusIcon className="h-5 w-5" />
                                     {isAdmin ? 'Créer un ticket' : 'Signaler un problème'}
                                 </motion.button>
                             )}
                             <motion.button
-                                whileHover={{ scale: 1.05, y: -3 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={fetchClaims}
-                                className="px-7 py-3.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-300 hover:border-slate-400 transition-all shadow-sm hover:shadow-md"
-                            >
-                                <ArrowPathIcon className="h-5 w-5 inline mr-2 group-hover:rotate-180 transition-transform" />
-                                Actualiser
-                            </motion.button>
-                        </motion.div>
-                    </div>
-                </motion.div>
-
-                {/* Stats Cards - Premium */}
-                <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    {[
-                        { name: 'Ouvertes', count: stats.open, icon: ExclamationCircleIcon, gradient: 'from-blue-500 to-blue-400', light: 'from-blue-50 to-blue-100/40', text: 'text-blue-700', badge: 'bg-blue-100/60 border-blue-300/40' },
-                        { name: 'En cours', count: stats.inProgress, icon: WrenchScrewdriverIcon, gradient: 'from-amber-500 to-amber-400', light: 'from-amber-50 to-amber-100/40', text: 'text-amber-700', badge: 'bg-amber-100/60 border-amber-300/40' },
-                        { name: 'Résolues', count: stats.resolved, icon: CheckCircleIcon, gradient: 'from-emerald-500 to-emerald-400', light: 'from-emerald-50 to-emerald-100/40', text: 'text-emerald-700', badge: 'bg-emerald-100/60 border-emerald-300/40' },
-                    ].map((item, idx) => (
-                        <motion.div
-                            key={item.name}
-                            variants={itemVariants}
-                            whileHover={{ y: -8, x: 0 }}
-                            className={`group relative rounded-2xl bg-gradient-to-br ${item.light} backdrop-blur-sm border border-slate-200/60 p-6 overflow-hidden shadow-lg hover:shadow-2xl transition-all`}
-                        >
-                            <div className={`absolute -top-20 -right-20 w-56 h-56 bg-gradient-to-br ${item.light} rounded-full blur-3xl group-hover:scale-125 transition-transform duration-500 opacity-60`} />
-                            <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-3 transition-all duration-300`} />
-                            
-                            <div className="relative space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <span className={`text-xs font-bold ${item.text} uppercase tracking-widest opacity-90`}>{item.name}</span>
-                                    <motion.div
-                                        animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.1, 1] }}
-                                        transition={{ duration: 4, repeat: Infinity }}
-                                        className={`${item.badge} border rounded-lg p-2.5 transition-all`}
-                                    >
-                                        <item.icon className={`h-5 w-5 ${item.text}`} />
-                                    </motion.div>
-                                </div>
-                                <motion.div
-                                    initial={{ scale: 0, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ delay: 0.3 + idx * 0.1, type: 'spring', stiffness: 200 }}
-                                    className={`text-4xl sm:text-5xl font-black ${item.text}`}
-                                >
-                                    {item.count}
-                                </motion.div>
-                                <div className={`h-1 w-12 bg-gradient-to-r from-transparent via-slate-300/50 to-transparent`} />
-                            </div>
-                        </motion.div>
-                    ))}
-                </motion.div>
-
-                {/* Filters Section - Premium Enhanced */}
-                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/40 backdrop-blur-sm border border-slate-200/60 p-6 sm:p-8 shadow-lg hover:shadow-xl transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/2 via-transparent to-cyan-500/2 opacity-0 group-hover:opacity-100 transition-all rounded-2xl" />
-                    <div className="relative">
-                        <div className="mb-8 flex items-center gap-3">
-                            <div className="p-3 bg-gradient-to-br from-blue-100/80 to-cyan-100/60 rounded-xl border border-blue-200/50">
-                                <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-slate-900">Recherche & Filtres</h3>
-                                <p className="text-sm text-slate-600 mt-2 font-medium">Affinez vos résultats selon vos critères</p>
-                            </div>
-                        </div>
-
-                        {/* Grid layout depends on if client or admin */}
-                        <div className={`grid gap-4 ${isClient ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-6'}`}>
-                            <div className={`${isClient ? 'lg:col-span-1' : 'lg:col-span-2'} relative group/input`}>
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
-                                <div className="relative flex items-center">
-                                    <svg className="absolute left-3 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        placeholder="Rechercher par ticket, client, objet..."
-                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-10 pr-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
-                                    />
-                                </div>
-                            </div>
-                            
-                            {/* Status Filter */}
-                            <div className="relative group/select">
-                                <div className="absolute inset-0 bg-gradient-to-r from-slate-300/20 to-slate-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
-                                <div className="relative flex items-center">
-                                    <svg className="absolute left-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                    >
-                                        <option value="all">Tous les statuts</option>
-                                        <option value="Ouvert">Ouvert</option>
-                                        <option value="En cours">En cours</option>
-                                        <option value="Résolu">Résolu</option>
-                                    </select>
-                                    <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <div className="relative group/input">
-                                <div className="absolute inset-0 bg-gradient-to-r from-cyan-300/20 to-cyan-300/20 rounded-xl blur opacity-0 group-hover/input:opacity-100 transition-all" />
-                                <div className="relative flex items-center">
-                                    <svg className="absolute left-3 h-4 w-4 text-cyan-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <input
-                                        type="date"
-                                        value={dateFilter}
-                                        onChange={(e) => setDateFilter(e.target.value)}
-                                        className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-3 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
-                                        title="Date"
-                                        aria-label="Date"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Admin-only filters */}
-                            {!isClient && (
-                                <>
-                                    <div className="relative group/select">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-amber-300/20 to-amber-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
-                                        <div className="relative flex items-center">
-                                            <svg className="absolute left-3 h-4 w-4 text-amber-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                            </svg>
-                                            <select
-                                                value={priorityFilter}
-                                                onChange={(e) => setPriorityFilter(e.target.value)}
-                                                className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                            >
-                                                <option value="all">Toutes les priorités</option>
-                                                <option value="Urgente">🔴 Urgente</option>
-                                                <option value="Haute">🟠 Haute</option>
-                                                <option value="Normale">🔵 Normale</option>
-                                                <option value="Basse">⚪ Basse</option>
-                                            </select>
-                                            <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    {isAdmin && (
-                                        <div className="relative group/select">
-                                            <div className="absolute inset-0 bg-gradient-to-r from-green-300/20 to-green-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
-                                            <div className="relative flex items-center">
-                                                <svg className="absolute left-3 h-4 w-4 text-green-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                                <select
-                                                    value={technicianFilter}
-                                                    onChange={(e) => setTechnicianFilter(e.target.value)}
-                                                    className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                                >
-                                                    <option value="all">Tous les techniciens</option>
-                                                    {techniciens.map((tech) => (
-                                                        <option key={tech.id} value={tech.id}>{tech.name}</option>
-                                                    ))}
-                                                </select>
-                                                <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="relative group/select">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-300/20 to-purple-300/20 rounded-xl blur opacity-0 group-hover/select:opacity-100 transition-all" />
-                                        <div className="relative flex items-center">
-                                            <svg className="absolute left-3 h-4 w-4 text-purple-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
-                                            <select
-                                                value={sortMode}
-                                                onChange={(e) => setSortMode(e.target.value)}
-                                                className="relative w-full rounded-xl bg-white/60 backdrop-blur-sm border border-slate-300/50 hover:border-slate-400 focus:border-blue-400 pl-9 pr-8 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all appearance-none"
-                                            >
-                                                <option value="recent">Plus récents</option>
-                                                <option value="priority">Par priorité</option>
-                                                <option value="status">Par statut</option>
-                                            </select>
-                                            <svg className="absolute right-3 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.5 }}
-                            className="mt-4 flex items-center justify-between text-sm"
-                        >
-                            <p className="text-slate-700 font-semibold">
-                                <span className="text-blue-600 font-bold">{displayedClaims.length}</span> / <span className="text-slate-500">{effectiveTotalItems}</span> réclamations affichées
-                            </p>
-                            <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={clearFilters}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100/60 border border-slate-300/60 rounded-lg hover:bg-slate-200/60 hover:border-slate-400/60 transition-all"
+                                onClick={fetchClaims}
+                                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-all flex items-center gap-2"
                             >
-                                Effacer les filtres
+                                <ArrowPathIcon className="h-5 w-5" />
+                                Actualiser
                             </motion.button>
-                        </motion.div>
+                        </div>
                     </div>
                 </motion.div>
 
-                {/* Table - Premium Enhanced */}
-                <motion.div variants={itemVariants} className="group rounded-2xl bg-gradient-to-br from-white via-slate-50 to-blue-50/30 backdrop-blur-sm border border-slate-200/60 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
-                    <div className="px-6 sm:px-8 py-6 border-b border-slate-200/60 bg-gradient-to-r from-white/80 to-blue-50/40 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                <div className="p-2 bg-blue-100/60 rounded-lg">
-                                    <LifebuoyIcon className="h-5 w-5 text-blue-600" />
+                {/* Stats Cards */}
+                <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {[
+                        { name: 'Ouvertes', count: stats.open, icon: ExclamationCircleIcon, color: 'blue', bg: 'bg-blue-50', border: 'border-blue-200' },
+                        { name: 'En cours', count: stats.inProgress, icon: WrenchScrewdriverIcon, color: 'amber', bg: 'bg-amber-50', border: 'border-amber-200' },
+                        { name: 'Résolues', count: stats.resolved, icon: CheckCircleIcon, color: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+                    ].map((item, idx) => {
+                        const colorMap = {
+                            blue: { text: 'text-blue-700', iconBg: 'bg-blue-100', iconText: 'text-blue-600' },
+                            amber: { text: 'text-amber-700', iconBg: 'bg-amber-100', iconText: 'text-amber-600' },
+                            emerald: { text: 'text-emerald-700', iconBg: 'bg-emerald-100', iconText: 'text-emerald-600' },
+                        };
+                        const colors = colorMap[item.color];
+                        
+                        return (
+                            <motion.div
+                                key={item.name}
+                                variants={itemVariants}
+                                whileHover={{ y: -4 }}
+                                className={`card-luxury p-6 ${item.bg} ${item.border} border`}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className={`text-sm font-bold ${colors.text} uppercase tracking-wider`}>{item.name}</span>
+                                    <div className={`h-12 w-12 ${colors.iconBg} rounded-xl flex items-center justify-center`}>
+                                        <item.icon className={`h-6 w-6 ${colors.iconText}`} />
+                                    </div>
                                 </div>
-                                Tickets de Support
-                            </h3>
-                            <p className="text-sm text-slate-600 mt-1 font-medium">
-                                {isClient ? 'Vos réclamations' : 'Gestion centralisée de tous vos tickets'}
-                            </p>
+                                <div className={`text-4xl font-black ${colors.text}`}>
+                                    {item.count}
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </motion.div>
+
+                {/* Filters Section */}
+                <motion.div variants={itemVariants} className="card-luxury p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center">
+                            <svg className="h-5 w-5 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            Mise à jour en temps réel
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800">Recherche & Filtres</h3>
+                            <p className="text-xs text-slate-500">Affinez vos résultats selon vos critères</p>
+                        </div>
+                    </div>
+
+                    <div className={`grid gap-4 ${isClient ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-6'}`}>
+                        <div className={`${isClient ? 'lg:col-span-1' : 'lg:col-span-2'}`}>
+                            <div className="relative">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Rechercher par ticket, client, objet..."
+                                    className="input-modern pl-10"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="input-modern"
+                            >
+                                <option value="all">Tous les statuts</option>
+                                <option value="Ouvert">Ouvert</option>
+                                <option value="En cours">En cours</option>
+                                <option value="Résolu">Résolu</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <input
+                                type="date"
+                                value={dateFilter}
+                                onChange={(e) => setDateFilter(e.target.value)}
+                                className="input-modern"
+                            />
+                        </div>
+
+                        {!isClient && (
+                            <>
+                                <div>
+                                    <select
+                                        value={priorityFilter}
+                                        onChange={(e) => setPriorityFilter(e.target.value)}
+                                        className="input-modern"
+                                    >
+                                        <option value="all">Toutes les priorités</option>
+                                        <option value="Urgente">🔴 Urgente</option>
+                                        <option value="Haute">🟠 Haute</option>
+                                        <option value="Normale">🔵 Normale</option>
+                                        <option value="Basse">⚪ Basse</option>
+                                    </select>
+                                </div>
+                                {isAdmin && (
+                                    <div>
+                                        <select
+                                            value={technicianFilter}
+                                            onChange={(e) => setTechnicianFilter(e.target.value)}
+                                            className="input-modern"
+                                        >
+                                            <option value="all">Tous les techniciens</option>
+                                            {techniciens.map((tech) => (
+                                                <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <div>
+                                    <select
+                                        value={sortMode}
+                                        onChange={(e) => setSortMode(e.target.value)}
+                                        className="input-modern"
+                                    >
+                                        <option value="recent">Plus récents</option>
+                                        <option value="priority">Par priorité</option>
+                                        <option value="status">Par statut</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between text-sm">
+                        <p className="text-slate-600 font-medium">
+                            <span className="text-sky-600 font-bold">{displayedClaims.length}</span> / <span className="text-slate-400">{effectiveTotalItems}</span> réclamations
+                        </p>
+                        <button
+                            onClick={clearFilters}
+                            className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+                        >
+                            Effacer les filtres
+                        </button>
+                    </div>
+                </motion.div>
+
+                {/* Table */}
+                <motion.div variants={itemVariants} className="card-luxury overflow-hidden">
+                    <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center">
+                                <LifebuoyIcon className="h-5 w-5 text-sky-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Tickets de Support</h3>
+                                <p className="text-xs text-slate-500">
+                                    {isClient ? 'Vos réclamations' : 'Gestion centralisée de tous vos tickets'}
+                                </p>
+                            </div>
                         </div>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full text-left">
                             <thead>
-                                <tr className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200/60 bg-gradient-to-r from-slate-50/70 to-blue-50/40">
+                                <tr className="text-xs font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200 bg-slate-50/70">
                                     <th className="px-6 py-4 font-bold">N° Ticket</th>
                                     <th className="px-6 py-4 font-bold">Objet</th>
                                     <th className="px-6 py-4 font-bold">Priorité</th>
@@ -708,7 +622,7 @@ const ClaimsList = () => {
                                     {(isClient || isTechnicien || isAdmin) && <th className="px-6 py-4 font-bold text-center">Actions</th>}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100/70">
+                            <tbody className="divide-y divide-slate-100">
                                 <AnimatePresence>
                                     {filteredClaims.length === 0 ? (
                                         <motion.tr
@@ -718,14 +632,14 @@ const ClaimsList = () => {
                                             animate="visible"
                                             exit="exit"
                                         >
-                                            <td colSpan={isClient ? "6" : "6"} className="text-center py-24">
-                                                <motion.div variants={itemVariants} className="flex flex-col items-center gap-4">
-                                                    <div className="p-4 bg-slate-100/80 rounded-2xl border border-slate-200/60">
-                                                        <ExclamationCircleIcon className="h-12 w-12 text-slate-300" />
+                                            <td colSpan={isClient ? "6" : "6"} className="text-center py-20">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center">
+                                                        <ExclamationCircleIcon className="h-8 w-8 text-slate-300" />
                                                     </div>
-                                                    <h3 className="font-bold text-slate-700 text-lg">Aucune réclamation</h3>
+                                                    <h3 className="font-bold text-slate-700">Aucune réclamation</h3>
                                                     <p className="text-sm text-slate-500">Cliquez sur "Créer un Ticket" pour démarrer</p>
-                                                </motion.div>
+                                                </div>
                                             </td>
                                         </motion.tr>
                                     ) : displayedClaims.map((claim, idx) => (
@@ -736,26 +650,25 @@ const ClaimsList = () => {
                                             animate="visible"
                                             exit="exit"
                                             transition={{ delay: idx * 0.02 }}
-                                            className="hover:bg-blue-50/40 transition-all cursor-pointer border-b border-slate-100/70 last:border-b-0 group/row"
+                                            className="hover:bg-sky-50/50 transition-colors cursor-pointer group/row"
                                             onClick={() => navigate(`/claims/${claim.id}`)}
-                                            whileHover={{ x: 2 }}
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <motion.span whileHover={{ scale: 1.05 }} className="font-mono text-xs font-bold bg-gradient-to-r from-blue-100/80 to-blue-50/60 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-300/40 inline-block transition-all group-hover/row:border-blue-400/60 group-hover/row:shadow-lg group-hover/row:shadow-blue-300/20">
+                                                <span className="font-mono text-xs font-bold bg-sky-50 text-sky-700 px-3 py-1.5 rounded-lg border border-sky-200 inline-block">
                                                     {claim.ticket}
-                                                </motion.span>
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-sm font-medium text-slate-900 truncate max-w-xs" title={claim.object}>
+                                                <div className="text-sm font-semibold text-slate-800 truncate max-w-xs" title={claim.object}>
                                                     {claim.object}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                                                    claim.priority === 'Urgente' || claim.priority === 'Urgent' ? 'bg-rose-100/70 text-rose-700 border-rose-300/40' :
-                                                    claim.priority === 'Haute' ? 'bg-amber-100/70 text-amber-700 border-amber-300/40' :
-                                                    claim.priority === 'Normale' ? 'bg-slate-100/70 text-slate-700 border-slate-300/40' :
-                                                        'bg-slate-100/60 text-slate-600 border-slate-300/30'
+                                                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                                                    claim.priority === 'Urgente' || claim.priority === 'Urgent' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    claim.priority === 'Haute' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                    claim.priority === 'Normale' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                                                        'bg-slate-50 text-slate-600 border-slate-200'
                                                 }`}>
                                                     {claim.priority}
                                                 </span>
@@ -763,13 +676,13 @@ const ClaimsList = () => {
                                             {isAdmin && (
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="h-8 w-8 bg-slate-100/80 border border-slate-300/60 rounded-lg flex items-center justify-center group-hover/row:border-blue-400/40 transition-all">
-                                                            <WrenchScrewdriverIcon className="h-4 w-4 text-slate-600 group-hover/row:text-blue-600 transition-all" />
+                                                        <div className="h-8 w-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                                                            <WrenchScrewdriverIcon className="h-4 w-4 text-slate-600" />
                                                         </div>
                                                         <div className="flex flex-col gap-1">
                                                             <span className="text-xs font-semibold text-slate-800">{claim.assignedTo}</span>
                                                             <select
-                                                                className="text-xs border border-slate-300/60 hover:border-slate-400 focus:border-blue-400 rounded-lg px-2 py-1 bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300/30 transition-all"
+                                                                className="text-xs border border-slate-200 hover:border-slate-300 focus:border-sky-400 rounded-lg px-2 py-1 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-100 transition-all"
                                                                 value=""
                                                                 disabled={
                                                                     assigningId === claim.id ||
@@ -802,52 +715,46 @@ const ClaimsList = () => {
                                                 </td>
                                             )}
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-block border transition-all ${
-                                                    claim.status === 'Résolu' || claim.status === 'resolu' ? 'bg-emerald-100/70 text-emerald-700 border-emerald-300/40' :
-                                                    claim.status === 'En cours' ? 'bg-amber-100/70 text-amber-700 border-amber-300/40' :
-                                                    claim.status === 'Ouvert' || claim.status === 'nouveau' ? 'bg-blue-100/70 text-blue-700 border-blue-300/40' :
-                                                            'bg-slate-100/60 text-slate-600 border-slate-300/30'
+                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-block border ${
+                                                    claim.status === 'Résolu' || claim.status === 'resolu' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                    claim.status === 'En cours' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                    claim.status === 'Ouvert' || claim.status === 'nouveau' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                            'bg-slate-50 text-slate-600 border-slate-200'
                                                 }`}>
                                                     {claim.status}
-                                                </motion.span>
+                                                </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-slate-600 font-medium group-hover/row:text-slate-800 transition-all">
+                                            <td className="px-6 py-4 text-right whitespace-nowrap text-sm text-slate-600 font-medium">
                                                 {formatDate(claim.date)}
                                             </td>
                                             {(isClient || isTechnicien || isAdmin) && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.08 }}
-                                                            whileTap={{ scale: 0.95 }}
+                                                        <button
                                                             onClick={() => navigate(`/claims/${claim.id}`)}
-                                                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-100/70 border border-blue-300/40 rounded-lg hover:bg-blue-100 hover:border-blue-400/60 transition-all"
+                                                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition-all"
                                                             title="Voir le détail"
                                                         >
                                                             <EyeIcon className="h-4 w-4" />
-                                                        </motion.button>
+                                                        </button>
                                                         {isTechnicien && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
-                                                            <motion.button
-                                                                whileHover={{ scale: 1.08 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                            <button
                                                                 onClick={() => navigate(`/claims/${claim.id}/intervention/new`)}
-                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-300/40 rounded-lg hover:bg-emerald-100 hover:border-emerald-400/60 transition-all"
+                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all"
                                                                 title="Ajouter une intervention"
                                                             >
                                                                 <PlusIcon className="h-4 w-4" />
-                                                            </motion.button>
+                                                            </button>
                                                         )}
                                                         {isAdmin && (
-                                                            <motion.button
-                                                                whileHover={{ scale: 1.08 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                            <button
                                                                 onClick={() => setDeleteConfirm(claim.id)}
                                                                 disabled={deletingId === claim.id}
-                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-100/70 border border-rose-300/40 rounded-lg hover:bg-rose-100 hover:border-rose-400/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                                 title="Supprimer"
                                                             >
                                                                 <TrashIcon className="h-4 w-4" />
-                                                            </motion.button>
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </td>
