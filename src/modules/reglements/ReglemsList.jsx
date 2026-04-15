@@ -19,10 +19,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 const ReglemsList = () => {
-  console.log('🚀 ReglemsList component mounted');
   const { user } = useAuth();
   const { canCreate } = usePermission(MODULE_CODES.REGLEMENT);
-  console.log('👤 Current user:', user);
   const [reglements, setReglements] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,9 +28,15 @@ const ReglemsList = () => {
     search: '',
     status: '',
     date: '',
+    dateFrom: '',
+    dateTo: '',
+    codTiers: '',
+    codRepres: '',
     page: 1,
     limit: 10,
   });
+  const [clients, setClients] = useState([]);
+  const [commercials, setCommercials] = useState([]);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -51,6 +55,34 @@ const ReglemsList = () => {
     return raw.slice(0, 10);
   };
 
+  const loadReglements = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        search: filters.search,
+        status: filters.status,
+        page: filters.page,
+        limit: filters.limit,
+      });
+
+      if (filters.date) params.set('date', filters.date);
+      if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.set('dateTo', filters.dateTo);
+      if (filters.codTiers) params.set('codTiers', filters.codTiers);
+      if (filters.codRepres) params.set('codRepres', filters.codRepres);
+
+      const res = await axios.get(`/reglements?${params}`);
+      setReglements(res.data.data || res.data);
+      setPagination(res.data.pagination || { total: 0, page: 1, limit: 10, totalPages: 0 });
+    } catch (err) {
+      console.error('❌ Error fetching reglements:', err.response?.status, err.message);
+      console.error('Response data:', err.response?.data);
+      setReglements([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch statistics
   useEffect(() => {
     fetchStats();
@@ -58,44 +90,31 @@ const ReglemsList = () => {
 
   // Fetch reglements
   useEffect(() => {
-    const fetchReglements = async () => {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams({
-          search: filters.search,
-          status: filters.status,
-          page: filters.page,
-          limit: filters.limit,
-        });
-
-        if (filters.date) params.set('date', filters.date);
-        
-        console.log('📋 Fetching reglements:', `/reglements?${params}`);
-        const res = await axios.get(`/reglements?${params}`);
-        console.log('✅ Reglements response:', res);
-        console.log('✅ Reglements data:', res.data);
-        setReglements(res.data.data || res.data);
-        setPagination(res.data.pagination || { total: 0, page: 1, limit: 10, totalPages: 0 });
-      } catch (err) {
-        console.error('❌ Error fetching reglements:', err.response?.status, err.message);
-        console.error('Response data:', err.response?.data);
-        setReglements([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchReglements();
+    loadReglements();
   }, [filters]);
 
-  // Debug: Log state changes
   useEffect(() => {
-    console.log('📊 Component state:', { 
-      loading, 
-      statsCount: stats?.totalDocuments, 
-      reglementCount: reglements?.length || 0,
-      paginationTotal: pagination?.total || 0
-    });
-  }, [loading, stats, reglements, pagination]);
+    const loadFilterSources = async () => {
+      try {
+        const [clientsRes, commercialsRes] = await Promise.all([
+          axios.get('/tiers?limit=10000&sort=recent'),
+          axios.get('/users/commercials/assignable'),
+        ]);
+
+        const clientData = clientsRes?.data?.data || clientsRes?.data || [];
+        const commercialData = commercialsRes?.data?.data || commercialsRes?.data || [];
+
+        setClients(Array.isArray(clientData) ? clientData : []);
+        setCommercials(Array.isArray(commercialData) ? commercialData : []);
+      } catch (err) {
+        console.error('Error loading filter sources:', err);
+        setClients([]);
+        setCommercials([]);
+      }
+    };
+
+    loadFilterSources();
+  }, []);
 
   const handleSearchChange = (e) => {
     setFilters({ ...filters, search: e.target.value, page: 1 });
@@ -109,44 +128,52 @@ const ReglemsList = () => {
     setFilters({ ...filters, date: e.target.value, page: 1 });
   };
 
+  const handleDateFromChange = (e) => {
+    setFilters({ ...filters, dateFrom: e.target.value, page: 1 });
+  };
+
+  const handleDateToChange = (e) => {
+    setFilters({ ...filters, dateTo: e.target.value, page: 1 });
+  };
+
+  const handleClientFilterChange = (e) => {
+    setFilters({ ...filters, codTiers: e.target.value, page: 1 });
+  };
+
+  const handleCommercialFilterChange = (e) => {
+    setFilters({ ...filters, codRepres: e.target.value, page: 1 });
+  };
+
   const handlePageChange = (newPage) => {
     setFilters({ ...filters, page: newPage });
   };
 
   // Open modal to record payment
   const openPaymentModal = (reglement) => {
-    console.log('🎯 Opening payment modal for reglement:', reglement.id);
     setSelectedReglement(reglement);
     setIsModalOpen(true);
   };
 
   // Close modal
   const closePaymentModal = () => {
-    console.log('❌ Closing payment modal');
     setIsModalOpen(false);
     setSelectedReglement(null);
   };
 
   // Open detail modal
   const openDetailModal = (reglement) => {
-    console.log('📖 Opening detail modal for reglement:', reglement);
-    console.log('📖 Reglement ID:', reglement.id);
-    console.log('📖 Reglement type:', typeof reglement.id);
     setDetailReglementId(reglement.id);
     setIsDetailOpen(true);
   };
 
   // Close detail modal
   const closeDetailModal = () => {
-    console.log('📖 Closing detail modal');
     setIsDetailOpen(false);
     setDetailReglementId(null);
   };
 
   // Handle successful payment recording
   const handlePaymentSuccess = (updatedReglement) => {
-    console.log('✅ Payment recorded successfully:', updatedReglement);
-    
     // Update the reglement in the list
     setReglements(prevReglements => 
       prevReglements.map(reg => 
@@ -168,9 +195,7 @@ const ReglemsList = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      console.log('📊 Fetching stats...');
       const res = await axios.get('/reglements/stats');
-      console.log('✅ Stats received:', res.data);
       setStats(res.data.data);
     } catch (err) {
       console.error('❌ Error fetching reglement stats:', err.response?.status, err.message);
@@ -374,6 +399,49 @@ const ReglemsList = () => {
             title="Filtrer par date"
           />
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+          <select
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            value={filters.codTiers}
+            onChange={handleClientFilterChange}
+          >
+            <option value="">Tous les clients</option>
+            {clients.map((client) => (
+              <option key={client.CodTiers || client.id} value={client.CodTiers || client.id}>
+                {(client.CodTiers || client.id)} - {(client.LibelleComplet || client.Nom || client.LibTiers || client.Raisoc || client.CodTiers || client.id)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            value={filters.codRepres}
+            onChange={handleCommercialFilterChange}
+          >
+            <option value="">Tous les commerciaux</option>
+            {commercials.map((commercial) => (
+              <option key={commercial.value || commercial.userId} value={commercial.value || commercial.userId}>
+                {commercial.label || commercial.fullName || commercial.login || commercial.value}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            value={filters.dateFrom}
+            onChange={handleDateFromChange}
+            title="Date début"
+          />
+
+          <input
+            type="date"
+            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+            value={filters.dateTo}
+            onChange={handleDateToChange}
+            title="Date fin"
+          />
+        </div>
       </motion.div>
 
       {/* Table Section */}
@@ -574,15 +642,21 @@ const ReglemsList = () => {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSuccess={(newReglement) => {
-          // Add new reglement to list
-          setReglements(prev => [newReglement, ...prev]);
-          // Refresh stats
+          setIsFormOpen(false);
+          setSelectedReglement(null);
+          setIsModalOpen(false);
+
+          // Make the new record visible immediately, then sync with backend.
+          if (newReglement?.id) {
+            setReglements((prev) => {
+              if (prev.some((reg) => reg.id === newReglement.id)) return prev;
+              return [newReglement, ...prev];
+            });
+          }
+
+          setFilters((prev) => ({ ...prev, page: 1 }));
+          loadReglements();
           fetchStats();
-          // Navigate to the new réglement for quick payment entry
-          setTimeout(() => {
-            setSelectedReglement(newReglement);
-            setIsModalOpen(true);
-          }, 300);
         }}
       />
 

@@ -2,26 +2,44 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import axios from '../../app/axios';
+import { formatCurrency, formatDate } from '../../utils/format';
+
+const defaultFormState = () => ({
+    codTiers: '',
+    libTiers: '',
+    datReg: new Date().toISOString().split('T')[0],
+    modReg: 'ESPECE',
+    numPiece: '',
+    banque: '',
+    detail: '',
+});
+
+const toNumber = (value) => {
+    const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+    return Number.isFinite(parsed) ? Math.round(parsed * 1000) / 1000 : 0;
+};
+
+const getDocKey = (doc) => `${doc.type}:${doc.id}`;
 
 const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({
-        codTiers: '',
-        libTiers: '',
-        mntReg: '',
-        datReg: new Date().toISOString().split('T')[0],
-        modReg: 'ESPECE',
-        numPiece: '',
-        banque: '',
-        detail: '',
-    });
+    const [formData, setFormData] = useState(defaultFormState);
     const [clients, setClients] = useState([]);
     const [clientSearch, setClientSearch] = useState('');
     const [paymentModes, setPaymentModes] = useState([]);
+    const [documents, setDocuments] = useState([]);
+    const [selectedAllocations, setSelectedAllocations] = useState({});
+    const [docFilters, setDocFilters] = useState({
+        search: '',
+        type: '',
+        dateFrom: '',
+        dateTo: '',
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loadingClients, setLoadingClients] = useState(false);
     const [loadingModes, setLoadingModes] = useState(false);
+    const [loadingDocs, setLoadingDocs] = useState(false);
 
     const normalizedModReg = String(formData.modReg || '').toUpperCase();
     const requiresReference = ['CHEQUE', 'VIREMENT', 'TRAITE', 'EFFET'].includes(normalizedModReg);
@@ -45,16 +63,62 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         });
     }, [clients, clientSearch]);
 
-    // Fetch clients on modal open
+    const filteredDocuments = useMemo(() => {
+        const search = String(docFilters.search || '').trim().toLowerCase();
+        const from = String(docFilters.dateFrom || '').trim();
+        const to = String(docFilters.dateTo || '').trim();
+
+        return documents.filter((doc) => {
+            if (docFilters.type && doc.type !== docFilters.type) return false;
+
+            if (search) {
+                const inText = `${doc.num || ''} ${doc.type || ''}`.toLowerCase();
+                if (!inText.includes(search)) return false;
+            }
+
+            const dateOnly = String(doc.date || '').slice(0, 10);
+            if (from && dateOnly && dateOnly < from) return false;
+            if (to && dateOnly && dateOnly > to) return false;
+
+            return true;
+        });
+    }, [documents, docFilters]);
+
+    const selectedPieces = useMemo(() => {
+        return documents
+            .filter((doc) => Object.prototype.hasOwnProperty.call(selectedAllocations, getDocKey(doc)))
+            .map((doc) => ({
+                ...doc,
+                allocatedAmount: toNumber(selectedAllocations[getDocKey(doc)]),
+            }))
+            .filter((doc) => doc.allocatedAmount > 0);
+    }, [documents, selectedAllocations]);
+
+    const totalAllocated = useMemo(() => {
+        return selectedPieces.reduce((sum, piece) => sum + toNumber(piece.allocatedAmount), 0);
+    }, [selectedPieces]);
+
+    const partialCount = useMemo(() => {
+        return selectedPieces.filter((piece) => piece.allocatedAmount < (piece.remaining - 0.01)).length;
+    }, [selectedPieces]);
+
     useEffect(() => {
-        if (isOpen) {
-            fetchClients();
-            fetchPaymentModes();
-            setClientSearch('');
-            setSuccess('');
-            setError('');
-        }
+        if (!isOpen) return;
+        fetchClients();
+        fetchPaymentModes();
+        setClientSearch('');
+        setSuccess('');
+        setError('');
+        setSelectedAllocations({});
+        setDocuments([]);
+        setDocFilters({ search: '', type: '', dateFrom: '', dateTo: '' });
+        setFormData(defaultFormState());
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen || !formData.codTiers) return;
+        fetchUnpaidDocuments(formData.codTiers, docFilters.dateFrom, docFilters.dateTo);
+    }, [isOpen, formData.codTiers, docFilters.dateFrom, docFilters.dateTo]);
 
     const fetchPaymentModes = async () => {
         try {
@@ -82,14 +146,11 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         try {
             setLoadingClients(true);
             setError('');
-            
-            // Essayer plusieurs endpoints possibles
             let response;
             try {
                 response = await axios.get('/tiers?limit=10000&sort=recent');
             } catch (err) {
                 if (err.response?.status === 404) {
-                    console.log('Endpoint /tiers not found, trying /clients...');
                     response = await axios.get('/clients?limit=10000&sort=recent');
                 } else {
                     throw err;
@@ -98,12 +159,10 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
 
             const payload = response?.data ?? response;
             const list = payload?.data ?? payload;
-            
+
             if (Array.isArray(list)) {
                 setClients(list);
-                console.log(`✅ ${list.length} clients chargés`);
             } else {
-                console.warn('Format de réponse inattendu:', payload);
                 setError('Format de données invalide du serveur');
             }
         } catch (err) {
@@ -115,43 +174,113 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         }
     };
 
+    const fetchUnpaidDocuments = async (codTiers, dateFrom, dateTo) => {
+        if (!codTiers) return;
+        try {
+            setLoadingDocs(true);
+            setError('');
+            const params = new URLSearchParams();
+            if (dateFrom) params.set('dateFrom', dateFrom);
+            if (dateTo) params.set('dateTo', dateTo);
+            const query = params.toString();
+            const response = await axios.get(`/reglements/unpaid/${encodeURIComponent(codTiers)}${query ? `?${query}` : ''}`);
+            const payload = response?.data?.data || response?.data || [];
+            const docs = Array.isArray(payload) ? payload.map((doc) => {
+                const debit = toNumber(doc.debit);
+                const credit = toNumber(doc.credit);
+                const remaining = toNumber(doc.remaining > 0 ? doc.remaining : (debit - credit));
+                return {
+                    ...doc,
+                    debit,
+                    credit,
+                    remaining: Math.max(0, remaining),
+                };
+            }).filter((doc) => doc.remaining > 0) : [];
+
+            setDocuments(docs);
+            setSelectedAllocations((prev) => {
+                const next = {};
+                docs.forEach((doc) => {
+                    const key = getDocKey(doc);
+                    if (Object.prototype.hasOwnProperty.call(prev, key)) {
+                        next[key] = Math.min(toNumber(prev[key]), doc.remaining);
+                    }
+                });
+                return next;
+            });
+        } catch (err) {
+            console.error('Error fetching unpaid docs:', err);
+            setDocuments([]);
+            setSelectedAllocations({});
+            setError(err.response?.data?.message || 'Impossible de charger les pièces impayées');
+        } finally {
+            setLoadingDocs(false);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        const nextValue = name === 'mntReg' ? value.replace(',', '.') : value;
-        setFormData(prev => ({
-            ...prev,
-            [name]: nextValue
-        }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
         setError('');
     };
 
     const handleClientChange = (e) => {
         const codTiers = e.target.value;
         const client = clients.find((c) => String(c.CodTiers || c.id || '').trim() === String(codTiers || '').trim());
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             codTiers,
-            libTiers: client?.LibelleComplet || client?.Nom || client?.LibTiers || client?.Raisoc || codTiers
+            libTiers: client?.LibelleComplet || client?.Nom || client?.LibTiers || client?.Raisoc || codTiers,
         }));
+        setSelectedAllocations({});
+        setDocuments([]);
+        setDocFilters((prev) => ({ ...prev, search: '', type: '' }));
         if (client) {
             setClientSearch(getClientLabel(client));
         }
         setError('');
     };
 
+    const togglePieceSelection = (doc, checked) => {
+        const key = getDocKey(doc);
+        setSelectedAllocations((prev) => {
+            const next = { ...prev };
+            if (checked) {
+                next[key] = doc.remaining;
+            } else {
+                delete next[key];
+            }
+            return next;
+        });
+    };
+
+    const handleAllocationChange = (doc, value) => {
+        const key = getDocKey(doc);
+        const amount = Math.max(0, Math.min(toNumber(value), doc.remaining));
+        setSelectedAllocations((prev) => ({
+            ...prev,
+            [key]: amount,
+        }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const amount = Number.parseFloat(String(formData.mntReg || '').replace(',', '.'));
-        
-        // Validation
+
         if (!formData.codTiers.trim()) {
             setError('Sélectionnez un client');
             return;
         }
-        if (!Number.isFinite(amount) || amount <= 0) {
-            setError('Entrez un montant valide');
+
+        if (selectedPieces.length === 0) {
+            setError('Sélectionnez au moins une pièce à régler');
             return;
         }
+
+        if (totalAllocated <= 0) {
+            setError('Le montant total alloué doit être supérieur à zéro');
+            return;
+        }
+
         if (requiresReference && !formData.numPiece.trim()) {
             setError('Le numéro de pièce est obligatoire pour cette modalité');
             return;
@@ -166,55 +295,45 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             setError('');
             setSuccess('');
 
-            const response = await axios.post('/reglements', {
+            const payload = {
                 codTiers: formData.codTiers,
                 libTiers: formData.libTiers,
-                mntReg: amount,
+                mntReg: totalAllocated,
                 datReg: formData.datReg,
+                selectedPieces: selectedPieces.map((piece) => ({
+                    id: piece.id,
+                    type: piece.type,
+                    allocatedAmount: piece.allocatedAmount,
+                })),
                 payments: [
                     {
                         modReg: formData.modReg,
-                        montant: amount,
+                        montant: totalAllocated,
                         echeance: formData.datReg,
                         numPiece: formData.numPiece || null,
                         banque: formData.banque || null,
                         detail: formData.detail || null,
                     }
                 ]
-            });
+            };
 
-            if (response.data?.data) {
-                // Show success message
-                console.log('✅ Réglement créé avec succès:', response.data.message);
-                setSuccess('✅ Réglement créé avec succès');
+            const response = await axios.post('/reglements', payload);
+            const createdReglement = response?.data?.data || response?.data;
 
-                // Reset form
-                setFormData({
-                    codTiers: '',
-                    libTiers: '',
-                    mntReg: '',
-                    datReg: new Date().toISOString().split('T')[0],
-                    modReg: 'ESPECE',
-                    numPiece: '',
-                    banque: '',
-                    detail: '',
-                });
-
-                // Call success callback
-                if (onSuccess) {
-                    onSuccess(response.data.data);
+            if (createdReglement && createdReglement.id) {
+                setSuccess('Règlement créé avec succès');
+                try {
+                    if (onSuccess) onSuccess(createdReglement);
+                } catch (callbackErr) {
+                    console.error('onSuccess callback error:', callbackErr);
                 }
-
-                // Close modal after 1.5 seconds
-                setTimeout(() => {
-                    setSuccess('');
-                    onClose();
-                }, 1500);
+                onClose();
+            } else {
+                setError('Réponse serveur invalide après création');
             }
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Erreur lors de la création';
             setError(errorMsg);
-            console.error('Create reglement error:', err);
         } finally {
             setLoading(false);
         }
@@ -224,7 +343,6 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         <AnimatePresence>
             {isOpen && (
                 <>
-                    {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -233,207 +351,255 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
                     />
 
-                    {/* Modal */}
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                            className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+                            className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden"
                         >
-                            {/* Header */}
                             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-white">Créer un Réglement</h2>
-                                <button
-                                    onClick={onClose}
-                                    className="text-white/80 hover:text-white transition"
-                                >
+                                <h2 className="text-xl font-bold text-white">Créer un Règlement</h2>
+                                <button onClick={onClose} className="text-white/80 hover:text-white transition">
                                     <XMarkIcon className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            {/* Form */}
-                            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                                {/* Client Select */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Client {clients.length === 0 && !loadingClients && <span className="text-orange-600">(ou code)</span>}
-                                    </label>
-                                    {clients.length > 0 ? (
-                                        <div className="space-y-2">
+                            <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[82vh]">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
+                                        {clients.length > 0 ? (
+                                            <div className="space-y-2">
+                                                <input
+                                                    type="text"
+                                                    value={clientSearch}
+                                                    onChange={(e) => setClientSearch(e.target.value)}
+                                                    disabled={loading}
+                                                    placeholder="Rechercher client..."
+                                                    className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <select
+                                                    name="codTiers"
+                                                    value={formData.codTiers}
+                                                    onChange={handleClientChange}
+                                                    disabled={loading}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                >
+                                                    <option value="">Sélectionnez un client...</option>
+                                                    {filteredClients.map((client) => (
+                                                        <option key={client.CodTiers || client.id} value={client.CodTiers || client.id}>
+                                                            {(client.CodTiers || client.id)} - {getClientLabel(client)}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ) : loadingClients ? (
+                                            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">Chargement des clients...</div>
+                                        ) : (
                                             <input
                                                 type="text"
-                                                value={clientSearch}
-                                                onChange={(e) => setClientSearch(e.target.value)}
-                                                disabled={loading}
-                                                placeholder="Rechercher client (code, nom, email, tél)..."
-                                                className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                            />
-                                            <select
                                                 name="codTiers"
                                                 value={formData.codTiers}
-                                                onChange={handleClientChange}
+                                                onChange={(e) => setFormData((prev) => ({ ...prev, codTiers: e.target.value, libTiers: e.target.value }))}
                                                 disabled={loading}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                            >
-                                                <option value="">Sélectionnez un client...</option>
-                                                {filteredClients.map(client => {
-                                                    const clientName = getClientLabel(client);
-                                                    return (
-                                                        <option key={client.CodTiers || client.id} value={client.CodTiers || client.id}>
-                                                            {`${client.CodTiers || client.id} - ${clientName}`}
-                                                        </option>
-                                                    );
-                                                })}
-                                            </select>
-                                            {clientSearch.trim() && filteredClients.length === 0 && (
-                                                <p className="text-xs text-amber-600">Aucun client trouvé pour cette recherche.</p>
-                                            )}
-                                        </div>
-                                    ) : loadingClients ? (
-                                        <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 flex items-center gap-2">
-                                            <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                                            Chargement des clients...
-                                        </div>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            name="codTiers"
-                                            value={formData.codTiers}
-                                            onChange={(e) => {
-                                                const {value} = e.target;
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    codTiers: value,
-                                                    libTiers: value
-                                                }));
-                                                setError('');
-                                            }}
-                                            disabled={loading}
-                                            placeholder="Entrez le code client (ex: CLIENT001)"
-                                            className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-orange-50"
-                                        />
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {/* Date Input */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Date Réglement
-                                        </label>
-                                        <input
-                                            type="date"
-                                            name="datReg"
-                                            value={formData.datReg}
-                                            onChange={handleInputChange}
-                                            disabled={loading}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                        />
+                                                placeholder="Code client"
+                                                className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                            />
+                                        )}
                                     </div>
 
-                                    {/* Modalité de règlement */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Modalité de Règlement
-                                        </label>
-                                        <select
-                                            name="modReg"
-                                            value={formData.modReg}
-                                            onChange={handleInputChange}
-                                            disabled={loading || loadingModes}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                        >
-                                            {paymentModes.length > 0 ? (
-                                                paymentModes.map((mode) => (
-                                                    <option key={mode.IDReg} value={mode.label}>
-                                                        {mode.label}
-                                                    </option>
-                                                ))
-                                            ) : (
-                                                <>
-                                                    <option value="ESPECE">ESPECE</option>
-                                                    <option value="CHEQUE">CHEQUE</option>
-                                                    <option value="VIREMENT">VIREMENT</option>
-                                                </>
-                                            )}
-                                        </select>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Date règlement</label>
+                                            <input
+                                                type="date"
+                                                name="datReg"
+                                                value={formData.datReg}
+                                                onChange={handleInputChange}
+                                                disabled={loading}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Modalité</label>
+                                            <select
+                                                name="modReg"
+                                                value={formData.modReg}
+                                                onChange={handleInputChange}
+                                                disabled={loading || loadingModes}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {paymentModes.length > 0 ? paymentModes.map((mode) => (
+                                                    <option key={mode.IDReg} value={mode.label}>{mode.label}</option>
+                                                )) : (
+                                                    <>
+                                                        <option value="ESPECE">ESPECE</option>
+                                                        <option value="CHEQUE">CHEQUE</option>
+                                                        <option value="VIREMENT">VIREMENT</option>
+                                                    </>
+                                                )}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {(requiresReference || requiresBank) && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Numéro de pièce {requiresReference ? '*' : ''}
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Numéro pièce {requiresReference ? '*' : ''}</label>
                                             <input
                                                 type="text"
                                                 name="numPiece"
                                                 value={formData.numPiece}
                                                 onChange={handleInputChange}
                                                 disabled={loading}
-                                                placeholder="Ex: CHQ-001245"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Banque {requiresBank ? '*' : ''}
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Banque {requiresBank ? '*' : ''}</label>
                                             <input
                                                 type="text"
                                                 name="banque"
                                                 value={formData.banque}
                                                 onChange={handleInputChange}
                                                 disabled={loading}
-                                                placeholder="Ex: BIAT"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Détail (optionnel)
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Détail (optionnel)</label>
                                     <input
                                         type="text"
                                         name="detail"
                                         value={formData.detail}
                                         onChange={handleInputChange}
                                         disabled={loading}
-                                        placeholder="Note complémentaire..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
 
-                                {/* Amount Input */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Montant Total
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            name="mntReg"
-                                            value={formData.mntReg}
-                                            onChange={handleInputChange}
-                                            disabled={loading}
-                                            placeholder="0.00"
-                                            step="0.01"
-                                            min="0"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                        />
-                                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-                                            DH
-                                        </span>
+                                <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex flex-col md:flex-row md:items-end gap-3">
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Recherche pièce</label>
+                                            <input
+                                                type="text"
+                                                value={docFilters.search}
+                                                onChange={(e) => setDocFilters((prev) => ({ ...prev, search: e.target.value }))}
+                                                placeholder="Numéro ou type"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                            <select
+                                                value={docFilters.type}
+                                                onChange={(e) => setDocFilters((prev) => ({ ...prev, type: e.target.value }))}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Tous</option>
+                                                <option value="FA">Factures</option>
+                                                <option value="BL">Bons de livraison</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Date début</label>
+                                            <input
+                                                type="date"
+                                                value={docFilters.dateFrom}
+                                                onChange={(e) => setDocFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Date fin</label>
+                                            <input
+                                                type="date"
+                                                value={docFilters.dateTo}
+                                                onChange={(e) => setDocFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 text-slate-700">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left">Choix</th>
+                                                    <th className="px-3 py-2 text-left">Pièce</th>
+                                                    <th className="px-3 py-2 text-left">Date</th>
+                                                    <th className="px-3 py-2 text-right">Montant</th>
+                                                    <th className="px-3 py-2 text-right">Déjà payé</th>
+                                                    <th className="px-3 py-2 text-right">Reste</th>
+                                                    <th className="px-3 py-2 text-right">Montant alloué</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {loadingDocs ? (
+                                                    <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">Chargement des pièces...</td></tr>
+                                                ) : filteredDocuments.length === 0 ? (
+                                                    <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-500">Aucune pièce impayée trouvée</td></tr>
+                                                ) : filteredDocuments.map((doc) => {
+                                                    const key = getDocKey(doc);
+                                                    const selected = Object.prototype.hasOwnProperty.call(selectedAllocations, key);
+                                                    return (
+                                                        <tr key={key} className="border-t border-slate-100">
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selected}
+                                                                    onChange={(e) => togglePieceSelection(doc, e.target.checked)}
+                                                                    disabled={loading}
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2 font-medium text-slate-800">{doc.type} - {doc.num}</td>
+                                                            <td className="px-3 py-2 text-slate-600">{formatDate(String(doc.date || '').slice(0, 10))}</td>
+                                                            <td className="px-3 py-2 text-right">{formatCurrency(doc.debit)}</td>
+                                                            <td className="px-3 py-2 text-right text-emerald-700">{formatCurrency(doc.credit)}</td>
+                                                            <td className="px-3 py-2 text-right font-semibold text-orange-700">{formatCurrency(doc.remaining)}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    max={doc.remaining}
+                                                                    value={selected ? selectedAllocations[key] : ''}
+                                                                    onChange={(e) => handleAllocationChange(doc, e.target.value)}
+                                                                    onFocus={() => !selected && togglePieceSelection(doc, true)}
+                                                                    disabled={loading || !selected}
+                                                                    className="w-28 px-2 py-1 border border-slate-300 rounded-lg text-right"
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
 
-                                {/* Error Message */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="bg-slate-50 rounded-lg p-3">
+                                        <p className="text-xs text-slate-500">Pièces sélectionnées</p>
+                                        <p className="text-lg font-bold text-slate-900">{selectedPieces.length}</p>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-lg p-3">
+                                        <p className="text-xs text-slate-500">Pièces partielles</p>
+                                        <p className="text-lg font-bold text-slate-900">{partialCount}</p>
+                                    </div>
+                                    <div className="bg-blue-50 rounded-lg p-3">
+                                        <p className="text-xs text-blue-700">Montant du règlement</p>
+                                        <p className="text-xl font-extrabold text-blue-700">{formatCurrency(totalAllocated)}</p>
+                                    </div>
+                                </div>
+
                                 {error && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
@@ -444,35 +610,33 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                     </motion.div>
                                 )}
 
-                                {/* Success Message */}
                                 {success && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm font-medium"
+                                        className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm"
                                     >
                                         {success}
                                     </motion.div>
                                 )}
 
-                                {/* Buttons */}
-                                <div className="flex gap-3 pt-2">
+                                <div className="flex gap-3 pt-1">
                                     <button
                                         type="button"
                                         onClick={onClose}
                                         disabled={loading}
-                                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
                                     >
                                         Annuler
                                     </button>
                                     <motion.button
                                         type="submit"
-                                        disabled={loading}
+                                        disabled={loading || selectedPieces.length === 0 || totalAllocated <= 0}
                                         whileHover={{ scale: loading ? 1 : 1.02 }}
                                         whileTap={{ scale: loading ? 1 : 0.98 }}
-                                        className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition disabled:cursor-not-allowed disabled:opacity-70 font-medium"
+                                        className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-70 font-medium"
                                     >
-                                        {loading ? 'Création...' : 'Créer'}
+                                        {loading ? 'Création...' : 'Créer le règlement'}
                                     </motion.button>
                                 </div>
                             </form>
