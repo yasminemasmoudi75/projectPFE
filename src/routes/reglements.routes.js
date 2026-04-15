@@ -26,6 +26,18 @@ router.get('/paymodes', protect, reglemController.getPaymentModes);
 router.get('/unpaid/:codTiers', protect, reglemController.getUnpaidByClient);
 
 /**
+ * @route   GET /api/reglements/client/:codTiers/open
+ * @desc    Get open reglements for a client (remaining > 0)
+ */
+router.get('/client/:codTiers/open', protect, reglemController.getOpenReglementsByClient);
+
+/**
+ * @route   GET /api/reglements/document/:type/:id
+ * @desc    Get reglement history for a specific document (FA/BL)
+ */
+router.get('/document/:type/:id', protect, reglemController.getReglementHistoryByDocument);
+
+/**
  * @route   GET /api/reglements
  * @desc    Get all reglements with role-based filtering
  * @access  Private (Admin sees all, Client sees theirs)

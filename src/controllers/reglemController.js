@@ -118,7 +118,17 @@ const buildClientFilter = async (user = {}) => {
 exports.createReglement = async (req, res, next) => {
     const transaction = await sequelize.transaction();
     try {
-        const { codTiers, libTiers, mntReg, datReg, selectedDocs = [], selectedPieces = [], payments = [] } = req.body;
+        const {
+            codTiers,
+            libTiers,
+            mntReg,
+            mntRegTarget,
+            datReg,
+            existingReglementId,
+            selectedDocs = [],
+            selectedPieces = [],
+            payments = [],
+        } = req.body;
 
         if (!codTiers) {
             return res.status(400).json({ status: 'error', message: 'Client obligatoire' });
@@ -156,7 +166,7 @@ exports.createReglement = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Le montant du paiement doit être supérieur à zéro' });
         }
 
-        const expectedTotal = toMoney(mntReg) > 0 ? toMoney(mntReg) : paymentTotal;
+        const existingReglementIdValue = String(existingReglementId || '').trim();
 
         const reglementId = randomUUID();
         console.log(`🧾 createReglement - reglementId: ${reglementId}`);
@@ -226,21 +236,212 @@ exports.createReglement = async (req, res, next) => {
 
         const allocatedTotal = toMoney(piecesToApply.reduce((sum, piece) => sum + piece.allocatedAmount, 0));
 
-        if (!nearlyEqual(allocatedTotal, expectedTotal)) {
+        if (!nearlyEqual(paymentTotal, allocatedTotal)) {
             return res.status(400).json({
                 status: 'error',
-                message: `Le total alloué (${allocatedTotal}) doit correspondre au montant du règlement (${expectedTotal})`,
+                message: `Le total des paiements (${paymentTotal}) doit correspondre au total alloué (${allocatedTotal})`,
             });
         }
 
-        if (!nearlyEqual(paymentTotal, expectedTotal)) {
-            return res.status(400).json({
-                status: 'error',
-                message: `Le total des paiements (${paymentTotal}) doit correspondre au montant du règlement (${expectedTotal})`,
+        const selectedPieceIds = [...new Set(piecesToApply.map((piece) => String(piece.doc?.Guid || '').trim()).filter(Boolean))];
+        const selectedPieceTypes = [...new Set(piecesToApply.map((piece) => String(piece.type || '').trim().toUpperCase()).filter(Boolean))];
+
+        const openedLinks = selectedPieceIds.length > 0
+            ? await sequelize.query(`
+                SELECT
+                    f.IDReg,
+                    f.IDPieces,
+                    UPPER(ISNULL(f.TypPiece, '')) AS TypPiece
+                FROM TabRegF f
+                INNER JOIN TabReg r ON r.IDReg = f.IDReg
+                WHERE
+                    r.Payed = 0
+                    AND f.IDPieces IN (:selectedPieceIds)
+                    AND UPPER(ISNULL(f.TypPiece, '')) IN (:selectedPieceTypes)
+            `, {
+                replacements: { selectedPieceIds, selectedPieceTypes },
+                type: QueryTypes.SELECT,
+                transaction,
+            })
+            : [];
+
+        const openedLinkByPieceKey = new Map();
+        openedLinks.forEach((row) => {
+            const key = `${String(row.TypPiece || '').trim().toUpperCase()}:${String(row.IDPieces || '').trim()}`;
+            if (!openedLinkByPieceKey.has(key)) {
+                openedLinkByPieceKey.set(key, String(row.IDReg || '').trim());
+            }
+        });
+
+        const existingReglementIdUpper = existingReglementIdValue.toUpperCase();
+
+        if (existingReglementIdValue) {
+            const linkedToAnotherReglement = piecesToApply.find((piece) => {
+                const linkRegId = openedLinkByPieceKey.get(`${piece.type}:${piece.doc.Guid}`);
+                return linkRegId && String(linkRegId).toUpperCase() !== existingReglementIdUpper;
+            });
+
+            if (linkedToAnotherReglement) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: `La pièce ${linkedToAnotherReglement.type} ${linkedToAnotherReglement.doc.Guid} est déjà rattachée à un autre règlement en cours`,
+                });
+            }
+
+            const existingReglement = await TabReg.findByPk(existingReglementIdValue, {
+                include: [{
+                    model: TabRegD,
+                    as: 'details',
+                    attributes: ['ID', 'MntCredit', 'DatValeur'],
+                    required: false,
+                }, {
+                    model: TabRegF,
+                    as: 'pieces',
+                    attributes: ['ID', 'IDPieces', 'TypPiece'],
+                    required: false,
+                }],
+                transaction,
+            });
+
+            if (!existingReglement) {
+                return res.status(404).json({ status: 'error', message: 'Règlement existant introuvable' });
+            }
+
+            if (String(existingReglement.CodTiers || '').trim() !== String(codTiers || '').trim()) {
+                return res.status(400).json({ status: 'error', message: 'Ce règlement appartient à un autre client' });
+            }
+
+            const existingReglementPieceKeys = new Set(
+                (existingReglement.pieces || []).map((piece) => `${String(piece.TypPiece || '').trim().toUpperCase()}:${String(piece.IDPieces || '').trim()}`)
+            );
+
+            const pieceNotInExistingReglement = piecesToApply.find((piece) => !existingReglementPieceKeys.has(`${piece.type}:${piece.doc.Guid}`));
+            if (pieceNotInExistingReglement) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'Pour ajouter une tranche, sélectionnez uniquement des pièces déjà liées à ce règlement. Créez un nouveau règlement pour de nouvelles pièces.',
+                });
+            }
+
+            let targetTotal = toMoney(existingReglement.MntReg);
+            if (targetTotal <= 0) {
+                targetTotal = toMoney(existingReglement.MntTotPieces);
+            }
+
+            if (targetTotal <= 0) {
+                return res.status(400).json({ status: 'error', message: 'Montant cible du règlement existant invalide' });
+            }
+
+            const alreadyPaid = toMoney((existingReglement.details || []).reduce((sum, detail) => sum + toMoney(detail.MntCredit), 0));
+            const paidAfter = toMoney(alreadyPaid + paymentTotal);
+
+            if (paidAfter > targetTotal + 0.01) {
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Le paiement dépasse le reste du règlement (${toMoney(targetTotal - alreadyPaid)})`,
+                });
+            }
+
+            for (const p of payments) {
+                const paymentAmount = toMoney(p?.montant);
+                if (paymentAmount <= 0) continue;
+                await TabRegD.create({
+                    IDReg: existingReglement.IDReg,
+                    Echeance: toSqlDateLiteral(p.echeance, { endOfDay: true }),
+                    ModReg: p.modReg || 'ESPECE',
+                    Montant: paymentAmount,
+                    MntCredit: paymentAmount,
+                    MntDebit: paymentAmount,
+                    NumPieceReg: p.numPiece,
+                    Banque: p.banque,
+                    DetPieceReg: p.detail,
+                    Valid: true,
+                    DatValeur: toSqlDateLiteral(p.echeance, { endOfDay: true })
+                }, { transaction });
+            }
+
+            for (const piece of piecesToApply) {
+                const linkedPieceId = String(piece.doc?.Guid || '').trim();
+                if (!linkedPieceId) {
+                    throw Object.assign(new Error(`Identifiant de pièce manquant pour ${piece.type}`), { statusCode: 400 });
+                }
+
+                await TabRegF.create({
+                    IDReg: existingReglement.IDReg,
+                    IDPieces: linkedPieceId,
+                    NumPiece: `${piece.doc.Prfx || ''}${piece.doc.Nf || ''}`,
+                    MDate: sequelize.literal('GETDATE()'),
+                    MntPiece: piece.remainingAmount,
+                    MntReg: piece.allocatedAmount,
+                    TypPiece: piece.type,
+                }, {
+                    transaction,
+                    fields: ['IDReg', 'IDPieces', 'NumPiece', 'MDate', 'MntPiece', 'MntReg', 'TypPiece']
+                });
+
+                await piece.doc.update({
+                    MntCredit: toMoney(piece.previousCredit + piece.allocatedAmount),
+                }, { transaction });
+            }
+
+            const remainingAmount = Math.max(0, toMoney(targetTotal - paidAfter));
+            const isPayed = remainingAmount <= 0.01;
+
+            await existingReglement.update({
+                Payed: isPayed,
+                DatUser: sequelize.literal('GETDATE()'),
+            }, {
+                transaction,
+                fields: ['Payed', 'DatUser'],
+            });
+
+            await transaction.commit();
+
+            return res.status(201).json({
+                status: 'success',
+                message: 'Tranche enregistrée avec succès',
+                data: {
+                    id: existingReglement.IDReg,
+                    date: existingReglement.DatReg,
+                    codTiers: existingReglement.CodTiers,
+                    client: existingReglement.LibTiers,
+                    totalAmount: targetTotal,
+                    paidAmount: paidAfter,
+                    remainingAmount,
+                    isPayed,
+                    paymentStatus: getPaymentStatus(targetTotal, paidAfter),
+                    paymentPercentage: targetTotal > 0 ? Math.round((paidAfter / targetTotal) * 100) : 0
+                }
             });
         }
 
-        const isFullySettled = piecesToApply.every((piece) => nearlyEqual(piece.allocatedAmount, piece.remainingAmount));
+        const linkedToOpenedReglement = piecesToApply.find((piece) => openedLinkByPieceKey.has(`${piece.type}:${piece.doc.Guid}`));
+        if (linkedToOpenedReglement) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Une ou plusieurs pièces sont déjà liées à un règlement en cours. Sélectionnez ce règlement pour ajouter une tranche.',
+            });
+        }
+
+        const piecesOutstandingTotal = toMoney(piecesToApply.reduce((sum, piece) => sum + piece.remainingAmount, 0));
+        const explicitTarget = toMoney(mntRegTarget) > 0 ? toMoney(mntRegTarget) : toMoney(mntReg);
+        const targetTotal = explicitTarget > 0 ? explicitTarget : piecesOutstandingTotal;
+
+        if (targetTotal + 0.01 < allocatedTotal) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Le total cible du règlement (${targetTotal}) doit être supérieur ou égal au montant payé (${allocatedTotal})`,
+            });
+        }
+
+        if (targetTotal > piecesOutstandingTotal + 0.01) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Le total cible (${targetTotal}) dépasse le reste des pièces sélectionnées (${piecesOutstandingTotal})`,
+            });
+        }
+
+        const isFullySettled = nearlyEqual(allocatedTotal, targetTotal) && piecesToApply.every((piece) => nearlyEqual(piece.allocatedAmount, piece.remainingAmount));
 
         // 1. Create Master Record
         const newReglement = await TabReg.create({
@@ -248,8 +449,8 @@ exports.createReglement = async (req, res, next) => {
             DatReg: toSqlDateLiteral(datReg),
             CodTiers: codTiers,
             LibTiers: libTiers || codTiers,
-            MntReg: expectedTotal,
-            MntTotPieces: allocatedTotal,
+            MntReg: targetTotal,
+            MntTotPieces: piecesOutstandingTotal,
             Payed: isFullySettled,
             CUser: req.user?.EmailPro || req.user?.LoginName || 'ADMIN',
             DatUser: sequelize.literal('GETDATE()'),
@@ -314,12 +515,12 @@ exports.createReglement = async (req, res, next) => {
                 date: newReglement.DatReg,
                 codTiers: newReglement.CodTiers,
                 client: newReglement.LibTiers,
-                totalAmount: newReglement.MntReg,
+                totalAmount: targetTotal,
                 paidAmount: paymentTotal,
-                remainingAmount: 0,
+                remainingAmount: Math.max(0, toMoney(targetTotal - paymentTotal)),
                 isPayed: newReglement.Payed,
-                paymentStatus: getPaymentStatus(newReglement.MntReg, paymentTotal),
-                paymentPercentage: newReglement.MntReg > 0 ? Math.round((paymentTotal / newReglement.MntReg) * 100) : 0
+                paymentStatus: getPaymentStatus(targetTotal, paymentTotal),
+                paymentPercentage: targetTotal > 0 ? Math.round((paymentTotal / targetTotal) * 100) : 0
             }
         });
 
@@ -445,7 +646,7 @@ exports.getAllReglements = async (req, res, next) => {
                 attributes: ['ID', 'Montant', 'MntDebit', 'MntCredit', 'ModReg', 'DatValeur'],
                 required: false,  // LEFT JOIN - don't exclude records without details
             }],
-            order: [['DatReg', 'DESC']],
+            order: [['DatReg', 'DESC'], ['DatUser', 'DESC']],
             subQuery: false,  // Prevent Sequelize subquery issues
         });
 
@@ -470,9 +671,7 @@ exports.getAllReglements = async (req, res, next) => {
         // Transform data
         const transformedReglements = reglements.map(reg => {
             // Calculate total paid and remaining
-            const totalAmount = reg.MntReg || 0;
-            const totalDetail = reg.details?.reduce((sum, d) => sum + (d.MntDebit || 0), 0) || 0;
-            const actualTotal = totalDetail > 0 ? totalDetail : totalAmount;
+            const actualTotal = toMoney(reg.MntReg || 0);
 
             // Calculate paid amount
             const paidAmount = reg.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
@@ -541,12 +740,12 @@ exports.getReglemById = async (req, res, next) => {
             include: [{
                 model: TabRegD,
                 as: 'details',
-                attributes: ['ID', 'Montant', 'MntDebit', 'MntCredit', 'ModReg', 'NumPieceReg', 'DatValeur', 'Banque', 'NumCompte'],
+                attributes: ['ID', 'Montant', 'MntDebit', 'MntCredit', 'ModReg', 'NumPieceReg', 'DetPieceReg', 'DatValeur', 'Banque', 'NumCompte'],
                 required: false,
             }, {
                 model: TabRegF,
                 as: 'pieces',
-                attributes: ['ID', 'NumPiece', 'MDate', 'MntPiece', 'Solde', 'TypPiece'],
+                attributes: ['ID', 'IDPieces', 'NumPiece', 'MDate', 'MntPiece', 'MntReg', 'Solde', 'TypPiece'],
                 required: false,
             }],
         });
@@ -862,11 +1061,42 @@ exports.getUnpaidByClient = async (req, res, next) => {
             attributes: ['Guid', 'Nf', 'Prfx', 'DatUser', 'TotTTC', 'MntCredit']
         });
 
+        const openedReglementLinks = await sequelize.query(`
+            SELECT
+                f.IDPieces,
+                UPPER(ISNULL(f.TypPiece, '')) AS TypPiece,
+                f.IDReg,
+                r.DatReg,
+                ISNULL(r.MntReg, 0) - ISNULL((SELECT SUM(ISNULL(d.MntCredit, 0)) FROM TabRegD d WHERE d.IDReg = r.IDReg), 0) AS RemainingAmount
+            FROM TabRegF f
+            INNER JOIN TabReg r ON r.IDReg = f.IDReg
+            WHERE
+                r.CodTiers = :codTiers
+                AND r.Payed = 0
+        `, {
+            replacements: { codTiers },
+            type: QueryTypes.SELECT,
+        });
+
+        const openedReglementByPiece = new Map();
+        openedReglementLinks.forEach((row) => {
+            const key = `${String(row.TypPiece || '').trim().toUpperCase()}:${String(row.IDPieces || '').trim()}`;
+            if (!openedReglementByPiece.has(key) && toMoney(row.RemainingAmount) > 0.01) {
+                openedReglementByPiece.set(key, {
+                    id: row.IDReg,
+                    date: row.DatReg,
+                    remainingAmount: toMoney(row.RemainingAmount),
+                });
+            }
+        });
+
         // Combine and format
         const documents = [
             ...invoices.map(i => {
                 const debit = toMoney(i.TotTTC);
                 const credit = toMoney(i.MntCredit);
+                const key = `FA:${String(i.Guid || '').trim()}`;
+                const openedReglement = openedReglementByPiece.get(key);
                 return {
                     id: i.Guid,
                     type: 'FA',
@@ -875,11 +1105,16 @@ exports.getUnpaidByClient = async (req, res, next) => {
                     debit,
                     credit,
                     remaining: Math.max(0, toMoney(debit - credit)),
+                    openReglementId: openedReglement?.id || null,
+                    openReglementDate: openedReglement?.date || null,
+                    openReglementRemaining: openedReglement?.remainingAmount || 0,
                 };
             }),
             ...deliveryNotes.map(d => {
                 const debit = toMoney(d.TotTTC);
                 const credit = toMoney(d.MntCredit);
+                const key = `BL:${String(d.Guid || '').trim()}`;
+                const openedReglement = openedReglementByPiece.get(key);
                 return {
                     id: d.Guid,
                     type: 'BL',
@@ -888,6 +1123,9 @@ exports.getUnpaidByClient = async (req, res, next) => {
                     debit,
                     credit,
                     remaining: Math.max(0, toMoney(debit - credit)),
+                    openReglementId: openedReglement?.id || null,
+                    openReglementDate: openedReglement?.date || null,
+                    openReglementRemaining: openedReglement?.remainingAmount || 0,
                 };
             })
         ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -895,6 +1133,165 @@ exports.getUnpaidByClient = async (req, res, next) => {
         res.json({ status: 'success', data: documents });
     } catch (err) {
         console.error('❌ getUnpaidByClient:', err);
+        next(err);
+    }
+};
+
+// ─── GET OPEN REGLEMENTS BY CLIENT ────────────────────────────────────────────────────────
+exports.getOpenReglementsByClient = async (req, res, next) => {
+    try {
+        const { codTiers } = req.params;
+        const codTiersValue = String(codTiers || '').trim();
+
+        if (!codTiersValue) {
+            return res.status(400).json({ status: 'error', message: 'Client obligatoire' });
+        }
+
+        const reglements = await TabReg.findAll({
+            where: { CodTiers: codTiersValue },
+            attributes: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'Payed'],
+            include: [{
+                model: TabRegD,
+                as: 'details',
+                attributes: ['ID', 'MntCredit', 'DatValeur', 'ModReg', 'Montant', 'NumPieceReg', 'Banque'],
+                required: false,
+            }, {
+                model: TabRegF,
+                as: 'pieces',
+                attributes: ['ID', 'IDPieces', 'TypPiece', 'NumPiece', 'MntPiece', 'MntReg', 'MDate'],
+                required: false,
+            }],
+            order: [['DatReg', 'DESC']],
+        });
+
+        const data = reglements.map((reg) => {
+            const totalAmount = toMoney(reg.MntReg || 0);
+            const paidAmount = toMoney((reg.details || []).reduce((sum, detail) => sum + toMoney(detail.MntCredit), 0));
+            const remainingAmount = Math.max(0, toMoney(totalAmount - paidAmount));
+
+            const pieceKeys = Array.from(new Set((reg.pieces || []).map((piece) => `${String(piece.TypPiece || '').trim().toUpperCase()}:${String(piece.IDPieces || '').trim()}`)));
+
+            return {
+                id: reg.IDReg,
+                date: reg.DatReg,
+                codTiers: reg.CodTiers,
+                client: reg.LibTiers,
+                totalAmount,
+                paidAmount,
+                remainingAmount,
+                isPayed: remainingAmount <= 0.01,
+                paymentStatus: getPaymentStatus(totalAmount, paidAmount),
+                paymentPercentage: totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0,
+                pieceKeys,
+                piecesCount: reg.pieces?.length || 0,
+                paymentsCount: reg.details?.length || 0,
+            };
+        }).filter((reg) => reg.remainingAmount > 0.01);
+
+        return res.json({ status: 'success', data });
+    } catch (err) {
+        console.error('❌ getOpenReglementsByClient:', err);
+        next(err);
+    }
+};
+
+// ─── GET REGLEMENT HISTORY FOR A DOCUMENT (FA/BL) ─────────────────────────────────────────
+exports.getReglementHistoryByDocument = async (req, res, next) => {
+    try {
+        const { type, id } = req.params;
+        const normalizedType = String(type || '').trim().toUpperCase();
+        const pieceId = String(id || '').trim();
+
+        if (!['FA', 'BL'].includes(normalizedType) || !pieceId) {
+            return res.status(400).json({ status: 'error', message: 'Paramètres document invalides' });
+        }
+
+        const links = await TabRegF.findAll({
+            where: {
+                IDPieces: pieceId,
+                TypPiece: normalizedType,
+            },
+            attributes: ['ID', 'IDReg', 'IDPieces', 'NumPiece', 'MDate', 'MntPiece', 'MntReg', 'Solde', 'TypPiece'],
+            include: [{
+                model: TabReg,
+                as: 'master',
+                attributes: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'Payed', 'CUser', 'DatUser'],
+                include: [{
+                    model: TabRegD,
+                    as: 'details',
+                    attributes: ['ID', 'DatValeur', 'MntCredit', 'MntDebit', 'Montant', 'ModReg', 'NumPieceReg', 'Banque', 'DetPieceReg'],
+                    required: false,
+                }],
+                required: true,
+            }],
+            order: [['MDate', 'DESC']],
+        });
+
+        if (!links || links.length === 0) {
+            return res.json({ status: 'success', hasReglement: false, data: [] });
+        }
+
+        const grouped = new Map();
+        links.forEach((link) => {
+            const reg = link.master;
+            const regId = reg.IDReg;
+            if (!grouped.has(regId)) {
+                const totalAmount = toMoney(reg.MntReg || 0);
+                const paidAmount = toMoney((reg.details || []).reduce((sum, d) => sum + toMoney(d.MntCredit), 0));
+                const remainingAmount = Math.max(0, toMoney(totalAmount - paidAmount));
+
+                grouped.set(regId, {
+                    id: reg.IDReg,
+                    date: reg.DatReg,
+                    codTiers: reg.CodTiers,
+                    client: reg.LibTiers,
+                    createdBy: reg.CUser,
+                    createdDate: reg.DatUser,
+                    totalAmount,
+                    paidAmount,
+                    remainingAmount,
+                    isPayed: remainingAmount <= 0.01,
+                    paymentStatus: getPaymentStatus(totalAmount, paidAmount),
+                    paymentPercentage: totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0,
+                    payments: (reg.details || []).map((d) => ({
+                        id: d.ID,
+                        date: d.DatValeur,
+                        mode: d.ModReg,
+                        montant: toMoney(d.Montant || d.MntCredit || 0),
+                        credit: toMoney(d.MntCredit || 0),
+                        debit: toMoney(d.MntDebit || 0),
+                        numPiece: d.NumPieceReg,
+                        banque: d.Banque,
+                        detail: d.DetPieceReg,
+                    })),
+                    tranches: [],
+                });
+            }
+
+            grouped.get(regId).tranches.push({
+                id: link.ID,
+                reglementId: link.IDReg,
+                pieceId: link.IDPieces,
+                pieceType: link.TypPiece,
+                pieceNum: link.NumPiece,
+                date: link.MDate,
+                montantPiece: toMoney(link.MntPiece),
+                montantRegle: toMoney(link.MntReg),
+                solde: toMoney(link.Solde),
+            });
+        });
+
+        const data = Array.from(grouped.values())
+            .map((reg) => ({
+                ...reg,
+                tranches: reg.tranches.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)),
+                payments: reg.payments.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)),
+            }))
+            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        return res.json({ status: 'success', hasReglement: true, data });
+    } catch (err) {
+        console.error('❌ getReglementHistoryByDocument:', err);
         next(err);
     }
 };
