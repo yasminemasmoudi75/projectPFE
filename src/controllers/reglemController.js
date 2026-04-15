@@ -14,12 +14,48 @@ const getPaymentStatus = (totalAmount, paidAmount) => {
     return 'Non payé';
 };
 
+const toMoney = (value) => {
+    const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.round(parsed * 1000) / 1000;
+};
+
+const nearlyEqual = (a, b, epsilon = 0.01) => Math.abs(Number(a || 0) - Number(b || 0)) <= epsilon;
+
+const appendAndClause = (where, clause) => {
+    if (clause === null || clause === undefined) return where;
+    if (typeof clause === 'object' && !Array.isArray(clause) && clause.constructor === Object && Object.keys(clause).length === 0) {
+        return where;
+    }
+    if (!where || Object.keys(where).length === 0) return clause;
+    return { [Op.and]: [where, clause] };
+};
+
 const isIsoDateOnly = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 
 const toSqlDateLiteral = (value, { endOfDay = false } = {}) => {
     if (!isIsoDateOnly(value)) return sequelize.literal('GETDATE()');
     const time = endOfDay ? '23:59:59' : '00:00:00';
     return sequelize.literal(`CONVERT(datetime, '${value} ${time}', 120)`);
+};
+
+const toSqlDateTimeValue = (value) => {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+};
+
+const safeRollback = async (transaction) => {
+    if (!transaction || transaction.finished) return;
+    try {
+        await transaction.rollback();
+    } catch (rollbackError) {
+        const message = String(rollbackError?.message || '').toLowerCase();
+        if (!message.includes('no corresponding begin transaction')) {
+            console.error('❌ rollback createReglement failed:', rollbackError);
+        }
+    }
 };
 
 // Build filter for clients - they only see their own payments
@@ -82,14 +118,129 @@ const buildClientFilter = async (user = {}) => {
 exports.createReglement = async (req, res, next) => {
     const transaction = await sequelize.transaction();
     try {
-        const { codTiers, libTiers, mntReg, datReg, selectedDocs = [], payments = [] } = req.body;
+        const { codTiers, libTiers, mntReg, datReg, selectedDocs = [], selectedPieces = [], payments = [] } = req.body;
 
-        if (!codTiers || !mntReg) {
-            return res.status(400).json({ status: 'error', message: 'Client et montant obligatoires' });
+        if (!codTiers) {
+            return res.status(400).json({ status: 'error', message: 'Client obligatoire' });
         }
+
+        const requestedPieces = Array.isArray(selectedPieces) && selectedPieces.length > 0
+            ? selectedPieces
+            : selectedDocs.map((docId) => ({ id: docId, type: null, allocatedAmount: null }));
+
+        if (!Array.isArray(requestedPieces) || requestedPieces.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'Sélectionnez au moins une pièce à régler' });
+        }
+
+        if (!Array.isArray(payments) || payments.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'Ajoutez au moins une modalité de paiement' });
+        }
+
+        const normalizedPieces = requestedPieces.map((piece) => ({
+            id: String(piece?.id || '').trim(),
+            type: String(piece?.type || '').trim().toUpperCase(),
+            allocatedAmount: toMoney(piece?.allocatedAmount),
+        })).filter((piece) => piece.id);
+
+        if (normalizedPieces.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'Pièces invalides' });
+        }
+
+        const unresolvedType = normalizedPieces.some((piece) => piece.type !== 'FA' && piece.type !== 'BL');
+        if (unresolvedType) {
+            return res.status(400).json({ status: 'error', message: 'Chaque pièce doit préciser un type FA ou BL' });
+        }
+
+        const paymentTotal = payments.reduce((sum, payment) => sum + toMoney(payment?.montant), 0);
+        if (paymentTotal <= 0) {
+            return res.status(400).json({ status: 'error', message: 'Le montant du paiement doit être supérieur à zéro' });
+        }
+
+        const expectedTotal = toMoney(mntReg) > 0 ? toMoney(mntReg) : paymentTotal;
 
         const reglementId = randomUUID();
         console.log(`🧾 createReglement - reglementId: ${reglementId}`);
+
+        const piecesByType = normalizedPieces.reduce((acc, piece) => {
+            if (!acc[piece.type]) acc[piece.type] = [];
+            acc[piece.type].push(piece.id);
+            return acc;
+        }, {});
+
+        const [invoiceDocs, deliveryDocs] = await Promise.all([
+            piecesByType.FA?.length
+                ? FavMaster.findAll({
+                    where: {
+                        Guid: { [Op.in]: piecesByType.FA },
+                        CodTiers: codTiers,
+                    },
+                    transaction,
+                })
+                : Promise.resolve([]),
+            piecesByType.BL?.length
+                ? BlvMaster.findAll({
+                    where: {
+                        Guid: { [Op.in]: piecesByType.BL },
+                        CodTiers: codTiers,
+                    },
+                    transaction,
+                })
+                : Promise.resolve([]),
+        ]);
+
+        const documentsMap = new Map();
+        invoiceDocs.forEach((doc) => documentsMap.set(`FA:${doc.Guid}`, { doc, type: 'FA' }));
+        deliveryDocs.forEach((doc) => documentsMap.set(`BL:${doc.Guid}`, { doc, type: 'BL' }));
+
+        const piecesToApply = normalizedPieces.map((piece) => {
+            const key = `${piece.type}:${piece.id}`;
+            const found = documentsMap.get(key);
+            if (!found) {
+                throw Object.assign(new Error(`Pièce introuvable: ${piece.type} ${piece.id}`), { statusCode: 400 });
+            }
+
+            const documentTotal = toMoney(found.doc.TotTTC);
+            const documentCredit = toMoney(found.doc.MntCredit);
+            const remaining = Math.max(0, toMoney(documentTotal - documentCredit));
+            const allocated = piece.allocatedAmount > 0 ? piece.allocatedAmount : remaining;
+
+            if (allocated <= 0) {
+                throw Object.assign(new Error(`Montant alloué invalide pour la pièce ${found.type} ${piece.id}`), { statusCode: 400 });
+            }
+
+            if (allocated > remaining + 0.01) {
+                throw Object.assign(new Error(`Montant alloué dépasse le solde de la pièce ${found.type} ${piece.id}`), { statusCode: 400 });
+            }
+
+            return {
+                key,
+                type: found.type,
+                doc: found.doc,
+                totalAmount: documentTotal,
+                previousCredit: documentCredit,
+                remainingAmount: remaining,
+                allocatedAmount: toMoney(allocated),
+                isPartial: allocated < (remaining - 0.01),
+            };
+        });
+
+        const allocatedTotal = toMoney(piecesToApply.reduce((sum, piece) => sum + piece.allocatedAmount, 0));
+
+        if (!nearlyEqual(allocatedTotal, expectedTotal)) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Le total alloué (${allocatedTotal}) doit correspondre au montant du règlement (${expectedTotal})`,
+            });
+        }
+
+        if (!nearlyEqual(paymentTotal, expectedTotal)) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Le total des paiements (${paymentTotal}) doit correspondre au montant du règlement (${expectedTotal})`,
+            });
+        }
+
+        const isFullySettled = piecesToApply.every((piece) => nearlyEqual(piece.allocatedAmount, piece.remainingAmount));
 
         // 1. Create Master Record
         const newReglement = await TabReg.create({
@@ -97,24 +248,27 @@ exports.createReglement = async (req, res, next) => {
             DatReg: toSqlDateLiteral(datReg),
             CodTiers: codTiers,
             LibTiers: libTiers || codTiers,
-            MntReg: parseFloat(mntReg),
-            Payed: true, // If detail lines are provided, we consider it processed
+            MntReg: expectedTotal,
+            MntTotPieces: allocatedTotal,
+            Payed: isFullySettled,
             CUser: req.user?.EmailPro || req.user?.LoginName || 'ADMIN',
             DatUser: sequelize.literal('GETDATE()'),
         }, {
             transaction,
-            fields: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'Payed', 'CUser', 'DatUser'],
+            fields: ['IDReg', 'DatReg', 'CodTiers', 'LibTiers', 'MntReg', 'MntTotPieces', 'Payed', 'CUser', 'DatUser'],
         });
 
         // 2. Create Payment Pieces (TabRegD)
         for (const p of payments) {
+            const paymentAmount = toMoney(p?.montant);
+            if (paymentAmount <= 0) continue;
             await TabRegD.create({
                 IDReg: newReglement.IDReg,
                 Echeance: toSqlDateLiteral(p.echeance, { endOfDay: true }),
                 ModReg: p.modReg || 'ESPECE',
-                Montant: parseFloat(p.montant),
-                MntCredit: parseFloat(p.montant),
-                MntDebit: 0,
+                Montant: paymentAmount,
+                MntCredit: paymentAmount,
+                MntDebit: paymentAmount,
                 NumPieceReg: p.numPiece,
                 Banque: p.banque,
                 DetPieceReg: p.detail,
@@ -124,28 +278,30 @@ exports.createReglement = async (req, res, next) => {
         }
 
         // 3. Link to Documents (TabRegF)
-        for (const docId of selectedDocs) {
-            // Find doc to get details (Nf, Prfx, etc.)
-            let doc = await FavMaster.findOne({ where: { Guid: docId } }) ||
-                await BlvMaster.findOne({ where: { Guid: docId } });
-
-            if (doc) {
-                await TabRegF.create({
-                    IDReg: newReglement.IDReg,
-                    NumPiece: `${doc.Prfx || ''}${doc.Nf}`,
-                    MDate: doc.DatUser || doc.Date,
-                    MntPiece: doc.TotTTC,
-                    MntReg: doc.TotTTC - (doc.MntCredit || 0), // Paying the full remaining balance
-                    Solde: 0, // Fully paid in this simple logic
-                    TypPiece: doc.constructor.name === 'FavMaster' ? 'FA' : 'BL'
-                }, { transaction });
-
-                // Update document credit/status
-                await doc.update({
-                    MntCredit: doc.TotTTC,
-                    Valider: true
-                }, { transaction });
+        for (const piece of piecesToApply) {
+            const linkedPieceId = String(piece.doc?.Guid || '').trim();
+            if (!linkedPieceId) {
+                throw Object.assign(new Error(`Identifiant de pièce manquant pour ${piece.type}`), { statusCode: 400 });
             }
+
+            await TabRegF.create({
+                IDReg: newReglement.IDReg,
+                IDPieces: linkedPieceId,
+                NumPiece: `${piece.doc.Prfx || ''}${piece.doc.Nf || ''}`,
+                MDate: sequelize.literal('GETDATE()'),
+                // TabRegF.Solde is derived from MntPiece vs MntReg in this schema.
+                // Use remaining-at-payment-time so a fully settled piece gets Solde = 0.
+                MntPiece: piece.remainingAmount,
+                MntReg: piece.allocatedAmount,
+                TypPiece: piece.type,
+            }, {
+                transaction,
+                fields: ['IDReg', 'IDPieces', 'NumPiece', 'MDate', 'MntPiece', 'MntReg', 'TypPiece']
+            });
+
+            await piece.doc.update({
+                MntCredit: toMoney(piece.previousCredit + piece.allocatedAmount),
+            }, { transaction });
         }
 
         await transaction.commit();
@@ -159,29 +315,38 @@ exports.createReglement = async (req, res, next) => {
                 codTiers: newReglement.CodTiers,
                 client: newReglement.LibTiers,
                 totalAmount: newReglement.MntReg,
-                paidAmount: newReglement.MntReg,
+                paidAmount: paymentTotal,
                 remainingAmount: 0,
-                isPayed: true,
-                paymentStatus: 'Payé',
-                paymentPercentage: 100
+                isPayed: newReglement.Payed,
+                paymentStatus: getPaymentStatus(newReglement.MntReg, paymentTotal),
+                paymentPercentage: newReglement.MntReg > 0 ? Math.round((paymentTotal / newReglement.MntReg) * 100) : 0
             }
         });
 
     } catch (err) {
-        if (transaction && !transaction.finished) {
-            try {
-                await transaction.rollback();
-            } catch (rollbackError) {
-                console.error('❌ rollback createReglement failed:', rollbackError);
-            }
+        if (err?.statusCode) {
+            await safeRollback(transaction);
+            return res.status(err.statusCode).json({ status: 'error', message: err.message });
         }
+        await safeRollback(transaction);
         console.error('❌ createReglement:', err);
         return next(err);
     }
 };
 exports.getAllReglements = async (req, res, next) => {
     try {
-        const { search = '', status = '', year = '', date = '', dateFrom = '', dateTo = '', page = 1, limit = 100 } = req.query;
+        const {
+            search = '',
+            status = '',
+            year = '',
+            date = '',
+            dateFrom = '',
+            dateTo = '',
+            codTiers = '',
+            codRepres = '',
+            page = 1,
+            limit = 100,
+        } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
         // Get user info
@@ -199,41 +364,56 @@ exports.getAllReglements = async (req, res, next) => {
             console.log('🔐 CLIENT filtering enabled for user:', req.user?.LoginName);
             const clientFilter = await buildClientFilter(req.user);
             console.log(`📌 Client filter:`, JSON.stringify(clientFilter, null, 2));
-            where = clientFilter;
+            where = appendAndClause(where, clientFilter);
         } else {
             console.log(`👨‍💼 NOT A CLIENT (${access?.normalizedRole}) - ADMIN sees all reglements`);
         }
 
-        // Apply search filter
-        if (search.trim()) {
-            console.log(`🔍 Search applied: "${search}"`);
-            const searchFilter = {
+        if (String(search || '').trim()) {
+            where = appendAndClause(where, {
                 [Op.or]: [
                     { LibTiers: { [Op.like]: `%${search}%` } },
                     { CodTiers: { [Op.like]: `%${search}%` } }
                 ]
-            };
+            });
+        }
 
-            // For CLIENTS: Combine client filter AND search filter
-            // For ADMIN: Search only (no client restriction)
-            if (isClient === true && Object.keys(where).length > 0) {
-                console.log(`🔀 CLIENT SEARCH - combining client filter + search with Op.and`);
-                where = { [Op.and]: [where, searchFilter] };
-            } else if (isClient === true) {
-                console.log(`🔀 CLIENT SEARCH - but no client filter yet, using search only`);
-                where = searchFilter;
+        const codTiersFilter = String(codTiers || '').trim();
+        if (codTiersFilter) {
+            where = appendAndClause(where, { CodTiers: codTiersFilter });
+        }
+
+        const codRepresFilter = String(codRepres || '').trim();
+        if (codRepresFilter) {
+            const matchingClients = await sequelize.query(`
+                SELECT CodTiers
+                FROM TabTiers
+                WHERE
+                    LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), codRepresTiers)))) = LOWER(LTRIM(RTRIM(:codRepresFilter)))
+                    OR (
+                        TRY_CONVERT(INT, codRepresTiers) IS NOT NULL
+                        AND TRY_CONVERT(INT, :codRepresFilter) IS NOT NULL
+                        AND TRY_CONVERT(INT, codRepresTiers) = TRY_CONVERT(INT, :codRepresFilter)
+                    )
+            `, {
+                replacements: { codRepresFilter },
+                type: QueryTypes.SELECT,
+            });
+
+            const codTiersList = matchingClients
+                .map((client) => String(client.CodTiers || '').trim())
+                .filter(Boolean);
+
+            if (codTiersList.length === 0) {
+                where = appendAndClause(where, { CodTiers: '__NO_MATCH__' });
             } else {
-                console.log(`🔀 ADMIN SEARCH - applying search without client restriction`);
-                where = searchFilter;
+                where = appendAndClause(where, { CodTiers: { [Op.in]: codTiersList } });
             }
         }
 
         const yearValue = String(year || '').trim();
         if (/^\d{4}$/.test(yearValue)) {
-            where[Op.and] = [
-                ...(where[Op.and] || []),
-                sequelize.literal(`YEAR([DatReg]) = ${Number(yearValue)}`),
-            ];
+            where = appendAndClause(where, sequelize.literal(`YEAR([DatReg]) = ${Number(yearValue)}`));
         }
 
         const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
@@ -242,24 +422,15 @@ exports.getAllReglements = async (req, res, next) => {
         const toValue = String(dateTo || '').trim();
 
         if (isIsoDate(exactDateValue)) {
-            where[Op.and] = [
-                ...(where[Op.and] || []),
-                sequelize.literal(`CONVERT(date, [DatReg]) = '${exactDateValue}'`),
-            ];
+            where = appendAndClause(where, sequelize.literal(`CONVERT(date, [DatReg]) = '${exactDateValue}'`));
         }
 
         if (isIsoDate(fromValue)) {
-            where[Op.and] = [
-                ...(where[Op.and] || []),
-                sequelize.literal(`CONVERT(date, [DatReg]) >= '${fromValue}'`),
-            ];
+            where = appendAndClause(where, sequelize.literal(`CONVERT(date, [DatReg]) >= '${fromValue}'`));
         }
 
         if (isIsoDate(toValue)) {
-            where[Op.and] = [
-                ...(where[Op.and] || []),
-                sequelize.literal(`CONVERT(date, [DatReg]) <= '${toValue}'`),
-            ];
+            where = appendAndClause(where, sequelize.literal(`CONVERT(date, [DatReg]) <= '${toValue}'`));
         }
 
         // Fetch all reglements
@@ -652,17 +823,29 @@ exports.getPaymentModes = async (req, res, next) => {
 exports.getUnpaidByClient = async (req, res, next) => {
     try {
         const { codTiers } = req.params;
+        const { dateFrom = '', dateTo = '' } = req.query;
+        const fromValue = String(dateFrom || '').trim();
+        const toValue = String(dateTo || '').trim();
+        const hasFrom = isIsoDateOnly(fromValue);
+        const hasTo = isIsoDateOnly(toValue);
+
+        const dateClauses = [];
+        if (hasFrom) {
+            dateClauses.push(sequelize.literal(`CONVERT(date, [DatUser]) >= '${fromValue}'`));
+        }
+        if (hasTo) {
+            dateClauses.push(sequelize.literal(`CONVERT(date, [DatUser]) <= '${toValue}'`));
+        }
 
         // Fetch unpaid Invoices (FA)
         const invoices = await FavMaster.findAll({
             where: {
                 CodTiers: codTiers,
-                [Op.or]: [
-                    { Valider: true },
-                    { Valid: true }
-                ],
                 // Simple logic: total > credit
-                [Op.and]: sequelize.literal('TotTTC > ISNULL(MntCredit, 0)')
+                [Op.and]: [
+                    sequelize.literal('TotTTC > ISNULL(MntCredit, 0)'),
+                    ...dateClauses,
+                ],
             },
             attributes: ['Guid', 'Nf', 'Prfx', 'DatUser', 'TotTTC', 'MntCredit']
         });
@@ -671,19 +854,43 @@ exports.getUnpaidByClient = async (req, res, next) => {
         const deliveryNotes = await BlvMaster.findAll({
             where: {
                 CodTiers: codTiers,
-                // Add your project's logic for "unpaid" BLs here
-                // In some systems, BLs are not "paid" directly but transformed to FA
-                // If the user wants to pay BLs directly:
-                [Op.and]: sequelize.literal('TotTTC > ISNULL(MntCredit, 0)')
+                [Op.and]: [
+                    sequelize.literal('TotTTC > ISNULL(MntCredit, 0)'),
+                    ...dateClauses,
+                ],
             },
             attributes: ['Guid', 'Nf', 'Prfx', 'DatUser', 'TotTTC', 'MntCredit']
         });
 
         // Combine and format
         const documents = [
-            ...invoices.map(i => ({ id: i.Guid, type: 'FA', num: `${i.Prfx}${i.Nf}`, date: i.DatUser, debit: i.TotTTC, credit: i.MntCredit })),
-            ...deliveryNotes.map(d => ({ id: d.Guid, type: 'BL', num: `${d.Prfx}${d.Nf}`, date: d.DatUser, debit: d.TotTTC, credit: d.MntCredit }))
-        ];
+            ...invoices.map(i => {
+                const debit = toMoney(i.TotTTC);
+                const credit = toMoney(i.MntCredit);
+                return {
+                    id: i.Guid,
+                    type: 'FA',
+                    num: `${i.Prfx || ''}${i.Nf || ''}`,
+                    date: i.DatUser,
+                    debit,
+                    credit,
+                    remaining: Math.max(0, toMoney(debit - credit)),
+                };
+            }),
+            ...deliveryNotes.map(d => {
+                const debit = toMoney(d.TotTTC);
+                const credit = toMoney(d.MntCredit);
+                return {
+                    id: d.Guid,
+                    type: 'BL',
+                    num: `${d.Prfx || ''}${d.Nf || ''}`,
+                    date: d.DatUser,
+                    debit,
+                    credit,
+                    remaining: Math.max(0, toMoney(debit - credit)),
+                };
+            })
+        ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
         res.json({ status: 'success', data: documents });
     } catch (err) {
