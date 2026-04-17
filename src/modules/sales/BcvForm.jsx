@@ -89,6 +89,9 @@ const BcvForm = () => {
     const [clientSearch, setClientSearch] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
     const clientDropdownRef = useRef(null);
+    const [projects, setProjects] = useState([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
 
     const toggleItemExpanded = (tempId) => {
         setExpandedItems(prev => ({
@@ -455,6 +458,41 @@ const BcvForm = () => {
         }
     }, [currentBcv, isEdit, tiersClasses, tiersGouvernorats, tiersCategories]);
 
+    useEffect(() => {
+        const codTiers = String(formData.CodTiers || '').trim();
+        const storedProjectId = String(formData.CodProject || '').trim();
+
+        if (!codTiers) {
+            setProjects([]);
+            setSelectedProjectId('');
+            return;
+        }
+
+        const fetchProjects = async () => {
+            try {
+                setLoadingProjects(true);
+                const response = await axiosInstance.get(`/projets/client/${encodeURIComponent(codTiers)}`);
+                const payload = response?.data?.data || response?.data || [];
+                const list = Array.isArray(payload) ? payload : [];
+                setProjects(list);
+
+                if (storedProjectId && list.some((project) => String(project.ID_Projet) === storedProjectId)) {
+                    setSelectedProjectId(storedProjectId);
+                } else {
+                    setSelectedProjectId('');
+                }
+            } catch (error) {
+                console.error('Error fetching client projects:', error);
+                setProjects([]);
+                setSelectedProjectId('');
+            } finally {
+                setLoadingProjects(false);
+            }
+        };
+
+        fetchProjects();
+    }, [formData.CodTiers, formData.CodProject]);
+
     // Recalculate totals
     useEffect(() => {
         const subTotal = items.reduce((sum, item) => {
@@ -567,6 +605,7 @@ const BcvForm = () => {
     const handleClientSelect = (clientCode) => {
         const selectedClient = clients.find(c => c.CodTiers === clientCode);
         if (selectedClient) {
+            setSelectedProjectId('');
             setFormData(prev => ({
                 ...prev,
                 CodTiers: selectedClient.CodTiers,
@@ -617,6 +656,7 @@ const BcvForm = () => {
         const payload = {
             master: {
                 ...formData,
+                ProjectId: selectedProjectId || null,
                 // Ensure numeric fields are proper numbers
                 TotHT: toNonNegativeNumber(formData.TotHT, 0),
                 TotTva: toNonNegativeNumber(formData.TotTva, 0),
@@ -854,6 +894,32 @@ const BcvForm = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {formData.CodTiers && (
+                                <div className="md:col-span-2">
+                                    <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Projet associé (optionnel)</label>
+                                    <select
+                                        value={selectedProjectId}
+                                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                                        className="input-modern"
+                                        disabled={loadingProjects}
+                                    >
+                                        <option value="">Sans projet lié</option>
+                                        {projects.map((project) => (
+                                            <option key={project.ID_Projet} value={project.ID_Projet}>
+                                                {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
+                                                {project.CodDev ? ` | Devis ${project.CodDev}` : ''}
+                                                {project.CodBc ? ` | BC ${project.CodBc}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-2 text-xs text-slate-500">
+                                        {loadingProjects
+                                            ? 'Chargement des projets du client...'
+                                            : 'Ce lien est facultatif. Il sera enregistré dans TabProjet uniquement à la création ou la modification du BC.'}
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="group">
                                 <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Code Client (ID)</label>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from '../../app/axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -85,6 +85,13 @@ const ClientForm = () => {
     const [tiersGouvernorats, setTiersGouvernorats] = useState([]);
     const [tiersCategories, setTiersCategories] = useState([]);
     const [commercialsList, setCommercialsList] = useState([]);
+    const [banques, setBanques] = useState([]);
+    const [loadingBanques, setLoadingBanques] = useState(false);
+    const [addingBanque, setAddingBanque] = useState(false);
+    const [otherBanque, setOtherBanque] = useState('');
+    const [otherBanqueAdresse, setOtherBanqueAdresse] = useState('');
+    const [otherBanquePhoto, setOtherBanquePhoto] = useState(null);
+    const otherBanquePhotoInputRef = useRef(null);
     const [emailCheckMessage, setEmailCheckMessage] = useState('');
     const [emailChecking, setEmailChecking] = useState(false);
     
@@ -187,10 +194,25 @@ const ClientForm = () => {
             }
         };
 
+        const fetchBanques = async () => {
+            try {
+                setLoadingBanques(true);
+                const response = await axios.get('/banques');
+                const payload = response?.data?.data || response?.data || [];
+                setBanques(Array.isArray(payload) ? payload : []);
+            } catch (error) {
+                console.error('Error fetching banques:', error);
+                setBanques([]);
+            } finally {
+                setLoadingBanques(false);
+            }
+        };
+
         fetchTiersClasses();
         fetchTiersGouvernorats();
         fetchTiersCategories();
         fetchCommercials();
+        fetchBanques();
 
         if (isEdit) {
             const fetchClient = async () => {
@@ -316,6 +338,59 @@ const ClientForm = () => {
 
     const handleAddressChange = (index, value) => {
         setAddresses((prev) => prev.map((item, i) => (i === index ? { ...item, Adresse: value } : item)));
+    };
+
+    const handleAddOtherBanque = async () => {
+        const banqueName = String(otherBanque || '').trim();
+        if (!banqueName) return;
+
+        try {
+            setAddingBanque(true);
+            const payload = new FormData();
+            payload.append('banque', banqueName);
+
+            const adresse = String(otherBanqueAdresse || '').trim();
+            if (adresse) {
+                payload.append('adresse', adresse);
+            }
+
+            if (otherBanquePhoto) {
+                payload.append('photo', otherBanquePhoto);
+            }
+
+            const response = await axios.post('/banques', payload, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const added = response?.data?.data || null;
+
+            if (added?.id) {
+                setBanques((prev) => {
+                    if (prev.some((b) => String(b.id) === String(added.id))) return prev;
+                    return [...prev, added].sort((a, b) => String(a.banque || '').localeCompare(String(b.banque || ''), 'fr', { sensitivity: 'base' }));
+                });
+                setFormData((prev) => ({ ...prev, Banque: added.banque || banqueName }));
+                setOtherBanque('');
+                setOtherBanqueAdresse('');
+                setOtherBanquePhoto(null);
+                if (otherBanquePhotoInputRef.current) {
+                    otherBanquePhotoInputRef.current.value = '';
+                }
+                return;
+            }
+
+            setFormData((prev) => ({ ...prev, Banque: banqueName }));
+            setOtherBanque('');
+            setOtherBanqueAdresse('');
+            setOtherBanquePhoto(null);
+            if (otherBanquePhotoInputRef.current) {
+                otherBanquePhotoInputRef.current.value = '';
+            }
+        } catch (error) {
+            console.error('Error adding banque:', error);
+            toast.error(error?.response?.data?.message || 'Impossible d\'ajouter la banque');
+        } finally {
+            setAddingBanque(false);
+        }
     };
 
     const addAddress = () => {
@@ -902,7 +977,52 @@ const ClientForm = () => {
                                 </div>
                                 <div>
                                     <label className="label-modern">Banque</label>
-                                    <input type="text" name="Banque" value={formData.Banque} onChange={handleChange} className="input-modern" />
+                                    <select name="Banque" value={formData.Banque} onChange={handleChange} className="input-modern" disabled={loadingBanques || addingBanque}>
+                                        <option value="">Sélectionner une banque...</option>
+                                        {formData.Banque && !banques.some((b) => String(b.banque || '').trim() === String(formData.Banque || '').trim()) && (
+                                            <option value={formData.Banque}>{formData.Banque}</option>
+                                        )}
+                                        {banques.map((banque) => (
+                                            <option key={banque.id || banque.banque} value={banque.banque}>{banque.banque}</option>
+                                        ))}
+                                    </select>
+                                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <input
+                                            type="text"
+                                            value={otherBanque}
+                                            onChange={(e) => setOtherBanque(e.target.value)}
+                                            placeholder="Autre banque..."
+                                            className="input-modern"
+                                            disabled={addingBanque}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={otherBanqueAdresse}
+                                            onChange={(e) => setOtherBanqueAdresse(e.target.value)}
+                                            placeholder="Adresse..."
+                                            className="input-modern"
+                                            disabled={addingBanque}
+                                        />
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            ref={otherBanquePhotoInputRef}
+                                            onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)}
+                                            className="input-modern bg-white py-2"
+                                            disabled={addingBanque}
+                                        />
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleAddOtherBanque}
+                                            disabled={addingBanque || !String(otherBanque || '').trim()}
+                                            className="px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium disabled:opacity-50"
+                                        >
+                                            {addingBanque ? '...' : 'Ajouter'}
+                                        </button>
+                                        {otherBanquePhoto && <span className="text-xs text-slate-500">Photo: {otherBanquePhoto.name}</span>}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="label-modern">Remise (%)</label>

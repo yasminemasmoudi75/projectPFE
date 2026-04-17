@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import axios from '../../app/axios';
@@ -61,6 +61,13 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [existingReglements, setExistingReglements] = useState([]);
     const [loadingExistingReglements, setLoadingExistingReglements] = useState(false);
+    const [banques, setBanques] = useState([]);
+    const [loadingBanques, setLoadingBanques] = useState(false);
+    const [addingBanque, setAddingBanque] = useState(false);
+    const [otherBanque, setOtherBanque] = useState('');
+    const [otherBanqueAdresse, setOtherBanqueAdresse] = useState('');
+    const [otherBanquePhoto, setOtherBanquePhoto] = useState(null);
+    const otherBanquePhotoInputRef = useRef(null);
 
     const normalizedModReg = String(formData.modReg || '').toUpperCase();
     const requiresReference = ['CHEQUE', 'VIREMENT', 'TRAITE', 'EFFET'].includes(normalizedModReg);
@@ -141,12 +148,19 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         if (!isOpen) return;
         fetchClients();
         fetchPaymentModes();
+        fetchBanques();
         setClientSearch('');
         setSuccess('');
         setError('');
         setSelectedAllocations({});
         setDocuments([]);
         setExistingReglements([]);
+        setOtherBanque('');
+        setOtherBanqueAdresse('');
+        setOtherBanquePhoto(null);
+        if (otherBanquePhotoInputRef.current) {
+            otherBanquePhotoInputRef.current.value = '';
+        }
         setDocFilters({ search: '', type: '', dateFrom: '', dateTo: '' });
         setFormData(defaultFormState());
     }, [isOpen]);
@@ -195,6 +209,73 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             setPaymentModes([]);
         } finally {
             setLoadingModes(false);
+        }
+    };
+
+    const fetchBanques = async () => {
+        try {
+            setLoadingBanques(true);
+            const response = await axios.get('/banques');
+            const payload = response?.data?.data || response?.data || [];
+            setBanques(Array.isArray(payload) ? payload : []);
+        } catch (err) {
+            console.error('Error fetching banques:', err);
+            setBanques([]);
+        } finally {
+            setLoadingBanques(false);
+        }
+    };
+
+    const handleAddOtherBanque = async () => {
+        const banqueName = String(otherBanque || '').trim();
+        if (!banqueName) return;
+
+        try {
+            setAddingBanque(true);
+            const payload = new FormData();
+            payload.append('banque', banqueName);
+
+            const adresse = String(otherBanqueAdresse || '').trim();
+            if (adresse) {
+                payload.append('adresse', adresse);
+            }
+
+            if (otherBanquePhoto) {
+                payload.append('photo', otherBanquePhoto);
+            }
+
+            const response = await axios.post('/banques', payload, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const added = response?.data?.data || null;
+
+            if (added?.id) {
+                setBanques((prev) => {
+                    if (prev.some((b) => String(b.id) === String(added.id))) return prev;
+                    return [...prev, added].sort((a, b) => String(a.banque || '').localeCompare(String(b.banque || ''), 'fr', { sensitivity: 'base' }));
+                });
+                setFormData((prev) => ({ ...prev, banque: added.banque || banqueName }));
+                setOtherBanque('');
+                setOtherBanqueAdresse('');
+                setOtherBanquePhoto(null);
+                if (otherBanquePhotoInputRef.current) {
+                    otherBanquePhotoInputRef.current.value = '';
+                }
+                setError('');
+                return;
+            }
+
+            setFormData((prev) => ({ ...prev, banque: banqueName }));
+            setOtherBanque('');
+            setOtherBanqueAdresse('');
+            setOtherBanquePhoto(null);
+            if (otherBanquePhotoInputRef.current) {
+                otherBanquePhotoInputRef.current.value = '';
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Impossible d\'ajouter la banque');
+        } finally {
+            setAddingBanque(false);
         }
     };
 
@@ -572,14 +653,60 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Banque {requiresBank ? '*' : ''}</label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 name="banque"
                                                 value={formData.banque}
                                                 onChange={handleInputChange}
-                                                disabled={loading}
+                                                disabled={loading || loadingBanques}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
+                                            >
+                                                <option value="">Sélectionner une banque...</option>
+                                                {formData.banque && !banques.some((b) => String(b.banque || '').trim() === String(formData.banque || '').trim()) && (
+                                                    <option value={formData.banque}>{formData.banque}</option>
+                                                )}
+                                                {banques.map((banque) => (
+                                                    <option key={banque.id || banque.banque} value={banque.banque}>{banque.banque}</option>
+                                                ))}
+                                            </select>
+                                            <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={otherBanque}
+                                                    onChange={(e) => setOtherBanque(e.target.value)}
+                                                    placeholder="Autre banque..."
+                                                    disabled={loading || addingBanque}
+                                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={otherBanqueAdresse}
+                                                    onChange={(e) => setOtherBanqueAdresse(e.target.value)}
+                                                    placeholder="Adresse..."
+                                                    disabled={loading || addingBanque}
+                                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    ref={otherBanquePhotoInputRef}
+                                                    onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)}
+                                                    disabled={loading || addingBanque}
+                                                    className="px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                                                />
+                                            </div>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddOtherBanque}
+                                                    disabled={loading || addingBanque || !String(otherBanque || '').trim()}
+                                                    className="px-3 py-2 bg-slate-100 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50"
+                                                >
+                                                    {addingBanque ? '...' : 'Ajouter'}
+                                                </button>
+                                                {otherBanquePhoto && (
+                                                    <span className="text-xs text-slate-500">Photo: {otherBanquePhoto.name}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
