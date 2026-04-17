@@ -108,6 +108,11 @@ const isEmptyValue = (value) => {
     return String(value).trim() === '';
 };
 
+const normalizeProjectId = (value) => {
+    if (isEmptyValue(value)) return '';
+    return String(value).trim();
+};
+
 const resolveLookupIdByLabel = async (Model, value, transaction) => {
     if (isEmptyValue(value)) return null;
 
@@ -473,6 +478,13 @@ exports.createBcv = async (req, res, next) => {
         master.Adresse = selectedTier.Adresse || master.Adresse || '';
         master.Ville = selectedTier.Ville || master.Ville || '';
 
+        const selectedProjectId = normalizeProjectId(master.ProjectId || master.projectId || master.ID_Projet || master.projetId);
+        delete master.ProjectId;
+        delete master.projectId;
+        delete master.ID_Projet;
+        delete master.projetId;
+        master.CodProject = selectedProjectId || null;
+
         if (req.user?.UserRole && req.user.UserRole.toLowerCase().includes('commercial')) {
             const codRepres = req.user.id || req.user.UserID;
             master.CodRepres = String(codRepres);
@@ -592,6 +604,13 @@ exports.updateBcv = async (req, res, next) => {
         master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
         master.Adresse = selectedTier.Adresse || master.Adresse || '';
         master.Ville = selectedTier.Ville || master.Ville || '';
+
+        const selectedProjectId = normalizeProjectId(master.ProjectId || master.projectId || master.ID_Projet || master.projetId);
+        delete master.ProjectId;
+        delete master.projectId;
+        delete master.ID_Projet;
+        delete master.projetId;
+        master.CodProject = selectedProjectId || null;
 
         if (req.user?.UserRole && String(req.user.UserRole).toLowerCase().includes('commercial')) {
             const codRepres = String(req.user?.id || req.user?.UserID || '').trim();

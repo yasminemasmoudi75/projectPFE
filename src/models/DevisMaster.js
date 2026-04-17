@@ -138,6 +138,11 @@ const Devis = sequelize.define('TabDevm', {
     allowNull: true,
     field: 'bTransf'
   },
+  CodProject: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'CodProject'
+  },
   CodDev: {
     type: DataTypes.STRING(10),
     allowNull: true,

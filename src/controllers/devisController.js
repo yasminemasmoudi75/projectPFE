@@ -238,6 +238,11 @@ const isEmptyValue = (value) => {
   return String(value).trim() === '';
 };
 
+const normalizeProjectId = (value) => {
+  if (isEmptyValue(value)) return '';
+  return String(value).trim();
+};
+
 const resolveLookupIdByLabel = async (Model, value, transaction) => {
   if (isEmptyValue(value)) return null;
 
@@ -382,6 +387,12 @@ exports.createDevis = async (req, res, next) => {
 
     // Track creator login when available
     master.CUser = req.user?.LoginName || String(req.user?.id || req.user?.UserID || '');
+    const selectedProjectId = normalizeProjectId(master.ProjectId || master.projectId || master.ID_Projet || master.projetId);
+    delete master.ProjectId;
+    delete master.projectId;
+    delete master.ID_Projet;
+    delete master.projetId;
+    master.CodProject = selectedProjectId || null;
 
 
     // 1. Déterminer le prochain numéro de devis (Nf) si pas fourni
@@ -549,6 +560,13 @@ exports.updateDevis = async (req, res, next) => {
     master.LibTiers = selectedTier.Raisoc || master.LibTiers || '';
     master.Adresse = selectedTier.Adresse || master.Adresse || '';
     master.Ville = selectedTier.Ville || master.Ville || '';
+
+    const selectedProjectId = normalizeProjectId(master.ProjectId || master.projectId || master.ID_Projet || master.projetId);
+    delete master.ProjectId;
+    delete master.projectId;
+    delete master.ID_Projet;
+    delete master.projetId;
+    master.CodProject = selectedProjectId || null;
 
     // Sanitize and clean master data
     const masterData = sanitizeMasterData(master);
@@ -731,6 +749,7 @@ exports.convertDevis = async (req, res, next) => {
       MntCredit: data.MntCredit,
       CodMag: data.CodMag,
       CodRepres: data.CodRepres,
+      CodProject: data.CodProject || null,
       CodDev: data.CodDev,
       MDate: sequelize.literal('GETDATE()'),
       DatCreateUser: sequelize.literal('GETDATE()'),

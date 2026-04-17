@@ -77,6 +77,16 @@ const Projet = sequelize.define('Projet', {
     allowNull: true,
     field: 'Statut'
   },
+  CodDev: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'CodDev'
+  },
+  CodBc: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'CodBc'
+  },
   Priorite: {
     type: DataTypes.STRING(30),
     allowNull: true,

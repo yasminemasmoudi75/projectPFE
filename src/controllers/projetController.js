@@ -352,6 +352,35 @@ exports.getProjets = async (req, res, next) => {
 };
 
 /**
+ * Récupérer les projets d'un client précis
+ * GET /api/projets/client/:codTiers
+ */
+exports.getProjectsByClient = async (req, res, next) => {
+  try {
+    const { codTiers } = req.params;
+    if (!codTiers) {
+      return res.status(400).json({ status: 'error', message: 'Client obligatoire' });
+    }
+
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('3', {}, req.user);
+
+    const projets = await Projet.findAll({
+      where: { [Op.and]: [{ IDTiers: codTiers }, securityWhere] },
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers'] }],
+      attributes: ['ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers', 'Date_Creation', 'CodDev', 'CodBc', 'nf'],
+      order: [['dateSave', 'DESC']],
+      tableHint: TableHints.NOLOCK
+    });
+
+    res.json({ status: 'success', data: projets });
+  } catch (error) {
+    console.error('❌ [PROJECTS BY CLIENT ERROR]:', error);
+    next(error);
+  }
+};
+
+/**
  * Récupérer un projet par ID
  */
 exports.getProjetById = async (req, res, next) => {

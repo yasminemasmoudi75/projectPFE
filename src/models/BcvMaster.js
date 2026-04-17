@@ -138,6 +138,11 @@ const BcvMaster = sequelize.define('TabBcvm', {
         allowNull: true,
         field: 'bLivr'
     },
+    CodProject: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'CodProject'
+    },
     CodDev: {
         type: DataTypes.STRING(10),
         allowNull: true,

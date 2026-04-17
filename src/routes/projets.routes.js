@@ -7,6 +7,7 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 router.use(protect);
 
 router.get('/', checkPermission(MODULES.PROJETS, 'read'), projetController.getProjets);
+router.get('/client/:codTiers', checkPermission(MODULES.PROJETS, 'read'), projetController.getProjectsByClient);
 router.get('/tiers-lookup', checkPermission(MODULES.PROJETS, 'read'), projetController.lookupProjetTiers);
 router.get('/:id', checkPermission(MODULES.PROJETS, 'read'), projetController.getProjetById);
 router.post('/', checkPermission(MODULES.PROJETS, 'create'), projetController.createProjet);

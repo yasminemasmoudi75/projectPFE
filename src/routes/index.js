@@ -27,6 +27,7 @@ const testFilterRoutes = require('./testFilterRoutes'); // ✅ Routes pour teste
 const gmailAuthRoutes = require('./gmailAuth.routes'); // ✅ Routes pour Gmail OAuth 2.0
 const reglementsRoutes = require('./reglements.routes'); // ✅ Routes pour les règlements
 const recapRoutes = require('./recap.routes'); // ✅ Routes pour le récapitulatif
+const banquesRoutes = require('./banques.routes'); // ✅ Routes pour les banques
 // const filterConfigRoutes = require('./filterConfigRoutes'); // TODO: À créer si besoin
 
 // Utiliser les routes
@@ -55,6 +56,7 @@ router.use('/test', testFilterRoutes); // ✅ Routes de test pour TabRoleFilterV
 router.use('/auth/gmail', gmailAuthRoutes); // ✅ Gmail OAuth 2.0
 router.use('/reglements', reglementsRoutes); // ✅ Gestion des règlements
 router.use('/recap', recapRoutes); // ✅ Récapitulatif mouvements
+router.use('/banques', banquesRoutes); // ✅ Référentiel banques
 // router.use('/filters', filterConfigRoutes); // TODO: À créer si besoin
 
 // Route de base de l'API
