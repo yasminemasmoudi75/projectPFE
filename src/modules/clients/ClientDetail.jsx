@@ -49,6 +49,8 @@ const ClientDetail = () => {
         location: false,
         metadata: false,
     });
+    const [satisfaction, setSatisfaction] = useState(null);
+    const [loadingSatisfaction, setLoadingSatisfaction] = useState(false);
 
     useEffect(() => {
         const fetchClientDetails = async () => {
@@ -142,6 +144,24 @@ const ClientDetail = () => {
 
         fetchClientProjets();
     }, [client?.IDTiers]);
+
+    // Charger la satisfaction IA
+    useEffect(() => {
+        const fetchSatisfaction = async () => {
+            if (!client?.CodTiers) return;
+            setLoadingSatisfaction(true);
+            try {
+                const result = await axios.get(`/ia/satisfaction/${client.CodTiers}`);
+                setSatisfaction(result?.data);
+            } catch (error) {
+                console.error('Error fetching satisfaction:', error);
+            } finally {
+                setLoadingSatisfaction(false);
+            }
+        };
+
+        fetchSatisfaction();
+    }, [client?.CodTiers]);
 
     if (loading) return <LoadingSpinner />;
     if (!client) return (
@@ -328,9 +348,22 @@ const ClientDetail = () => {
                             <ArrowLeftIcon className="h-5 w-5" />
                         </button>
                         <div>
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
-                                <UserCircleIcon className="h-3 w-3" />
-                                Fiche Client
+                            <div className="flex gap-2 mb-3">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium">
+                                    <UserCircleIcon className="h-3 w-3" />
+                                    Fiche Client
+                                </div>
+                                {loadingSatisfaction ? (
+                                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-medium">
+                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
+                                        Analyse IA...
+                                    </div>
+                                ) : satisfaction && (
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${satisfaction.isProspect ? 'bg-slate-50 text-slate-600 border-slate-200' : satisfaction.score >= 8 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : satisfaction.score >= 5 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                        <SparklesIcon className="h-3 w-3" />
+                                        {satisfaction.isProspect ? 'Prospect (N/A)' : `NPS IA : ${satisfaction.score ?? 0} / 10`}
+                                    </div>
+                                )}
                             </div>
                             <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{client.LibTiers}</h1>
                             <div className="flex items-center gap-3 mt-2 text-sm">
@@ -502,6 +535,7 @@ const ClientDetail = () => {
                                     { id: 'activities', label: 'Journal Activités' },
                                     { id: 'devis', label: 'Documents Devis' },
                                     { id: 'projets', label: 'Suivi Projets' },
+                                    { id: 'ia', label: 'Satisfaction & IA' },
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
@@ -714,7 +748,154 @@ const ClientDetail = () => {
                                             </div>
                                         ))
                                     )}
+                                                    {activeTab === 'ia' && (
+                                <div className="animate-fade-in space-y-8 p-2">
+                                    {loadingSatisfaction ? (
+                                        <div className="py-32 flex flex-col items-center justify-center space-y-4">
+                                            <div className="relative h-20 w-20">
+                                                <div className="absolute inset-0 border-4 border-sky-100 rounded-full"></div>
+                                                <div className="absolute inset-0 border-4 border-sky-500 rounded-full border-t-transparent animate-spin"></div>
+                                                <SparklesIcon className="absolute inset-0 m-auto h-8 w-8 text-sky-400 animate-pulse" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-slate-800 font-bold text-lg">Analyse Cognitive en cours</p>
+                                                <p className="text-slate-500 text-sm">Le moteur IA ausculte les échanges et l'historique...</p>
+                                            </div>
+                                        </div>
+                                    ) : !satisfaction ? (
+                                        <div className="card-luxury p-20 text-center border-dashed border-2 border-slate-200">
+                                            <ChartBarIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                                            <p className="text-slate-500 font-medium">Données d'analyse non disponibles pour ce profil.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                            {/* Left Column: Score Visualization */}
+                                            <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50">
+                                                <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8 text-center">Satisfaction Globale (NPS)</h4>
+                                                
+                                                <div className="relative h-48 w-48 flex items-center justify-center">
+                                                    {/* SVG Progress Ring */}
+                                                    <svg className="h-full w-full transform -rotate-90">
+                                                        <circle
+                                                            cx="96" cy="96" r="88"
+                                                            fill="transparent"
+                                                            stroke="currentColor"
+                                                            strokeWidth="12"
+                                                            className="text-slate-50"
+                                                        />
+                                                        <circle
+                                                            cx="96" cy="96" r="88"
+                                                            fill="transparent"
+                                                            stroke="currentColor"
+                                                            strokeWidth="12"
+                                                            strokeDasharray={552.92}
+                                                            strokeDashoffset={552.92 - (552.92 * (satisfaction.isProspect ? 0 : (satisfaction.score || 0) / 10))}
+                                                            strokeLinecap="round"
+                                                            className={`transition-all duration-1000 ease-out ${
+                                                                satisfaction.isProspect ? 'text-slate-300' :
+                                                                satisfaction.score >= 8 ? 'text-emerald-500' : 
+                                                                satisfaction.score >= 5 ? 'text-amber-500' : 'text-rose-500'
+                                                            }`}
+                                                        />
+                                                    </svg>
+                                                    <div className="absolute flex flex-col items-center">
+                                                        {satisfaction.isProspect ? (
+                                                            <span className="text-2xl font-black text-slate-400">N/A</span>
+                                                        ) : (
+                                                            <>
+                                                                <span className="text-5xl font-black text-slate-800 tracking-tighter">
+                                                                    {satisfaction.score ?? 0}
+                                                                </span>
+                                                                <span className="text-xs font-bold text-slate-400 mt-1 uppercase">Sur 10</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-8 text-center space-y-2">
+                                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${
+                                                        satisfaction.isProspect ? 'bg-slate-100 text-slate-600' :
+                                                        satisfaction.score >= 8 ? 'bg-emerald-50 text-emerald-700' : 
+                                                        satisfaction.score >= 5 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
+                                                    }`}>
+                                                        <SparklesIcon className="h-4 w-4" />
+                                                        {satisfaction.isProspect ? 'Compte Prospect' : 
+                                                         satisfaction.score >= 8 ? 'Excellent Engagement' : 
+                                                         satisfaction.score >= 5 ? 'Relation Stable' : 'Alerte Satisfaction'}
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-400 font-medium italic">
+                                                        Moteur Analytics v{satisfaction.version || '2.3'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Right Column: Breakdown & Recommendations */}
+                                            <div className="lg:col-span-8 space-y-6">
+                                                <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative">
+                                                    <div className="relative z-10 flex items-center justify-between">
+                                                        <div>
+                                                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                                                Synthèse Cognitive
+                                                            </h3>
+                                                            <p className="text-slate-400 text-sm mt-1">
+                                                                {satisfaction.isProspect ? 
+                                                                    "Profil en cours de constitution. Historique insuffisant pour une analyse prédictive." : 
+                                                                    "Voici les leviers identifiés par l'IA sur la base de l'interaction client."}
+                                                            </p>
+                                                        </div>
+                                                        <div className="h-12 w-12 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20">
+                                                            <DocumentTextIcon className="h-6 w-6 text-sky-400" />
+                                                        </div>
+                                                    </div>
+                                                    {/* Background Glow */}
+                                                    <div className="absolute -top-20 -right-20 h-64 w-64 bg-sky-500/20 blur-[100px] rounded-full"></div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {(satisfaction.factors || []).map((factor, idx) => {
+                                                        const isPositive = factor.impact >= 0;
+                                                        return (
+                                                            <div key={idx} className="group hover:scale-[1.02] transition-all duration-300">
+                                                                <div className={`h-full p-5 rounded-3xl border ${isPositive ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'} transition-all`}>
+                                                                    <div className="flex items-center justify-between mb-4">
+                                                                        <div className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${isPositive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'}`}>
+                                                                            {isPositive ? '+' : ''}{factor.impact} IMPACT
+                                                                        </div>
+                                                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isPositive ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                                            {isPositive ? <ArrowUpRightIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                                                                        </div>
+                                                                    </div>
+                                                                    <h5 className="font-bold text-slate-800 text-sm">{factor.factor}</h5>
+                                                                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">{factor.desc}</p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {(!satisfaction.factors || satisfaction.factors.length === 0) && (
+                                                        <div className="col-span-2 p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                                                            <p className="text-slate-400 text-sm italic">Aucun facteur détecté à ce stade.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Protip Action */}
+                                                {!satisfaction.isProspect && (
+                                                    <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-center gap-4">
+                                                        <div className="h-10 w-10 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0 animate-bounce">
+                                                            <SparklesIcon className="h-5 w-5 text-white" />
+                                                        </div>
+                                                        <p className="text-xs text-sky-800 font-medium">
+                                                            <span className="font-bold">Conseil de l'IA :</span> {satisfaction.score < 5 ? 
+                                                                "Ce client montre des signes de frustration. Un appel de courtoisie est fortement recommandé." : 
+                                                                "La relation est positive. Profitez-en pour proposer de nouveaux produits ou services."}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+                            )}                    </div>
                             )}
                         </div>
                     </div>
