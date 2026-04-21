@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     PlusIcon,
@@ -25,6 +25,66 @@ import axios from '../../app/axios';
 import toast from 'react-hot-toast';
 import usePermission from '../../hooks/usePermission';
 import { MODULE_CODES } from '../../utils/constants';
+
+const ClientSatisfactionBadge = ({ codTiers }) => {
+    const [score, setScore] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [isProspect, setIsProspect] = useState(false);
+    const badgeRef = useRef(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                fetchScore();
+                observer.disconnect();
+            }
+        }, { threshold: 0.1 });
+
+        if (badgeRef.current) observer.observe(badgeRef.current);
+
+        const fetchScore = async () => {
+            try {
+                const result = await axios.get(`/ia/satisfaction/${codTiers}`);
+                if (isMounted) {
+                    setScore(result?.data?.score);
+                    setIsProspect(result?.data?.isProspect);
+                }
+            } catch (error) {
+                console.warn('Error fetching row satisfaction:', error);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+
+        return () => {
+            isMounted = false;
+            observer.disconnect();
+        };
+    }, [codTiers]);
+
+    return (
+        <div ref={badgeRef} className="min-w-[80px] flex justify-center">
+            {loading ? (
+                <div className="h-4 w-12 bg-slate-100 animate-pulse rounded"></div>
+            ) : isProspect ? (
+                <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 w-fit">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Prospect</span>
+                </div>
+            ) : (
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border w-fit ${
+                    (score ?? 0) >= 8 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                    (score ?? 0) >= 5 ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                    'bg-rose-50 text-rose-600 border-rose-100'
+                }`}>
+                    <span className="text-xs font-bold">
+                        {score !== null ? `${score} / 10` : '—'}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const ClientsList = () => {
     const navigate = useNavigate();
@@ -585,8 +645,8 @@ const ClientsList = () => {
                                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Classe</th>
                                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Fonction</th>
                                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Catégorie</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Domaine</th>
                                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gouvernorat</th>
+                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Satisfaction</th>
                                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
@@ -655,14 +715,12 @@ const ClientsList = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-5">
-                                            <p className="text-sm text-slate-600">
-                                                {client.Domaine || 'Non renseigné'}
-                                            </p>
-                                        </td>
-                                        <td className="px-6 py-5">
                                             <span className="text-sm text-slate-600 bg-amber-100 px-3 py-1 rounded-full font-medium">
                                                 {client.region?.libelle || client.Region?.libelle || client.tiersGouvernorat?.libelle || client.TiersGouvernorat?.libelle || '-'}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <ClientSatisfactionBadge codTiers={client.CodTiers} />
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex justify-end gap-1">

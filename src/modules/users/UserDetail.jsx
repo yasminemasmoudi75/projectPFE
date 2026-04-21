@@ -17,7 +17,8 @@ import {
     SparklesIcon,
     ArrowPathIcon,
     UserGroupIcon,
-    TagIcon
+    TagIcon,
+    MapPinIcon
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -66,153 +67,200 @@ const UserDetail = () => {
     }
 
     return (
-        <div className="animate-fade-in space-y-8 pb-12">
-            {/* Header Navigation */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex items-center gap-5">
-                    <button
-                        onClick={() => navigate('/users')}
-                        className="h-11 w-11 bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 rounded-xl transition-all shadow-soft flex items-center justify-center"
-                        title="Retour"
-                    >
-                        <ArrowLeftIcon className="h-5 w-5 stroke-[2.5]" />
-                    </button>
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="badge badge-primary">
-                                <UserGroupIcon className="h-3 w-3 mr-1" />
-                                Annuaire Interne
-                            </span>
+        <div className="animate-fade-in space-y-6 pb-12">
+            {/* Professional Header - Modern Design (Same as Client) */}
+            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                        <button
+                            onClick={() => navigate('/users')}
+                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
+                        >
+                            <ArrowLeftIcon className="h-5 w-5" />
+                        </button>
+                        <div>
+                            <div className="flex gap-2 mb-3">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium">
+                                    <UserGroupIcon className="h-3 w-3" />
+                                    Fiche Utilisateur
+                                </div>
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                                    user.IsActive 
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}>
+                                    <ShieldCheckIcon className="h-3 w-3" />
+                                    {user.IsActive ? 'Actif' : 'Inactif'}
+                                </span>
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{user.FullName}</h1>
+                            <div className="flex items-center gap-3 mt-2 text-sm">
+                                <span className="font-semibold text-slate-600">@{user.LoginName}</span>
+                                <span className="h-1 w-1 rounded-full bg-slate-300"></span>
+                                <span className="flex items-center gap-1.5 text-slate-500">
+                                    <BriefcaseIcon className="h-4 w-4 text-sky-500" />
+                                    {user.UserRole || 'Rôle non défini'}
+                                </span>
+                                {user.Departement && (
+                                    <>
+                                        <span className="h-1 w-1 rounded-full bg-slate-300"></span>
+                                        <span className="flex items-center gap-1.5 text-slate-500">
+                                            <BuildingOfficeIcon className="h-4 w-4 text-sky-500" />
+                                            {user.Departement}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Profil Collaborateur</h1>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="p-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 transition-all shadow-soft"
-                    >
-                        <ArrowPathIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                        onClick={() => navigate(`/users/edit/${user.UserID}`)}
-                        className="btn-soft-primary flex items-center gap-2"
-                    >
-                        <PencilSquareIcon className="h-4 w-4 stroke-[3]" />
-                        Éditer Profil
-                    </button>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all"
+                            title="Rafraîchir"
+                        >
+                            <ArrowPathIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                            onClick={() => navigate(`/users/edit/${user.UserID}`)}
+                            className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                        >
+                            <PencilSquareIcon className="h-4 w-4" />
+                            Modifier
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left side: Main Profile Card & Identifiers */}
-                <div className="lg:col-span-8 space-y-8">
-                    {/* Hero Identity Card */}
-                    <div className="card-luxury p-0 overflow-hidden group">
-                        <div className="h-32 bg-gradient-blue relative flex items-center px-10">
-                            <div className="absolute top-0 right-0 w-64 h-full bg-white/10 -skew-x-12 translate-x-1/2"></div>
-                            <h2 className="text-white/20 font-black text-6xl uppercase tracking-tighter select-none">PROFILE</h2>
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Main Info */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Identity Card */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
+                                    <IdentificationIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-800">Informations d'Identité</h2>
+                                    <p className="text-xs text-slate-500">Identifiants et informations personnelles</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="px-10 pb-10 relative">
-                            <div className="flex flex-col md:flex-row md:items-end gap-8 -mt-12">
-                                <div className="h-32 w-32 rounded-[2rem] bg-white p-1.5 shadow-xl transition-transform group-hover:scale-105 duration-500">
-                                    <div className="h-full w-full rounded-[1.6rem] bg-gradient-blue flex items-center justify-center text-4xl font-black text-white shadow-glow-blue">
-                                        {user.FullName?.charAt(0)}
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Nom Complet</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <UserCircleIcon className="h-5 w-5 text-sky-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.FullName}</span>
                                     </div>
                                 </div>
-                                <div className="flex-1 pb-2">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">{user.FullName}</h2>
-                                        <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider ${user.IsActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                                            }`}>
-                                            {user.IsActive ? 'Actif' : 'Désactivé'}
-                                        </span>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Nom d'Utilisateur</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono">
+                                        <IdentificationIcon className="h-5 w-5 text-sky-500" />
+                                        <span className="text-sm font-semibold text-slate-800">@{user.LoginName}</span>
                                     </div>
-                                    <div className="flex items-center flex-wrap gap-4 text-sm font-bold text-slate-500">
-                                        <div className="flex items-center gap-2 text-blue-600">
-                                            <TagIcon className="h-4 w-4" />
-                                            @{user.LoginName}
-                                        </div>
-                                        <span className="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                                        <span className="text-slate-400 uppercase tracking-widest text-[11px]">{user.UserRole}</span>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Code Employé</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl font-mono">
+                                        <TagIcon className="h-5 w-5 text-sky-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.Code || 'Non attribué'}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Gouvernorat</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <MapPinIcon className="h-5 w-5 text-sky-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.Gouvernorat || 'Non défini'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Information Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Contact Details Card */}
-                        <div className="card-luxury p-0 overflow-hidden">
-                            <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Coordonnées</h3>
-                                <div className="icon-shape icon-shape-sm bg-gradient-blue shadow-glow-blue scale-75">
-                                    <EnvelopeIcon className="h-5 w-5 text-white" />
+                    {/* Contact Information */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                    <PhoneIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-800">Coordonnées</h2>
+                                    <p className="text-xs text-slate-500">Email et téléphone</p>
                                 </div>
                             </div>
-                            <div className="p-8 space-y-8">
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Canal Email</label>
-                                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                        <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                                            <EnvelopeIcon className="h-4 w-4" />
-                                        </div>
-                                        {user.EmailPro}
+                        </div>
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Email Professionnel</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <EnvelopeIcon className="h-5 w-5 text-emerald-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.EmailPro || 'Non défini'}</span>
                                     </div>
                                 </div>
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Ligne Directe</label>
-                                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                        <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                                            <PhoneIcon className="h-4 w-4" />
-                                        </div>
-                                        {user.TelPro || 'Non renseigné'}
-                                    </div>
-                                </div>
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Date de Naissance</label>
-                                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                        <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                                            <CalendarIcon className="h-4 w-4" />
-                                        </div>
-                                        {user.DateNaissance ? new Date(user.DateNaissance).toLocaleDateString() : 'Non renseignée'}
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Téléphone</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <PhoneIcon className="h-5 w-5 text-emerald-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.TelPro || 'Non défini'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Professional details Card */}
-                        <div className="card-luxury p-0 overflow-hidden">
-                            <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Professionnel</h3>
-                                <div className="icon-shape icon-shape-sm bg-gradient-success shadow-glow-emerald scale-75">
-                                    <BriefcaseIcon className="h-5 w-5 text-white" />
+                    {/* Professional Information */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600">
+                                    <BriefcaseIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-800">Informations Professionnelles</h2>
+                                    <p className="text-xs text-slate-500">Poste et département</p>
                                 </div>
                             </div>
-                            <div className="p-8 space-y-8">
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Département</label>
-                                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                        <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center transition-colors group-hover:bg-emerald-600 group-hover:text-white">
-                                            <BuildingOfficeIcon className="h-4 w-4" />
-                                        </div>
-                                        {user.Departement || 'Non assigné'}
+                        </div>
+                        <div className="p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Rôle</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <ShieldCheckIcon className="h-5 w-5 text-violet-500" />
+                                        <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                                            user.UserRole === 'Administrateur' || user.UserRole === 'Admin'
+                                                ? 'bg-violet-100 text-violet-700'
+                                                : user.UserRole === 'Commercial'
+                                                    ? 'bg-sky-100 text-sky-700'
+                                                    : user.UserRole === 'Technicien'
+                                                        ? 'bg-amber-100 text-amber-700'
+                                                        : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {user.UserRole}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Poste & Rang</label>
-                                    <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
-                                        <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center transition-colors group-hover:bg-emerald-600 group-hover:text-white">
-                                            <IdentificationIcon className="h-4 w-4" />
-                                        </div>
-                                        {user.PosteOccupe || 'Non défini'}
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Département</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <BuildingOfficeIcon className="h-5 w-5 text-violet-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.Departement || 'Non assigné'}</span>
                                     </div>
                                 </div>
-                                <div className="group">
-                                    <label className="label-modern italic tracking-[0.2em] mb-2">Scope d'accès</label>
-                                    <div className="flex items-center gap-2">
-                                        <span className="badge badge-primary py-2 px-4 shadow-sm">Niveau {user.UserRole === 'Administrateur' ? 'Total' : 'Restreint'}</span>
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Poste Occupé</label>
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+                                        <BriefcaseIcon className="h-5 w-5 text-violet-500" />
+                                        <span className="text-sm font-semibold text-slate-800">{user.PosteOccupe || 'Non défini'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -220,40 +268,85 @@ const UserDetail = () => {
                     </div>
                 </div>
 
-                {/* Right side: Security & Activity */}
-                <div className="lg:col-span-4 space-y-8">
-                    {/* Activity Feed Card */}
-                    <div className="card-luxury p-0 overflow-hidden">
-                        <div className="px-8 py-5 border-b border-slate-100/50 bg-gradient-to-r from-slate-50/50 to-transparent">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Activité Système</h3>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+                {/* Right Column - Activity & Metadata */}
+                <div className="space-y-6">
+                    {/* Activity Card */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
                                     <ClockIcon className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dernière Connexion</p>
-                                    <p className="text-xs font-black text-slate-700 mt-1">
-                                        {user.LastLoginDate ? new Date(user.LastLoginDate).toLocaleString('fr-FR') : 'Jamais connecté'}
-                                    </p>
+                                    <h2 className="text-sm font-bold text-slate-800">Activité</h2>
+                                    <p className="text-xs text-slate-500">Historique de connexion</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
-                                    <CalendarIcon className="h-5 w-5" />
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <label className="block text-xs text-slate-500 uppercase tracking-wider mb-3">Dernière Connexion</label>
+                                <div className="flex items-start gap-3 px-4 py-3 bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-xl">
+                                    <ClockIcon className="h-5 w-5 text-amber-500 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {user.LastLoginDate ? new Date(user.LastLoginDate).toLocaleDateString('fr-FR') : 'Jamais'}
+                                        </p>
+                                        {user.LastLoginDate && (
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                {new Date(user.LastLoginDate).toLocaleTimeString('fr-FR')}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date d'intégration</p>
-                                    <p className="text-xs font-black text-slate-700 mt-1">
-                                        {user.CreatedDate ? new Date(user.CreatedDate).toLocaleDateString('fr-FR') : 'Inconnue'}
-                                    </p>
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500 uppercase tracking-wider mb-3">Date de Création</label>
+                                <div className="flex items-start gap-3 px-4 py-3 bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-xl">
+                                    <CalendarIcon className="h-5 w-5 text-amber-500 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800">
+                                            {user.CreatedDate ? new Date(user.CreatedDate).toLocaleDateString('fr-FR') : 'Inconnue'}
+                                        </p>
+                                        {user.CreatedDate && (
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                {new Date(user.CreatedDate).toLocaleTimeString('fr-FR')}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-
+                    {/* Status Card */}
+                    <div className="card-luxury shadow-sm">
+                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                    <ShieldCheckIcon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-800">Statut du Compte</h2>
+                                    <p className="text-xs text-slate-500">État actuel</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className={`flex items-center justify-between px-4 py-4 rounded-xl border ${
+                                user.IsActive 
+                                    ? 'bg-emerald-50 border-emerald-200' 
+                                    : 'bg-rose-50 border-rose-200'
+                            }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`h-3 w-3 rounded-full ${user.IsActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+                                    <span className={`text-sm font-bold ${user.IsActive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                        {user.IsActive ? 'Compte Actif' : 'Compte Inactif'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
