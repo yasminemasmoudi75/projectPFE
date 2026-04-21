@@ -1,6 +1,17 @@
 const errorHandler = (err, req, res, next) => {
   console.error('❌ Erreur:', err);
 
+  if (err.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'La pièce jointe ne doit pas dépasser 25 Mo'
+      : err.message || 'Erreur lors du téléversement de la pièce jointe';
+
+    return res.status(400).json({
+      status: 'error',
+      message,
+    });
+  }
+
   // Erreur de validation
   if (err.name === 'ValidationError') {
     return res.status(400).json({

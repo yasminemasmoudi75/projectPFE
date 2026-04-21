@@ -40,6 +40,7 @@ exports.getInbox = async (req, res, next) => {
 
     // Récupérer les messages envoyés ET reçus
     const { count, rows } = await Message.findAndCountAll({
+      attributes: { exclude: ['MessageData'] },
       where: {
         [Op.or]: [
           { RecipientID: req.user.UserID },      // Messages reçus
@@ -92,6 +93,7 @@ exports.getMessageById = async (req, res, next) => {
     const { id } = req.params;
 
     const message = await Message.findByPk(id, {
+      attributes: { exclude: ['MessageData'] },
       include: [
         { association: 'sender', attributes: ['UserID', 'USER_NAME', 'EmailPro'] },
         { association: 'recipient', attributes: ['UserID', 'USER_NAME', 'EmailPro'] }
@@ -128,6 +130,7 @@ exports.getMessageById = async (req, res, next) => {
 exports.sendMessage = async (req, res, next) => {
   try {
     const { recipientID, recipientEmail, subject, messageText, priority = 1 } = req.body;
+    const attachment = req.file || null;
 
     // ═════ VALIDATION ═════
     if (!recipientEmail || !subject || !messageText) {
@@ -177,7 +180,13 @@ exports.sendMessage = async (req, res, next) => {
         Delivered: false,
         StatusRead: false,
         Priority: priority,
-        SyncedWithGmail: false
+        SyncedWithGmail: false,
+        ...(attachment && {
+          MessageData: attachment.buffer,
+          MessageDataSize: attachment.size,
+          FileName: attachment.originalname,
+          FileMimeType: attachment.mimetype
+        })
       });
 
       console.log(`✅ Message créé en BD (ID: ${message.ID})`);
@@ -190,7 +199,13 @@ exports.sendMessage = async (req, res, next) => {
         RecipientID: finalRecipientID || null,
         MessageText: messageText,
         SendingDate: sequelize.literal('GETDATE()'),  // ✅ Laisser SQL Server générer la date
-        Delivered: false
+        Delivered: false,
+        ...(attachment && {
+          MessageData: attachment.buffer,
+          MessageDataSize: attachment.size,
+          FileName: attachment.originalname,
+          FileMimeType: attachment.mimetype
+        })
       });
 
       console.log(`✅ Message créé en BD (colonnes basiques, ID: ${message.ID})`);
@@ -203,7 +218,8 @@ exports.sendMessage = async (req, res, next) => {
         req.user.UserID,
         recipientEmail,
         subject,
-        messageText
+        messageText,
+        attachment
       );
 
       // Mettre à jour le message avec l'ID Gmail
@@ -251,6 +267,43 @@ exports.sendMessage = async (req, res, next) => {
 
   } catch (error) {
     console.error(`❌ Erreur sendMessage:`, error.message);
+    next(error);
+  }
+};
+
+/**
+ * Télécharger la pièce jointe d'un message
+ * GET /api/messages/:id/attachment
+ */
+exports.downloadAttachment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const message = await Message.findByPk(id, {
+      attributes: ['ID', 'MessageData', 'MessageDataSize', 'FileName', 'FileMimeType']
+    });
+
+    if (!message) {
+      return res.status(404).json({ status: 'error', message: 'Message non trouvé' });
+    }
+
+    if (!message.MessageData || !message.MessageDataSize) {
+      return res.status(404).json({ status: 'error', message: 'Aucune pièce jointe disponible pour ce message' });
+    }
+
+    const attachmentBuffer = Buffer.isBuffer(message.MessageData)
+      ? message.MessageData
+      : Buffer.from(message.MessageData);
+
+    const mimeType = message.FileMimeType || 'application/octet-stream';
+    const fileName = message.FileName || `message-${id}-piece-jointe`;
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', attachmentBuffer.length);
+
+    return res.send(attachmentBuffer);
+  } catch (error) {
     next(error);
   }
 };

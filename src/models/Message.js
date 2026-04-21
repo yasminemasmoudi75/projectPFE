@@ -98,6 +98,16 @@ const Message = sequelize.define('MSGMessages', {
     allowNull: true,
     field: 'SyncedWithGmail',
     defaultValue: false
+  },
+  FileName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'FileName'
+  },
+  FileMimeType: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'FileMimeType'
   }
 }, {
   tableName: 'MSGMessages',

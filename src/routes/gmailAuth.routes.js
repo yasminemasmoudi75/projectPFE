@@ -9,6 +9,11 @@ const {
   testGmailConnection
 } = require('../services/gmailAuthService');
 
+const resolveFrontendBaseUrl = () => {
+  const rawUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+};
+
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * ROUTES: Gmail OAuth 2.0 Authentication
@@ -138,10 +143,35 @@ router.get('/test-url', (req, res, next) => {
  */
 router.get('/callback', async (req, res, next) => {
   try {
-    const { code, state } = req.query;
+    const {
+      code,
+      state,
+      error: oauthError,
+      error_description: oauthErrorDescription,
+      scope,
+    } = req.query;
     const userId = state;
 
     console.log(`🔄 Callback OAuth reçu pour UserID: ${userId}`);
+    console.log('🔎 Callback query résumé:', {
+      hasCode: !!code,
+      hasState: !!state,
+      oauthError: oauthError || null,
+      oauthErrorDescription: oauthErrorDescription || null,
+      scope: scope || null,
+    });
+
+    if (oauthError) {
+      const oauthMessage = oauthErrorDescription
+        ? `${oauthError} - ${oauthErrorDescription}`
+        : oauthError;
+
+      console.error(`❌ OAuth callback error from Google: ${oauthMessage}`);
+      const frontendBaseUrl = resolveFrontendBaseUrl();
+      return res.redirect(
+        `${frontendBaseUrl}/messages?auth=error&message=${encodeURIComponent(oauthMessage)}`
+      );
+    }
 
     if (!code || !userId) {
       return res.status(400).json({
@@ -156,13 +186,18 @@ router.get('/callback', async (req, res, next) => {
     console.log(`✅ Autorisation réussie pour UserID: ${userId}`);
 
     // Rediriger vers le frontend avec succès
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/messages?auth=success`);
+    const frontendBaseUrl = resolveFrontendBaseUrl();
+    res.redirect(`${frontendBaseUrl}/messages?auth=success`);
   } catch (error) {
     console.error('❌ Erreur lors du callback:', error.message);
+    if (error.oauthDetails) {
+      console.error('❌ Détails OAuth:', JSON.stringify(error.oauthDetails));
+    }
 
     // Rediriger vers le frontend avec erreur
+    const frontendBaseUrl = resolveFrontendBaseUrl();
     res.redirect(
-      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/messages?auth=error&message=${encodeURIComponent(error.message)}`
+      `${frontendBaseUrl}/messages?auth=error&message=${encodeURIComponent(error.message)}`
     );
   }
 });

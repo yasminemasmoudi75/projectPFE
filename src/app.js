@@ -59,8 +59,8 @@ const loginLimiter = rateLimit({
 });
 app.use('/api/auth/login', loginLimiter);
 
-app.use(express.json({ limit: '10kb' })); // Limite la taille du body pour éviter les attaques DoS
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: '50mb' })); // Augmenté pour les uploads de pièces jointes
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(morgan('dev'));
 
 // Désactiver le cache pour les endpoints API

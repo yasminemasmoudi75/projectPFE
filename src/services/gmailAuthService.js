@@ -14,6 +14,22 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GMAIL_REDIRECT_URI || 'http://localhost:3066/api/auth/gmail/callback'
 );
 
+const formatDateForSql = (date) => {
+  if (!date || Number.isNaN(new Date(date).getTime())) {
+    return null;
+  }
+
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 /**
  * Générer l'URL d'autorisation Gmail pour un utilisateur
  */
@@ -21,6 +37,9 @@ const getAuthorizationUrl = (userId) => {
   try {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
+      include_granted_scopes: true,
+      prompt: 'consent select_account',
+      response_type: 'code',
       scope: [
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/gmail.readonly',
@@ -48,6 +67,20 @@ const handleAuthorizationCallback = async (code, userId) => {
 
     // Récupérer le token
     const { tokens } = await oauth2Client.getToken(code);
+    console.log('✅ Token OAuth reçu:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      hasExpiryDate: !!tokens.expiry_date,
+    });
+
+    oauth2Client.setCredentials(tokens);
+    const gmail = google.gmail({
+      version: 'v1',
+      auth: oauth2Client,
+    });
+    const profile = await gmail.users.getProfile({ userId: 'me' });
+    const gmailEmail = profile.data.emailAddress || null;
+    const currentHistoryId = profile.data.historyId ? String(profile.data.historyId) : null;
 
     // Vérifier si un token existe déjà
     const existingToken = await sequelize.query(
@@ -67,6 +100,9 @@ const handleAuthorizationCallback = async (code, userId) => {
          SET AccessToken = '${accessToken.replace(/'/g, "''")}'
              , RefreshToken = ${refreshTokenSQL}
              , IsActive = 1
+             , GmailEmail = ${gmailEmail ? `'${gmailEmail.replace(/'/g, "''")}'` : 'NULL'}
+             , LastHistoryId = NULL
+             , LastSyncAt = GETDATE()
              , UpdatedAt = GETDATE()
          WHERE UserID = ${userId}`,
         { raw: true }
@@ -81,8 +117,8 @@ const handleAuthorizationCallback = async (code, userId) => {
       await sequelize.query(`ALTER TABLE GmailOAuthTokens NOCHECK CONSTRAINT "FK__GmailOAut__UserI__4F5F684B"`, { raw: true }).catch(() => {});
       
       await sequelize.query(
-        `INSERT INTO GmailOAuthTokens (UserID, AccessToken, RefreshToken, IsActive, CreatedAt, UpdatedAt)
-         VALUES (${userId}, '${accessToken.replace(/'/g, "''")}', ${refreshTokenSQL}, 1, GETDATE(), GETDATE())`,
+        `INSERT INTO GmailOAuthTokens (UserID, AccessToken, RefreshToken, IsActive, GmailEmail, LastHistoryId, LastSyncAt, CreatedAt, UpdatedAt)
+         VALUES (${userId}, '${accessToken.replace(/'/g, "''")}', ${refreshTokenSQL}, 1, ${gmailEmail ? `'${gmailEmail.replace(/'/g, "''")}'` : 'NULL'}, NULL, GETDATE(), GETDATE(), GETDATE())`,
         { raw: true }
       );
       
@@ -116,8 +152,17 @@ const handleAuthorizationCallback = async (code, userId) => {
     };
   } catch (error) {
     console.error('❌ Erreur lors du callback:', error.message);
+    const oauthDetails = error.response?.data || error.errors || null;
+    if (oauthDetails) {
+      console.error('❌ Détails Google OAuth:', JSON.stringify(oauthDetails));
+    }
     console.error('Stack:', error.stack);
-    throw error;
+
+    const wrappedError = new Error(
+      oauthDetails?.error_description || oauthDetails?.error || error.message || 'Erreur OAuth inconnue'
+    );
+    wrappedError.oauthDetails = oauthDetails;
+    throw wrappedError;
   }
 };
 
@@ -187,11 +232,19 @@ const refreshTokenForUser = async (userId) => {
 
     const { credentials } = await oauth2Client.refreshAccessToken();
 
-    await tokenRecord.update({
-      AccessToken: credentials.access_token,
-      TokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
-      UpdatedAt: new Date()
-    });
+    const accessToken = (credentials.access_token || '').replace(/'/g, "''");
+    const tokenExpiryFormatted = credentials.expiry_date
+      ? formatDateForSql(new Date(credentials.expiry_date))
+      : null;
+
+    await sequelize.query(
+      `UPDATE GmailOAuthTokens
+       SET AccessToken = '${accessToken}',
+           TokenExpiry = ${tokenExpiryFormatted ? `'${tokenExpiryFormatted}'` : 'NULL'},
+           UpdatedAt = GETDATE()
+       WHERE UserID = ${parseInt(userId, 10)}`,
+      { raw: true }
+    );
 
     console.log(`✅ Token rafraîchi pour UserID: ${userId}`);
     return true;

@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./src/app');
 const { testConnection, sequelize } = require('./src/config/database');
 const { PORT } = require('./src/config/constants');
+const { verifyAuthEmailTransport } = require('./src/utils/emailService');
 
 // Import des services Gmail
 const { initializeGmailAuth } = require('./src/services/gmailAuthService');
@@ -16,6 +17,27 @@ const startServer = async () => {
     if (!isConnected) {
       console.error('❌ Impossible de démarrer le serveur sans connexion à la base de données');
       process.exit(1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INITIALISATION EMAIL D'AUTHENTIFICATION CLIENT (SMTP DÉDIÉ)
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('\n🔐 ═══════════════════════════════════════════════════════════');
+    console.log('🔐 Validation service email d\'authentification...');
+    console.log('🔐 ═══════════════════════════════════════════════════════════\n');
+
+    try {
+      const authMailCheck = await verifyAuthEmailTransport();
+      if (authMailCheck.ok) {
+        console.log('✅ Service email d\'authentification: OK\n');
+      } else {
+        console.warn('⚠️ Service email d\'authentification: KO');
+        console.warn(`⚠️ Cause: ${authMailCheck.reason}`);
+        console.warn('⚠️ La création client continue, mais l\'envoi automatique des identifiants peut échouer.\n');
+      }
+    } catch (authMailError) {
+      console.warn('⚠️ Erreur validation service email d\'authentification:', authMailError.message);
+      console.warn('⚠️ La création client continue, mais l\'envoi automatique des identifiants peut échouer.\n');
     }
 
     // Synchroniser les modèles avec la base de données (désactivé car tables déjà créées)

@@ -38,6 +38,16 @@ const GmailOAuthTokens = sequelize.define('GmailOAuthTokens', {
     allowNull: true,
     field: 'GmailEmail'
   },
+  LastHistoryId: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'LastHistoryId'
+  },
+  LastSyncAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'LastSyncAt'
+  },
   CreatedAt: {
     type: DataTypes.DATE,
     defaultValue: sequelize.fn('GETDATE'),

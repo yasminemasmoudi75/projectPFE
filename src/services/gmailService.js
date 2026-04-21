@@ -1,5 +1,21 @@
 const { getGmailClientForUser } = require('./gmailAuthService');
-const { Message, User } = require('../models');
+const { Message, User, GmailOAuthTokens, sequelize } = require('../models');
+
+const formatDateForSql = (date) => {
+  if (!date || Number.isNaN(new Date(date).getTime())) {
+    return null;
+  }
+
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 
 /**
  * Service Gmail pour envoyer/recevoir et synchroniser les emails
@@ -9,7 +25,7 @@ const { Message, User } = require('../models');
 /**
  * Envoyer un email via Gmail API (OAuth 2.0)
  */
-const sendEmail = async (userId, to, subject, messageText, cc = null, bcc = null) => {
+const sendEmail = async (userId, to, subject, messageText, attachment = null, cc = null, bcc = null) => {
   try {
     console.log(`📤 Envoi email à: ${to} par UserID: ${userId}`);
 
@@ -21,23 +37,48 @@ const sendEmail = async (userId, to, subject, messageText, cc = null, bcc = null
     const fromEmail = user?.EmailPro || user?.LoginName || 'crmnexus11@gmail.com';
     console.log(`📧 Email FROM: ${fromEmail}`);
 
+    const boundary = `boundary_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
     // Créer le message email
     const emailLines = [
       `From: ${fromEmail}`,
       `To: ${to}`,
       subject ? `Subject: ${subject}` : 'Subject: Message from Nexus CRM',
-      cc ? `Cc: ${cc}` : '',
-      bcc ? `Bcc: ${bcc}` : '',
-      'Content-Type: text/plain; charset="UTF-8"',
       'MIME-Version: 1.0',
-      '',
-      messageText
     ];
 
-    const email = emailLines
-      .filter(line => line !== '')
-      .join('\r\n')
-      .trim();
+    if (cc) {
+      emailLines.push(`Cc: ${cc}`);
+    }
+
+    if (bcc) {
+      emailLines.push(`Bcc: ${bcc}`);
+    }
+
+    if (attachment && attachment.buffer && attachment.buffer.length) {
+      emailLines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+      emailLines.push('');
+      emailLines.push(`--${boundary}`);
+      emailLines.push('Content-Type: text/plain; charset="UTF-8"');
+      emailLines.push('Content-Transfer-Encoding: 7bit');
+      emailLines.push('');
+      emailLines.push(messageText);
+      emailLines.push('');
+      emailLines.push(`--${boundary}`);
+      emailLines.push(`Content-Type: ${attachment.mimetype || 'application/octet-stream'}; name="${attachment.originalname || 'piece-jointe'}"`);
+      emailLines.push('Content-Transfer-Encoding: base64');
+      emailLines.push(`Content-Disposition: attachment; filename="${attachment.originalname || 'piece-jointe'}"`);
+      emailLines.push('');
+      const attachmentBase64 = attachment.buffer.toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
+      emailLines.push(attachmentBase64);
+      emailLines.push(`--${boundary}--`);
+    } else {
+      emailLines.push('Content-Type: text/plain; charset="UTF-8"');
+      emailLines.push('');
+      emailLines.push(messageText);
+    }
+
+    const email = emailLines.join('\r\n');
 
     // Encoder en Base64
     const encodedMessage = Buffer.from(email)
@@ -65,132 +106,264 @@ const sendEmail = async (userId, to, subject, messageText, cc = null, bcc = null
   }
 };
 
-/**
- * Récupérer les emails non lus depuis Gmail pour un utilisateur
- */
-const fetchUnreadEmails = async (userId, maxResults = 10) => {
-  try {
-    console.log(`🔄 Récupération des emails non lus pour UserID: ${userId}`);
+const parseEmailAddress = (value = '') => {
+  const match = String(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : null;
+};
 
-    const gmail = await getGmailClientForUser(userId);
+const findInternalUserByEmail = async (email) => {
+  if (!email) {
+    return null;
+  }
 
-    // Chercher les emails non lus
-    const listResponse = await gmail.users.messages.list({
+  return User.findOne({
+    where: {
+      EmailPro: email,
+    },
+  });
+};
+
+const getMessageBodyFromPayload = (payload) => {
+  if (!payload) {
+    return '';
+  }
+
+  if (payload.parts && Array.isArray(payload.parts)) {
+    const textPart = payload.parts.find((part) => part.mimeType === 'text/plain' && part.body?.data);
+    if (textPart?.body?.data) {
+      return Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+    }
+
+    const htmlPart = payload.parts.find((part) => part.mimeType === 'text/html' && part.body?.data);
+    if (htmlPart?.body?.data) {
+      return Buffer.from(htmlPart.body.data, 'base64').toString('utf-8');
+    }
+  }
+
+  if (payload.body && payload.body.data) {
+    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+  }
+
+  return '';
+};
+
+const fetchMessagesByQuery = async (gmail, query, maxResults = 100) => {
+  const collected = [];
+  let pageToken = null;
+
+  do {
+    const response = await gmail.users.messages.list({
       userId: 'me',
-      q: 'is:unread',
-      maxResults: maxResults
+      q: query,
+      maxResults,
+      pageToken: pageToken || undefined,
+      includeSpamTrash: false,
     });
 
-    if (!listResponse.data.messages || listResponse.data.messages.length === 0) {
-      console.log('ℹ️ Aucun email non lu trouvé');
-      return [];
+    const messages = response.data.messages || [];
+    collected.push(...messages.map((message) => message.id));
+    pageToken = response.data.nextPageToken || null;
+  } while (pageToken);
+
+  return [...new Set(collected)];
+};
+
+const fetchIncrementalEmails = async (userId, userEmail, currentHistoryId, lastHistoryId) => {
+  try {
+    const gmail = await getGmailClientForUser(userId);
+
+    if (!lastHistoryId) {
+      console.log(`ℹ️ Pas de LastHistoryId pour UserID: ${userId}. Bootstrap initial sur 30 jours.`);
+      const bootstrapMessageIds = await fetchMessagesByQuery(gmail, 'newer_than:30d in:anywhere');
+      return {
+        gmail,
+        bootstrapMessageIds,
+        historyMessages: [],
+      };
     }
 
-    console.log(`📬 ${listResponse.data.messages.length} email(s) non lu(s) trouvé(s)`);
+    let historyMessages = [];
+    let pageToken = null;
 
-    // Récupérer les détails de chaque email
-    const emails = [];
-    for (const message of listResponse.data.messages) {
-      try {
-        const messageDetail = await gmail.users.messages.get({
-          userId: 'me',
-          id: message.id,
-          format: 'full'
-        });
+    do {
+      const historyResponse = await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: lastHistoryId,
+        historyTypes: ['messageAdded'],
+        pageToken: pageToken || undefined,
+      });
 
-        const headers = messageDetail.data.payload.headers;
-        const from = headers.find(h => h.name === 'From')?.value || 'Unknown';
-        const to = headers.find(h => h.name === 'To')?.value || 'Unknown';
-        const subject = headers.find(h => h.name === 'Subject')?.value || '(No Subject)';
-        const date = headers.find(h => h.name === 'Date')?.value || new Date().toISOString();
-
-        // Extraire le contenu
-        let body = '';
-        if (messageDetail.data.payload.parts) {
-          const textPart = messageDetail.data.payload.parts.find(p => p.mimeType === 'text/plain');
-          if (textPart && textPart.body.data) {
-            body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+      const history = historyResponse.data.history || [];
+      for (const item of history) {
+        if (item.messagesAdded && Array.isArray(item.messagesAdded)) {
+          for (const added of item.messagesAdded) {
+            if (added.message?.id) {
+              historyMessages.push(added.message.id);
+            }
           }
-        } else if (messageDetail.data.payload.body && messageDetail.data.payload.body.data) {
-          body = Buffer.from(messageDetail.data.payload.body.data, 'base64').toString('utf-8');
         }
-
-        emails.push({
-          gmailMessageId: message.id,
-          from,
-          to,
-          subject,
-          messageText: body,
-          sendingDate: new Date(date),
-          statusRead: false
-        });
-
-      } catch (err) {
-        console.error(`⚠️ Erreur lors de la récupération du message ${message.id}:`, err.message);
       }
+
+      pageToken = historyResponse.data.nextPageToken || null;
+    } while (pageToken);
+
+    return {
+      gmail,
+      bootstrapMessageIds: [],
+      historyMessages: [...new Set(historyMessages)],
+    };
+  } catch (error) {
+    const statusCode = Number(error?.code || error?.response?.status || error?.statusCode);
+
+    if (statusCode === 404) {
+      console.warn(`⚠️ Cursor Gmail invalide pour UserID: ${userId}, fallback bootstrap 30 jours.`);
+      const gmail = await getGmailClientForUser(userId);
+      const bootstrapMessageIds = await fetchMessagesByQuery(gmail, 'newer_than:30d in:anywhere');
+      return {
+        gmail,
+        bootstrapMessageIds,
+        historyMessages: [],
+      };
     }
 
-    console.log(`✅ ${emails.length} email(s) récupéré(s) avec succès`);
-    return emails;
-  } catch (error) {
-    console.error('❌ Erreur lors de la récupération des emails:', error.message);
+    console.error('❌ Erreur lors de la récupération incrémentale Gmail:', error.message);
     throw error;
   }
 };
 
 /**
- * Synchroniser les emails Gmail → Base de données pour un utilisateur
+ * Récupérer les emails Gmail nouveaux depuis le dernier curseur pour un utilisateur
  */
 const syncEmailsFromGmail = async (userId) => {
   try {
     console.log(`🔄 Synchronisation Gmail → BD pour UserID: ${userId}`);
 
-    // Récupérer les emails non lus
-    const emails = await fetchUnreadEmails(userId, 20);
+    const tokenRecord = await GmailOAuthTokens.findOne({
+      where: { UserID: userId, IsActive: 1 },
+    });
 
-    if (emails.length === 0) {
-      console.log('ℹ️ Aucun nouvel email à synchroniser');
-      return { synced: 0, failed: 0 };
+    if (!tokenRecord) {
+      throw new Error(`Aucun token Gmail actif pour UserID: ${userId}`);
     }
+
+    const user = await User.findByPk(userId);
+    const gmailEmail = tokenRecord.GmailEmail || user?.EmailPro || null;
+
+    const gmail = await getGmailClientForUser(userId);
+    const profile = await gmail.users.getProfile({ userId: 'me' });
+    const currentHistoryId = profile.data.historyId ? String(profile.data.historyId) : null;
+    const currentGmailEmail = profile.data.emailAddress || gmailEmail;
+
+    const lastHistoryId = tokenRecord.LastHistoryId ? String(tokenRecord.LastHistoryId) : null;
+
+    const { bootstrapMessageIds, historyMessages } = await fetchIncrementalEmails(
+      userId,
+      currentGmailEmail,
+      currentHistoryId,
+      lastHistoryId
+    );
+
+    const messageIds = [...bootstrapMessageIds, ...historyMessages];
+
+    if (messageIds.length === 0) {
+      await tokenRecord.update({
+        GmailEmail: currentGmailEmail,
+        LastHistoryId: currentHistoryId || tokenRecord.LastHistoryId,
+        LastSyncAt: new Date(),
+        UpdatedAt: new Date(),
+      });
+
+      console.log('ℹ️ Aucun nouvel email à synchroniser');
+      return { synced: 0, failed: 0, skipped: 0 };
+    }
+
+    console.log(`📬 ${messageIds.length} message(s) Gmail détecté(s) pour synchro`);
 
     let synced = 0;
     let failed = 0;
+    let skipped = 0;
 
-    for (const email of emails) {
+    for (const gmailMessageId of messageIds) {
       try {
-        // Vérifier si l'email existe déjà dans la DB
         const existing = await Message.findOne({
-          where: { GmailMessageID: email.gmailMessageId }
+          where: { GmailMessageID: gmailMessageId },
         });
 
         if (existing) {
-          console.log(`⚠️ Email ${email.gmailMessageId} existe déjà`);
+          skipped++;
           continue;
         }
 
-        // Créer le message dans la DB
-        await Message.create({
-          Subject: email.subject,
-          MessageText: email.messageText,
-          SendingDate: email.sendingDate,
-          StatusRead: email.statusRead,
-          GmailMessageID: email.gmailMessageId,
-          SyncedWithGmail: 1,
-          RecipientID: userId  // L'utilisateur qui reçoit
+        const messageDetail = await gmail.users.messages.get({
+          userId: 'me',
+          id: gmailMessageId,
+          format: 'full'
         });
 
-        console.log(`✅ Email synchronisé: "${email.subject}"`);
+        const headers = messageDetail.data.payload.headers;
+        const from = headers.find((h) => h.name === 'From')?.value || 'Unknown';
+        const to = headers.find((h) => h.name === 'To')?.value || 'Unknown';
+        const subject = headers.find((h) => h.name === 'Subject')?.value || '(No Subject)';
+        const date = headers.find((h) => h.name === 'Date')?.value || new Date().toISOString();
+
+        const fromEmail = parseEmailAddress(from);
+        const toEmail = parseEmailAddress(to);
+        const isOutgoing = !!currentGmailEmail && fromEmail === currentGmailEmail.toLowerCase();
+
+        const body = getMessageBodyFromPayload(messageDetail.data.payload);
+        const isUnread = Array.isArray(messageDetail.data.labelIds)
+          ? messageDetail.data.labelIds.includes('UNREAD')
+          : false;
+        const sendingDateSql = formatDateForSql(new Date(date));
+
+        let senderID = null;
+        let recipientID = null;
+
+        if (isOutgoing) {
+          senderID = userId;
+          if (toEmail) {
+            const recipientUser = await findInternalUserByEmail(toEmail);
+            recipientID = recipientUser?.UserID || null;
+          }
+        } else {
+          recipientID = userId;
+          if (fromEmail) {
+            const senderUser = await findInternalUserByEmail(fromEmail);
+            senderID = senderUser?.UserID || null;
+          }
+        }
+
+        await Message.create({
+          SenderID: senderID,
+          RecipientID: recipientID,
+          Subject: subject,
+          MessageText: body,
+          MessageUnicodeText: body,
+          SendingDate: sendingDateSql || sequelize.literal('GETDATE()'),
+          Delivered: true,
+          StatusRead: !isUnread,
+          GmailMessageID: gmailMessageId,
+          SyncedWithGmail: true,
+        });
+
         synced++;
       } catch (err) {
-        console.error(`❌ Erreur lors de la sync de l'email:`, err.message);
+        console.error(`❌ Erreur lors de la sync du message ${gmailMessageId}:`, err.message);
         failed++;
       }
     }
 
-    console.log(`✅ Synchronisation complétée: ${synced} synced, ${failed} failed`);
-    return { synced, failed };
+    await tokenRecord.update({
+      GmailEmail: currentGmailEmail,
+      LastHistoryId: currentHistoryId || tokenRecord.LastHistoryId,
+      LastSyncAt: new Date(),
+      UpdatedAt: new Date(),
+    });
+
+    console.log(`✅ Synchronisation complétée: ${synced} synced, ${skipped} skipped, ${failed} failed`);
+    return { synced, skipped, failed };
   } catch (error) {
-    console.error('❌ Erreur lors de la synchronisation:', error.message);
+    console.error('❌ Erreur lors de la récupération des emails:', error.message);
     throw error;
   }
 };
@@ -243,7 +416,6 @@ const archiveEmail = async (userId, gmailMessageId) => {
 
 module.exports = {
   sendEmail,
-  fetchUnreadEmails,
   syncEmailsFromGmail,
   markEmailAsRead,
   archiveEmail

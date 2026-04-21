@@ -3,6 +3,13 @@ const router = express.Router();
 const messageController = require('../controllers/messageController');
 const { protect } = require('../middleware/auth');
 const { checkPermission, MODULES } = require('../middleware/checkPermissions');
+const upload = require('../config/uploadMessage');
+
+// Augmenter le timeout pour les uploads volumineux
+router.use((req, res, next) => {
+  req.setTimeout(120000); // 2 minutes
+  next();
+});
 
 router.use(protect);
 
@@ -21,8 +28,11 @@ router.get('/stats', checkPermission(MODULES.MESSAGES, 'read'), messageControlle
 // Récupérer un message spécifique
 router.get('/:id', checkPermission(MODULES.MESSAGES, 'read'), messageController.getMessageById);
 
+// Télécharger la pièce jointe d'un message
+router.get('/:id/attachment', checkPermission(MODULES.MESSAGES, 'read'), messageController.downloadAttachment);
+
 // Envoyer un message
-router.post('/send', checkPermission(MODULES.MESSAGES, 'create'), messageController.sendMessage);
+router.post('/send', checkPermission(MODULES.MESSAGES, 'create'), upload.single('attachment'), messageController.sendMessage);
 
 // Marquer comme lu
 router.patch('/:id/mark-read', checkPermission(MODULES.MESSAGES, 'read'), messageController.markAsRead);
