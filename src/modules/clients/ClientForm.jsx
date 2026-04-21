@@ -155,9 +155,11 @@ const ClientForm = () => {
         const fetchTiersClasses = async () => {
             try {
                 const response = await axios.get('/tiers-classes');
-                setTiersClasses(response.data || []);
+                const payload = response?.data?.data || response?.data || [];
+                setTiersClasses(Array.isArray(payload) ? payload : []);
             } catch (error) {
                 console.error('Error fetching tiers classes:', error);
+                setTiersClasses([]);
             }
         };
 
@@ -648,6 +650,22 @@ const ClientForm = () => {
                                         <option>PME / PMI</option>
                                         <option>Particulier</option>
                                         <option>Administration</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Classe</label>
+                                    <select
+                                        name="Classe"
+                                        value={formData.Classe}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                    >
+                                        <option value="">Sélectionner une classe</option>
+                                        {tiersClasses.map((classe) => (
+                                            <option key={classe.id} value={String(classe.id)}>
+                                                {classe.libelle}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">

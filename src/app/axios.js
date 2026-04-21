@@ -5,7 +5,7 @@ import { clearAuthState, setAccessToken } from '../auth/authSlice';
 // Instance Axios configurée
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  timeout: 15000,
+  timeout: 120000, // 2 minutes pour les uploads volumineux
   withCredentials: true,
 });
 
@@ -147,6 +147,12 @@ export const setupAxiosInterceptors = (store) => {
       if (isAuthRoute(response.config?.url)) {
         sessionExpiredToastShown = false;
         sessionRedirectInProgress = false;
+      }
+
+      // Pour les réponses binaires (download), garder la réponse complète
+      const responseType = response.config?.responseType;
+      if (responseType === 'blob' || responseType === 'arraybuffer') {
+        return response;
       }
 
       // Retourner directement les données

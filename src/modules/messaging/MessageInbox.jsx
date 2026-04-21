@@ -5,12 +5,13 @@ import {
   TrashIcon,
   EnvelopeOpenIcon,
   EnvelopeIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { fetchMessages, markAsRead, markAsUnread, deleteMessage } from './messageSlice';
 import ComposeEmailModal from './ComposeEmailModal';
 import GmailConnectButton from './GmailConnectButton';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
-import { formatRelativeDate } from '../../utils/format';
+import { formatRelativeDate, formatFileSize } from '../../utils/format';
 import axios from '../../app/axios';
 
 const MessageInbox = () => {
@@ -50,6 +51,38 @@ const MessageInbox = () => {
   const handleDeleteMessage = (messageId) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce message?')) {
       dispatch(deleteMessage(messageId));
+    }
+  };
+
+  const handleDownloadAttachment = async (message) => {
+    try {
+      const response = await axios.get(`/messages/${message.ID}/attachment`, {
+        responseType: 'blob',
+      });
+
+      const rawBlob = response instanceof Blob ? response : response?.data;
+      const contentType = response?.headers?.['content-type'] ||
+        response?.headers?.['Content-Type'] ||
+        message.FileMimeType ||
+        rawBlob?.type ||
+        'application/octet-stream';
+      
+      const fileName = message.FileName || `message-${message.ID}-piece-jointe`;
+
+      const blob = new Blob([rawBlob], {
+        type: contentType,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erreur téléchargement pièce jointe:', error);
+      alert('Impossible de télécharger la pièce jointe');
     }
   };
 
@@ -203,6 +236,24 @@ const MessageInbox = () => {
               <div className="mb-6 bg-gray-50 p-4 rounded text-sm text-gray-700 whitespace-pre-wrap">
                 {selectedMessage.MessageUnicodeText || selectedMessage.MessageText}
               </div>
+
+              {selectedMessage.MessageDataSize > 0 && (
+                <div className="mb-4 rounded-lg border border-dashed border-primary-200 bg-primary-50 p-4">
+                  <p className="text-sm font-medium text-slate-800">
+                    Pièce jointe disponible
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    Taille: {formatFileSize(selectedMessage.MessageDataSize)}
+                  </p>
+                  <button
+                    onClick={() => handleDownloadAttachment(selectedMessage)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm hover:bg-primary-50 transition-colors"
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Télécharger la pièce jointe
+                  </button>
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <button

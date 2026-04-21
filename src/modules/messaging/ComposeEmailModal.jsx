@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { sendMessage } from './messageSlice';
 import axios from '../../app/axios';
+import { formatFileSize } from '../../utils/format';
 
 const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -10,9 +9,24 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
     subject: '',
     message: '',
   });
+  const [attachment, setAttachment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const dispatch = useDispatch();
+  const attachmentInputRef = useRef(null);
+
+  const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024;
+
+  const resetForm = () => {
+    setFormData({
+      to: '',
+      subject: '',
+      message: '',
+    });
+    setAttachment(null);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = '';
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,25 +36,44 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
     }));
   };
 
+  const handleAttachmentChange = (e) => {
+    const file = e.target.files?.[0] || null;
+
+    if (!file) {
+      setAttachment(null);
+      return;
+    }
+
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setError('La pièce jointe ne doit pas dépasser 25 Mo');
+      e.target.value = '';
+      setAttachment(null);
+      return;
+    }
+
+    setError(null);
+    setAttachment(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      // Appel API pour envoyer le message via Gmail
-      const response = await axios.post('/messages/send', {
-        recipientEmail: formData.to,
-        subject: formData.subject,
-        messageText: formData.message,
-      });
+      const payload = new FormData();
+      payload.append('recipientEmail', formData.to);
+      payload.append('subject', formData.subject);
+      payload.append('messageText', formData.message);
+
+      if (attachment) {
+        payload.append('attachment', attachment);
+      }
+
+      await axios.post('/messages/send', payload, { timeout: 120000 });
 
       // Réinitialiser le formulaire
-      setFormData({
-        to: '',
-        subject: '',
-        message: '',
-      });
+      resetForm();
 
       // Notifier et fermer le modal
       if (onSuccess) {
@@ -59,6 +92,11 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -66,7 +104,7 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
+        onClick={handleClose}
       ></div>
 
       {/* Modal */}
@@ -76,7 +114,7 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
           <div className="flex items-center justify-between border-b bg-gradient-to-r from-primary-50 to-primary-100 px-6 py-4">
             <h2 className="text-lg font-bold text-slate-800">Nouveau message</h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
               <XMarkIcon className="h-6 w-6" />
@@ -146,11 +184,34 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
               </p>
             </div>
 
+            {/* Attachment Field */}
+            <div>
+              <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-2">
+                Pièce jointe
+              </label>
+              <input
+                type="file"
+                id="attachment"
+                name="attachment"
+                ref={attachmentInputRef}
+                onChange={handleAttachmentChange}
+                className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Taille maximale: 25 Mo
+              </p>
+              {attachment && (
+                <p className="mt-2 text-xs text-gray-700">
+                  Fichier sélectionné: {attachment.name} ({formatFileSize(attachment.size)})
+                </p>
+              )}
+            </div>
+
             {/* Actions */}
             <div className="flex gap-3 justify-end pt-4 border-t">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={loading}
                 className="px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
