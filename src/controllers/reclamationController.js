@@ -150,7 +150,7 @@ exports.getAll = async (req, res, next) => {
         res.json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: visibilityOverrides
+                    reclamationFilters: visibilityOverrides
                 }
             })
         );

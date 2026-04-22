@@ -111,7 +111,7 @@ exports.getAllBcv = async (req, res, next) => {
         return res.status(200).json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: visibilityOverrides
+                    bcvFilters: visibilityOverrides
                 }
             })
         );
@@ -525,12 +525,10 @@ exports.getMyBcv = async (req, res, next) => {
         });
 
 
-
-
         res.json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'bcv')
+                    bcvFilters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'bcv')
                 }
             })
         );

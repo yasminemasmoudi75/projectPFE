@@ -161,16 +161,23 @@ const getModuleCode = (moduleName) => {
 
 /**
  * ✅ OBTENIR LA VISIBILITÉ DES FILTRES POUR UN RÔLE ET UN MODULE
+ * Retourne un objet formaté pour le frontend { key: { id, label, visible, count } }
  */
-const getModuleFiltersVisibility = async (userRole, moduleName) => {
+const getModuleFiltersVisibility = async (userRole, moduleName, counts = {}) => {
     try {
         const moduleCode = getModuleCode(moduleName);
         if (!moduleCode) return {};
 
-        const visibleFilters = await filterService.getVisibleFiltersOnly(userRole || 'client', moduleCode);
+        const allFilters = await filterService.getFilterVisibilityByRoleAndModule(userRole || 'client', moduleCode);
+
         const result = {};
-        visibleFilters.forEach(filter => {
-            result[filter.key] = true;
+        allFilters.forEach(filter => {
+            result[filter.key] = {
+                id: filter.key,
+                label: filter.label,
+                visible: filter.visible,
+                count: counts[filter.key] || 0
+            };
         });
         return result;
     } catch (error) {

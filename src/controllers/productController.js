@@ -124,12 +124,25 @@ exports.getAllProducts = async (req, res) => {
         });
 
 
-        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'product');
+        // Calculer les comptes pour les filtres de stock (optionnel si fait par frontend, mais utile)
+        const counts = rows.reduce(
+            (acc, item) => {
+                const q = Number(item?.Qte) || 0;
+                if (q === 0) acc.rupture += 1;
+                else if (q <= 5) acc.low += 1;
+                else acc.ok += 1;
+                acc.all += 1;
+                return acc;
+            },
+            { all: 0, ok: 0, low: 0, rupture: 0 }
+        );
+
+        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'product', counts);
 
         res.json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: visibilityOverrides
+                    stockFilters: visibilityOverrides
                 }
             })
         );

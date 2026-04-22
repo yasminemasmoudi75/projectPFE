@@ -102,7 +102,7 @@ exports.getAllFav = async (req, res, next) => {
         return res.status(200).json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: visibilityOverrides
+                    favFilters: visibilityOverrides
                 }
             })
         );
@@ -352,7 +352,7 @@ exports.getMyFav = async (req, res, next) => {
         res.json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit, {
                 meta: {
-                    filters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'fav')
+                    favFilters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'fav')
                 }
             })
         );
