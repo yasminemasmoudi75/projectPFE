@@ -17,19 +17,16 @@ exports.getAllDevis = async (req, res, next) => {
   try {
     console.log('🚀 [DevisController] getAllDevis started');
     const filterHelper = require('../utils/filterHelper');
-    const moduleCode = filterHelper.getModuleCode('devis');
     
-    // Module DEVIS
+    // Module 4 = Devis
     console.log('🔍 [DevisController] Applying filters...');
     const filterResult = await filterHelper.applyTableDrivenFiltersWithPagination(
-      moduleCode,
+      '4',
 
       req.query,
       req.user
     );
     const { where, limit, offset, page } = filterResult;
-
-    const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'devis');
     console.log('✅ [DevisController] Filters applied:', JSON.stringify(where));
 
     console.log('📊 [DevisController] Running query on DevisMaster...');
@@ -51,11 +48,7 @@ exports.getAllDevis = async (req, res, next) => {
     console.log(`✅ [DevisController] Query successful: ${rows.length} rows found`);
 
     return res.status(200).json(
-      filterHelper.formatPaginatedResponse(rows, count, page, limit, {
-        meta: {
-          devisFilters: visibilityOverrides
-        }
-      })
+      filterHelper.formatPaginatedResponse(rows, count, page, limit)
     );
 
   } catch (error) {
@@ -74,9 +67,8 @@ exports.getDevisById = async (req, res, next) => {
     const { id } = req.params;
     const filterHelper = require('../utils/filterHelper');
 
-    // Pour la récupération par ID, on applique aussi les filtres de sécurité mandataires (Module DEVIS)
-    const moduleCode = filterHelper.getModuleCode('devis');
-    const securityWhere = await filterHelper.applyTableDrivenFilters(moduleCode, {}, req.user);
+    // Pour la récupération par ID, on applique aussi les filtres de sécurité mandataires (Module 4)
+    const securityWhere = await filterHelper.applyTableDrivenFilters('4', {}, req.user);
 
     const where = { [Op.and]: [{ Guid: id }, securityWhere] };
 
@@ -633,10 +625,9 @@ exports.getMyDevis = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
 
-    // Utilisation du système de filtrage centralisé (Module DEVIS)
-    const moduleCode = filterHelper.getModuleCode('devis');
+    // Utilisation du système de filtrage centralisé (Module 31)
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-      moduleCode,
+      '31',
       req.query,
       req.user
     );
@@ -654,11 +645,7 @@ exports.getMyDevis = async (req, res, next) => {
 
 
     res.json(
-      filterHelper.formatPaginatedResponse(rows, count, page, limit, {
-        meta: {
-          devisFilters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'devis')
-        }
-      })
+      filterHelper.formatPaginatedResponse(rows, count, page, limit)
     );
   } catch (error) {
     console.error('❌ Error getMyDevis:', error);

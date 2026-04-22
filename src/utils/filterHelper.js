@@ -6,7 +6,6 @@
 
 const filterConfigService = require('../services/filterConfigService');
 const buildWhereClauseService = require('../services/buildWhereClauseService');
-const filterService = require('../services/filterService');
 
 /**
  * ✅ APPLIQUER LES FILTRES TABLE-DRIVEN À UNE REQUÊTE
@@ -99,7 +98,7 @@ const applyTableDrivenFiltersWithPagination = async (moduleCode, queryParams = {
  * ✅ FORMAT LA RÉPONSE AVEC PAGINATION
  * Utiliser après findAndCountAll pour formater les résultats
  */
-const formatPaginatedResponse = (data, count, page, limit, extra = {}) => {
+const formatPaginatedResponse = (data, count, page, limit) => {
     return {
         status: 'success',
         pagination: {
@@ -108,7 +107,6 @@ const formatPaginatedResponse = (data, count, page, limit, extra = {}) => {
             limit: parseInt(limit),
             totalPages: Math.ceil(count / limit)
         },
-        ...extra,
         data: data
     };
 };
@@ -126,13 +124,13 @@ const getWhereClause = async (moduleCode, queryParams, userData) => {
  * Pour éviter les erreurs: devis → 31, etc.
  */
 const MODULE_CODES = {
-    'devis': 'DEVIS',
-    'sav': 'RECLAMATION',
-    'fav': 'FAV',
-    'blv': 'BLV',
-    'bcv': 'BCV',
-    'product': 'STOCK',
-    'products': 'STOCK',
+    'devis': '31',
+    'sav': '31',
+    'fav': '5',
+    'blv': '6',
+    'bcv': '3',
+    'product': '12',
+    'products': '12',
     'user': '19',
     'users': '19',
     'client': '11',
@@ -149,41 +147,14 @@ const MODULE_CODES = {
     'message': '28',
     'messages': '28',
     'messaging': '28',
-    'reclamation': 'RECLAMATION',
-    'claim': 'RECLAMATION',
-    'claims': 'RECLAMATION',
-    'support': 'RECLAMATION'
+    'reclamation': '47',
+    'claim': '47',
+    'claims': '47',
+    'support': '47'
 };
 
 const getModuleCode = (moduleName) => {
     return MODULE_CODES[moduleName.toLowerCase()] || null;
-};
-
-/**
- * ✅ OBTENIR LA VISIBILITÉ DES FILTRES POUR UN RÔLE ET UN MODULE
- * Retourne un objet formaté pour le frontend { key: { id, label, visible, count } }
- */
-const getModuleFiltersVisibility = async (userRole, moduleName, counts = {}) => {
-    try {
-        const moduleCode = getModuleCode(moduleName);
-        if (!moduleCode) return {};
-
-        const allFilters = await filterService.getFilterVisibilityByRoleAndModule(userRole || 'client', moduleCode);
-
-        const result = {};
-        allFilters.forEach(filter => {
-            result[filter.key] = {
-                id: filter.key,
-                label: filter.label,
-                visible: filter.visible,
-                count: counts[filter.key] || 0
-            };
-        });
-        return result;
-    } catch (error) {
-        console.error(`❌ Error in getModuleFiltersVisibility for ${moduleName}:`, error.message);
-        return {};
-    }
 };
 
 module.exports = {
@@ -191,7 +162,6 @@ module.exports = {
     applyTableDrivenFiltersWithPagination,
     formatPaginatedResponse,
     getWhereClause,
-    getModuleFiltersVisibility,
     MODULE_CODES,
     getModuleCode
 };

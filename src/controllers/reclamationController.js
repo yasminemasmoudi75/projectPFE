@@ -127,16 +127,13 @@ const generateNumTicket = async () => {
 exports.getAll = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
-        const moduleCode = filterHelper.getModuleCode('reclamation');
         
-        // Module RECLAMATION (Table-driven filters from TabRoleFilterVisibility)
+        // Module 47 = Support/Reclamations (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            moduleCode,
+            '47',
             req.query,
             req.user
         );
-
-        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'reclamation');
 
         const { count, rows } = await Reclamation.findAndCountAll({
             where,
@@ -148,11 +145,7 @@ exports.getAll = async (req, res, next) => {
 
 
         res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
-                meta: {
-                    reclamationFilters: visibilityOverrides
-                }
-            })
+            filterHelper.formatPaginatedResponse(rows, count, page, limit)
         );
     } catch (err) {
         console.error('❌ getAll reclamations:', err);
