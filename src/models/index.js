@@ -278,6 +278,13 @@ Tiers.belongsTo(TiersCategorie, {
   targetKey: 'id',
   as: 'tiersCategorieObj'
 });
+
+Tiers.belongsTo(User, {
+  foreignKey: 'codRepresTiers',
+  targetKey: 'UserID',
+  as: 'commercialObj'
+});
+
 TiersGouvernorat.hasMany(Tiers, {
   foreignKey: 'gouvernorat',
   sourceKey: 'id',

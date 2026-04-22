@@ -255,6 +255,7 @@ Tiers.associate = (models) => {
   Tiers.belongsTo(models.TiersClasse, { foreignKey: 'Classe', as: 'tiersClasse' });
   Tiers.belongsTo(models.TiersGouvernorat, { foreignKey: 'Gouvernorat', as: 'region' });
   Tiers.belongsTo(models.TiersCategorie, { foreignKey: 'Categorie', as: 'tiersCategorieObj' });
+  Tiers.belongsTo(models.User, { foreignKey: 'codRepresTiers', as: 'commercialObj' });
 };
 
 module.exports = Tiers;

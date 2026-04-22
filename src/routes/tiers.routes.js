@@ -11,6 +11,7 @@ router.use(protect);
 router.get('/regions/list', checkPermission(MODULES.TIERS, 'read'), tiersController.getVilles);
 router.get('/available-commercials', checkPermission(MODULES.TIERS, 'read'), tiersController.getAvailableCommercials);
 router.get('/check-email', checkPermission(MODULES.TIERS, 'read'), tiersController.checkTierEmailUnique);
+router.get('/next-code', checkPermission(MODULES.TIERS, 'read'), tiersController.getNextCodTiers);
 
 // Envoi en masse des identifiants aux clients (admin uniquement)
 router.post('/bulk-send-credentials', restrictTo('Admin'), tiersController.bulkSendCredentials);

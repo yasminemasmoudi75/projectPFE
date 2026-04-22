@@ -726,7 +726,8 @@ exports.getAllTiers = async (req, res, next) => {
             include: [
                 { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
                 { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
-                { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false }
+                { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false },
+                { model: User, as: 'commercialObj', attributes: ['UserID', 'FullName', 'EmailPro'], required: false }
             ],
             order: [['Raisoc', 'ASC']],
             limit,
@@ -761,7 +762,8 @@ exports.getTiersById = async (req, res, next) => {
             include: [
                 { model: TiersClasse, as: 'tiersClasse' },
                 { model: TiersGouvernorat, as: 'region' },
-                { model: TiersCategorie, as: 'tiersCategorieObj' }
+                { model: TiersCategorie, as: 'tiersCategorieObj' },
+                { model: User, as: 'commercialObj', attributes: ['UserID', 'FullName', 'EmailPro'] }
             ]
         });
         if (!tiers) {
@@ -781,10 +783,67 @@ exports.getTiersById = async (req, res, next) => {
         ]);
 
         const plainTiers = tiers.toJSON();
+        
+        // Robust Fallback: Si l'association a échoué (souvent à cause d'un mismatch de type FLOAT vs STRING), 
+        // on tente une recherche manuelle avec cast
+        if (!plainTiers.commercialObj && plainTiers.codRepresTiers) {
+            try {
+                const commercialUser = await User.findOne({
+                    where: sequelize.where(
+                        sequelize.cast(sequelize.col('USER_ID'), 'VARCHAR'),
+                        String(plainTiers.codRepresTiers).trim()
+                    )
+                });
+                if (commercialUser) {
+                    plainTiers.commercialObj = commercialUser.toJSON();
+                }
+            } catch (fallbackErr) {
+                console.warn('Fallback commercial fetch failed:', fallbackErr.message);
+            }
+        }
+
         plainTiers.contacts = contacts.map((c) => c.toJSON());
         plainTiers.addresses = addresses.map((a) => a.toJSON());
 
         res.status(200).json({ status: 'success', data: plainTiers });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Récupérer le prochain code client séquentiel
+ */
+exports.getNextCodTiers = async (req, res, next) => {
+    try {
+        // On cherche le dernier tiers créé (par date de sauvegarde ou par code)
+        // Pour un auto-increment fiable sur un code string, on cherche le max numérique
+        const lastTier = await Tiers.findOne({
+            attributes: ['CodTiers'],
+            where: {
+                CodTiers: {
+                    [Op.like]: 'C%'
+                }
+            },
+            order: [['CodTiers', 'DESC']],
+            tableHint: TableHints.NOLOCK
+        });
+
+        let nextNumber = 1;
+        let prefix = 'C';
+        let padding = 4;
+
+        if (lastTier && lastTier.CodTiers) {
+            const matches = lastTier.CodTiers.match(/(\d+)$/);
+            if (matches) {
+                nextNumber = parseInt(matches[0], 10) + 1;
+                padding = matches[0].length;
+                prefix = lastTier.CodTiers.slice(0, lastTier.CodTiers.length - matches[0].length);
+            }
+        }
+
+        const nextCode = `${prefix}${String(nextNumber).padStart(padding, '0')}`;
+        res.status(200).json({ status: 'success', data: nextCode });
     } catch (error) {
         next(error);
     }
