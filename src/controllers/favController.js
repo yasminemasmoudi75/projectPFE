@@ -77,13 +77,16 @@ const sanitizeMasterData = (masterData) => {
 exports.getAllFav = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('fav');
         
-        // Module 7 = FAV (Table-driven filters from TabRoleFilterVisibility)
+        // Module FAV (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '7',
+            moduleCode,
             req.query,
             req.user
         );
+
+        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'fav');
 
 
         const { count, rows } = await FavMaster.findAndCountAll({
@@ -97,7 +100,11 @@ exports.getAllFav = async (req, res, next) => {
 
 
         return res.status(200).json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: visibilityOverrides
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getAllFav:', error);
@@ -112,9 +119,10 @@ exports.getFavById = async (req, res, next) => {
     try {
         const { id } = req.params;
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('fav');
 
-        // Sécurité mandataire pour les factures (Module 7)
-        const securityWhere = await filterHelper.applyTableDrivenFilters('7', {}, req.user);
+        // Sécurité mandataire pour les factures (Module FAV)
+        const securityWhere = await filterHelper.applyTableDrivenFilters(moduleCode, {}, req.user);
         const where = { [Op.and]: [{ Guid: id }, securityWhere] };
 
 
@@ -321,10 +329,11 @@ exports.deleteFav = async (req, res, next) => {
 exports.getMyFav = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('fav');
         
-        // Système de filtrage centralisé (Module 5)
+        // Système de filtrage centralisé (Module FAV)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '5',
+            moduleCode,
             req.query,
             req.user
         );
@@ -341,7 +350,11 @@ exports.getMyFav = async (req, res, next) => {
 
 
         res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'fav')
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getMyFav:', error);

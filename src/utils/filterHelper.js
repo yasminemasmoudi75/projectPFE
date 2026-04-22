@@ -6,6 +6,7 @@
 
 const filterConfigService = require('../services/filterConfigService');
 const buildWhereClauseService = require('../services/buildWhereClauseService');
+const filterService = require('../services/filterService');
 
 /**
  * ✅ APPLIQUER LES FILTRES TABLE-DRIVEN À UNE REQUÊTE
@@ -98,7 +99,7 @@ const applyTableDrivenFiltersWithPagination = async (moduleCode, queryParams = {
  * ✅ FORMAT LA RÉPONSE AVEC PAGINATION
  * Utiliser après findAndCountAll pour formater les résultats
  */
-const formatPaginatedResponse = (data, count, page, limit) => {
+const formatPaginatedResponse = (data, count, page, limit, extra = {}) => {
     return {
         status: 'success',
         pagination: {
@@ -107,6 +108,7 @@ const formatPaginatedResponse = (data, count, page, limit) => {
             limit: parseInt(limit),
             totalPages: Math.ceil(count / limit)
         },
+        ...extra,
         data: data
     };
 };
@@ -124,13 +126,13 @@ const getWhereClause = async (moduleCode, queryParams, userData) => {
  * Pour éviter les erreurs: devis → 31, etc.
  */
 const MODULE_CODES = {
-    'devis': '31',
-    'sav': '31',
-    'fav': '5',
-    'blv': '6',
-    'bcv': '3',
-    'product': '12',
-    'products': '12',
+    'devis': 'DEVIS',
+    'sav': 'RECLAMATION',
+    'fav': 'FAV',
+    'blv': 'BLV',
+    'bcv': 'BCV',
+    'product': 'STOCK',
+    'products': 'STOCK',
     'user': '19',
     'users': '19',
     'client': '11',
@@ -147,14 +149,34 @@ const MODULE_CODES = {
     'message': '28',
     'messages': '28',
     'messaging': '28',
-    'reclamation': '47',
-    'claim': '47',
-    'claims': '47',
-    'support': '47'
+    'reclamation': 'RECLAMATION',
+    'claim': 'RECLAMATION',
+    'claims': 'RECLAMATION',
+    'support': 'RECLAMATION'
 };
 
 const getModuleCode = (moduleName) => {
     return MODULE_CODES[moduleName.toLowerCase()] || null;
+};
+
+/**
+ * ✅ OBTENIR LA VISIBILITÉ DES FILTRES POUR UN RÔLE ET UN MODULE
+ */
+const getModuleFiltersVisibility = async (userRole, moduleName) => {
+    try {
+        const moduleCode = getModuleCode(moduleName);
+        if (!moduleCode) return {};
+
+        const visibleFilters = await filterService.getVisibleFiltersOnly(userRole || 'client', moduleCode);
+        const result = {};
+        visibleFilters.forEach(filter => {
+            result[filter.key] = true;
+        });
+        return result;
+    } catch (error) {
+        console.error(`❌ Error in getModuleFiltersVisibility for ${moduleName}:`, error.message);
+        return {};
+    }
 };
 
 module.exports = {
@@ -162,6 +184,7 @@ module.exports = {
     applyTableDrivenFiltersWithPagination,
     formatPaginatedResponse,
     getWhereClause,
+    getModuleFiltersVisibility,
     MODULE_CODES,
     getModuleCode
 };

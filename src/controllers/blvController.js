@@ -77,13 +77,16 @@ const sanitizeMasterData = (masterData) => {
 exports.getAllBlv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('blv');
         
-        // Module 6 = BLV (Table-driven filters from TabRoleFilterVisibility)
+        // Module BLV (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '6',
+            moduleCode,
             req.query,
             req.user
         );
+
+        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'blv');
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
@@ -96,7 +99,11 @@ exports.getAllBlv = async (req, res, next) => {
 
 
         return res.status(200).json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: visibilityOverrides
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getAllBlv:', error);
@@ -111,10 +118,11 @@ exports.getBlvById = async (req, res, next) => {
     try {
         const { id } = req.params;
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('blv');
 
         // Pour la récupération par ID, on applique aussi les filtres de sécurité mandataires
         // cela garantit qu'un agent ne peut pas accéder au BL d'une autre région en changeant l'ID dans l'URL
-        const securityWhere = await filterHelper.applyTableDrivenFilters('6', {}, req.user);
+        const securityWhere = await filterHelper.applyTableDrivenFilters(moduleCode, {}, req.user);
         const where = { [Op.and]: [{ Guid: id }, securityWhere] };
 
         const blv = await BlvMaster.findOne({
@@ -324,10 +332,11 @@ exports.deleteBlv = async (req, res, next) => {
 exports.getMyBlv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('blv');
         
-        // Utilisation du système de filtrage centralisé pour les clients aussi (Module 6)
+        // Utilisation du système de filtrage centralisé pour les clients aussi (Module BLV)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '6',
+            moduleCode,
             req.query,
             req.user
         );
@@ -344,7 +353,11 @@ exports.getMyBlv = async (req, res, next) => {
 
 
         res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'blv')
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getMyBlv:', error);

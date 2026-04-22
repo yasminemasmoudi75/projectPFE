@@ -17,62 +17,6 @@ const normalizeNumber = (value, fallback = 0) => {
 const getCurrentMSSQLDate = () => formatDateForMSSQL(new Date());
 const toBool = (value) => value === true || value === 1 || value === '1';
 
-const getFilterVisibilityByRole = async (userRole = 'client') => {
-    try {
-        const allFilters = await filterService.getFilterVisibilityByRoleAndModule(userRole, 'STOCK');
-        console.log('[getFilterVisibilityByRole] filters for ' + userRole + '/STOCK:', JSON.stringify(allFilters, null, 2));
-        
-        const visibilityMap = {};
-        allFilters.forEach(f => {
-            visibilityMap[f.key] = f.visible;
-        });
-        
-        const result = {
-            all: visibilityMap['all'] === true,
-            ok: visibilityMap['ok'] === true,
-            low: visibilityMap['low'] === true,
-            rupture: visibilityMap['rupture'] === true
-        };
-        
-        console.log('[getFilterVisibilityByRole] Final visibility for ' + userRole + ':', result);
-        return result;
-    } catch (error) {
-        console.error('[getFilterVisibilityByRole] Error:', error.message);
-        return { all: true, ok: true, low: true, rupture: true };
-    }
-};
-
-const buildStockFilterMeta = (rows = [], visibilityOverrides = {}) => {
-    const counts = rows.reduce(
-        (acc, item) => {
-            const q = Number(item?.Qte) || 0;
-            if (q === 0) acc.rupture += 1;
-            else if (q <= 5) acc.low += 1;
-            else acc.ok += 1;
-            acc.all += 1;
-            return acc;
-        },
-        { all: 0, ok: 0, low: 0, rupture: 0 }
-    );
-
-    console.log('[buildStockFilterMeta] visibilityOverrides:', visibilityOverrides);
-    console.log('[buildStockFilterMeta] counts:', counts);
-
-    const getVisible = (key) => {
-        const hasOverride = Object.prototype.hasOwnProperty.call(visibilityOverrides, key);
-        return hasOverride ? visibilityOverrides[key] === true : false;
-    };
-
-    const filterMeta = {
-        all: { id: 'all', label: 'Tous', count: counts.all, visible: getVisible('all') },
-        ok: { id: 'ok', label: 'Dispo', count: counts.ok, visible: getVisible('ok') },
-        low: { id: 'low', label: 'Faible', count: counts.low, visible: getVisible('low') },
-        rupture: { id: 'rupture', label: 'Rupture', count: counts.rupture, visible: getVisible('rupture') },
-    };
-
-    console.log('[buildStockFilterMeta] Final filterMeta:', JSON.stringify(filterMeta, null, 2));
-    return filterMeta;
-};
 
 const PRODUCT_UPDATE_COLUMN_MAP = {
     CodArt: 'CodArt',
@@ -162,10 +106,11 @@ exports.createProduct = async (req, res, next) => {
 exports.getAllProducts = async (req, res) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('product');
         
-        // Module 12 = Products (Table-driven filters from TabRoleFilterVisibility)
+        // Module STOCK (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '12',
+            moduleCode,
             req.query,
             req.user
         );
@@ -179,8 +124,14 @@ exports.getAllProducts = async (req, res) => {
         });
 
 
+        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'product');
+
         res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: visibilityOverrides
+                }
+            })
         );
     } catch (error) {
         console.error('[Product list error]:', error);

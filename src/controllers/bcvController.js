@@ -86,13 +86,16 @@ const sanitizeMasterData = (masterData) => {
 exports.getAllBcv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('bcv');
         
-        // Module 5 = BCV (Table-driven filters from TabRoleFilterVisibility)
+        // Module BCV (Table-driven filters from TabRoleFilterVisibility)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '5',
+            moduleCode,
             req.query,
             req.user
         );
+
+        const visibilityOverrides = await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'bcv');
 
 
         const { count, rows } = await BcvMaster.findAndCountAll({
@@ -106,7 +109,11 @@ exports.getAllBcv = async (req, res, next) => {
 
 
         return res.status(200).json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: visibilityOverrides
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getAllBcv:', error);
@@ -121,9 +128,10 @@ exports.getBcvById = async (req, res, next) => {
     try {
         const { id } = req.params;
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('bcv');
 
-        // Sécurité mandataire pour les BCV (Module 5)
-        const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user);
+        // Sécurité mandataire pour les BCV (Module BCV)
+        const securityWhere = await filterHelper.applyTableDrivenFilters(moduleCode, {}, req.user);
         const where = { [Op.and]: [{ Guid: id }, securityWhere] };
 
 
@@ -497,10 +505,11 @@ exports.updateBcv = async (req, res, next) => {
 exports.getMyBcv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
+        const moduleCode = filterHelper.getModuleCode('bcv');
         
-        // Système de filtrage centralisé (Module 5)
+        // Système de filtrage centralisé (Module BCV)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '5',
+            moduleCode,
             req.query,
             req.user
         );
@@ -519,7 +528,11 @@ exports.getMyBcv = async (req, res, next) => {
 
 
         res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
+            filterHelper.formatPaginatedResponse(rows, count, page, limit, {
+                meta: {
+                    filters: await filterHelper.getModuleFiltersVisibility(req.user?.UserRole, 'bcv')
+                }
+            })
         );
     } catch (error) {
         console.error('❌ Error getMyBcv:', error);
