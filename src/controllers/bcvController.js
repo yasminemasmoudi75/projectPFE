@@ -192,10 +192,10 @@ exports.transferBcv = async (req, res, next) => {
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
-        const { targetType } = req.body; // 'BL' ou 'FAC'
+        const { targetType } = req.body; // 'FAC' uniquement selon le nouveau flux
 
-        if (!['BL', 'FAC'].includes(targetType)) {
-            return res.status(400).json({ status: 'error', message: 'Type de transfert invalide' });
+        if (targetType !== 'FAC') {
+            return res.status(400).json({ status: 'error', message: 'Type de transfert invalide. Les BCV ne peuvent être transférés qu\'en Factures (FAC).' });
         }
 
         // 1. Chercher le BCV dans TabBcvm
@@ -221,8 +221,8 @@ exports.transferBcv = async (req, res, next) => {
         const newGuid = randomUUID();
 
         // Trouver le prochain numéro (Nf)
-        const MasterModel = targetType === 'BL' ? BlvMaster : FavMaster;
-        const DetailModel = targetType === 'BL' ? BlvDetail : FavDetail;
+        const MasterModel = FavMaster;
+        const DetailModel = FavDetail;
 
         const maxNf = await MasterModel.max('Nf', { transaction: t }) || 0;
         const nextNf = maxNf + 1;
@@ -231,7 +231,7 @@ exports.transferBcv = async (req, res, next) => {
         // EXCLURE les colonnes calculées (NetHT, Rest, etc.)
         const masterData = {
             Guid: newGuid,
-            Prfx: targetType === 'BL' ? 'BL' : 'FA',
+            Prfx: 'FA',
             Nf: nextNf,
             CodTiers: data.CodTiers,
             LibTiers: data.LibTiers,
@@ -244,6 +244,8 @@ exports.transferBcv = async (req, res, next) => {
             TotTTC: data.TotTTC,
             TotRem: data.TotRem,
             Timbre: data.Timbre,
+            TotFodec: data.TotFodec,
+            Avance: data.Avance,
             MntDebit: data.MntDebit,
             MntCredit: data.MntCredit,
             CodMag: data.CodMag,
@@ -251,7 +253,7 @@ exports.transferBcv = async (req, res, next) => {
             CodDev: data.CodDev,
             Valid: false,
             bTransf: false,
-            bLivr: targetType === 'BL',
+            bLivr: false,
             MDate: sequelize.literal('GETDATE()'),
             DatUser: sequelize.literal('GETDATE()')
         };
@@ -273,7 +275,7 @@ exports.transferBcv = async (req, res, next) => {
             MntTVA: d.MntTVA, // Normalement calculé mais parfois on veut forcer
             Codabar: d.Codabar,
             IDArt: d.IDArt,
-            ID: targetType === 'BL' ? 'BL' : 'FA'
+            ID: 'FA'
         }));
 
         // Si SQL Server râle encore sur MntTVA/MntHT, on les retire complètement
@@ -314,11 +316,11 @@ exports.transferBcv = async (req, res, next) => {
 
         return res.status(201).json({
             status: 'success',
-            message: `Bon de commande transféré vers ${targetType === 'BL' ? 'Bon de Livraison' : 'Facture'} avec succès`,
+            message: 'Bon de commande transféré vers Facture avec succès',
             data: {
                 Guid: newGuid,
                 Nf: nextNf,
-                type: targetType
+                type: 'FAC'
             }
         });
 

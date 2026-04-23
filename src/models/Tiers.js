@@ -37,10 +37,6 @@ const Tiers = sequelize.define('Tiers', {
     primaryKey: true,
     field: 'CodTiers'
   },
-  NomTiers: {
-    type: DataTypes.VIRTUAL,
-    get() { return this.Raisoc; }
-  },
   Raisoc: {
     type: DataTypes.STRING(255),
     allowNull: true,
@@ -86,12 +82,12 @@ const Tiers = sequelize.define('Tiers', {
     allowNull: true,
     field: 'Pays'
   },
-  Cp: {
+  CodePostal: {
     type: DataTypes.STRING(20),
     allowNull: true,
     field: 'Cp'
   },
-  CodTva: {
+  MatriculeFiscale: {
     type: DataTypes.STRING(100),
     allowNull: true,
     field: 'CodTva'
@@ -195,31 +191,6 @@ const Tiers = sequelize.define('Tiers', {
     type: DataTypes.STRING(255),
     allowNull: true,
     field: 'AdresseMaps'
-  },
-  MapsVille: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-    field: 'MapsVille'
-  },
-  MapsPays: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-    field: 'MapsPays'
-  },
-  MapsDistrict: {
-    type: DataTypes.STRING(100),
-    allowNull: true,
-    field: 'MapsDistrict'
-  },
-  MapsRegion: {
-    type: DataTypes.STRING(70),
-    allowNull: true,
-    field: 'MapsRegion'
-  },
-  MapsSubRegion: {
-    type: DataTypes.STRING(100),
-    allowNull: true,
-    field: 'MapsSubRegion'
   },
   Gouvernorat: {
     type: DataTypes.INTEGER,

@@ -83,6 +83,16 @@ const FavMaster = sequelize.define('TabFavm', {
         allowNull: true,
         field: 'Timbre'
     },
+  TotFodec: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'TotFodec'
+  },
+  Avance: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'Avance'
+  },
     Valid: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
@@ -156,15 +166,15 @@ const FavMaster = sequelize.define('TabFavm', {
 });
 
 // Hooks pour ajouter les dates automatiquement
-const FavMasterModel = FavMaster;
-FavMasterModel.beforeCreate((fav) => {
+FavMaster.beforeCreate((fav) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!fav.DatCreateUser) fav.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!fav.DatUser) fav.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!fav.MDate) fav.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
-FavMasterModel.beforeUpdate((fav) => {
+FavMaster.beforeUpdate((fav) => {
     const now = new Date();
     if (!fav.DatUser) fav.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });

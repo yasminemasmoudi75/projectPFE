@@ -83,6 +83,16 @@ const BlvMaster = sequelize.define('TabBlvm', {
         allowNull: true,
         field: 'Timbre'
     },
+  TotFodec: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'TotFodec'
+  },
+  Avance: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'Avance'
+  },
     Valid: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
@@ -156,15 +166,15 @@ const BlvMaster = sequelize.define('TabBlvm', {
 });
 
 // Hooks pour ajouter les dates automatiquement
-const BlvMasterModel = BlvMaster;
-BlvMasterModel.beforeCreate((blv) => {
+BlvMaster.beforeCreate((blv) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!blv.DatCreateUser) blv.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!blv.DatUser) blv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!blv.MDate) blv.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
-BlvMasterModel.beforeUpdate((blv) => {
+BlvMaster.beforeUpdate((blv) => {
     const now = new Date();
     if (!blv.DatUser) blv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });

@@ -83,6 +83,16 @@ const Devis = sequelize.define('TabDevm', {
     allowNull: true,
     field: 'Timbre'
   },
+  TotFodec: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'TotFodec'
+  },
+  Avance: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'Avance'
+  },
   Valid: {
     type: DataTypes.BOOLEAN,
     allowNull: true,

@@ -83,6 +83,16 @@ const BcvMaster = sequelize.define('TabBcvm', {
         allowNull: true,
         field: 'Timbre'
     },
+  TotFodec: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'TotFodec'
+  },
+  Avance: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    field: 'Avance'
+  },
     Valid: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
@@ -156,15 +166,15 @@ const BcvMaster = sequelize.define('TabBcvm', {
 });
 
 // Hooks pour ajouter les dates automatiquement
-const BcvMasterModel = BcvMaster;
-BcvMasterModel.beforeCreate((bcv) => {
+BcvMaster.beforeCreate((bcv) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!bcv.DatCreateUser) bcv.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!bcv.DatUser) bcv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!bcv.MDate) bcv.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });
 
-BcvMasterModel.beforeUpdate((bcv) => {
+BcvMaster.beforeUpdate((bcv) => {
     const now = new Date();
     if (!bcv.DatUser) bcv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
 });

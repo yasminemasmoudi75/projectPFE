@@ -1,4 +1,4 @@
-const { FavMaster, FavDetail, Tiers, sequelize } = require('../models');
+const { FavMaster, FavDetail, Tiers, BlvMaster, BlvDetail, sequelize } = require('../models');
 const { Op, TableHints } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
@@ -311,6 +311,136 @@ exports.deleteFav = async (req, res, next) => {
     } catch (error) {
         if (transaction && !transaction.finished) await transaction.rollback();
         console.error('❌ Error deleteFav:', error);
+        next(error);
+    }
+};
+
+/**
+ * Transférer une facture vers un Bon de Livraison (BLV)
+ */
+exports.transferFav = async (req, res, next) => {
+    const t = await sequelize.transaction();
+    try {
+        const { id } = req.params;
+        const { targetType } = req.body; // 'BL' attendu
+
+        if (targetType !== 'BL') {
+            return res.status(400).json({ status: 'error', message: 'Type de transfert invalide. Les Factures ne peuvent être transférées qu\'en Bons de Livraison (BL).' });
+        }
+
+        // 1. Chercher la Facture (FAV) dans TabFavm
+        const sourceData = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: FavDetail, as: 'details' }]
+        });
+
+        if (!sourceData) {
+            await t.rollback();
+            return res.status(404).json({ status: 'error', message: 'Facture source non trouvée' });
+        }
+
+        if (sourceData.bTransf) {
+            await t.rollback();
+            return res.status(400).json({ status: 'error', message: 'Cette facture a déjà été transférée' });
+        }
+
+        const data = sourceData.toJSON();
+        const details = data.details || [];
+
+        // 2. Préparer les nouveaux objets
+        const newGuid = randomUUID();
+
+        // Trouver le prochain numéro (Nf)
+        const maxNf = await BlvMaster.max('Nf', { transaction: t }) || 0;
+        const nextNf = maxNf + 1;
+
+        const masterData = {
+            Guid: newGuid,
+            Prfx: 'BL',
+            Nf: nextNf,
+            CodTiers: data.CodTiers,
+            LibTiers: data.LibTiers,
+            IDContact: data.IDContact,
+            Adresse: data.Adresse,
+            Remarq: data.Remarq,
+            AssujTiers: data.AssujTiers,
+            TotHT: data.TotHT,
+            TotTva: data.TotTva,
+            TotTTC: data.TotTTC,
+            TotRem: data.TotRem,
+            Timbre: data.Timbre,
+            TotFodec: data.TotFodec,
+            Avance: data.Avance,
+            MntDebit: data.MntDebit,
+            MntCredit: data.MntCredit,
+            CodMag: data.CodMag,
+            CodRepres: data.CodRepres,
+            CodDev: data.CodDev,
+            Valid: false,
+            bTransf: false,
+            bLivr: true,
+            MDate: sequelize.literal('GETDATE()'),
+            DatUser: sequelize.literal('GETDATE()')
+        };
+
+        // 3. Créer le Master (BLV)
+        await BlvMaster.create(masterData, { transaction: t });
+
+        // 4. Créer les Détails
+        const newDetails = details.map((d) => ({
+            Guid: randomUUID(),
+            NF: nextNf,
+            CodArt: d.CodArt,
+            LibArt: d.LibArt,
+            Qt: d.Qt,
+            PuHT: d.PuHT,
+            PuTTC: d.PuTTC,
+            MntRem: d.MntRem,
+            Codabar: d.Codabar,
+            IDArt: d.IDArt,
+            ID: 'BL'
+        }));
+
+        await BlvDetail.bulkCreate(newDetails, { transaction: t });
+
+        // 5. Marquer la facture source comme transférée
+        await FavMaster.update(
+            { bTransf: true },
+            { where: { Guid: id }, transaction: t }
+        );
+
+        await t.commit();
+
+        // ✅ ENREGISTRER LA TRANSFORMATION DANS MvtDocs
+        try {
+          const montants = {
+            codTiers: sourceData.CodTiers,
+            libTiers: sourceData.LibTiers,
+            totalHT: sourceData.TotHT,
+            totalRem: sourceData.TotRem,
+            totalFodec: sourceData.TotFodec || 0,
+            totalTVA: sourceData.TotTva,
+            totalTTC: sourceData.TotTTC
+          };
+          const userId = req.user?.id || req.user?.UserID;
+          await mouvementService.enregistrerTransformation('FAV', sourceData.Nf, 'BLV', nextNf, montants, userId);
+        } catch (mouvementError) {
+          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+        }
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Facture transférée vers Bon de Livraison avec succès',
+            data: {
+                Guid: newGuid,
+                Nf: nextNf,
+                type: 'BL'
+            }
+        });
+
+    } catch (error) {
+        if (t) await t.rollback();
+        console.error('❌ Error transferFav:', error);
         next(error);
     }
 };
