@@ -509,8 +509,6 @@ exports.convertDevis = async (req, res, next) => {
       TotTTC: data.TotTTC,
       TotRem: data.TotRem,
       Timbre: data.Timbre,
-      TotFodec: data.TotFodec,
-      Avance: data.Avance,
       MntDebit: data.MntDebit,
       MntCredit: data.MntCredit,
       CodMag: data.CodMag,
