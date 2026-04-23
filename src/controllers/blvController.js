@@ -3,73 +3,12 @@ const { Op, TableHints } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { sanitizeMasterData, sanitizeDetailData } = require('../utils/documentHelper');
 
 // Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialCodRepresFilter, etc.) 
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-
-/**
- * Helper function to parse dates for SQL Server through Sequelize
- */
-const parseDateValue = (dateValue) => {
-    if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
-        return null;
-    }
-
-    try {
-        let date;
-        if (dateValue instanceof Date) {
-            date = dateValue;
-        } else {
-            const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
-            date = new Date(cleaned);
-        }
-
-        if (isNaN(date.getTime())) return null;
-        return date;
-    } catch (e) {
-        return null;
-    }
-};
-
-/**
- * Helper function to sanitize blv master data
- */
-const sanitizeMasterData = (masterData) => {
-    const sanitized = { ...masterData };
-    delete sanitized.NetHT;
-    delete sanitized.DatUser;
-    delete sanitized.DatCreateUser;
-
-    const dateFields = ['MDate', 'DatLiv'];
-    dateFields.forEach(field => {
-        const val = sanitized[field];
-        if (!val || val === '' || val === 'null' || val === null) {
-            sanitized[field] = null;
-        } else {
-            const parsed = parseDateValue(val);
-            sanitized[field] = parsed || null;
-        }
-    });
-
-    const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem', 'Timbre'];
-    numericFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            const num = parseFloat(sanitized[field]);
-            sanitized[field] = isNaN(num) ? 0 : num;
-        }
-    });
-
-    const booleanFields = ['Valid', 'bTransf', 'bLivr'];
-    booleanFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            sanitized[field] = !!sanitized[field];
-        }
-    });
-
-    return sanitized;
-};
 
 /**
  * Récupérer tous les bons de livraison (master)
@@ -169,24 +108,29 @@ exports.createBlv = async (req, res, next) => {
             master.Nf = (lastBlv?.Nf || 0) + 1;
         }
 
-        const masterData = sanitizeMasterData(master);
-        masterData.Guid = randomUUID();
-        masterData.bLivr = true;
-
-        // Ajouter les dates avec GETDATE() SQL (bypass Sequelize timezone)
-        masterData.DatUser = sequelize.literal('GETDATE()');
-        masterData.MDate = sequelize.literal('GETDATE()');
+        const masterRaw = {
+            ...master,
+            Guid: randomUUID(),
+            bLivr: true,
+            DatCreateUser: sequelize.literal('GETDATE()'),
+            DatUser: sequelize.literal('GETDATE()'),
+            MDate: sequelize.literal('GETDATE()')
+        };
+        const masterData = sanitizeMasterData(masterRaw);
 
         // Créer le master
         const newBlv = await BlvMaster.create(masterData, { transaction });
 
         if (details && Array.isArray(details) && details.length > 0) {
-            const detailsWithNf = details.map((d) => ({
-                ...d,
-                NF: newBlv.Nf,
-                ID: 'BL',
-                Guid: randomUUID()
-            }));
+            const detailsWithNf = details.map((d) => {
+                const sanitizedDetail = sanitizeDetailData(d);
+                return {
+                    ...sanitizedDetail,
+                    NF: newBlv.Nf,
+                    ID: 'BL',
+                    Guid: randomUUID()
+                };
+            });
             await BlvDetail.bulkCreate(detailsWithNf, { transaction });
         }
 
@@ -243,6 +187,7 @@ exports.updateBlv = async (req, res, next) => {
         }
 
         const masterData = sanitizeMasterData(master);
+        masterData.DatUser = sequelize.literal('GETDATE()');
 
         if (isCommercialRole(req.user?.UserRole)) {
             const codRepres = resolveCommercialCodRepresValue(req.user);
@@ -253,21 +198,21 @@ exports.updateBlv = async (req, res, next) => {
             masterData.CodRepres = codRepres;
         }
 
-        // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
-        masterData.DatUser = sequelize.literal('GETDATE()');
-
         // Mettre à jour le master
         await blv.update(masterData, { transaction });
 
         if (details && Array.isArray(details)) {
             await BlvDetail.destroy({ where: { NF: blv.Nf }, transaction });
             if (details.length > 0) {
-                const detailsWithNf = details.map((d) => ({
-                    ...d,
-                    NF: blv.Nf,
-                    ID: 'BL',
-                    Guid: randomUUID()
-                }));
+                const detailsWithNf = details.map((d) => {
+                    const sanitizedDetail = sanitizeDetailData(d);
+                    return {
+                        ...sanitizedDetail,
+                        NF: blv.Nf,
+                        ID: 'BL',
+                        Guid: randomUUID()
+                    };
+                });
                 await BlvDetail.bulkCreate(detailsWithNf, { transaction });
             }
         }

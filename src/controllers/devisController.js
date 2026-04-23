@@ -4,6 +4,7 @@ const { Op, TableHints } = require('sequelize');
 const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { sanitizeMasterData, sanitizeDetailData } = require('../utils/documentHelper');
 
 // Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialCodRepresFilter, etc.) 
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
@@ -114,83 +115,6 @@ exports.getDevisById = async (req, res, next) => {
 };
 
 /**
- * Helper function to parse dates for SQL Server through Sequelize
- */
-const parseDateValue = (dateValue) => {
-  if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
-    return null;
-  }
-
-  try {
-    let date;
-    if (dateValue instanceof Date) {
-      date = dateValue;
-    } else {
-      // Remove timezone offset before parsing (SQL Server DATETIME doesn't support it)
-      const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
-      date = new Date(cleaned);
-    }
-
-    if (isNaN(date.getTime())) {
-      console.warn('⚠️  Invalid date value received:', dateValue);
-      return null;
-    }
-
-    return date;
-  } catch (e) {
-    console.warn('⚠️  Error parsing date:', dateValue, e.message);
-    return null;
-  }
-};
-
-/**
- * Helper function to sanitize devis master data
- */
-const sanitizeMasterData = (masterData) => {
-  const sanitized = { ...masterData };
-
-  // Remove computed columns
-  delete sanitized.NetHT;
-
-  // Do not send audit dates through Sequelize for TabDevm.
-  // MSSQL binds DataTypes.DATE with a timezone suffix (+00:00), which this legacy DATETIME column rejects.
-  // Let SQL Server keep its default/current value instead.
-  delete sanitized.DatUser;
-  delete sanitized.DatCreateUser;
-
-  // Parse and validate all date fields
-  const dateFields = ['MDate', 'DatLiv'];
-  dateFields.forEach(field => {
-    const val = sanitized[field];
-    if (!val || val === '' || val === 'null' || val === null) {
-      sanitized[field] = null;
-    } else {
-      const parsed = parseDateValue(val);
-      sanitized[field] = parsed || null;
-    }
-  });
-
-  // Ensure numeric fields are valid
-  const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem'];
-  numericFields.forEach(field => {
-    if (sanitized.hasOwnProperty(field)) {
-      const num = parseFloat(sanitized[field]);
-      sanitized[field] = isNaN(num) ? 0 : num;
-    }
-  });
-
-  // Ensure boolean fields are valid
-  const booleanFields = ['Valid', 'bTransf', 'IsConverted'];
-  booleanFields.forEach(field => {
-    if (sanitized.hasOwnProperty(field)) {
-      sanitized[field] = !!sanitized[field];
-    }
-  });
-
-  return sanitized;
-};
-
-/**
  * Créer un nouveau devis
  */
 exports.createDevis = async (req, res, next) => {
@@ -234,15 +158,12 @@ exports.createDevis = async (req, res, next) => {
     // 3. Créer les détails
     if (details && Array.isArray(details) && details.length > 0) {
       const detailsWithNf = details.map((d) => {
-        const detail = { ...d };
-        delete detail.NetHT;  // Computed column in TabDevm
-        delete detail.MntHT;  // Computed column in TabDevd
-        delete detail.Guid;
-        delete detail.NoDetail; // autoIncrement - SQL Server generates it
+        const sanitizedDetail = sanitizeDetailData(d);
         return {
-          ...detail,
+          ...sanitizedDetail,
           NF: newDevis.Nf,
           ID: newDevis.Nf,
+          Guid: randomUUID()
         };
       });
       await DevisDetail.bulkCreate(detailsWithNf, { transaction });
@@ -350,15 +271,12 @@ exports.updateDevis = async (req, res, next) => {
       await DevisDetail.destroy({ where: { NF: devis.Nf }, transaction });
       if (details.length > 0) {
         const detailsWithNf = details.map((d) => {
-          const detail = { ...d };
-          delete detail.NetHT;  // Computed column in TabDevm
-          delete detail.MntHT;  // Computed column in TabDevd
-          delete detail.Guid;
-          delete detail.NoDetail; // autoIncrement - let SQL Server generate it
+          const sanitizedDetail = sanitizeDetailData(d);
           return {
-            ...detail,
+            ...sanitizedDetail,
             NF: devis.Nf,
-            ID: devis.Nf
+            ID: devis.Nf,
+            Guid: randomUUID()
           };
         });
         await DevisDetail.bulkCreate(detailsWithNf, { transaction });
@@ -494,26 +412,11 @@ exports.convertDevis = async (req, res, next) => {
     const nextNf = maxNf + 1;
 
     // Créer le BcvMaster
-    const masterData = {
+    const bcvMasterRaw = {
+      ...data,
       Guid: newGuid,
       Prfx: 'BC',
       Nf: nextNf,
-      CodTiers: data.CodTiers,
-      LibTiers: data.LibTiers,
-      IDContact: data.IDContact,
-      Adresse: data.Adresse,
-      Remarq: data.Remarq,
-      AssujTiers: data.AssujTiers,
-      TotHT: data.TotHT,
-      TotTva: data.TotTva,
-      TotTTC: data.TotTTC,
-      TotRem: data.TotRem,
-      Timbre: data.Timbre,
-      MntDebit: data.MntDebit,
-      MntCredit: data.MntCredit,
-      CodMag: data.CodMag,
-      CodRepres: data.CodRepres,
-      CodDev: data.CodDev,
       MDate: sequelize.literal('GETDATE()'),
       DatCreateUser: sequelize.literal('GETDATE()'),
       DatUser: sequelize.literal('GETDATE()'),
@@ -521,24 +424,21 @@ exports.convertDevis = async (req, res, next) => {
       bTransf: false,
       bLivr: false
     };
+    const bcvMasterData = sanitizeMasterData(bcvMasterRaw);
 
-    await BcvMaster.create(masterData, { transaction: t });
+    await BcvMaster.create(bcvMasterData, { transaction: t });
 
     // Créer les BcvDetail
     if (details.length > 0) {
-      const newDetails = details.map(d => ({
-        Guid: randomUUID(),
-        NF: nextNf,
-        ID: nextNf,
-        CodArt: d.CodArt,
-        LibArt: d.LibArt,
-        Qt: d.Qt,
-        PuHT: d.PuHT,
-        PuTTC: d.PuTTC,
-        MntRem: d.MntRem,
-        Codabar: d.Codabar,
-        IDArt: d.IDArt
-      }));
+      const newDetails = details.map(d => {
+        const sanitizedDetail = sanitizeDetailData(d);
+        return {
+          ...sanitizedDetail,
+          Guid: randomUUID(),
+          NF: nextNf,
+          ID: nextNf
+        };
+      });
       await BcvDetail.bulkCreate(newDetails, { transaction: t });
     }
 

@@ -58,10 +58,6 @@ const DevisDetail = sequelize.define('TabDevd', {
         type: DataTypes.FLOAT,
         field: 'MntFodec'
     },
-    DateBL: {
-        type: DataTypes.DATE,
-        field: 'DateBL'
-    },
     Codabar: {
         type: DataTypes.STRING(50),
         field: 'Codabar'

@@ -103,6 +103,11 @@ const BlvMaster = sequelize.define('TabBlvm', {
         allowNull: true,
         field: 'DatUser'
     },
+    DatCreateUser: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'DatCreateUser'
+    },
     MDate: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -160,6 +165,7 @@ const BlvMasterModel = BlvMaster;
 BlvMasterModel.beforeCreate((blv) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!blv.DatCreateUser) blv.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!blv.DatUser) blv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!blv.MDate) blv.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });

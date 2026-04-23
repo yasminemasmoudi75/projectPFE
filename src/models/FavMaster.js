@@ -103,6 +103,11 @@ const FavMaster = sequelize.define('TabFavm', {
         allowNull: true,
         field: 'DatUser'
     },
+    DatCreateUser: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'DatCreateUser'
+    },
     MDate: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -160,6 +165,7 @@ const FavMasterModel = FavMaster;
 FavMasterModel.beforeCreate((fav) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!fav.DatCreateUser) fav.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!fav.DatUser) fav.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!fav.MDate) fav.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });

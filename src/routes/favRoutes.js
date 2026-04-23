@@ -15,4 +15,7 @@ router.post('/', checkPermission(MODULES.FACTURES, 'create'), favController.crea
 router.put('/:id', checkPermission(MODULES.FACTURES, 'update'), favController.updateFav);
 router.delete('/:id', checkPermission(MODULES.FACTURES, 'delete'), favController.deleteFav);
 
+// Transfert FAV -> BLV
+router.post('/:id/transfer', checkPermission(MODULES.FACTURES, 'update'), favController.transferFav);
+
 module.exports = router;

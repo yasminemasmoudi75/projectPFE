@@ -1,75 +1,14 @@
-const { FavMaster, FavDetail, Tiers, sequelize } = require('../models');
+const { FavMaster, FavDetail, Tiers, BlvMaster, BlvDetail, sequelize } = require('../models');
 const { Op, TableHints } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { sanitizeMasterData, sanitizeDetailData } = require('../utils/documentHelper');
 
 // Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialCodRepresFilter, etc.) 
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-
-/**
- * Helper function to parse dates for SQL Server through Sequelize
- */
-const parseDateValue = (dateValue) => {
-    if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
-        return null;
-    }
-
-    try {
-        let date;
-        if (dateValue instanceof Date) {
-            date = dateValue;
-        } else {
-            const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
-            date = new Date(cleaned);
-        }
-
-        if (isNaN(date.getTime())) return null;
-        return date;
-    } catch (e) {
-        return null;
-    }
-};
-
-/**
- * Helper function to sanitize fav master data
- */
-const sanitizeMasterData = (masterData) => {
-    const sanitized = { ...masterData };
-    delete sanitized.NetHT;
-    delete sanitized.DatUser;
-    delete sanitized.DatCreateUser;
-
-    const dateFields = ['MDate', 'DatLiv'];
-    dateFields.forEach(field => {
-        const val = sanitized[field];
-        if (!val || val === '' || val === 'null' || val === null) {
-            sanitized[field] = null;
-        } else {
-            const parsed = parseDateValue(val);
-            sanitized[field] = parsed || null;
-        }
-    });
-
-    const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem', 'Timbre'];
-    numericFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            const num = parseFloat(sanitized[field]);
-            sanitized[field] = isNaN(num) ? 0 : num;
-        }
-    });
-
-    const booleanFields = ['Valid', 'bTransf', 'bLivr'];
-    booleanFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            sanitized[field] = !!sanitized[field];
-        }
-    });
-
-    return sanitized;
-};
 
 /**
  * Récupérer toutes les factures (master)
@@ -101,6 +40,106 @@ exports.getAllFav = async (req, res, next) => {
         );
     } catch (error) {
         console.error('❌ Error getAllFav:', error);
+        next(error);
+    }
+};
+
+/**
+ * Transférer une facture vers un bon de livraison (FAV → BLV)
+ */
+exports.transferFav = async (req, res, next) => {
+    const t = await sequelize.transaction();
+    try {
+        const { id } = req.params;
+
+        // 1. Chercher la facture source
+        const sourceData = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: FavDetail, as: 'details' }]
+        });
+
+        if (!sourceData) {
+            await t.rollback();
+            return res.status(404).json({ status: 'error', message: 'Facture source non trouvée' });
+        }
+
+        if (sourceData.bTransf) {
+            await t.rollback();
+            return res.status(400).json({ status: 'error', message: 'Cette facture a déjà été transférée' });
+        }
+
+        const data = sourceData.toJSON();
+        const details = data.details || [];
+        const newGuid = randomUUID();
+
+        // 2. Préparer le nouveau bon de livraison
+        const maxNf = await BlvMaster.max('Nf', { transaction: t }) || 0;
+        const nextNf = maxNf + 1;
+
+        const masterRaw = {
+            ...data,
+            Guid: newGuid,
+            Prfx: 'BL',
+            Nf: nextNf,
+            Valid: false,
+            bTransf: false,
+            bLivr: true,
+            MDate: sequelize.literal('GETDATE()'),
+            DatCreateUser: sequelize.literal('GETDATE()'),
+            DatUser: sequelize.literal('GETDATE()')
+        };
+        const masterData = sanitizeMasterData(masterRaw);
+
+        await BlvMaster.create(masterData, { transaction: t });
+
+        // 3. Créer les détails
+        if (details.length > 0) {
+            const newDetails = details.map((d) => {
+                const sanitizedDetail = sanitizeDetailData(d);
+                return {
+                    ...sanitizedDetail,
+                    Guid: randomUUID(),
+                    NF: nextNf,
+                    ID: 'BL'
+                };
+            });
+            await BlvDetail.bulkCreate(newDetails, { transaction: t });
+        }
+
+        // 4. Marquer la facture comme transférée
+        await FavMaster.update(
+            { bTransf: true },
+            { where: { Guid: id }, transaction: t }
+        );
+
+        await t.commit();
+
+        // ✅ ENREGISTRER LA TRANSFORMATION DANS MvtDocs (FAV → BLV)
+        try {
+            const montants = {
+                codTiers: data.CodTiers,
+                libTiers: data.LibTiers,
+                totalHT: data.TotHT,
+                totalRem: data.TotRem,
+                totalFodec: 0,
+                totalTVA: data.TotTva,
+                totalTTC: data.TotTTC
+            };
+            const userId = req.user?.id || req.user?.UserID;
+            await mouvementService.enregistrerTransformation('FAV', data.Nf, 'BLV', nextNf, montants, userId);
+        } catch (mouvementError) {
+            console.error('⚠️ Erreur mouvement:', mouvementError.message);
+        }
+
+        return res.status(201).json({
+            status: 'success',
+            message: 'Facture transférée vers Bon de Livraison avec succès',
+            data: { Guid: newGuid, Nf: nextNf }
+        });
+
+    } catch (error) {
+        if (t && !t.finished) await t.rollback();
+        console.error('❌ Error transferFav:', error);
         next(error);
     }
 };
@@ -167,24 +206,28 @@ exports.createFav = async (req, res, next) => {
             master.Nf = (lastFav?.Nf || 0) + 1;
         }
 
-        const masterData = sanitizeMasterData(master);
-        masterData.Guid = randomUUID();
-
-        // Ajouter les dates avec GETDATE() SQL (bypass Sequelize timezone)
-        masterData.DatCreateUser = sequelize.literal('GETDATE()');
-        masterData.DatUser = sequelize.literal('GETDATE()');
-        masterData.MDate = sequelize.literal('GETDATE()');
+        const masterRaw = {
+            ...master,
+            Guid: randomUUID(),
+            DatCreateUser: sequelize.literal('GETDATE()'),
+            DatUser: sequelize.literal('GETDATE()'),
+            MDate: sequelize.literal('GETDATE()')
+        };
+        const masterData = sanitizeMasterData(masterRaw);
 
         // Créer le master
         const newFav = await FavMaster.create(masterData, { transaction });
 
         if (details && Array.isArray(details) && details.length > 0) {
-            const detailsWithNf = details.map((d) => ({
-                ...d,
-                NF: newFav.Nf,
-                ID: 'FA',
-                Guid: randomUUID()
-            }));
+            const detailsWithNf = details.map((d) => {
+                const sanitizedDetail = sanitizeDetailData(d);
+                return {
+                    ...sanitizedDetail,
+                    NF: newFav.Nf,
+                    ID: 'FA',
+                    Guid: randomUUID()
+                };
+            });
             await FavDetail.bulkCreate(detailsWithNf, { transaction });
         }
 
@@ -251,20 +294,23 @@ exports.updateFav = async (req, res, next) => {
         }
 
         const masterData = sanitizeMasterData(master);
-
-        // Mettre à jour le master avec date
         masterData.DatUser = sequelize.literal('GETDATE()');
+
+        // Mettre à jour le master
         await fav.update(masterData, { transaction });
 
         if (details && Array.isArray(details)) {
             await FavDetail.destroy({ where: { NF: fav.Nf }, transaction });
             if (details.length > 0) {
-                const detailsWithNf = details.map((d) => ({
-                    ...d,
-                    NF: fav.Nf,
-                    ID: 'FA',
-                    Guid: randomUUID()
-                }));
+                const detailsWithNf = details.map((d) => {
+                    const sanitizedDetail = sanitizeDetailData(d);
+                    return {
+                        ...sanitizedDetail,
+                        NF: fav.Nf,
+                        ID: 'FA',
+                        Guid: randomUUID()
+                    };
+                });
                 await FavDetail.bulkCreate(detailsWithNf, { transaction });
             }
         }

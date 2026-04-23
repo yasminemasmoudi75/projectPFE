@@ -103,6 +103,11 @@ const BcvMaster = sequelize.define('TabBcvm', {
         allowNull: true,
         field: 'DatUser'
     },
+    DatCreateUser: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'DatCreateUser'
+    },
     MDate: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -160,6 +165,7 @@ const BcvMasterModel = BcvMaster;
 BcvMasterModel.beforeCreate((bcv) => {
     const now = new Date();
     // Envoyer les dates sans timezone pour SQL Server DATETIME
+    if (!bcv.DatCreateUser) bcv.DatCreateUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!bcv.DatUser) bcv.DatUser = now.toISOString().slice(0, 19).replace('T', ' ');
     if (!bcv.MDate) bcv.MDate = now.toISOString().slice(0, 19).replace('T', ' ');
 });

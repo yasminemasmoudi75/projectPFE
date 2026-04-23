@@ -58,14 +58,6 @@ const BcvDetail = sequelize.define('TabBcvd', {
         type: DataTypes.FLOAT,
         field: 'MntFodec'
     },
-    NumBL: {
-        type: DataTypes.STRING(30),
-        field: 'NumBL'
-    },
-    DateBL: {
-        type: DataTypes.DATE,
-        field: 'DateBL'
-    },
     Codabar: {
         type: DataTypes.STRING(50),
         field: 'Codabar'

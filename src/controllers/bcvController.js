@@ -4,80 +4,12 @@ const { Op, TableHints } = require('sequelize');
 const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
+const { sanitizeMasterData, sanitizeDetailData } = require('../utils/documentHelper');
 
 // Les fonctions utilitaires de filtrage hard-codées (isCommercialRole, buildCommercialCodRepresFilter, etc.) 
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
-
-/**
- * Helper function to parse dates for SQL Server through Sequelize
- */
-const parseDateValue = (dateValue) => {
-    if (!dateValue || dateValue === '' || dateValue === 'null' || dateValue === null || dateValue === undefined) {
-        return null;
-    }
-
-    try {
-        let date;
-        if (dateValue instanceof Date) {
-            date = dateValue;
-        } else {
-            const cleaned = String(dateValue).replace(/([+-]\d{2}:\d{2}|Z)$/, '').trim();
-            date = new Date(cleaned);
-        }
-
-        if (isNaN(date.getTime())) return null;
-        return date;
-    } catch (e) {
-        return null;
-    }
-};
-
-/**
- * Helper function to sanitize bcv master data
- */
-const sanitizeMasterData = (masterData) => {
-    const sanitized = { ...masterData };
-
-    // Remove computed columns if any
-    delete sanitized.NetHT;
-
-    // Do not send audit dates through Sequelize for TabBcvm to avoid timezone issues with legacy DATETIME.
-    delete sanitized.DatUser;
-    delete sanitized.DatCreateUser;
-
-    // Parse and validate all date fields
-    const dateFields = ['MDate', 'DatLiv', 'DatImp'];
-    dateFields.forEach(field => {
-        const val = sanitized[field];
-        if (!val || val === '' || val === 'null' || val === null) {
-            sanitized[field] = null;
-        } else {
-            const parsed = parseDateValue(val);
-            sanitized[field] = parsed || null;
-        }
-    });
-
-    // Ensure numeric fields are valid
-    const numericFields = ['TotHT', 'TotTva', 'TotTTC', 'TotRem', 'Frais', 'Timbre', 'avanceforf'];
-    numericFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            const num = parseFloat(sanitized[field]);
-            sanitized[field] = isNaN(num) ? 0 : num;
-        }
-    });
-
-    // Ensure boolean fields are valid
-    const booleanFields = ['Valid', 'bTransf', 'bLivr', 'IsConverted'];
-    booleanFields.forEach(field => {
-        if (sanitized.hasOwnProperty(field)) {
-            sanitized[field] = !!sanitized[field];
-        }
-    });
-
-    return sanitized;
-};
 
 /**
  * Récupérer tous les bons de commande (master)
@@ -227,62 +159,36 @@ exports.transferBcv = async (req, res, next) => {
         const maxNf = await MasterModel.max('Nf', { transaction: t }) || 0;
         const nextNf = maxNf + 1;
 
-        // Mapper explicitement les champs pour éviter les incompatibilités
-        // EXCLURE les colonnes calculées (NetHT, Rest, etc.)
-        const masterData = {
+        // Mapper explicitement les champs
+        const masterRaw = {
+            ...data,
             Guid: newGuid,
             Prfx: targetType === 'BL' ? 'BL' : 'FA',
             Nf: nextNf,
-            CodTiers: data.CodTiers,
-            LibTiers: data.LibTiers,
-            IDContact: data.IDContact,
-            Adresse: data.Adresse,
-            Remarq: data.Remarq,
-            AssujTiers: data.AssujTiers,
-            TotHT: data.TotHT,
-            TotTva: data.TotTva,
-            TotTTC: data.TotTTC,
-            TotRem: data.TotRem,
-            Timbre: data.Timbre,
-            MntDebit: data.MntDebit,
-            MntCredit: data.MntCredit,
-            CodMag: data.CodMag,
-            CodRepres: data.CodRepres,
-            CodDev: data.CodDev,
             Valid: false,
             bTransf: false,
             bLivr: targetType === 'BL',
             MDate: sequelize.literal('GETDATE()'),
+            DatCreateUser: sequelize.literal('GETDATE()'),
             DatUser: sequelize.literal('GETDATE()')
         };
+        const masterData = sanitizeMasterData(masterRaw);
 
         // 3. Créer le Master
         await MasterModel.create(masterData, { transaction: t });
 
         // 4. Créer les Détails
-        // EXCLURE les colonnes calculées (MntHT, MntTVA, MntTTC, MntFodec)
-        const newDetails = details.map((d) => ({
-            Guid: randomUUID(),
-            NF: nextNf,
-            CodArt: d.CodArt,
-            LibArt: d.LibArt,
-            Qt: d.Qt,
-            PuHT: d.PuHT,
-            PuTTC: d.PuTTC,
-            MntRem: d.MntRem,
-            MntTVA: d.MntTVA, // Normalement calculé mais parfois on veut forcer
-            Codabar: d.Codabar,
-            IDArt: d.IDArt,
-            ID: targetType === 'BL' ? 'BL' : 'FA'
-        }));
-
-        // Si SQL Server râle encore sur MntTVA/MntHT, on les retire complètement
-        const sanitizedDetails = newDetails.map(d => {
-            const { MntHT, MntTVA, MntTTC, MntFodec, ...rest } = d;
-            return rest;
+        const newDetails = details.map((d) => {
+            const sanitizedDetail = sanitizeDetailData(d);
+            return {
+                ...sanitizedDetail,
+                Guid: randomUUID(),
+                NF: nextNf,
+                ID: targetType === 'BL' ? 'BL' : 'FA'
+            };
         });
 
-        await DetailModel.bulkCreate(sanitizedDetails, { transaction: t });
+        await DetailModel.bulkCreate(newDetails, { transaction: t });
 
         // 5. Marquer le BC source comme transféré (disparaît de la liste BC)
         await BcvMaster.update(
@@ -369,11 +275,9 @@ exports.createBcv = async (req, res, next) => {
         // 3. Créer les détails
         if (details && Array.isArray(details) && details.length > 0) {
             const detailsWithNf = details.map((d) => {
-                const detail = { ...d };
-                delete detail.Guid;
-                delete detail.NoDetail;
+                const sanitizedDetail = sanitizeDetailData(d);
                 return {
-                    ...detail,
+                    ...sanitizedDetail,
                     NF: newBcv.Nf,
                     ID: newBcv.Nf,
                     Guid: randomUUID()
@@ -462,12 +366,15 @@ exports.updateBcv = async (req, res, next) => {
         if (details && Array.isArray(details)) {
             await BcvDetail.destroy({ where: { NF: bcv.Nf }, transaction });
             if (details.length > 0) {
-                const detailsWithNf = details.map((d) => ({
-                    ...d,
-                    NF: bcv.Nf,
-                    ID: bcv.Nf,
-                    Guid: randomUUID()
-                }));
+                const detailsWithNf = details.map((d) => {
+                    const sanitizedDetail = sanitizeDetailData(d);
+                    return {
+                        ...sanitizedDetail,
+                        NF: bcv.Nf,
+                        ID: bcv.Nf,
+                        Guid: randomUUID()
+                    };
+                });
                 await BcvDetail.bulkCreate(detailsWithNf, { transaction });
             }
         }
