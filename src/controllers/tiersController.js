@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { Op, QueryTypes, TableHints } = require('sequelize');
 
-const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
+const { Tiers, TiersContact, TiersAdr, User, TiersClasse, TiersGouvernorat, TiersCategorie, TiersClasseAuto, sequelize } = require('../models');
 const { sendClientCredentials } = require('../utils/emailService');
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId } = require('../utils/userId');
@@ -118,6 +118,11 @@ const isAdminRole = (role) => {
     return normalized === 'admin' || normalized === 'administrateur';
 };
 
+const isAgentRole = (role) => {
+    const normalized = String(role || '').trim().toLowerCase();
+    return normalized === 'agent';
+};
+
 const normalizeClassLabel = (value) => String(value || '').trim().toLowerCase();
 
 const buildCommercialAssignmentError = (message) => {
@@ -144,7 +149,16 @@ const resolveCommercialAssignment = async ({
 } = {}) => {
     const currentCommercialValue = normalizeNullableString(currentTier?.codRepresTiers);
     const requestedCommercialValue = normalizeNullableString(requestedCommercial);
-    const effectiveClassId = normalizeNullableInt(requestedClassId ?? currentTier?.Classe);
+    let effectiveClassId = normalizeNullableInt(requestedClassId ?? currentTier?.Classe);
+
+    // Règle : Lors de la première création, le client est obligatoirement considéré comme 'Prospect'
+    if (!currentTier) {
+        const prospectClass = await getTiersClassByLabel('prospect', transaction);
+        if (prospectClass) {
+            effectiveClassId = prospectClass.id;
+        }
+    }
+
     const effectiveClass = effectiveClassId ? await TiersClasse.findByPk(effectiveClassId, { transaction }) : null;
     const effectiveClassLabel = normalizeClassLabel(effectiveClass?.libelle || currentTier?.tiersClasse?.libelle);
     const hasCommercial = Boolean(requestedCommercialValue || currentCommercialValue);
@@ -162,6 +176,15 @@ const resolveCommercialAssignment = async ({
     }
 
     if (effectiveClassLabel === 'prospect' || normalizeClassLabel(currentTier?.tiersClasse?.libelle) === 'prospect') {
+        // Règle : Lors de la première création, on garde le statut Prospect
+        if (!currentTier) {
+            return {
+                commercialValue: requestedCommercialValue || currentCommercialValue,
+                classId: effectiveClassId
+            };
+        }
+
+        // Pour un client existant, on bascule en Passif lors de l'affectation
         const passifClass = await getTiersClassByLabel('passif', transaction);
         if (!passifClass) {
             throw buildCommercialAssignmentError('La classe Passif est introuvable');
@@ -188,21 +211,22 @@ const hasWhereConditions = (whereObj) => {
 
 const resolveAutoCodRepresTiers = (payload = {}, user = {}, effectiveRole = null) => {
     const explicitRepresentative = normalizeString(payload.Commercial ?? payload.codRepresTiers);
-    const creatorRepresRaw = user?.UserID ?? user?.id ?? user?.CodRepres ?? user?.codRepres;
+    const creatorRepresRaw = user?.UserID ?? user?.id ?? user?.CodRepres ?? user?.codRepres ?? user?.LoginName;
     const creatorRepres = creatorRepresRaw == null ? null : String(creatorRepresRaw).trim();
-    const role = effectiveRole || user?.UserRole;
+    const role = String(effectiveRole || user?.UserRole || '').trim().toLowerCase();
 
-    // Commercial creator should always be attached to their own representative id.
-    if (isCommercialRole(role)) {
-        return creatorRepres || explicitRepresentative || null;
+    // Règle 1 : Un commercial ne peut PAS choisir -> affectation automatique à lui-même
+    if (role === 'commercial' || role === 'commerciale') {
+        return creatorRepres || null;
     }
 
-    // Admin creator keeps explicit representative if provided; fallback to creator id.
-    if (isAdminRole(role)) {
+    // Règle 2 : Un admin ou agent peut choisir un commercial ou s'affecter lui-même par défaut
+    if (role === 'admin' || role === 'administrateur' || role === 'agent') {
         return explicitRepresentative || creatorRepres || null;
     }
 
-    return explicitRepresentative || null;
+    // Fallback par défaut sur le créateur pour éviter les clients sans affectation
+    return explicitRepresentative || creatorRepres || null;
 };
 
 const getCommercialIdentifiers = (user = {}) => {
@@ -518,6 +542,15 @@ exports.createTiers = async (req, res, next) => {
         tiersPayload.Classe = commercialAssignment.classId ?? tiersPayload.Classe;
         tiersPayload.codRepresTiers = commercialAssignment.commercialValue;
 
+        // Règle : Aucun client ne doit être créé sans affectation
+        if (!tiersPayload.codRepresTiers) {
+            await t.rollback();
+            return res.status(400).json({
+                status: 'error',
+                message: 'L\'affectation commerciale (Représentant) est obligatoire'
+            });
+        }
+
         // 2. Validation des champs utilisateur pour éviter les troncatures
         const validationErrors = validateUserFields(normalizedEmail, userFullName);
         if (validationErrors.length > 0) {
@@ -637,9 +670,12 @@ exports.createTiers = async (req, res, next) => {
         console.timeEnd('Commit-Transaction');
         console.log('Transaction committed');
 
-        // L'envoi d'email ne bloque pas la réponse si succès DB
+        // L'envoi d'email est attendu pour s'assurer qu'on trace d'éventuelles erreurs SMTP
         console.time('Send-Email');
-        sendClientCredentials(normalizedEmail, normalizedRaisoc, clearPassword).catch(err => console.error('Email send failed asynchronous:', err));
+        const emailSent = await sendClientCredentials(normalizedEmail, normalizedRaisoc, clearPassword);
+        if (!emailSent) {
+            console.warn(`⚠️ L'email n'a pas pu être envoyé à ${normalizedEmail}, mais le client a été créé.`);
+        }
         console.timeEnd('Send-Email');
 
         // Audit Log
@@ -727,7 +763,14 @@ exports.getAllTiers = async (req, res, next) => {
                 { model: TiersClasse, as: 'tiersClasse', attributes: ['id', 'libelle'], required: false },
                 { model: TiersGouvernorat, as: 'region', attributes: ['id', 'libelle'], required: false },
                 { model: TiersCategorie, as: 'tiersCategorieObj', attributes: ['id', 'libelle'], required: false },
-                { model: User, as: 'commercialObj', attributes: ['UserID', 'FullName', 'EmailPro'], required: false }
+                { 
+                    model: User, 
+                    as: 'commercialObj', 
+                    attributes: ['UserID', 'FullName', 'EmailPro'], 
+                    required: false,
+                    on: sequelize.literal("TRY_CONVERT(NVARCHAR(50), [Tiers].[codRepresTiers]) = TRY_CONVERT(NVARCHAR(50), [commercialObj].[USER_ID])")
+                },
+                { model: TiersClasseAuto, as: 'classeAuto', required: false }
             ],
             order: [['Raisoc', 'ASC']],
             limit,
@@ -763,7 +806,13 @@ exports.getTiersById = async (req, res, next) => {
                 { model: TiersClasse, as: 'tiersClasse' },
                 { model: TiersGouvernorat, as: 'region' },
                 { model: TiersCategorie, as: 'tiersCategorieObj' },
-                { model: User, as: 'commercialObj', attributes: ['UserID', 'FullName', 'EmailPro'] }
+                { 
+                    model: User, 
+                    as: 'commercialObj', 
+                    attributes: ['UserID', 'FullName', 'EmailPro'],
+                    on: sequelize.literal("TRY_CONVERT(NVARCHAR(50), [Tiers].[codRepresTiers]) = TRY_CONVERT(NVARCHAR(50), [commercialObj].[USER_ID])")
+                },
+                { model: TiersClasseAuto, as: 'classeAuto' }
             ]
         });
         if (!tiers) {
@@ -910,7 +959,22 @@ exports.updateTiers = async (req, res, next) => {
             transaction: t
         });
         allowedUpdates.Classe = commercialAssignment.classId ?? allowedUpdates.Classe ?? tiers.Classe;
-        allowedUpdates.codRepresTiers = commercialAssignment.commercialValue ?? tiers.codRepresTiers;
+        
+        // Enforce: Only Admin or Agent can change the commercial assignment
+        const requestedCommercial = commercialAssignment.commercialValue;
+        const currentCommercial = tiers.codRepresTiers;
+        
+        if (requestedCommercial && requestedCommercial !== currentCommercial) {
+            if (!isAdminRole(req.user?.UserRole) && !isAgentRole(req.user?.UserRole)) {
+                await t.rollback();
+                return res.status(403).json({
+                    status: 'error',
+                    message: 'Seuls un Administrateur ou un Agent peuvent réaffecter un client à un autre commercial'
+                });
+            }
+        }
+        
+        allowedUpdates.codRepresTiers = requestedCommercial ?? tiers.codRepresTiers;
 
         if (updatedPhone) {
             const duplicatePhone = await findTiersByPhone({

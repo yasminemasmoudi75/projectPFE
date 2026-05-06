@@ -1,4 +1,5 @@
-const { Category, Collection } = require('../models');
+const { Category, Collection, sequelize } = require('../models');
+const { QueryTypes } = require('sequelize');
 
 // Category Controllers (TabCategorie)
 exports.getAllCategories = async (req, res) => {
@@ -56,10 +57,34 @@ exports.deleteCategory = async (req, res) => {
 // Collection Controllers (TabCollection) - Often used as Product Family
 exports.getAllCollections = async (req, res) => {
     try {
+        console.log('🔍 Fetching all collections from TabCollection...');
         const collections = await Collection.findAll();
-        res.json(collections);
+        console.log(`✅ Found ${collections?.length || 0} collections in TabCollection`);
+        return res.json(collections);
     } catch (error) {
-        res.status(500).json({ message: "Erreur lors de la récupération des collections", error: error.message });
+        console.error('❌ Error fetching from TabCollection, trying fallback to TabStock...', error.message);
+        
+        try {
+            // Fallback: Fetch unique collections directly from TabStock (Product table)
+            const uniqueCollections = await sequelize.query(
+                "SELECT DISTINCT [Collection] FROM [TabStock] WHERE [Collection] IS NOT NULL AND [Collection] <> '' ORDER BY [Collection] ASC",
+                { type: QueryTypes.SELECT }
+            );
+            
+            console.log(`✅ Fallback successful: found ${uniqueCollections?.length || 0} unique collections in TabStock`);
+            
+            const data = uniqueCollections.map(row => ({
+                Collection: row.Collection,
+                ID: row.Collection // Use name as ID for fallback
+            }));
+            
+            return res.json(data);
+        } catch (fallbackError) {
+            console.error('❌ Fallback also failed:', fallbackError.message);
+            // Return empty array to the frontend to avoid 500/crash
+            // The frontend will show "Divers" or empty list gracefully
+            return res.json([]);
+        }
     }
 };
 

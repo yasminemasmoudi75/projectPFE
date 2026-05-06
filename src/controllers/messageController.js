@@ -36,7 +36,7 @@ exports.getInbox = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    console.log(`📨 Fetch inbox pour UserID: ${req.user.UserID}, page ${page}`);
+    console.log(`📨 [MESSAGES] Fetch inbox pour UserID: ${req.user.UserID}, page ${page}`);
 
     // Récupérer les messages envoyés ET reçus
     const { count, rows } = await Message.findAndCountAll({

@@ -30,6 +30,14 @@ const FavDetail = sequelize.define('TabFavd', {
         type: DataTypes.STRING(255),
         field: 'LibArt'
     },
+    ExLibArt: {
+        type: DataTypes.STRING(255),
+        field: 'ExLibArt'
+    },
+    IDArt: {
+        type: DataTypes.STRING(50),
+        field: 'IDArt'
+    },
     Qt: {
         type: DataTypes.FLOAT,
         field: 'Qt'
@@ -42,6 +50,19 @@ const FavDetail = sequelize.define('TabFavd', {
         type: DataTypes.FLOAT,
         field: 'PuTTC'
     },
+    PvPub: {
+        type: DataTypes.FLOAT,
+        field: 'PvPub'
+    },
+    PuDev: {
+        type: DataTypes.FLOAT,
+        field: 'PuDev'
+    },
+    Tva: {
+        type: DataTypes.FLOAT,
+        field: 'TVA' // ✅ Note: Colonne calculée 'TVA' dans TabFavd
+    },
+
     MntRem: {
         type: DataTypes.FLOAT,
         field: 'MntRem'
@@ -53,23 +74,74 @@ const FavDetail = sequelize.define('TabFavd', {
     MntHT: {
         type: DataTypes.FLOAT,
         field: 'MntHT'
+        // ✅ Note: Colonne calculée dans la DB
     },
+
     MntFodec: {
         type: DataTypes.FLOAT,
         field: 'MntFodec'
+    },
+    MntFrais: {
+        type: DataTypes.FLOAT,
+        field: 'MntFrais'
+    },
+    CodColor: {
+        type: DataTypes.STRING(30),
+        field: 'CodColor'
+    },
+    DesColor: {
+        type: DataTypes.STRING(100),
+        field: 'DesColor'
+    },
+    CodTaille: {
+        type: DataTypes.STRING(30),
+        field: 'CodTaille'
+    },
+    Taille: {
+        type: DataTypes.STRING(100),
+        field: 'Taille'
+    },
+    NumBL: {
+        type: DataTypes.STRING(50),
+        field: 'NumBL'
+    },
+    DateBL: {
+        type: DataTypes.DATE,
+        field: 'DateBL'
     },
     Codabar: {
         type: DataTypes.STRING(50),
         field: 'Codabar'
     },
-    IDArt: {
+    NumImport: {
         type: DataTypes.STRING(50),
-        field: 'IDArt'
+        field: 'NumImport'
+    },
+    DatImport: {
+        type: DataTypes.DATE,
+        field: 'DatImport'
     }
 }, {
     tableName: 'TabFavd',
     timestamps: false,
-    freezeTableName: true
+    freezeTableName: true,
+    hooks: {
+        beforeCreate: (record) => {
+            delete record.MntHT;
+            delete record.Tva;
+        },
+        beforeUpdate: (record) => {
+            delete record.MntHT;
+            delete record.Tva;
+        },
+        beforeBulkCreate: (records) => {
+            records.forEach(record => {
+                delete record.MntHT;
+                delete record.Tva;
+            });
+        }
+    }
 });
+
 
 module.exports = FavDetail;

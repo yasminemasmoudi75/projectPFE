@@ -22,7 +22,7 @@ const ROLE_ALIASES = {
 const DEFAULT_PROFILE_IDS = {
   admin: 1,
   commercial: 2,
-  technicien: 6,
+  technicien: 4,
   client: 7,
   agent: 8
 };
@@ -87,17 +87,17 @@ async function resolveUserAccess(userId, fallbackRole = 'User', options = {}) {
   const roleFromProfileId = getRoleFromProfileId(row?.PROF_ID);
   const rawRole = canFlag(row?.USER_IS_ADMIN)
     ? 'Admin'
-    : (row?.PROF_DESCRIPTION || roleFromProfileId || fallbackRole || 'User');
-  const normalizedRole = normalizeRole(rawRole) || 'user';
+    : (row?.PROF_DESCRIPTION || roleFromProfileId || null);
+  const normalizedRole = normalizeRole(rawRole);
 
   return {
     found: Boolean(row),
-    role: getRoleLabel(rawRole),
+    role: rawRole ? getRoleLabel(rawRole) : null,
     normalizedRole,
     profileId: row?.PROF_ID ?? null,
-    profileDescription: row?.PROF_DESCRIPTION || getRoleLabel(roleFromProfileId) || null,
+    profileDescription: row?.PROF_DESCRIPTION || (roleFromProfileId ? getRoleLabel(roleFromProfileId) : null),
     isAdmin: canFlag(row?.USER_IS_ADMIN) || normalizedRole === 'admin',
-    isActive: row?.USER_ACTIVE == null ? true : canFlag(row.USER_ACTIVE)
+    isActive: row?.USER_ACTIVE == null ? false : canFlag(row.USER_ACTIVE)
   };
 }
 

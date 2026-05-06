@@ -351,16 +351,85 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
     return filterResult;
   }
 
-  // Activites (TabActivite): scope through client portfolio
-  // Note: getRepresentativeScope already returns the list of CodTiers appropriate for this user/role
-  if (moduleKey === '45') {
-    // Representatives are already the CodTiers we need - use them directly
+  // Activites (TabActivite): scope through user assignment (User column)
+  if (moduleKey === '45' || moduleKey === '8') {
+    if (normalizedRole === 'admin') return {};
+
+    const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
+    if (!filtreRepresEnabled) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: FiltreRepres disabled, showing all`);
+      return {};
+    }
+
+    if (normalizedRole === 'commercial') {
+      const userId = user?.UserID || user?.id || user?.USER_ID;
+      if (!userId) return { [Op.and]: [sequelize.literal('1 = 0')] };
+      return { User: Number(userId) };
+    }
+
+    if (normalizedRole === 'agent') {
+      const userRegion = user?.Gouvernorat ?? user?.gouvernorat ?? null;
+      if (!userRegion) return { [Op.and]: [sequelize.literal('1 = 0')] };
+
+      const commercials = await sequelize.query(`
+        SELECT u.USER_ID
+        FROM UCS_USERS u
+        INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
+        INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
+        WHERE LOWER(p.PROF_DESCRIPTION) IN ('commercial', 'commerciale')
+          AND EXISTS (
+            SELECT 1
+            FROM tiersGouvernorat tgReq
+            INNER JOIN tiersGouvernorat tgUser ON tgUser.id = tgReq.id
+            WHERE (
+              tgReq.id = TRY_CONVERT(INT, :userRegion)
+              OR LOWER(LTRIM(RTRIM(tgReq.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), :userRegion))))
+            )
+            AND (
+              tgUser.id = TRY_CONVERT(INT, u.Gouvernorat)
+              OR LOWER(LTRIM(RTRIM(tgUser.libelle))) = LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(100), u.Gouvernorat))))
+            )
+          )
+      `, {
+        replacements: { userRegion: String(userRegion).trim() },
+        type: QueryTypes.SELECT
+      });
+
+      const commercialIds = commercials.map(row => row.USER_ID).filter(Boolean);
+      const agentId = user?.UserID || user?.id || user?.USER_ID;
+      if (agentId) commercialIds.push(agentId); // Agent can see their own activities too
+
+      if (commercialIds.length === 0) {
+        return { [Op.and]: [sequelize.literal('1 = 0')] };
+      }
+
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: Agent filtering by User IDs:`, commercialIds);
+      return { User: { [Op.in]: commercialIds.map(id => Number(id)) } };
+    }
+
+    // Fallback for client roles or unexpected roles
     if (representatives.length === 0) {
-      console.log(`   🔍 [filterHelper] Module 45 (Activites): No client codes found, blocking all access`);
+      return { [Op.and]: [sequelize.literal('1 = 0')] };
+    }
+    return { CodTiers: { [Op.in]: representatives } };
+  }
+
+  // Reclamations/SAV
+  if (moduleKey === '31' || moduleKey === '51') {
+    if (normalizedRole === 'admin') return {};
+
+    const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
+    if (!filtreRepresEnabled) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: FiltreRepres disabled, showing all`);
+      return {};
+    }
+
+    if (representatives.length === 0) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: FiltreRepres enabled but no client codes found, blocking all access`);
       return { [Op.and]: [sequelize.literal('1 = 0')] };
     }
 
-    console.log(`   🔍 [filterHelper] Module 45 (Activites): Filtering by ${representatives.length} client codes`);
+    console.log(`   🔍 [filterHelper] Module ${moduleKey}: Filtering by ${representatives.length} client codes`);
     return { CodTiers: { [Op.in]: representatives } };
   }
 
@@ -410,9 +479,9 @@ exports.applyTableDrivenFiltersWithPagination = async (moduleCode, queryParams, 
       finalWhere = scopedWhere;
     }
 
-    console.log(`   📋 [filterHelper] Final where object:`, finalWhere);
-    console.log(`   📋 [filterHelper] Final where keys:`, Object.keys(finalWhere));
-    console.log(`   📋 [filterHelper] Final where symbols:`, Object.getOwnPropertySymbols(finalWhere));
+    console.log(`   📋 [filterHelper] Final where object:`, JSON.stringify(finalWhere, (key, value) => 
+      typeof value === 'symbol' ? value.toString() : value
+    , 2));
 
     return {
       where: finalWhere,

@@ -68,18 +68,28 @@ const Objectif = sequelize.define('Objectif', {
       this.setDataValue('Mois', toNullableString(value));
     }
   },
+  // Gestion robuste de la colonne Annee/Anne
   Annee: {
     type: DataTypes.STRING(30),
     allowNull: true,
-    field: 'Anne',
+    field: 'Anne', // Doit correspondre à la colonne SQL exacte
     get() {
-      const value = this.getDataValue('Annee');
-      if (value === undefined || value === null || value === '') return null;
-      const parsed = parseInt(value, 10);
-      return Number.isNaN(parsed) ? value : parsed;
+      // Fallback : si la colonne n'existe pas, retourne null
+      try {
+        const value = this.getDataValue('Annee');
+        if (value === undefined || value === null || value === '') return null;
+        const parsed = parseInt(value, 10);
+        return Number.isNaN(parsed) ? value : parsed;
+      } catch (e) {
+        return null;
+      }
     },
     set(value) {
-      this.setDataValue('Annee', toNullableString(value));
+      try {
+        this.setDataValue('Annee', toNullableString(value));
+      } catch (e) {
+        // ignore si la colonne n'existe pas
+      }
     }
   },
   Numsem: {
@@ -90,7 +100,7 @@ const Objectif = sequelize.define('Objectif', {
   MontantCible: {
     type: DataTypes.STRING(30),
     allowNull: true,
-    field: 'autVal',
+    field: 'autObj',
     get() {
       return toNumericValue(this.getDataValue('MontantCible'));
     },
@@ -101,13 +111,62 @@ const Objectif = sequelize.define('Objectif', {
   Montant_Realise_Actuel: {
     type: DataTypes.STRING(30),
     allowNull: true,
-    field: 'autObj',
+    field: 'autVal',
     get() {
       return toNumericValue(this.getDataValue('Montant_Realise_Actuel'));
     },
     set(value) {
       this.setDataValue('Montant_Realise_Actuel', toNullableString(value));
     }
+  },
+  autObj: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.get('MontantCible');
+    }
+  },
+  autVal: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.get('Montant_Realise_Actuel');
+    }
+  },
+  CodTiers: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'CodTiers'
+  },
+  DateCreation: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'DateCreation',
+    defaultValue: DataTypes.NOW
+  },
+  StatutObjectif: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    field: 'StatutObjectif'
+  },
+  DateClotureAdmin: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'DateClotureAdmin'
+  },
+  IdUtilisateurClotureAdmin: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'IdUtilisateurClotureAdmin'
+  },
+  DateArchivage: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'DateArchivage',
+    comment: 'Date archivage automatique (date fin dépassée ou montant atteint)'
+  },
+  NombreReglementsLies: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'NombreReglementsLies'
   },
   Libelle_Indicateur: {
     type: DataTypes.STRING(1000),
@@ -157,13 +216,13 @@ const Objectif = sequelize.define('Objectif', {
   Valeur_Cible: {
     type: DataTypes.VIRTUAL,
     get() {
-      return this.MontantCible;
+      return this.get('MontantCible');
     }
   },
   Valeur_Actuelle: {
     type: DataTypes.VIRTUAL,
     get() {
-      return this.Montant_Realise_Actuel;
+      return this.get('Montant_Realise_Actuel');
     }
   },
   Unite: {
@@ -175,19 +234,32 @@ const Objectif = sequelize.define('Objectif', {
   Avancement: {
     type: DataTypes.VIRTUAL,
     get() {
-      const target = this.MontantCible;
-      const actual = this.Montant_Realise_Actuel;
-      if (!target) return 0;
+      const target = Number(this.get('MontantCible'));
+      const actual = Number(this.get('Montant_Realise_Actuel'));
+      if (!target || isNaN(target)) return 0;
       return Math.min(Math.round((actual / target) * 100), 100);
     }
   },
   Statut: {
     type: DataTypes.VIRTUAL,
     get() {
-      const target = this.MontantCible;
-      const actual = this.Montant_Realise_Actuel;
-      if (!target) return actual > 0 ? 'En cours' : 'En cours';
-      return actual >= target ? 'Atteint' : 'En cours';
+      const target = Number(this.get('MontantCible'));
+      const actual = Number(this.get('Montant_Realise_Actuel'));
+      if (!target || isNaN(target)) return 'En cours';
+      return actual >= target ? 'Terminé' : 'En cours';
+    }
+  }
+  ,
+  AutObjAffiche: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      const format = (v) => {
+        const n = Number(v) || 0;
+        return n.toFixed(2).replace('.', ',');
+      };
+      const actual = format(this.get('Montant_Realise_Actuel'));
+      const cible = format(this.get('MontantCible'));
+      return `${actual} / ${cible} TND`;
     }
   }
 }, {

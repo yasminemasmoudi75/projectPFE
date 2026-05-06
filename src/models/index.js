@@ -36,6 +36,9 @@ const TabRegD = require('./TabRegD');
 const TabRegF = require('./TabRegF');
 const MvtRecap = require('./MvtRecap');
 const TabModReg = require('./TabModReg');
+const Notification = require('./Notification');
+const TiersContactClasse = require('./TiersContactClasse');
+const TiersClasseAuto = require('./TiersClasseAuto')(sequelize);
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -182,6 +185,18 @@ Message.belongsTo(User, {
   as: 'recipient'
 });
 
+// User - Notification (1:N)
+User.hasMany(Notification, {
+  foreignKey: 'RecipientID',
+  sourceKey: 'UserID',
+  as: 'notifications'
+});
+Notification.belongsTo(User, {
+  foreignKey: 'RecipientID',
+  targetKey: 'UserID',
+  as: 'recipient'
+});
+
 // User - Activite (1:N)
 User.hasMany(Activite, {
   foreignKey: 'User',
@@ -240,6 +255,28 @@ TiersContact.belongsTo(Tiers, {
   foreignKey: 'IDTiers',
   targetKey: 'IDTiers',
   as: 'tiers'
+});
+
+// Classification automatique (Vue SQL)
+TiersContact.hasOne(TiersContactClasse, {
+  foreignKey: 'idcontact',
+  sourceKey: 'ID',
+  as: 'classeAuto'
+});
+TiersContactClasse.belongsTo(TiersContact, {
+  foreignKey: 'idcontact',
+  targetKey: 'ID'
+});
+
+// Tiers - Classe automatique (Vue SQL)
+Tiers.hasOne(TiersClasseAuto, {
+  foreignKey: 'CodTiers',
+  sourceKey: 'CodTiers',
+  as: 'classeAuto'
+});
+TiersClasseAuto.belongsTo(Tiers, {
+  foreignKey: 'CodTiers',
+  targetKey: 'CodTiers'
 });
 
 // Tiers - Adresses (1:N)
@@ -315,6 +352,7 @@ Reclamation.belongsTo(User, {
   as: 'technicien'
 });
 
+
 // Product - TabStockD (1:N)
 Product.hasMany(TabStockD, {
   foreignKey: 'IDArt',
@@ -356,6 +394,7 @@ module.exports = {
   sequelize,
   User,
   Message,
+  Notification,
   DevisMaster,
   DevisDetail,
   BcvMaster,
@@ -384,6 +423,8 @@ module.exports = {
   FavDetail,
   Mouvement,  // ✅ Table MvtDocs - Mouvements/transformations de documents
   GmailOAuthTokens,  // ✅ Tokens OAuth Gmail
+  TiersContactClasse,
+  TiersClasseAuto,
   TabReg,
   TabRegD,
   TabRegF,

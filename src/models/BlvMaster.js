@@ -133,6 +133,11 @@ const BlvMaster = sequelize.define('TabBlvm', {
         allowNull: true,
         field: 'bTransf'
     },
+    // Alias UI: frontend expects IsConverted, DB uses bTransf
+    IsConverted: {
+        type: DataTypes.VIRTUAL,
+        get() { return !!this.getDataValue('bTransf'); }
+    },
     bLivr: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
@@ -142,6 +147,16 @@ const BlvMaster = sequelize.define('TabBlvm', {
         type: DataTypes.STRING(10),
         allowNull: true,
         field: 'CodDev'
+    },
+    CodChauff: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'CodChauff'
+    },
+    DesChauff: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'DesChauff'
     }
 }, {
     tableName: 'TabBlvm',

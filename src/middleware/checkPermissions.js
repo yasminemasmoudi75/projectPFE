@@ -25,12 +25,14 @@ const hasAnyModuleAccess = (permissions) => (
  * Middleware pour vérifier les permissions module par rôle
  * Utilise TabAWProfileAccess pour contrôler canAdd, canEdit, canDelt
  * 
- * @param {number} codMod - Code du module (ex: 1=Objectifs, 2=Réclamations)
+ * @param {number|number[]} codMod - Code(s) du module (ex: 1=Objectifs, ou [8, 45])
  * @param {string} action - Action demandée: 'create', 'read', 'update', 'delete'
  */
 const checkPermission = (codMod, action) => {
   return async (req, res, next) => {
+    console.log(`🔐 [checkPermission] Entry: mod=${codMod}, action=${action}, user=${req.user?.LoginName}`);
     try {
+      const codMods = Array.isArray(codMod) ? codMod : [codMod];
       const userId = req.user?.id || req.user?.UserID;
       
       if (!userId) {
@@ -57,99 +59,108 @@ const checkPermission = (codMod, action) => {
       // }
 
       const aliases = roleAliases(userRole);
+      let granted = false;
+      let lastErrorMessage = 'Accès refusé au module';
+      let lastErrorDetails = `Aucune permission configurée`;
+      let accessibleModule = null;
+      let foundPermissions = null; // ← Declared OUTSIDE the loop
 
-      // Récupérer les permissions du rôle pour ce module
-      const permissionsResult = await sequelize.query(`
-        SELECT TOP 1 canAdd, canEdit, canDelt, Actif, ProfileUser
-        FROM TabAWProfileAccess
-        WHERE LOWER(ProfileUser) IN (:aliases) AND CodMod = :codMod
-        ORDER BY CASE WHEN LOWER(ProfileUser) = :preferredRole THEN 0 ELSE 1 END
-      `, {
-        replacements: { aliases, codMod, preferredRole: userRole },
-        type: QueryTypes.SELECT
-      });
+      for (const mod of codMods) {
+        // Récupérer les permissions du rôle pour ce module
+        const permissionsResult = await sequelize.query(`
+          SELECT TOP 1 canAdd, canEdit, canDelt, Actif, ProfileUser, FiltreRepres
+          FROM TabAWProfileAccess
+          WHERE LOWER(ProfileUser) IN (:aliases) AND CodMod = :mod
+        `, {
+          replacements: { aliases, mod },
+          type: QueryTypes.SELECT
+        });
 
-      const permissions = permissionsResult[0];
+        const permissions = permissionsResult[0];
 
-      if (!permissions) {
-        if (userRole === 'admin') {
-          return next();
+        if (!permissions) {
+          if (userRole === 'admin') {
+            granted = true;
+            accessibleModule = mod;
+            break;
+          }
+          lastErrorDetails = `Aucune permission configurée pour le rôle ${userRole} sur le module ${mod}`;
+          continue;
         }
 
+        const moduleAccessible = hasAnyModuleAccess(permissions);
+
+        if (!moduleAccessible) {
+          lastErrorMessage = 'Module désactivé pour votre rôle';
+          continue;
+        }
+
+        // Vérifier la permission selon l'action
+        let hasPermission = false;
+        let permissionName = '';
+
+        switch (action) {
+          case 'create':
+            hasPermission = canFlag(permissions.canAdd);
+            permissionName = 'canAdd';
+            break;
+          case 'read':
+            hasPermission = moduleAccessible;
+            break;
+          case 'update':
+            hasPermission = canFlag(permissions.canEdit);
+            permissionName = 'canEdit';
+            break;
+          case 'delete':
+            hasPermission = canFlag(permissions.canDelt);
+            permissionName = 'canDelt';
+            break;
+          default:
+            return res.status(400).json({
+              status: 'error',
+              message: 'Action non reconnue'
+            });
+        }
+
+        if (!hasPermission && Number(mod) === Number(MODULES.DEVIS)) {
+          const isCommercial = userRole === 'commercial';
+          const isAdmin = userRole === 'admin';
+
+          if (action === 'update' && (isCommercial || isAdmin)) {
+            hasPermission = moduleAccessible;
+          }
+
+          if (action === 'delete' && isAdmin) {
+            hasPermission = moduleAccessible;
+          }
+        }
+
+        if (hasPermission) {
+          granted = true;
+          accessibleModule = mod;
+          foundPermissions = permissions; // ← Store the matched permissions
+          break;
+        } else {
+          lastErrorDetails = `Votre rôle (${userRole}) n'a pas la permission ${permissionName} pour cette action sur le module ${mod}`;
+        }
+      }
+
+      if (!granted) {
         return res.status(403).json({
           status: 'error',
-          message: `Accès refusé au module`,
-          details: `Aucune permission configurée pour le rôle ${userRole} sur le module ${codMod}`
+          message: lastErrorMessage,
+          details: lastErrorDetails
         });
       }
 
-      const moduleAccessible = hasAnyModuleAccess(permissions);
-
-      // Sur la base legacy, certains modules ont des flags CRUD renseignés alors que Actif=0.
-      // On considère donc le module accessible si au moins un droit explicite existe.
-      if (!moduleAccessible) {
-        return res.status(403).json({
-          status: 'error',
-          message: 'Module désactivé pour votre rôle'
-        });
-      }
-
-      // Vérifier la permission selon l'action
-      let hasPermission = false;
-      let permissionName = '';
-
-      switch (action) {
-        case 'create':
-          hasPermission = canFlag(permissions.canAdd);
-          permissionName = 'canAdd';
-          break;
-        case 'read':
-          // La lecture est implicite dès qu'un accès module existe.
-          hasPermission = moduleAccessible;
-          break;
-        case 'update':
-          hasPermission = canFlag(permissions.canEdit);
-          permissionName = 'canEdit';
-          break;
-        case 'delete':
-          hasPermission = canFlag(permissions.canDelt);
-          permissionName = 'canDelt';
-          break;
-        default:
-          return res.status(400).json({
-            status: 'error',
-            message: 'Action non reconnue'
-          });
-      }
-
-      // Business rule override for Devis module:
-      // - Commercial can update Devis
-      // - Admin can update and delete Devis
-      if (!hasPermission && Number(codMod) === Number(MODULES.DEVIS)) {
-        const isCommercial = userRole === 'commercial';
-        const isAdmin = userRole === 'admin';
-
-        if (action === 'update' && (isCommercial || isAdmin)) {
-          hasPermission = moduleAccessible;
-          permissionName = `${permissionName || 'canEdit'} (role override)`;
-        }
-
-        if (action === 'delete' && isAdmin) {
-          hasPermission = moduleAccessible;
-          permissionName = `${permissionName || 'canDelt'} (role override)`;
-        }
-      }
-
-      if (!hasPermission) {
-        return res.status(403).json({
-          status: 'error',
-          message: `Permission refusée`,
-          details: `Votre rôle (${userRole}) n'a pas la permission ${permissionName} pour cette action`
-        });
-      }
-
+      // Store the module and specific permissions for the controller
+      req.grantedModule = accessibleModule;
+      req.permissions = foundPermissions || {}; // ← Use the outer-scoped variable
+      
       // Permission accordée
       next();
+
+
 
     } catch (error) {
       console.error('Erreur vérification permissions:', error);
@@ -169,6 +180,7 @@ const MODULES = {
   USERS: 1,              // Module Utilisateurs
   MESSAGES: 2,           // Module Messages (FIX: était 43)
   PROJETS: 3,            // Module Projets
+  CALENDRIER: 8,         // Module Calendrier (Activités)
   DEVIS: 4,              // Module Devis
   BCV: 5,                // Module Commande
   LIVRAISONS: 6,         // Module Livraison
@@ -183,6 +195,7 @@ const MODULES = {
   RELEVE: 44,            // Module Relevé
   VISITES: 45,           // Module visite
   STOCK: 46,             // Stock / Produits
+  CATEGORIES: 46,        // Categories/Collections (Stock)
   SOLDE_CLIENT: 47,      // soldeClient
   MAPS: 52,              // Maps
 

@@ -13,7 +13,8 @@ const allowClientOrProductRead = (req, res, next) => {
 	(async () => {
 		const userId = req.user?.id || req.user?.UserID;
 		const access = await resolveUserAccess(userId, req.user?.UserRole);
-		if (access?.normalizedRole === 'client') return next();
+		const role = access?.normalizedRole;
+		if (['client', 'commercial', 'admin'].includes(role)) return next();
 		return checkPermission(MODULES.PRODUITS, 'read')(req, res, next);
 	})().catch((error) => {
 		return res.status(500).json({

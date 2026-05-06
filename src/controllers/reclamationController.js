@@ -208,6 +208,7 @@ exports.getAll = async (req, res, next) => {
         delete queryForPermissions.Date;
         delete queryForPermissions.DateFrom;
         delete queryForPermissions.DateTo;
+        delete queryForPermissions.CommercialID;
         
         // Module 31 = Reclamations/SAV (aligned with TabAWProfileAccess CodMod)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
@@ -217,7 +218,7 @@ exports.getAll = async (req, res, next) => {
         );
 
         // Add manual filters for reclamations
-        const { Objet, LibTiers, NumTicket, Statut, Priorite, TechnicienID, Date: filterDate, DateFrom, DateTo } = req.query;
+        const { Objet, LibTiers, NumTicket, Statut, Priorite, TechnicienID, Date: filterDate, DateFrom, DateTo, CommercialID } = req.query;
 
         if (Objet || LibTiers || NumTicket) {
             const searchConditions = [];
@@ -239,6 +240,23 @@ exports.getAll = async (req, res, next) => {
 
         if (TechnicienID && TechnicienID !== 'all') {
             where.TechnicienID = TechnicienID;
+        }
+
+        if (CommercialID && CommercialID !== 'all') {
+            const clientRows = await sequelize.query(`
+                SELECT CodTiers
+                FROM TabTiers
+                WHERE CONVERT(VARCHAR, codRepresTiers) = :commercialId
+            `, {
+                replacements: { commercialId: String(CommercialID) },
+                type: QueryTypes.SELECT
+            });
+            const clientCodes = clientRows.map(r => r.CodTiers).filter(Boolean);
+            if (clientCodes.length > 0) {
+                where[Op.and] = [...(where[Op.and] || []), { CodTiers: { [Op.in]: clientCodes } }];
+            } else {
+                where[Op.and] = [...(where[Op.and] || []), sequelize.literal('1 = 0')];
+            }
         }
 
         const reclamationColumns = await getReclamationColumns();
