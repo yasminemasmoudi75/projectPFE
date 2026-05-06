@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import axios from '../../app/axios';
 import { formatFileSize } from '../../utils/format';
+import { SparklesIcon, CheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -13,6 +14,14 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const attachmentInputRef = useRef(null);
+
+  // AI Assistant state
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiResponse, setAiResponse] = useState(null);
+  const [reformulating, setReformulating] = useState(false);
 
   const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024;
 
@@ -26,6 +35,10 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = '';
     }
+    setShowAIAssistant(false);
+    setAiPrompt('');
+    setAiResponse(null);
+    setAiError(null);
   };
 
   const handleChange = (e) => {
@@ -53,6 +66,52 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
 
     setError(null);
     setAttachment(file);
+  };
+
+  const handleGenerateAI = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiError(null);
+    try {
+      const response = await axios.post('/ia/generate-email', { prompt: aiPrompt });
+      // The axios interceptor returns the data directly. The payload is { status: 'success', data: { objet, corps } }
+      // Therefore, response.data contains the { objet, corps } object.
+      setAiResponse(response?.data || response);
+    } catch (err) {
+      console.error('Erreur génération IA:', err);
+      setAiError(err.response?.data?.message || 'Erreur lors de la génération. Veuillez réessayer.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const applyAISubject = () => {
+    if (aiResponse?.objet) {
+      setFormData(prev => ({ ...prev, subject: aiResponse.objet }));
+    }
+  };
+
+  const applyAIBody = () => {
+    if (aiResponse?.corps) {
+      setFormData(prev => ({ ...prev, message: aiResponse.corps }));
+    }
+  };
+
+  const handleReformulate = async () => {
+    if (!formData.message.trim()) return;
+    setReformulating(true);
+    try {
+      const response = await axios.post('/ia/reformulate-email', { text: formData.message });
+      const payload = response?.data || response;
+      if (payload?.corrected) {
+        setFormData(prev => ({ ...prev, message: payload.corrected }));
+      }
+    } catch (err) {
+      console.error('Erreur reformulation:', err);
+      alert('Erreur lors de la correction du texte.');
+    } finally {
+      setReformulating(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -113,21 +172,31 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-gradient-to-r from-primary-50 to-primary-100 px-6 py-4">
             <h2 className="text-lg font-bold text-slate-800">Nouveau message</h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowAIAssistant(!showAIAssistant)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showAIAssistant ? 'bg-primary-600 text-white' : 'bg-white text-primary-600 border border-primary-200 hover:bg-primary-50'}`}
+              >
+                <SparklesIcon className="h-4 w-4" />
+                Assistant IA ✨
+              </button>
+              <button
+                onClick={handleClose}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-            {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            )}
+          <div className="flex flex-col md:flex-row overflow-hidden flex-1">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 border-r border-slate-100">
+              {error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-4">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
 
             {/* To Field */}
             <div>
@@ -179,9 +248,24 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                 style={{ minHeight: '300px' }}
               ></textarea>
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.message.length} caractères
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-gray-500">
+                  {formData.message.length} caractères
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReformulate}
+                  disabled={reformulating || !formData.message.trim()}
+                  className="flex items-center gap-1 text-xs px-2 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-md transition-colors font-medium disabled:opacity-50"
+                  title="Corriger les fautes et reformuler ce texte avec l'IA"
+                >
+                  {reformulating ? (
+                    <><ArrowPathIcon className="h-3 w-3 animate-spin" /> Correction...</>
+                  ) : (
+                    <><SparklesIcon className="h-3 w-3" /> Corriger & Reformuler</>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Attachment Field */}
@@ -226,6 +310,81 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
               </button>
             </div>
           </form>
+
+          {/* AI Assistant Panel */}
+          {showAIAssistant && (
+            <div className="w-full md:w-80 bg-slate-50 border-l border-slate-200 flex flex-col p-5 overflow-y-auto max-h-[60vh] md:max-h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <SparklesIcon className="h-5 w-5 text-primary-600" />
+                <h3 className="font-bold text-slate-800">Assistant Rédaction IA</h3>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <label className="block text-sm text-slate-600">
+                  Décrivez l'email que vous voulez rédiger...
+                </label>
+                <textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="ex: relancer monsieur Ali concernant la facture impayée de 5000 DT..."
+                  rows={4}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                ></textarea>
+                <button
+                  type="button"
+                  onClick={handleGenerateAI}
+                  disabled={aiGenerating || !aiPrompt.trim()}
+                  className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors disabled:opacity-50"
+                >
+                  {aiGenerating ? (
+                    <span className="flex items-center gap-2"><ArrowPathIcon className="h-4 w-4 animate-spin" /> Génération...</span>
+                  ) : (
+                    <span className="flex items-center gap-2"><SparklesIcon className="h-4 w-4" /> Générer</span>
+                  )}
+                </button>
+                {aiError && <p className="text-xs text-red-500 mt-2">{aiError}</p>}
+              </div>
+
+              {aiResponse && !aiGenerating && (
+                <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-4">
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Objet suggéré</p>
+                    <p className="text-sm text-slate-800 font-medium mb-2">{aiResponse.objet}</p>
+                    <button
+                      type="button"
+                      onClick={applyAISubject}
+                      className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      <CheckIcon className="h-3 w-3" /> Utiliser cet objet
+                    </button>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Corps suggéré</p>
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap max-h-48 overflow-y-auto mb-2 text-xs">
+                      {aiResponse.corps}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={applyAIBody}
+                      className="text-xs flex items-center gap-1 text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      <CheckIcon className="h-3 w-3" /> Utiliser ce contenu
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateAI}
+                    className="w-full mt-2 text-xs py-1.5 flex justify-center items-center gap-1 border border-slate-300 rounded text-slate-600 hover:bg-slate-100"
+                  >
+                    <ArrowPathIcon className="h-3 w-3" /> Regénérer
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          </div>
         </div>
       </div>
     </div>

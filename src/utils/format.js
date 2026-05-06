@@ -258,3 +258,14 @@ export const getWhatsAppLink = (phone) => {
   return `https://wa.me/${normalizedPhone}`;
 };
 
+
+
+export const getPhoneLink = (phone) => {
+  if (!phone) return '#';
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned.length === 8 && !cleaned.startsWith('+')) {
+    return 'tel:+216$cleaned';
+  }
+  return 'tel:$cleaned';
+};
+
