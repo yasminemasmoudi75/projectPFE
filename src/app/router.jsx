@@ -50,6 +50,8 @@ const UserDetail = lazy(() => import('../modules/users/UserDetail'));
 const Profile = lazy(() => import('../modules/profile/Profile'));
 const MouvementsPage = lazy(() => import('../modules/mouvements/MouvementsPage'));
 const NotFound = lazy(() => import('../components/feedback/NotFound'));
+const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
+
 
 // Admin modules
 const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboardPro'));
@@ -66,6 +68,7 @@ const routes = [
   {
     path: '/auth',
     element: <AuthLayout />,
+    errorElement: <SuspenseWrapper><ErrorElement /></SuspenseWrapper>,
     children: [
       {
         path: 'login',
@@ -98,11 +101,8 @@ const routes = [
         <DashboardLayout />
       </ProtectedRoute>
     ),
+    errorElement: <SuspenseWrapper><ErrorElement /></SuspenseWrapper>,
     children: [
-      {
-        index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
       {
         index: true,
         element: <Navigate to="/dashboard" replace />,

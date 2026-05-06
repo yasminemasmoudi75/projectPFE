@@ -47,15 +47,16 @@ const menuItems = [
   { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE, color: 'teal' },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet' },
   { type: 'section', name: 'Operations' },
-  { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.CHARGEMENT, color: 'rose' },
+  { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES, color: 'rose' },
   { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.CALENDRIER, color: 'pink' },
   { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK, color: 'slate' },
   { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.SAV, color: 'red' },
   { type: 'section', name: 'Intelligence' },
   { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS, color: 'emerald' },
   { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP, color: 'violet' },
+  { name: 'Chargement', href: null, icon: TruckIcon, moduleCode: MODULE_CODES.CHARGEMENT, color: 'orange' },
   { name: 'Relevé', href: null, icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.RELEVE, color: 'cyan' },
-  { name: 'Visite', href: null, icon: DocumentCheckIcon, moduleCode: MODULE_CODES.VISITES, color: 'amber' },
+  { name: 'Solde Client', href: null, icon: BanknotesIcon, moduleCode: MODULE_CODES.SOLDE_CLIENT, color: 'emerald' },
   { name: 'Maps', href: null, icon: UsersIcon, moduleCode: MODULE_CODES.MAPS, color: 'sky' },
 ];
 
@@ -161,37 +162,61 @@ const SidebarContent = () => {
   };
 
   const filtered = menuItems.filter(item => {
-    if (role === 'client' && ['Bons de Commande', 'Livraisons'].includes(item.name)) {
-      return true;
+    if (item.type === 'section') return true;
+    
+    // 1. Admin restricted view (if any specific hardcoded rules exist)
+    // Removed the unconditional bypass to respect DB isActive flag for everyone.
+
+    // 2. Client restricted view
+    if (role === 'client') {
+      return ['Dashboard', 'Bons de Commande', 'Livraisons', 'Factures'].includes(item.name);
     }
 
-    if (item.type === 'section') return true;
-    if (item.moduleCode == null) return true;
-    // Hide SAV module for commercial users
-    if (item.name === 'SAV' && role === 'commercial') return false;
-    // Hide Users (admin) module from non-admin users
+    // 3. Module specific hardcoded rules
+    if (item.name === 'SAV' && (role === 'commercial' || role === 'commerciale')) return false;
     if (item.name === 'Utilisateurs' && role !== 'admin') return false;
-    // Hide Admin section from non-admin users
     if (item.name === 'Admin' && role !== 'admin') return false;
 
+    // 4. Public modules (no moduleCode)
+    if (item.moduleCode == null) return true;
+
+    // 5. Database check (source of truth)
     const p = allPermissions.find(p => Number(p.moduleCode) === Number(item.moduleCode));
-    return p?.isActive === true;
-  }).map(item => {
-    return item;
+    
+    // Admin override: if module is NOT in permissions table yet, Admin can see it for dev
+    // But if it IS in table and isActive is false, respect it.
+    if (role === 'admin' && !p) return true;
+    
+    return p?.isActive === true || p?.isActive === 1;
   });
 
-  const groups = [];
-  let sec = null;
-  filtered.forEach(item => {
+  // 6. Final Grouping & Section Cleanup
+  const finalItems = [];
+  let currentSection = null;
+
+  filtered.forEach((item, idx) => {
     if (item.type === 'section') {
-      sec = { ...item, items: [] };
-      groups.push(sec);
-    } else if (sec) {
-      sec.items.push(item);
+      // Look ahead to see if this section has any items
+      const nextItems = filtered.slice(idx + 1);
+      const hasContent = nextItems.some(next => {
+        if (next.type === 'section') return false;
+        return true;
+      });
+      
+      if (hasContent) {
+        currentSection = { ...item, items: [] };
+        finalItems.push(currentSection);
+      } else {
+        currentSection = null;
+      }
+    } else if (currentSection) {
+      currentSection.items.push(item);
     } else {
-      groups.push(item);
+      finalItems.push(item);
     }
   });
+
+  const groups = finalItems;
 
   const initials = user?.FullName
     ?.split(' ')

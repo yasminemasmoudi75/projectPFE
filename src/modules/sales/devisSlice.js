@@ -34,10 +34,13 @@ export const fetchDevisById = createAsyncThunk('devis/fetchDevisById', async (id
   return response.data;
 });
 
-export const createDevis = createAsyncThunk('devis/createDevis', async (payload) => {
-  const response = await axios.post('/devis', payload);
-  // response est { status: 'success', message: '...', data: { ... } }
-  return response.data;
+export const createDevis = createAsyncThunk('devis/createDevis', async (payload, { rejectWithValue }) => {
+  try {
+    const response = await axios.post('/devis', payload);
+    return response.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data || err.message);
+  }
 });
 
 export const updateDevis = createAsyncThunk('devis/updateDevis', async ({ id, payload }) => {

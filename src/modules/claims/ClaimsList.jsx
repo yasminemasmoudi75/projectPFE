@@ -56,15 +56,17 @@ const STATUS = {
 const ClaimsList = () => {
     const navigate = useNavigate();
     const { user, isClient, isTechnicien, isAdmin } = useAuth();
-    const { canCreate: canAddReclamation } = usePermission(31);
+    const { canCreate: canAddReclamation, isFilterRepresEnabled } = usePermission(31);
     const [loading, setLoading] = useState(true);
     const [claims, setClaims] = useState([]);
     const [techniciens, setTechniciens] = useState([]);
+    const [commercials, setCommercials] = useState([]);
     const [assigningId, setAssigningId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [technicianFilter, setTechnicianFilter] = useState('all');
+    const [commercialFilter, setCommercialFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('');
     const [sortMode, setSortMode] = useState('recent');
     const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -101,6 +103,10 @@ const ClaimsList = () => {
             
             if (technicianFilter !== 'all') {
                 params.append('TechnicienID', technicianFilter);
+            }
+
+            if (commercialFilter !== 'all') {
+                params.append('CommercialID', commercialFilter);
             }
 
             if (dateFilter) {
@@ -187,7 +193,7 @@ const ClaimsList = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, user?.UserID]);
+    }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, commercialFilter, dateFilter, isTechnicien, user?.UserID]);
 
     const fetchTechniciens = useCallback(async () => {
         try {
@@ -209,6 +215,21 @@ const ClaimsList = () => {
             toast.error('Impossible de charger les techniciens');
         }
     }, []);
+
+    const fetchCommercials = useCallback(async () => {
+        try {
+            const res = await axios.get('/users/commercials/devis-filter', {
+                params: { moduleCode: '31', includeAll: isFilterRepresEnabled ? 'false' : 'true' },
+            });
+            const raw = Array.isArray(res.data) ? res.data : res.data?.data || [];
+            setCommercials(raw.map((c) => ({
+                id: c.userId || c.UserID,
+                name: c.fullName || c.FullName || c.label || c.login || c.LoginName
+            })));
+        } catch (e) {
+            console.error('fetchCommercials', e);
+        }
+    }, [isFilterRepresEnabled]);
 
     const handleAssignTechnician = async (claimId, technicienID) => {
         if (!technicienID) return;
@@ -292,6 +313,12 @@ const ClaimsList = () => {
             fetchTechniciens();
         }
 
+        const normalizedRole = String(user?.UserRole || '').trim().toLowerCase();
+        const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedRole);
+        if (!isClient && !isCommercialUser) {
+            fetchCommercials();
+        }
+
         // Auto-refresh pour techniciens: toutes les 5 secondes
         // Permet de voir les nouvelles assignations de l'admin en temps quasi-réel
         let interval;
@@ -304,7 +331,7 @@ const ClaimsList = () => {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [fetchClaims, fetchTechniciens, isAdmin, isTechnicien, currentPage, itemsPerPage]);
+    }, [fetchClaims, fetchTechniciens, fetchCommercials, isAdmin, isClient, isTechnicien, currentPage, itemsPerPage, user?.UserRole]);
 
     // Handle filter changes - reset to page 1
     const handleFilterChange = useCallback(() => {
@@ -319,7 +346,7 @@ const ClaimsList = () => {
         }, 300); // Debounce search
 
         return () => clearTimeout(timeoutId);
-    }, [searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, handleFilterChange]);
+    }, [searchTerm, statusFilter, priorityFilter, technicianFilter, commercialFilter, dateFilter, handleFilterChange]);
 
     const filteredClaims = useMemo(() => {
         // Since filtering is now handled by the backend, we mainly do sorting here
@@ -388,6 +415,7 @@ const ClaimsList = () => {
         setStatusFilter('all');
         setPriorityFilter('all');
         setTechnicianFilter('all');
+        setCommercialFilter('all');
         setDateFilter('');
         setSortMode('recent');
         setCurrentPage(1);
@@ -577,6 +605,20 @@ const ClaimsList = () => {
                                         <option value="status">Par statut</option>
                                     </select>
                                 </div>
+                                {(!['commercial', 'commerciale'].includes(String(user?.UserRole || '').trim().toLowerCase())) && (
+                                    <div>
+                                        <select
+                                            value={commercialFilter}
+                                            onChange={(e) => setCommercialFilter(e.target.value)}
+                                            className="input-modern"
+                                        >
+                                            <option value="all">Tous les commerciaux</option>
+                                            {commercials.map((com) => (
+                                                <option key={com.id} value={com.id}>{com.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>

@@ -180,8 +180,8 @@ const ReglemsList = () => {
   // Handle successful payment recording
   const handlePaymentSuccess = (updatedReglement) => {
     // Update the reglement in the list
-    setReglements(prevReglements => 
-      prevReglements.map(reg => 
+    setReglements(prevReglements =>
+      prevReglements.map(reg =>
         reg.id === updatedReglement.id ? {
           ...reg,
           paidAmount: updatedReglement.paidAmount,
@@ -562,16 +562,7 @@ const ReglemsList = () => {
                             <EyeIcon className="w-4 h-4" />
                             Détails
                           </motion.button>
-                          {user?.UserRole !== 'Client' && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => openPaymentModal(reg)}
-                              className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors"
-                            >
-                              💳 Paiement
-                            </motion.button>
-                          )}
+                          {/* Bouton paiement supprimé */}
                         </div>
                       </td>
                     </motion.tr>
@@ -591,7 +582,7 @@ const ReglemsList = () => {
         className="card-luxury flex items-center justify-between"
       >
         <p className="text-sm text-slate-600">
-          Affichage <span className="font-bold text-slate-900">{((pagination?.page || 1) - 1) * (pagination?.limit || 10) + 1}</span> 
+          Affichage <span className="font-bold text-slate-900">{((pagination?.page || 1) - 1) * (pagination?.limit || 10) + 1}</span>
           {' à '}
           <span className="font-bold text-slate-900">{Math.min((pagination?.page || 1) * (pagination?.limit || 10), pagination?.total || 0)}</span>
           {' sur '}
@@ -613,11 +604,10 @@ const ReglemsList = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handlePageChange(idx + 1)}
-              className={`px-3 py-2 rounded-lg font-semibold transition-all ${
-                (pagination?.page || 1) === idx + 1
+              className={`px-3 py-2 rounded-lg font-semibold transition-all ${(pagination?.page || 1) === idx + 1
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'border border-slate-200 text-slate-700 hover:border-blue-300'
-              }`}
+                }`}
             >
               {idx + 1}
             </motion.button>
@@ -635,7 +625,7 @@ const ReglemsList = () => {
       </motion.div>
 
       {/* Payment Modal */}
-      <ReglemPaymentModal 
+      <ReglemPaymentModal
         reglement={selectedReglement}
         isOpen={isModalOpen}
         onClose={closePaymentModal}
@@ -643,7 +633,7 @@ const ReglemsList = () => {
       />
 
       {/* Create Reglement Form */}
-      <ReglemForm 
+      <ReglemForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSuccess={(newReglement) => {

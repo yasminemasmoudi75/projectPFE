@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from '../../app/axios';
+import { useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeftIcon,
@@ -25,6 +26,7 @@ const isPhoneValid = (value) => value === '' || /^\d{8}$/.test(value);
 const ClientForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth);
     const isEdit = Boolean(id);
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
@@ -99,6 +101,21 @@ const ClientForm = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [completedSteps, setCompletedSteps] = useState(new Set([1]));
     const totalSteps = 4;
+
+    const isCommercial = useMemo(() => {
+        const role = String(user?.UserRole || '').trim().toLowerCase();
+        return role === 'commercial' || role === 'commerciale';
+    }, [user]);
+
+    const isAdmin = useMemo(() => {
+        const role = String(user?.UserRole || '').trim().toLowerCase();
+        return role === 'admin' || role === 'administrateur';
+    }, [user]);
+
+    const isAgent = useMemo(() => {
+        const role = String(user?.UserRole || '').trim().toLowerCase();
+        return role === 'agent';
+    }, [user]);
 
     // Validation functions for each step
     const validateStep1 = () => {
@@ -216,6 +233,12 @@ const ClientForm = () => {
         fetchCommercials();
         fetchBanques();
 
+        // Si l'utilisateur est un commercial, on pré-remplit son propre code
+        if (!isEdit && isCommercial) {
+            const myIdentifier = user?.UserID || user?.id || user?.LoginName || '';
+            setFormData(prev => ({ ...prev, Commercial: String(myIdentifier) }));
+        }
+
         if (isEdit) {
             const fetchClient = async () => {
                 try {
@@ -279,7 +302,11 @@ const ClientForm = () => {
 
                     setContacts(
                         Array.isArray(data.contacts) && data.contacts.length > 0
-                            ? data.contacts.map((c) => ({ Responsable: c.Responsable || '', Tel: normalizePhone(c.Tel) }))
+                            ? data.contacts.map((c) => ({
+                                Responsable: c.Responsable || '',
+                                Tel: normalizePhone(c.Tel),
+                                classeAuto: c.classeAuto // Récupération de la classe calculée
+                            }))
                             : [{ Responsable: '', Tel: '' }]
                     );
 
@@ -456,7 +483,14 @@ const ClientForm = () => {
             return;
         }
 
-        if (String(formData.Commercial || '').trim() && !canAssignCommercial) {
+        // Si l'utilisateur est un commercial, l'affectation est toujours obligatoire (elle est pré-remplie)
+        // Mais pour un Admin ou Agent, on peut laisser vide (non obligatoire)
+        if (isCommercial && !String(formData.Commercial || '').trim()) {
+            toast.error('L\'affectation commerciale (Représentant) est obligatoire.');
+            return;
+        }
+
+        if (isEdit && String(formData.Commercial || '').trim() && !canAssignCommercial) {
             toast.error('Seuls les clients de classe Prospect peuvent être affectés à un commercial.');
             return;
         }
@@ -500,648 +534,650 @@ const ClientForm = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in space-y-6 pb-12">
-            {/* Header - Modern Design */}
-            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
+        <div className="animate-fade-in space-y-8 pb-12 bg-mesh-luxury min-h-screen">
+            {/* Header - Modern Luxury Design */}
+            <div className="card-luxury p-8 border-none shadow-xl shadow-slate-200/50">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-6">
                         <button
                             onClick={() => navigate(-1)}
-                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
+                            className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-100 hover:bg-white rounded-2xl transition-all flex items-center justify-center shadow-sm"
                         >
-                            <ArrowLeftIcon className="h-5 w-5" />
+                            <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
                         </button>
                         <div>
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
-                                <BuildingOffice2Icon className="h-3 w-3" />
-                                Gestion Tiers
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider mb-2 border border-indigo-100/50">
+                                <SparklesIcon className="h-3 w-3" />
+                                Partenariat Stratégique
                             </div>
-                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+                            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
                                 {isEdit ? 'Modifier Client' : 'Nouveau Partenaire'}
+                                {!isEdit && <span className="text-indigo-600 text-sm font-medium px-2 py-0.5 bg-indigo-50 rounded-lg">Draft</span>}
+                                {formData.classeAuto && (
+                                    <div className={`ml-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-sm ${formData.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                        formData.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            formData.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                                                formData.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    formData.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                                                        'bg-sky-50 text-sky-700 border-sky-200'
+                                        }`}>
+                                        <SparklesIcon className="h-3 w-3" />
+                                        Classification : {formData.classeAuto.ClasseCalculee}
+                                    </div>
+                                )}
                             </h1>
-                            <p className="text-slate-600 mt-1 text-sm">
-                                {isEdit ? 'Modifier les informations du client' : 'Créer un nouveau client dans le système'}
+                            <p className="text-slate-500 mt-1 text-sm font-medium">
+                                {isEdit ? 'Mise à jour des informations et paramètres du compte' : 'Configuration complète du profil client et des conditions commerciales'}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                         <button
                             type="button"
                             onClick={() => navigate('/clients')}
-                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                            className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
                         >
                             Annuler
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={saving}
-                            className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium disabled:opacity-50"
+                            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 font-bold text-xs uppercase tracking-widest disabled:opacity-50 group"
                         >
                             {saving ? (
                                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
-                                <CheckIcon className="h-4 w-4" />
+                                <CheckIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
                             )}
                             <span>{isEdit ? 'Sauvegarder' : 'Créer le Client'}</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Step Progress Indicator - Only for new clients */}
-                {!isEdit && (
-                    <div className="mt-8 pt-6 border-t border-slate-200">
-                        <div className="flex items-center justify-between">
-                            {[
-                                { step: 1, label: 'Identité', icon: IdentificationIcon },
-                                { step: 2, label: 'Contact', icon: MapPinIcon },
-                                { step: 3, label: 'Contacts+', icon: PhoneIcon },
-                                { step: 4, label: 'Infos+', icon: CreditCardIcon },
-                            ].map(({ step, label, icon: Icon }) => {
-                                const isCompleted = completedSteps.has(step) && step !== currentStep;
-                                const isCurrent = currentStep === step;
-
-                                return (
-                                    <div key={step} className="flex-1 flex items-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => goToStep(step)}
-                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all w-full ${isCurrent
-                                                ? 'bg-sky-500 text-white shadow-md'
-                                                : isCompleted
-                                                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer'
-                                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 cursor-pointer'
-                                                }`}
-                                        >
-                                            <div className={`h-7 w-7 rounded flex items-center justify-center ${isCurrent ? 'bg-white/20' : isCompleted ? 'bg-emerald-100' : 'bg-slate-200'
-                                                }`}>
-                                                {isCompleted ? <CheckIcon className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                                            </div>
-                                            <div className="text-left hidden sm:block">
-                                                <p className="text-[10px] font-semibold">{label}</p>
-                                            </div>
-                                        </button>
-                                        {step < 4 && (
-                                            <div className={`h-0.5 flex-1 mx-2 rounded-full ${isCompleted ? 'bg-emerald-300' : 'bg-slate-200'}`} />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div className="flex justify-center">
                 <form onSubmit={handleSubmit} className="w-full max-w-5xl space-y-6">
 
-                {/* Main Form Content */}
-                <div className="space-y-6">
+                    {/* Main Form Content */}
+                    <div className="space-y-6">
 
-                    {/* Step 1: Identity Section */}
-                    {(currentStep === 1 || isEdit) && (
-                        <div className="card-luxury shadow-sm">
-                            <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
-                                        <IdentificationIcon className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Étape 1: Identité Juridique</h2>
-                                        <p className="text-xs text-slate-500">Informations légales et identification</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Raison Sociale *</label>
-                                        <input
-                                            type="text"
-                                            name="Raisoc"
-                                            value={formData.Raisoc}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-semibold focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="Ex: Entreprise ABC International"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                            {/* Navigation Buttons - Step 1 */}
-                            {!isEdit && (
-                                <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate('/clients')}
-                                        className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNextStep}
-                                        className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
-                                    >
-                                        Suivant →
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Step 2: Contact & Localisation */}
-                    {(currentStep === 2 || isEdit) && (
-                        <div className="card-luxury shadow-sm">
-                            <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
-                                        <MapPinIcon className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Étape 2: Contact & Localisation</h2>
-                                        <p className="text-xs text-slate-500">Coordonnées et adresse du siège</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Email Professionnel</label>
-                                        <div className="relative">
-                                            <input
-                                                type="email"
-                                                name="Email"
-                                                value={formData.Email}
-                                                onChange={(e) => {
-                                                    setEmailCheckMessage('');
-                                                    handleChange(e);
-                                                }}
-                                                onBlur={checkEmailUniqueness}
-                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                                placeholder="contact@entreprise.com"
-                                            />
+                        {/* Step 1: Identity Section */}
+                        {(currentStep === 1 || isEdit) && (
+                            <div className="card-luxury shadow-sm">
+                                <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
+                                            <IdentificationIcon className="h-5 w-5" />
                                         </div>
-                                        {emailCheckMessage ? (
-                                            <p className="mt-2 text-sm text-rose-600">{emailCheckMessage}</p>
-                                        ) : emailChecking ? (
-                                            <p className="mt-2 text-sm text-slate-500">Vérification de l'email...</p>
-                                        ) : null}
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Téléphone</label>
-                                        <input
-                                            type="text"
-                                            name="Tel"
-                                            value={formData.Tel}
-                                            onChange={handleChange}
-                                            inputMode="numeric"
-                                            maxLength={8}
-                                            pattern="[0-9]{8}"
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="71000000"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Mobile</label>
-                                        <input
-                                            type="text"
-                                            name="Gsm"
-                                            value={formData.Gsm}
-                                            onChange={handleChange}
-                                            inputMode="numeric"
-                                            maxLength={8}
-                                            pattern="[0-9]{8}"
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="98000000"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Site Web</label>
-                                        <input
-                                            type="text"
-                                            name="www"
-                                            value={formData.www}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="https://entreprise.tn"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Adresse Complète</label>
-                                        <textarea
-                                            name="Adresse"
-                                            value={formData.Adresse}
-                                            onChange={handleChange}
-                                            rows="3"
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all resize-none"
-                                            placeholder="Numéro, rue, immeuble, étage..."
-                                        ></textarea>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Ville</label>
-                                        <input
-                                            type="text"
-                                            name="Ville"
-                                            value={formData.Ville}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="Ex: Tunis, Ariana, Sousse..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Code Postal</label>
-                                        <input
-                                            type="text"
-                                            name="CodePostal"
-                                            value={formData.CodePostal}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="1000"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Pays</label>
-                                        <input
-                                            type="text"
-                                            name="Pays"
-                                            value={formData.Pays}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            placeholder="Tunisie"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Gouvernorat *</label>
-                                        <select
-                                            name="gouvernorat"
-                                            value={formData.gouvernorat}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                                            required
-                                        >
-                                            <option value="">Sélectionner un gouvernorat</option>
-                                            {tiersGouvernorats.map((g) => (
-                                                <option key={g.id} value={g.id}>
-                                                    {g.libelle}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Navigation Buttons - Step 2 */}
-                            {!isEdit && (
-                                <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
-                                    <button
-                                        type="button"
-                                        onClick={handlePreviousStep}
-                                        className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
-                                    >
-                                        ← Précédent
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNextStep}
-                                        className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
-                                    >
-                                        Suivant →
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Step 3: Contacts Multiples */}
-                    {(currentStep === 3 || isEdit) && (
-                        <div className="card-luxury p-0 overflow-hidden">
-                            <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-50/70 to-transparent flex items-center gap-4">
-                                <div className="icon-shape icon-shape-sm shadow-glow-primary">
-                                    <BuildingOffice2Icon className="h-4 w-4 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-base font-bold text-slate-800">Contacts et Adresses Multiples</h2>
-                                    <p className="text-xs text-slate-500">TabTiersContact et TabTiersAdr</p>
-                                </div>
-                            </div>
-                            <div className="p-8 space-y-8">
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-sm font-bold text-slate-800">Contacts</h3>
-                                        <button type="button" onClick={addContact} className="btn-outline text-xs flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4" />
-                                            Ajouter contact
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {contacts.map((contact, index) => (
-                                            <div key={`contact-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                                                <input
-                                                    type="text"
-                                                    value={contact.Responsable}
-                                                    onChange={(e) => handleContactChange(index, 'Responsable', e.target.value)}
-                                                    className="input-modern md:col-span-6"
-                                                    placeholder="Nom du responsable"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={contact.Tel}
-                                                    onChange={(e) => handleContactChange(index, 'Tel', e.target.value)}
-                                                    inputMode="numeric"
-                                                    maxLength={8}
-                                                    pattern="[0-9]{8}"
-                                                    className="input-modern md:col-span-5"
-                                                    placeholder="Téléphone (8 chiffres)"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeContact(index)}
-                                                    className="h-11 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 md:col-span-1 flex items-center justify-center"
-                                                    title="Supprimer"
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-sm font-bold text-slate-800">Adresses</h3>
-                                        <button type="button" onClick={addAddress} className="btn-outline text-xs flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4" />
-                                            Ajouter adresse
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {addresses.map((address, index) => (
-                                            <div key={`address-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                                                <input
-                                                    type="text"
-                                                    value={address.Adresse}
-                                                    onChange={(e) => handleAddressChange(index, e.target.value)}
-                                                    className="input-modern md:col-span-11"
-                                                    placeholder="Adresse complémentaire"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeAddress(index)}
-                                                    className="h-11 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 md:col-span-1 flex items-center justify-center"
-                                                    title="Supprimer"
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Navigation Buttons */}
-                            {!isEdit && (
-                                <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
-                                    <button
-                                        type="button"
-                                        onClick={handlePreviousStep}
-                                        className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
-                                    >
-                                        ← Précédent
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNextStep}
-                                        className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
-                                    >
-                                        Suivant →
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Step 4: Informations Complémentaires */}
-                    {(currentStep === 4 || isEdit) && (
-                        <div className="card-luxury p-0 overflow-hidden">
-                            <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-amber-50/80 to-transparent flex items-center gap-4">
-                                <div className="icon-shape icon-shape-sm" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' }}>
-                                    <CreditCardIcon className="h-4 w-4 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-base font-bold text-slate-800">Informations Complémentaires</h2>
-                                    <p className="text-xs text-slate-500">Champs avancés de TabTiers</p>
-                                </div>
-                            </div>
-                            <div className="p-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="label-modern">Registre de commerce</label>
-                                        <input type="text" name="RC" value={formData.RC} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Banque</label>
-                                        <select name="Banque" value={formData.Banque} onChange={handleChange} className="input-modern" disabled={loadingBanques || addingBanque}>
-                                            <option value="">Sélectionner une banque...</option>
-                                            {formData.Banque && !banques.some((b) => String(b.banque || '').trim() === String(formData.Banque || '').trim()) && (
-                                                <option value={formData.Banque}>{formData.Banque}</option>
-                                            )}
-                                            {banques.map((banque) => (
-                                                <option key={banque.id || banque.banque} value={banque.banque}>{banque.banque}</option>
-                                            ))}
-                                        </select>
-                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
-                                            <input
-                                                type="text"
-                                                value={otherBanque}
-                                                onChange={(e) => setOtherBanque(e.target.value)}
-                                                placeholder="Autre banque..."
-                                                className="input-modern"
-                                                disabled={addingBanque}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={otherBanqueAdresse}
-                                                onChange={(e) => setOtherBanqueAdresse(e.target.value)}
-                                                placeholder="Adresse..."
-                                                className="input-modern"
-                                                disabled={addingBanque}
-                                            />
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                ref={otherBanquePhotoInputRef}
-                                                onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)}
-                                                className="input-modern bg-white py-2"
-                                                disabled={addingBanque}
-                                            />
-                                        </div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={handleAddOtherBanque}
-                                                disabled={addingBanque || !String(otherBanque || '').trim()}
-                                                className="px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium disabled:opacity-50"
-                                            >
-                                                {addingBanque ? '...' : 'Ajouter'}
-                                            </button>
-                                            {otherBanquePhoto && <span className="text-xs text-slate-500">Photo: {otherBanquePhoto.name}</span>}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Remise (%)</label>
-                                        <input type="number" min="0" step="0.001" name="Remise" value={formData.Remise} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Crédit (jours)</label>
-                                        <input type="number" min="0" name="NbrCreditJour" value={formData.NbrCreditJour} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Plafond crédit</label>
-                                        <input type="number" min="0" step="0.01" name="Plafondcredit" value={formData.Plafondcredit} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Mode règlement</label>
-                                        <input type="text" name="ModReg" value={formData.ModReg} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="label-modern">Détail règlement</label>
-                                        <input type="text" name="DetailReg" value={formData.DetailReg} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="label-modern">Texte exonération</label>
-                                        <textarea name="TextExonor" value={formData.TextExonor} onChange={handleChange} rows="2" className="input-modern resize-none" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Latitude</label>
-                                        <input type="number" min="0" step="0.000001" name="lat" value={formData.lat} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Longitude</label>
-                                        <input type="number" min="0" step="0.000001" name="long" value={formData.long} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Adresse Maps</label>
-                                        <input type="text" name="AdresseMaps" value={formData.AdresseMaps} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Maps Ville</label>
-                                        <input type="text" name="MapsVille" value={formData.MapsVille} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Maps Pays</label>
-                                        <input type="text" name="MapsPays" value={formData.MapsPays} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Maps District</label>
-                                        <input type="text" name="MapsDistrict" value={formData.MapsDistrict} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div>
-                                        <label className="label-modern">Maps Region</label>
-                                        <input type="text" name="MapsRegion" value={formData.MapsRegion} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="label-modern">Maps SubRegion</label>
-                                        <input type="text" name="MapsSubRegion" value={formData.MapsSubRegion} onChange={handleChange} className="input-modern" />
-                                    </div>
-                                </div>
-
-                                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    {[
-                                        ['Actif', 'Actif'],
-                                        ['Blockage', 'Blocage'],
-                                        ['Timbre', 'Timbre'],
-                                        ['Major', 'Majoration'],
-                                        ['Exonor', 'Exonore'],
-                                        ['assujet', 'Assujetti'],
-                                        ['Fictif', 'Fictif'],
-                                        ['Pub', 'Pub']
-                                    ].map(([key, label]) => (
-                                        <label key={key} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 bg-white">
-                                            <input
-                                                type="checkbox"
-                                                name={key}
-                                                checked={Boolean(formData[key])}
-                                                onChange={handleChange}
-                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600"
-                                            />
-                                            <span className="text-xs font-semibold text-slate-700">{label}</span>
-                                        </label>
-                                    ))}
-                                </div>
-
-                                {/* Commercial Settings Inline */}
-                                <div className="mt-8 pt-6 border-t border-slate-200">
-                                    <h3 className="text-sm font-bold text-slate-800 mb-4">Paramètres Commerciaux</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
-                                            <label className="label-modern">Représentant</label>
-                                            <select
-                                                name="Commercial"
-                                                value={formData.Commercial}
+                                            <h2 className="text-sm font-bold text-slate-800">Identité Juridique</h2>
+                                            <p className="text-xs text-slate-500">Informations légales et identification</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="md:col-span-2">
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Raison Sociale *</label>
+                                            <input
+                                                type="text"
+                                                name="Raisoc"
+                                                value={formData.Raisoc}
                                                 onChange={handleChange}
-                                                className="input-modern"
-                                                disabled={!canAssignCommercial}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-semibold focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Catégorie *</label>
+                                            <select
+                                                name="Categorie"
+                                                value={formData.Categorie}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                                required
                                             >
                                                 <option value="">Sélectionner...</option>
-                                                {commercialsList.map((commercial) => (
-                                                    <option key={commercial.UserID || commercial.LoginName} value={String(commercial.LoginName || commercial.UserID || '')}>
-                                                        {commercial.FullName || commercial.LoginName || commercial.UserID}
+                                                <option value="Étatique">Étatique</option>
+                                                <option value="Privé">Privé</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Navigation Buttons - Step 1 */}
+                                {!isEdit && (
+                                    <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/clients')}
+                                            className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleNextStep}
+                                            className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                        >
+                                            Suivant →
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Step 2: Contact & Localisation */}
+                        {(currentStep === 2 || isEdit) && (
+                            <div className="card-luxury shadow-sm">
+                                <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                            <MapPinIcon className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-bold text-slate-800">Contact & Localisation</h2>
+                                            <p className="text-xs text-slate-500">Coordonnées et adresse du siège</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Email Professionnel</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="email"
+                                                    name="Email"
+                                                    value={formData.Email}
+                                                    onChange={(e) => {
+                                                        setEmailCheckMessage('');
+                                                        handleChange(e);
+                                                    }}
+                                                    onBlur={checkEmailUniqueness}
+                                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                                />
+                                            </div>
+                                            {emailCheckMessage ? (
+                                                <p className="mt-2 text-sm text-rose-600">{emailCheckMessage}</p>
+                                            ) : emailChecking ? (
+                                                <p className="mt-2 text-sm text-slate-500">Vérification de l'email...</p>
+                                            ) : null}
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Site Web</label>
+                                            <input
+                                                type="text"
+                                                name="www"
+                                                value={formData.www}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">CIN / Identifiant</label>
+                                            <input
+                                                type="text"
+                                                name="Cin"
+                                                value={formData.Cin}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Ville</label>
+                                            <input
+                                                type="text"
+                                                name="Ville"
+                                                value={formData.Ville}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Code Postal</label>
+                                            <input
+                                                type="text"
+                                                name="CodePostal"
+                                                value={formData.CodePostal}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Pays</label>
+                                            <input
+                                                type="text"
+                                                name="Pays"
+                                                value={formData.Pays}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500 uppercase tracking-wider mb-2">Gouvernorat *</label>
+                                            <select
+                                                name="gouvernorat"
+                                                value={formData.gouvernorat}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
+                                                required
+                                            >
+                                                <option value="">-- Choisir --</option>
+                                                {tiersGouvernorats.map((g) => (
+                                                    <option key={g.id} value={g.id}>
+                                                        {g.libelle}
                                                     </option>
                                                 ))}
                                             </select>
-                                            {!canAssignCommercial && (
-                                                <p className="mt-2 text-[11px] text-slate-500">
-                                                    L'affectation commerciale est réservée aux clients de classe Prospect.
-                                                </p>
-                                            )}
-                                            {canAssignCommercial && (
-                                                <p className="mt-2 text-[11px] text-emerald-600">
-                                                    À l'enregistrement, la classe sera automatiquement basculée en Passif.
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="label-modern">Conditions de Paiement</label>
-                                            <select
-                                                name="ConditionPaiement"
-                                                value={formData.ConditionPaiement}
-                                                onChange={handleChange}
-                                                className="input-modern"
-                                            >
-                                                <option>Comptant</option>
-                                                <option>30 jours</option>
-                                                <option>30 jours fin de mois</option>
-                                                <option>60 jours</option>
-                                            </select>
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Navigation Buttons - Step 2 */}
+                                {!isEdit && (
+                                    <div className="border-t border-slate-200 bg-slate-50/50 px-6 py-4 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={handlePreviousStep}
+                                            className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-all"
+                                        >
+                                            ← Précédent
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleNextStep}
+                                            className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                        >
+                                            Suivant →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+                        )}
 
-                            {/* Navigation Buttons */}
-                            {!isEdit && (
-                                <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
-                                    <button
-                                        type="button"
-                                        onClick={handlePreviousStep}
-                                        className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
-                                    >
-                                        ← Précédent
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-medium shadow-lg shadow-emerald-200/50 transition-all"
-                                    >
-                                        ✓ Enregistrer
-                                    </button>
+                        {/* Step 3: Contacts Multiples */}
+                        {(currentStep === 3 || isEdit) && (
+                            <div className="card-luxury p-0 overflow-hidden">
+                                <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-50/70 to-transparent flex items-center gap-4">
+                                    <div className="icon-shape icon-shape-sm shadow-glow-primary">
+                                        <BuildingOffice2Icon className="h-4 w-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-slate-800">Contacts et Adresses</h2>
+                                        <p className="text-xs text-slate-500">Coordonnées secondaires</p>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
+                                <div className="p-8 space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-slate-100 pb-8">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Téléphone Fixe</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                    <PhoneIcon className="h-4 w-4 text-slate-400" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    name="Tel"
+                                                    value={formData.Tel}
+                                                    onChange={handleChange}
+                                                    inputMode="numeric"
+                                                    maxLength={8}
+                                                    pattern="[0-9]{8}"
+                                                    className="input-modern pl-11"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">Numéro Mobile</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                    <PhoneIcon className="h-4 w-4 text-slate-400" />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    name="Gsm"
+                                                    value={formData.Gsm}
+                                                    onChange={handleChange}
+                                                    inputMode="numeric"
+                                                    maxLength={8}
+                                                    pattern="[0-9]{8}"
+                                                    className="input-modern pl-11"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-sm font-bold text-slate-800">Contacts</h3>
+                                            <button type="button" onClick={addContact} className="btn-outline text-xs flex items-center gap-1">
+                                                <PlusIcon className="h-4 w-4" />
+                                                Ajouter contact
+                                            </button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {contacts.map((contact, index) => (
+                                                <div key={`contact-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                                    <div className="md:col-span-6">
+                                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Nom Responsable</label>
+                                                        <input
+                                                            type="text"
+                                                            value={contact.Responsable}
+                                                            onChange={(e) => handleContactChange(index, 'Responsable', e.target.value)}
+                                                            className="input-modern w-full"
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-5">
+                                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 tracking-wider">Num. Téléphone</label>
+                                                        <input
+                                                            type="text"
+                                                            value={contact.Tel}
+                                                            onChange={(e) => handleContactChange(index, 'Tel', e.target.value)}
+                                                            inputMode="numeric"
+                                                            maxLength={8}
+                                                            pattern="[0-9]{8}"
+                                                            className="input-modern w-full"
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeContact(index)}
+                                                            className="h-11 w-full rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors"
+                                                            title="Supprimer"
+                                                        >
+                                                            <TrashIcon className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                </div>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-sm font-bold text-slate-800">Adresses</h3>
+                                            <button type="button" onClick={addAddress} className="btn-outline text-xs flex items-center gap-1">
+                                                <PlusIcon className="h-4 w-4" />
+                                                Ajouter adresse
+                                            </button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {addresses.map((address, index) => (
+                                                <div key={`address-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                                                    <input
+                                                        type="text"
+                                                        value={address.Adresse}
+                                                        onChange={(e) => handleAddressChange(index, e.target.value)}
+                                                        className="input-modern md:col-span-11"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAddress(index)}
+                                                        className="h-11 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 md:col-span-1 flex items-center justify-center"
+                                                        title="Supprimer"
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
 
-            </form>
+                                {/* Navigation Buttons */}
+                                {!isEdit && (
+                                    <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={handlePreviousStep}
+                                            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
+                                        >
+                                            ← Précédent
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleNextStep}
+                                            className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+                                        >
+                                            Suivant →
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Step 4: Informations Complémentaires */}
+                        {(currentStep === 4 || isEdit) && (
+                            <div className="card-luxury p-0 overflow-hidden">
+                                <div className="px-8 py-6 border-b border-slate-100/50 bg-gradient-to-r from-amber-50/80 to-transparent flex items-center gap-4">
+                                    <div className="icon-shape icon-shape-sm" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' }}>
+                                        <CreditCardIcon className="h-4 w-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-slate-800">Informations Complémentaires</h2>
+                                        <p className="text-xs text-slate-500">Données financières et paramètres</p>
+                                    </div>
+                                </div>
+                                <div className="p-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <label className="label-modern">Registre de commerce</label>
+                                            <input type="text" name="RC" value={formData.RC} onChange={handleChange} className="input-modern" />
+                                        </div>
+                                        <div>
+                                            <label className="label-modern">Banque</label>
+                                            <select
+                                                name="Banque"
+                                                value={formData.Banque}
+                                                onChange={(e) => {
+                                                    handleChange(e);
+                                                    if (e.target.value === 'AUTRE') {
+                                                        setAddingBanque(true);
+                                                    } else {
+                                                        setAddingBanque(false);
+                                                    }
+                                                }}
+                                                className="input-modern"
+                                                disabled={loadingBanques}
+                                            >
+                                                <option value="">-- Choisir --</option>
+                                                <option value="AUTRE" className="font-bold text-sky-600">+ AJOUTER UNE NOUVELLE BANQUE</option>
+                                                {formData.Banque && formData.Banque !== 'AUTRE' && !banques.some((b) => String(b.banque || '').trim() === String(formData.Banque || '').trim()) && (
+                                                    <option value={formData.Banque}>{formData.Banque}</option>
+                                                )}
+                                                {banques.map((banque) => (
+                                                    <option key={banque.id || banque.banque} value={banque.banque}>{banque.banque}</option>
+                                                ))}
+                                            </select>
+
+                                            {addingBanque && (
+                                                <div className="mt-4 p-4 bg-sky-50/50 rounded-2xl border border-sky-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                    <div className="flex items-center gap-2 mb-4 text-sky-700">
+                                                        <SparklesIcon className="h-4 w-4" />
+                                                        <span className="text-xs font-bold uppercase tracking-wider">Nouvelle Banque</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block ml-1">Nom de la banque</label>
+                                                            <input
+                                                                type="text"
+                                                                value={otherBanque}
+                                                                onChange={(e) => setOtherBanque(e.target.value)}
+                                                                className="input-modern"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block ml-1">Adresse / Agence</label>
+                                                            <input
+                                                                type="text"
+                                                                value={otherBanqueAdresse}
+                                                                onChange={(e) => setOtherBanqueAdresse(e.target.value)}
+                                                                className="input-modern"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block ml-1">Logo / Image</label>
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    ref={otherBanquePhotoInputRef}
+                                                                    onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)}
+                                                                    className="input-modern flex-1 bg-white py-2"
+                                                                />
+                                                            </div>
+                                                            {otherBanquePhoto && <p className="mt-1 text-[10px] text-emerald-600 font-medium ml-1">✓ {otherBanquePhoto.name}</p>}
+                                                        </div>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleAddOtherBanque}
+                                                                disabled={!String(otherBanque || '').trim()}
+                                                                className="flex-1 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 shadow-sm shadow-sky-200"
+                                                            >
+                                                                Confirmer l'ajout
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setAddingBanque(false);
+                                                                    setFormData(prev => ({ ...prev, Banque: '' }));
+                                                                }}
+                                                                className="px-4 py-2.5 bg-white border border-slate-200 text-slate-500 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                                                            >
+                                                                Annuler
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="label-modern">Remise (%)</label>
+                                            <input type="number" min="0" step="0.001" name="Remise" value={formData.Remise} onChange={handleChange} className="input-modern" />
+                                        </div>
+                                        <div>
+                                            <label className="label-modern">Crédit (jours)</label>
+                                            <input type="number" min="0" name="NbrCreditJour" value={formData.NbrCreditJour} onChange={handleChange} className="input-modern" />
+                                        </div>
+                                        <div>
+                                            <label className="label-modern">Plafond crédit</label>
+                                            <input type="number" min="0" step="0.01" name="Plafondcredit" value={formData.Plafondcredit} onChange={handleChange} className="input-modern" />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {[
+                                            ['Actif', 'Actif'],
+                                            ['Blockage', 'Blocage'],
+                                            ['Timbre', 'Timbre'],
+                                            ['Major', 'Majoration'],
+                                            ['Exonor', 'Exonore'],
+                                            ['assujet', 'Assujetti'],
+                                            ['Fictif', 'Fictif'],
+                                            ['Pub', 'Pub']
+                                        ].map(([key, label]) => (
+                                            <label key={key} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 bg-white">
+                                                <input
+                                                    type="checkbox"
+                                                    name={key}
+                                                    checked={Boolean(formData[key])}
+                                                    onChange={handleChange}
+                                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                                                />
+                                                <span className="text-xs font-semibold text-slate-700">{label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    {/* Commercial Settings Inline */}
+                                    <div className="mt-8 pt-6 border-t border-slate-200">
+                                        <h3 className="text-sm font-bold text-slate-800 mb-4">Paramètres Commerciaux</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            <div>
+                                                <label className="label-modern">Représentant {isCommercial ? '*' : '(Optionnel)'}</label>
+                                                <select
+                                                    name="Commercial"
+                                                    value={formData.Commercial}
+                                                    onChange={handleChange}
+                                                    className="input-modern"
+                                                    disabled={(isEdit && !canAssignCommercial) || (!isEdit && isCommercial)}
+                                                >
+                                                    <option value="">-- Choisir --</option>
+                                                    {isCommercial && !commercialsList.some(c => String(c.LoginName || c.UserID) === String(formData.Commercial)) && (
+                                                        <option value={formData.Commercial}>{user?.FullName || formData.Commercial}</option>
+                                                    )}
+                                                    {commercialsList.map((commercial) => (
+                                                        <option key={commercial.UserID || commercial.LoginName} value={String(commercial.LoginName || commercial.UserID || '')}>
+                                                            {commercial.FullName || commercial.LoginName || commercial.UserID}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {!canAssignCommercial && !isEdit && (
+                                                    <p className="mt-2 text-[11px] text-indigo-600 font-medium">
+                                                        Note : Ce nouveau client sera créé avec le statut "Prospect".
+                                                    </p>
+                                                )}
+                                                {isCommercial && !isEdit && (
+                                                    <p className="mt-2 text-[11px] text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">
+                                                        ✓ Affectation automatique : Vous êtes le responsable de ce nouveau prospect.
+                                                    </p>
+                                                )}
+                                                {(isAdmin || isAgent) && !isEdit && (
+                                                    <p className="mt-2 text-[11px] text-slate-500 italic">
+                                                        Le client sera créé en tant que "Prospect" et affecté au commercial choisi.
+                                                    </p>
+                                                )}
+                                                {isEdit && !canAssignCommercial && (
+                                                    <p className="mt-2 text-[11px] text-amber-600 font-medium">
+                                                        L'affectation n'est possible que pour les clients de classe "Prospect".
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className="label-modern">Conditions de Paiement</label>
+                                                <select
+                                                    name="ConditionPaiement"
+                                                    value={formData.ConditionPaiement}
+                                                    onChange={handleChange}
+                                                    className="input-modern"
+                                                >
+                                                    <option>Comptant</option>
+                                                    <option>30 jours</option>
+                                                    <option>30 jours fin de mois</option>
+                                                    <option>60 jours</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Navigation Buttons */}
+                                {!isEdit && (
+                                    <div className="px-8 py-5 border-t border-slate-100/50 bg-slate-50/50 flex justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={handlePreviousStep}
+                                            className="px-5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-medium border border-slate-200 shadow-sm transition-all"
+                                        >
+                                            ← Précédent
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-6 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-medium shadow-lg shadow-emerald-200/50 transition-all"
+                                        >
+                                            ✓ Enregistrer
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                    </div>
+
+                </form>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Menu, Transition, Popover } from '@headlessui/react';
+import { Menu, Transition } from '@headlessui/react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
@@ -21,6 +21,7 @@ import useAuth from '../hooks/useAuth';
 import { logout } from '../auth/authSlice';
 import toast from 'react-hot-toast';
 import { getImageUrl } from '../utils/imageUrl';
+import NotificationBell from '../components/notifications/NotificationBell';
 
 const Navbar = ({ setSidebarOpen }) => {
   const dispatch = useDispatch();
@@ -36,12 +37,6 @@ const Navbar = ({ setSidebarOpen }) => {
       toast.error('Erreur lors de la déconnexion');
     }
   };
-
-  const notifications = [
-    { id: 1, title: 'Nouveau devis créé', desc: 'Le devis #DEV2024-078 a été validé.' },
-    { id: 2, title: 'Tâche assignée', desc: 'Vous avez une nouvelle tâche dans le projet "Refonte Site Web".' },
-    { id: 3, title: 'Mise à jour système', desc: 'La maintenance est prévue ce soir à 23h00.' }
-  ];
 
   return (
     <div className="sticky top-0 z-40 h-16 flex shrink-0 items-center border-b border-slate-200 bg-white px-4 sm:gap-x-6 sm:px-6 lg:px-8 gap-x-4">
@@ -63,36 +58,7 @@ const Navbar = ({ setSidebarOpen }) => {
 
       {/* Right side: Search and Actions */}
       <div className="ml-auto flex items-center gap-x-4 lg:gap-x-6">
-        {/* Notifications */}
-        <Popover className="relative">
-          <Popover.Button className="p-2 rounded-full text-slate-400 hover:text-slate-500 hover:bg-slate-100 transition-colors relative">
-            <BellIcon className="h-6 w-6" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-rose-500 rounded-full"></span>
-          </Popover.Button>
-          <Transition
-            as={Fragment}
-            enter="transition ease-out duration-200"
-            enterFrom="opacity-0 translate-y-1"
-            enterTo="opacity-100 translate-y-0"
-            leave="transition ease-in duration-150"
-            leaveFrom="opacity-100 translate-y-0"
-            leaveTo="opacity-0 translate-y-1"
-          >
-            <Popover.Panel className="absolute right-0 z-10 mt-3 w-80 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-slate-200">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
-              </div>
-              <div className="p-2">
-                {notifications.map((n) => (
-                  <div key={n.id} className="p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                    <p className="text-sm font-semibold text-slate-800">{n.title}</p>
-                    <p className="text-xs text-slate-500 mt-1">{n.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </Popover.Panel>
-          </Transition>
-        </Popover>
+        <NotificationBell />
 
         {/* Separator */}
         <div className="hidden lg:block h-6 w-px bg-slate-200" />

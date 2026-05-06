@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -11,6 +11,29 @@ const BlvDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentBlv: blv, loading, error } = useSelector((state) => state.blv);
+
+  // Lire en priorité les colonnes dédiées CodChauff / DesChauff
+  // Fallback sur l'ancien tag JSON dans Remarq pour les BL antérieurs à la migration
+  const transport = useMemo(() => {
+    // 1️⃣ Priorité : colonnes dédiées
+    if (blv?.DesChauff) {
+      return {
+        nom: blv.DesChauff,
+        tel: blv.CodChauff || ''
+      };
+    }
+    // 2️⃣ Fallback : tag JSON encodé dans Remarq (ancien système)
+    const raw = String(blv?.Remarq || '');
+    const match = raw.match(/__transport__=({.*})/);
+    if (!match?.[1]) return null;
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }, [blv?.DesChauff, blv?.CodChauff, blv?.Remarq]);
 
   useEffect(() => {
     if (id) {
@@ -104,6 +127,20 @@ const BlvDetail = () => {
                 </p>
               </div>
             </div>
+
+            {transport?.nom && (
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Transport
+                </p>
+                <div className="text-sm text-slate-600 space-y-1">
+                  <p>
+                    Chauffeur: <span className="font-semibold text-slate-800">{transport.nom}</span>
+                  </p>
+                  {transport.tel ? <p>Tél: <span className="font-semibold">{transport.tel}</span></p> : null}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">

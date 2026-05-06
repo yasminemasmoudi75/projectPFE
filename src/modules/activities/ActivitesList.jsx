@@ -42,7 +42,7 @@ const extractArrayPayload = (payload) => {
 const ActivitesList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate } = usePermission(MODULE_CODES.VISITES);
+  const { canCreate, isFilterRepresEnabled } = usePermission(MODULE_CODES.VISITES);
   const { activites, loading } = useSelector((state) => state.activites);
   const { user } = useSelector((state) => state.auth);
 
@@ -102,7 +102,9 @@ const ActivitesList = () => {
   useEffect(() => {
     const fetchCommerciaux = async () => {
       try {
-        const response = await axios.get('/users/commercials/activites-filter');
+        const response = await axios.get('/users/commercials/activites-filter', {
+          params: { moduleCode: String(MODULE_CODES.VISITES), includeAll: isFilterRepresEnabled ? 'false' : 'true' }
+        });
         const rawData = extractArrayPayload(response);
 
         // Map backend response shape to { UserID, FullName, LoginName }
@@ -130,7 +132,7 @@ const ActivitesList = () => {
     };
 
     fetchCommerciaux();
-  }, []);
+  }, [isFilterRepresEnabled]);
 
   const getActivityIcon = (type) => {
     switch (type?.toLowerCase()) {
@@ -368,6 +370,7 @@ const ActivitesList = () => {
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
                 >
                   <option value="">Tous les commerciaux</option>
+                  <option value={String(user?.UserID || user?.id)}>Mes activités</option>
                   {commerciaux.map(c => (
                     <option key={c.UserID} value={String(c.UserID)}>
                       {c.FullName || c.LoginName || `User #${c.UserID}`}

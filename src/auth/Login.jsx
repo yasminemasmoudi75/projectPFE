@@ -26,6 +26,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const {
     register,
@@ -38,21 +39,23 @@ const Login = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      setPendingApproval(false);
       await dispatch(login({
         EmailPro: data.EmailPro,
         Password: data.Password
       })).unwrap();
+      
       toast.success('Accès autorisé. Bienvenue !', {
-        style: {
-          borderRadius: '16px',
-          background: '#0062AF',
-          color: '#fff',
-          fontWeight: '700',
-        },
+        style: { borderRadius: '16px', background: '#0062AF', color: '#fff', fontWeight: '700' },
       });
       navigate('/dashboard');
     } catch (error) {
-      toast.error(error || 'Identifiants invalides');
+      // Si le message d'erreur contient "attente" ou "acceptation", on affiche l'alerte spéciale
+      if (error?.includes('attente') || error?.includes('acceptation')) {
+        setPendingApproval(true);
+      } else {
+        toast.error(error || 'Identifiants invalides');
+      }
     } finally {
       setLoading(false);
     }
@@ -71,6 +74,21 @@ const Login = () => {
         </p>
       </div>
 
+      {/* Pending Approval Alert */}
+      {pendingApproval && (
+        <div className="mb-8 p-6 rounded-3xl bg-amber-50 border border-amber-100 flex flex-col items-center gap-4 animate-bounce-slow shadow-sm">
+          <div className="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+            <ShieldCheckIcon className="h-8 w-8 text-amber-600" />
+          </div>
+          <div className="text-center">
+            <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest mb-2">Compte en attente</h3>
+            <p className="text-[11px] text-amber-700/80 font-medium leading-relaxed max-w-[240px]">
+              Votre accès a été enregistré avec succès. Veuillez attendre l’acceptation de l’administration pour accéder à Nexus CRM.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email Field */}
@@ -84,7 +102,6 @@ const Login = () => {
               {...register('EmailPro')}
               type="email"
               className="input-modern pl-11 h-14 font-bold border-slate-200 focus:border-[#0062AF] focus:ring-blue-100"
-              placeholder="votre.email@bs.tn"
             />
           </div>
           {errors.EmailPro && <p className="text-[10px] text-rose-500 font-bold mt-2 uppercase tracking-widest">{errors.EmailPro.message}</p>}
@@ -104,7 +121,6 @@ const Login = () => {
               {...register('Password')}
               type={showPassword ? 'text' : 'password'}
               className="input-modern pl-11 h-14 font-bold border-slate-200 focus:border-[#0062AF] focus:ring-blue-100"
-              placeholder="••••••••"
             />
             <button
               type="button"

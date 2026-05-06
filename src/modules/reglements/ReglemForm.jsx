@@ -16,11 +16,11 @@ const defaultFormState = () => ({
     codTiers: '',
     libTiers: '',
     datReg: getLocalDateInputValue(),
-    existingReglementId: '',
     modReg: 'ESPECE',
     numPiece: '',
     banque: '',
     detail: '',
+    montantGlobal: '',
 });
 
 const toNumber = (value) => {
@@ -59,8 +59,6 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
     const [loadingClients, setLoadingClients] = useState(false);
     const [loadingModes, setLoadingModes] = useState(false);
     const [loadingDocs, setLoadingDocs] = useState(false);
-    const [existingReglements, setExistingReglements] = useState([]);
-    const [loadingExistingReglements, setLoadingExistingReglements] = useState(false);
     const [banques, setBanques] = useState([]);
     const [loadingBanques, setLoadingBanques] = useState(false);
     const [addingBanque, setAddingBanque] = useState(false);
@@ -95,17 +93,9 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         const search = String(docFilters.search || '').trim().toLowerCase();
         const from = String(docFilters.dateFrom || '').trim();
         const to = String(docFilters.dateTo || '').trim();
-        const selectedReglementId = String(formData.existingReglementId || '').trim();
 
         return documents.filter((doc) => {
             if (docFilters.type && doc.type !== docFilters.type) return false;
-
-            const openedReglementId = String(doc.openReglementId || '').trim();
-            if (selectedReglementId) {
-                if (openedReglementId !== selectedReglementId) return false;
-            } else if (openedReglementId) {
-                return false;
-            }
 
             if (search) {
                 const inText = `${doc.num || ''} ${doc.type || ''}`.toLowerCase();
@@ -118,7 +108,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
 
             return true;
         });
-    }, [documents, docFilters, formData.existingReglementId]);
+    }, [documents, docFilters]);
 
     const selectedPieces = useMemo(() => {
         return documents
@@ -138,12 +128,6 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         return selectedPieces.filter((piece) => piece.allocatedAmount < (piece.remaining - 0.01)).length;
     }, [selectedPieces]);
 
-    const selectedExistingReglement = useMemo(() => {
-        const id = String(formData.existingReglementId || '').trim();
-        if (!id) return null;
-        return existingReglements.find((reg) => String(reg.id || '').trim() === id) || null;
-    }, [existingReglements, formData.existingReglementId]);
-
     useEffect(() => {
         if (!isOpen) return;
         fetchClients();
@@ -154,7 +138,6 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         setError('');
         setSelectedAllocations({});
         setDocuments([]);
-        setExistingReglements([]);
         setOtherBanque('');
         setOtherBanqueAdresse('');
         setOtherBanquePhoto(null);
@@ -168,27 +151,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
     useEffect(() => {
         if (!isOpen || !formData.codTiers) return;
         fetchUnpaidDocuments(formData.codTiers, docFilters.dateFrom, docFilters.dateTo);
-        fetchClientOpenReglements(formData.codTiers);
     }, [isOpen, formData.codTiers, docFilters.dateFrom, docFilters.dateTo]);
-
-    const fetchClientOpenReglements = async (codTiers) => {
-        if (!codTiers) {
-            setExistingReglements([]);
-            return;
-        }
-
-        try {
-            setLoadingExistingReglements(true);
-            const response = await axios.get(`/reglements/client/${encodeURIComponent(codTiers)}/open`);
-            const payload = response?.data?.data || response?.data || [];
-            setExistingReglements(Array.isArray(payload) ? payload : []);
-        } catch (err) {
-            setExistingReglements([]);
-            console.error('Error loading open reglements:', err);
-        } finally {
-            setLoadingExistingReglements(false);
-        }
-    };
 
     const fetchPaymentModes = async () => {
         try {
@@ -371,7 +334,6 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             ...prev,
             codTiers,
             libTiers: client?.LibelleComplet || client?.Nom || client?.LibTiers || client?.Raisoc || codTiers,
-            existingReglementId: '',
         }));
         setSelectedAllocations({});
         setDocuments([]);
@@ -404,6 +366,38 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
         }));
     };
 
+    const applyFIFO = () => {
+        const totalToDistribute = toNumber(formData.montantGlobal);
+        if (totalToDistribute <= 0) {
+            setError('Veuillez saisir un montant global supérieur à zéro');
+            return;
+        }
+
+        const selectedDocKeys = Object.keys(selectedAllocations);
+        const piecesToDistribute = (selectedDocKeys.length > 0 
+            ? documents.filter(doc => selectedDocKeys.includes(getDocKey(doc)))
+            : filteredDocuments
+        ).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let remaining = totalToDistribute;
+        const nextAllocations = {};
+
+        piecesToDistribute.forEach(doc => {
+            if (remaining <= 0) return;
+            const key = getDocKey(doc);
+            const amount = Math.min(remaining, doc.remaining);
+            nextAllocations[key] = amount;
+            remaining = Math.round((remaining - amount) * 1000) / 1000;
+        });
+
+        setSelectedAllocations(nextAllocations);
+        if (remaining > 0.01) {
+            setError(`Attention: ${formatCurrency(remaining)} n'ont pas pu être alloués (montant supérieur au total des pièces choisies)`);
+        } else {
+            setError('');
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -412,13 +406,15 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             return;
         }
 
-        if (selectedPieces.length === 0) {
-            setError('Sélectionnez au moins une pièce à régler');
+        const paymentTotal = toNumber(formData.montantGlobal) || totalAllocated;
+
+        if (paymentTotal <= 0) {
+            setError('Le montant total doit être supérieur à zéro');
             return;
         }
 
-        if (totalAllocated <= 0) {
-            setError('Le montant total alloué doit être supérieur à zéro');
+        if (selectedPieces.length === 0 && !formData.montantGlobal) {
+            setError('Sélectionnez au moins une pièce ou saisissez un montant (Avance)');
             return;
         }
 
@@ -431,29 +427,18 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
             return;
         }
 
-        const hasExistingReglement = String(formData.existingReglementId || '').trim().length > 0;
-        const invalidOpenLink = selectedPieces.find((piece) => {
-            const openId = String(piece.openReglementId || '').trim();
-            if (!hasExistingReglement) return Boolean(openId);
-            return openId && openId !== String(formData.existingReglementId || '').trim();
-        });
-
-        if (invalidOpenLink) {
-            setError('Une ou plusieurs pièces sont liées à un autre règlement en cours.');
-            return;
-        }
-
         try {
             setLoading(true);
             setError('');
             setSuccess('');
 
+            // paymentTotal is computed at the top of the function now
+
             const payload = {
                 codTiers: formData.codTiers,
                 libTiers: formData.libTiers,
-                mntReg: totalAllocated,
+                mntReg: paymentTotal,
                 datReg: formData.datReg,
-                existingReglementId: formData.existingReglementId || null,
                 selectedPieces: selectedPieces.map((piece) => ({
                     id: piece.id,
                     type: piece.type,
@@ -462,7 +447,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                 payments: [
                     {
                         modReg: formData.modReg,
-                        montant: totalAllocated,
+                        montant: paymentTotal,
                         echeance: formData.datReg,
                         numPiece: formData.numPiece || null,
                         banque: formData.banque || null,
@@ -471,9 +456,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                 ]
             };
 
-            if (!hasExistingReglement) {
-                payload.mntRegTarget = toNumber(selectedPieces.reduce((sum, piece) => sum + toNumber(piece.remaining), 0));
-            }
+            payload.mntRegTarget = toNumber(selectedPieces.reduce((sum, piece) => sum + toNumber(piece.remaining), 0));
 
             const response = await axios.post('/reglements', payload);
             const createdReglement = response?.data?.data || response?.data;
@@ -600,43 +583,33 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                                 )}
                                             </select>
                                         </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-blue-700 mb-2">Montant Global (TND)</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    name="montantGlobal"
+                                                    value={formData.montantGlobal}
+                                                    onChange={handleInputChange}
+                                                    placeholder="0.000"
+                                                    step="0.001"
+                                                    disabled={loading}
+                                                    className="flex-1 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-800"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={applyFIFO}
+                                                    disabled={loading || !formData.montantGlobal}
+                                                    className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold text-xs transition-all flex items-center gap-1"
+                                                    title="Répartir ce montant sur les pièces les plus anciennes"
+                                                >
+                                                    Répartir (FIFO)
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {formData.codTiers && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Règlement existant (tranche)</label>
-                                        <select
-                                            name="existingReglementId"
-                                            value={formData.existingReglementId}
-                                            onChange={(e) => {
-                                                const value = e.target.value;
-                                                setFormData((prev) => ({ ...prev, existingReglementId: value }));
-                                                setSelectedAllocations({});
-                                                setError('');
-                                            }}
-                                            disabled={loading || loadingExistingReglements}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="">Nouveau règlement (pièces non liées)</option>
-                                            {existingReglements.map((reg) => (
-                                                <option key={reg.id} value={reg.id}>
-                                                    {reg.id} | Restant {formatCurrency(reg.remainingAmount)} | {formatDate(toDateOnlyLocal(reg.date))}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {selectedExistingReglement && (
-                                            <p className="text-xs text-blue-700 mt-2">
-                                                Tranche sur règlement {selectedExistingReglement.id} - restant {formatCurrency(selectedExistingReglement.remainingAmount)}
-                                            </p>
-                                        )}
-                                        {!selectedExistingReglement && formData.codTiers && (
-                                            <p className="text-xs text-slate-500 mt-2">
-                                                En mode nouveau règlement, seules les pièces non liées à un règlement en cours sont proposées.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
 
                                 {(requiresReference || requiresBank) && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -834,8 +807,15 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                         <p className="text-lg font-bold text-slate-900">{partialCount}</p>
                                     </div>
                                     <div className="bg-blue-50 rounded-lg p-3">
-                                        <p className="text-xs text-blue-700">Montant du règlement</p>
-                                        <p className="text-xl font-extrabold text-blue-700">{formatCurrency(totalAllocated)}</p>
+                                        <p className="text-xs text-blue-700">Total à payer</p>
+                                        <p className="text-xl font-extrabold text-blue-700">
+                                            {formatCurrency(toNumber(formData.montantGlobal) || totalAllocated)}
+                                        </p>
+                                        {formData.montantGlobal && Math.abs(toNumber(formData.montantGlobal) - totalAllocated) > 0.01 && (
+                                            <p className="text-[10px] text-orange-600 font-bold mt-1">
+                                                (Alloué: {formatCurrency(totalAllocated)})
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -870,7 +850,7 @@ const ReglemForm = ({ isOpen, onClose, onSuccess }) => {
                                     </button>
                                     <motion.button
                                         type="submit"
-                                        disabled={loading || selectedPieces.length === 0 || totalAllocated <= 0}
+                                        disabled={loading || (selectedPieces.length === 0 && !(toNumber(formData.montantGlobal) > 0)) || (selectedPieces.length > 0 && totalAllocated <= 0 && !(toNumber(formData.montantGlobal) > 0))}
                                         whileHover={{ scale: loading ? 1 : 1.02 }}
                                         whileTap={{ scale: loading ? 1 : 0.98 }}
                                         className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-70 font-medium"

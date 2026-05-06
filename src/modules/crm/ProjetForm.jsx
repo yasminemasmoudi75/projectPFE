@@ -327,7 +327,7 @@ const ProjetForm = () => {
                                 <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                                     {isAdminUser ? 'Filtre par Commercial' : 'Client'}
                                 </label>
-                                {isAdminUser && (
+                                {isAdminUser && !isEdit && (
                                     <select
                                         value={representativeCode}
                                         onChange={(e) => handleCommercialChange(e.target.value)}
@@ -344,13 +344,19 @@ const ProjetForm = () => {
                                 {commercialsLoading && isAdminUser && (
                                     <p className="text-xs text-slate-500 mb-2">Chargement des commerciaux...</p>
                                 )}
-                                <input
-                                    type="text"
-                                    value={clientSearchTerm}
-                                    onChange={(e) => setClientSearchTerm(e.target.value)}
-                                    placeholder="Rechercher par raison sociale, code, email ou tel"
-                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none mb-3"
-                                />
+                                {!isEdit ? (
+                                    <input
+                                        type="text"
+                                        value={clientSearchTerm}
+                                        onChange={(e) => setClientSearchTerm(e.target.value)}
+                                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
+                                    />
+                                ) : (
+                                    <div className="mb-3 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-slate-500 italic text-sm">
+                                        <CheckIcon className="h-4 w-4 text-emerald-500" />
+                                        Client rattaché au projet
+                                    </div>
+                                )}
                                 <select
                                     name="IDTiers"
                                     value={formData.IDTiers}
@@ -369,7 +375,8 @@ const ProjetForm = () => {
                                             }
                                         }
                                     }}
-                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                    disabled={isEdit}
+                                    className={`w-full px-3 py-2.5 border rounded-xl text-sm transition-all focus:outline-none ${isEdit ? 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed font-medium' : 'bg-white border-slate-200 text-slate-700 focus:border-sky-400'}`}
                                     required
                                 >
                                     <option value="">Sélectionner un client...</option>

@@ -134,9 +134,8 @@ const FavDetail = () => {
                 <p>
                   État:{' '}
                   <span
-                    className={`font-semibold ${
-                      fav.Valid ? 'text-emerald-600' : 'text-amber-600'
-                    }`}
+                    className={`font-semibold ${fav.Valid ? 'text-emerald-600' : 'text-amber-600'
+                      }`}
                   >
                     {fav.Valid ? 'Validée' : 'Brouillon'}
                   </span>

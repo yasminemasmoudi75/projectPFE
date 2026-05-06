@@ -28,9 +28,13 @@ export const fetchBcvById = createAsyncThunk('bcv/fetchBcvById', async (id) => {
 });
 
 // Créer un nouveau bon de commande
-export const createBcv = createAsyncThunk('bcv/createBcv', async (payload) => {
-    const response = await axios.post('/bcv', payload);
-    return response.data;
+export const createBcv = createAsyncThunk('bcv/createBcv', async (payload, { rejectWithValue }) => {
+    try {
+        const response = await axios.post('/bcv', payload);
+        return response.data;
+    } catch (err) {
+        return rejectWithValue(err.response?.data || err.message);
+    }
 });
 
 // Mettre à jour un bon de commande existant

@@ -46,7 +46,7 @@ const UsersList = () => {
         login: user.LoginName || '',
         email: user.EmailPro || 'Non specifie',
         role: user.UserRole || 'Role non defini',
-        status: (user.IsActive === true || user.IsActive === 1) ? 'Actif' : 'Inactif',
+        status: (user.IsActive === true || user.IsActive === 1 || String(user.IsActive) === 'true') ? 'Actif' : 'Inactif',
         dept: user.Departement || 'Non assigne'
       }));
 

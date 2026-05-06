@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -20,6 +20,29 @@ const BcvDetail = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { currentBcv: bcv, loading, error } = useSelector((s) => s.bcv);
+    const [showDriverForm, setShowDriverForm] = useState(false);
+    const [isTransferring, setIsTransferring] = useState(false);
+    const [chauffeur, setChauffeur] = useState({
+        nom: '',
+        tel: ''
+    });
+
+    const alreadyTransferred = Boolean(bcv?.bTransf);
+
+    const canSubmitDriver = useMemo(() => {
+        const nomOk = String(chauffeur?.nom || '').trim().length > 0;
+        const tel = String(chauffeur?.tel || '').trim();
+        const telOk = /^\d{8}$/.test(tel); // exactement 8 chiffres, uniquement nombres
+        return nomOk && telOk;
+    }, [chauffeur]);
+
+    const phoneError = useMemo(() => {
+        const tel = String(chauffeur?.tel || '').trim();
+        if (!tel) return 'Téléphone obligatoire';
+        if (!/^\d+$/.test(tel)) return 'Téléphone doit contenir uniquement des chiffres';
+        if (tel.length !== 8) return 'Téléphone doit contenir exactement 8 chiffres';
+        return '';
+    }, [chauffeur?.tel]);
 
     useEffect(() => {
         if (id) dispatch(fetchBcvById(id));
@@ -48,9 +71,10 @@ const BcvDetail = () => {
         }
     };
 
-    const handleTransfer = async (targetType) => {
+    const doTransfer = async (targetType, payload = {}) => {
         try {
-            const response = await api.post(`/bcv/${id}/transfer`, { targetType });
+            setIsTransferring(true);
+            const response = await api.post(`/bcv/${id}/transfer`, { targetType, ...payload });
             if (response?.status === 'success') {
                 toast.success(`Transféré avec succès vers ${targetType === 'BL' ? 'Bon de Livraison' : 'Facture'}`);
                 const newId = response.data?.Guid;
@@ -63,7 +87,37 @@ const BcvDetail = () => {
         } catch (err) {
             console.error('Erreur transfert BC:', err);
             toast.error(err.response?.data?.message || 'Erreur lors du transfert');
+        } finally {
+            setIsTransferring(false);
         }
+    };
+
+    const handleTransfer = async (targetType) => {
+        if (alreadyTransferred) {
+            toast.error('Ce bon de commande a déjà été transféré');
+            return;
+        }
+        if (targetType === 'BL') {
+            // Ouvre un petit formulaire Chauffeur avant transformation vers BL
+            setShowDriverForm(true);
+            return;
+        }
+        await doTransfer(targetType);
+    };
+
+    const submitDriverAndTransfer = async () => {
+        if (!canSubmitDriver) {
+            toast.error(phoneError || 'Veuillez renseigner les informations du chauffeur');
+            return;
+        }
+        const payload = {
+            transport: {
+                nom: String(chauffeur.nom || '').trim(),
+                tel: String(chauffeur.tel || '').trim()
+            }
+        };
+        setShowDriverForm(false);
+        await doTransfer('BL', payload);
     };
 
     if (loading) return <LoadingSpinner />;
@@ -72,6 +126,73 @@ const BcvDetail = () => {
 
     return (
         <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-20 pt-10 px-4 font-sans">
+            {/* Driver form modal (shown only for BC -> BL) */}
+            {showDriverForm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 print:hidden">
+                    <div
+                        className="absolute inset-0 bg-slate-900/40"
+                        onClick={() => (isTransferring ? null : setShowDriverForm(false))}
+                    />
+                    <div className="relative w-full max-w-lg rounded-xl bg-white shadow-xl border border-slate-200">
+                        <div className="p-5 border-b border-slate-100">
+                            <h3 className="text-sm font-extrabold text-slate-900 tracking-wide uppercase">
+                                Informations chauffeur
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Vous devez renseigner ces informations avant de créer le Bon de Livraison.
+                            </p>
+                        </div>
+
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                                    Nom du chauffeur <span className="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    value={chauffeur.nom}
+                                    onChange={(e) => setChauffeur((s) => ({ ...s, nom: e.target.value }))}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    placeholder="Ex: Mohamed Trabelsi"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                                    Numéro de téléphone <span className="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    value={chauffeur.tel}
+                                    onChange={(e) => setChauffeur((s) => ({ ...s, tel: e.target.value }))}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    placeholder="Ex: 22 123 456"
+                                    inputMode="numeric"
+                                    maxLength={8}
+                                />
+                                {!!phoneError && (
+                                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{phoneError}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
+                            <button
+                                onClick={() => setShowDriverForm(false)}
+                                disabled={isTransferring}
+                                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs disabled:opacity-60"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={submitDriverAndTransfer}
+                                disabled={!canSubmitDriver || isTransferring}
+                                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-extrabold text-xs disabled:opacity-60"
+                            >
+                                {isTransferring ? 'Transformation...' : 'Créer le BL'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* Action Buttons (Print Hidden) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
@@ -86,14 +207,16 @@ const BcvDetail = () => {
                     <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                         <button
                             onClick={() => handleTransfer('BL')}
+                            disabled={isTransferring || alreadyTransferred}
                             className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-blue-50 border-r border-slate-100 transition-all font-bold text-xs"
                             title="Transférer vers Bon de Livraison"
                         >
                             <TruckIcon className="h-4 w-4 mr-2 text-blue-500" />
-                            Transférer en BL
+                            {alreadyTransferred ? 'Déjà transféré' : 'Transférer en BL'}
                         </button>
                         <button
                             onClick={() => handleTransfer('FAC')}
+                            disabled={isTransferring || alreadyTransferred}
                             className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-emerald-50 transition-all font-bold text-xs"
                             title="Transférer vers Facture"
                         >

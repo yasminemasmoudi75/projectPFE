@@ -19,7 +19,6 @@ import authService from './authService';
 const registerSchema = z.object({
     fullName: z.string().min(3, 'Le nom complet doit avoir au moins 3 caractères'),
     email: z.string().email('Email invalide'),
-    loginName: z.string().min(4, 'L\'identifiant doit avoir au moins 4 caractères'),
     password: z.string().min(6, 'Le mot de passe de base est requis'),
     confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
@@ -44,7 +43,6 @@ const Register = () => {
         setLoading(true);
         try {
             await authService.register({
-                LoginName: data.loginName,
                 Password: data.password,
                 FullName: data.fullName,
                 EmailPro: data.email,
@@ -93,7 +91,6 @@ const Register = () => {
                             {...register('fullName')}
                             type="text"
                             className="input-modern pl-11 h-12 font-bold border-slate-200 focus:border-[#0062AF]"
-                            placeholder="Ex: Ahmed Ben Salem"
                         />
                     </div>
                     {errors.fullName && <p className="text-[10px] text-rose-500 font-bold mt-1 pl-1 uppercase tracking-widest">{errors.fullName.message}</p>}
@@ -110,28 +107,11 @@ const Register = () => {
                             {...register('email')}
                             type="email"
                             className="input-modern pl-11 h-12 font-bold border-slate-200 focus:border-[#0062AF]"
-                            placeholder="a.bensalem@bs.tn"
                         />
                     </div>
                     {errors.email && <p className="text-[10px] text-rose-500 font-bold mt-1 pl-1 uppercase tracking-widest">{errors.email.message}</p>}
                 </div>
 
-                {/* Login Name */}
-                <div className="group">
-                    <label className="label-modern italic tracking-[0.2em] mb-2 px-1 text-[10px]">Identifiant Login</label>
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <IdentificationIcon className="h-5 w-5 text-slate-400 group-focus-within:text-[#0062AF] transition-colors" />
-                        </div>
-                        <input
-                            {...register('loginName')}
-                            type="text"
-                            className="input-modern pl-11 h-12 font-mono font-bold border-slate-200 focus:border-[#0062AF]"
-                            placeholder="votre_login"
-                        />
-                    </div>
-                    {errors.loginName && <p className="text-[10px] text-rose-500 font-bold mt-1 pl-1 uppercase tracking-widest">{errors.loginName.message}</p>}
-                </div>
 
                 {/* Password */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,7 +125,6 @@ const Register = () => {
                                 {...register('password')}
                                 type={showPassword ? 'text' : 'password'}
                                 className="input-modern pl-11 h-12 border-slate-200 focus:border-[#0062AF]"
-                                placeholder="••••••"
                             />
                         </div>
                     </div>
@@ -159,7 +138,6 @@ const Register = () => {
                                 {...register('confirmPassword')}
                                 type={showPassword ? 'text' : 'password'}
                                 className="input-modern pl-11 h-12 border-slate-200 focus:border-[#0062AF]"
-                                placeholder="••••••"
                             />
                             <button
                                 type="button"

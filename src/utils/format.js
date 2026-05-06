@@ -196,3 +196,65 @@ export const formatPhone = (phone) => {
   return phone;
 };
 
+/**
+ * Génère un lien WhatsApp à partir d'un numéro de téléphone
+ * @param {string} phone - Numéro de téléphone
+ * @returns {string} Lien WhatsApp
+ */
+const normalizeWhatsAppPhone = (phone) => {
+  if (!phone) return null;
+
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return null;
+
+  if (digits.startsWith('216')) {
+    return digits;
+  }
+
+  const withoutIntlPrefix = digits.startsWith('00') ? digits.slice(2) : digits;
+
+  if (withoutIntlPrefix.startsWith('216')) {
+    return withoutIntlPrefix;
+  }
+
+  if (withoutIntlPrefix.length === 9 && withoutIntlPrefix.startsWith('0')) {
+    return `216${withoutIntlPrefix.slice(1)}`;
+  }
+
+  if (withoutIntlPrefix.length === 8) {
+    return `216${withoutIntlPrefix}`;
+  }
+
+  return withoutIntlPrefix;
+};
+
+const isMobileDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+const normalizeDialPhone = (phone) => {
+  const normalizedPhone = normalizeWhatsAppPhone(phone);
+
+  if (!normalizedPhone) return null;
+
+  if (normalizedPhone.startsWith('216')) {
+    return `+${normalizedPhone}`;
+  }
+
+  return `+${normalizedPhone}`;
+};
+
+export const getWhatsAppLink = (phone) => {
+  const normalizedPhone = normalizeWhatsAppPhone(phone);
+
+  if (!normalizedPhone) return null;
+
+  if (isMobileDevice()) {
+    return `tel:${normalizeDialPhone(phone)}`;
+  }
+
+  return `https://wa.me/${normalizedPhone}`;
+};
+

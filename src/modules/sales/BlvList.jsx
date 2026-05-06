@@ -3,29 +3,22 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
   PlusIcon,
-  EyeIcon,
   PencilSquareIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
-  AdjustmentsHorizontalIcon,
-  SparklesIcon,
+  TruckIcon,
   DocumentTextIcon,
   ArrowPathIcon,
   ArrowUpRightIcon,
-  ArrowTrendingUpIcon,
   XMarkIcon,
   FunnelIcon,
   ChevronDownIcon,
   CalendarIcon,
   CurrencyDollarIcon,
-  CheckCircleIcon,
-  TruckIcon,
-  ArrowDownTrayIcon,
-  PrinterIcon,
-  TrashIcon,
-  UserIcon,
-  BuildingOfficeIcon
+  ArrowTrendingUpIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
-import { fetchMyBlv, fetchBlv } from './blvSlice';
+import { fetchMyBlv, fetchBlv, deleteBlv } from './blvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -36,507 +29,323 @@ import { MODULE_CODES } from '../../utils/constants';
 import axios from '../../app/axios';
 import DocumentReglementHistoryModal from '../reglements/DocumentReglementHistoryModal';
 
-// --- Animation Variants ---
-const containerVariants = {
+// ─── Animation Variants ───────────────────────────────────────────────────────
+const pageVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
 };
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0, scale: 0.95 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    scale: 1,
-    transition: { type: "spring", stiffness: 300, damping: 24 }
-  }
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 340, damping: 28 } },
 };
-
 const rowVariants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: { opacity: 1, x: 0, transition: { type: "spring", bounce: 0, duration: 0.4 } },
-  exit: { opacity: 0, scale: 0.9, transition: { duration: 0.2 } }
+  hidden: { opacity: 0, x: -12 },
+  visible: (i) => ({ opacity: 1, x: 0, transition: { delay: i * 0.04, type: 'spring', stiffness: 300, damping: 26 } }),
+  exit: { opacity: 0, scale: 0.97, transition: { duration: 0.15 } },
 };
 
+// ─── Status config ────────────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  draft: { label: 'Brouillon', bar: 'bg-amber-400', badge: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
+  valid: { label: 'Validé', bar: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  converted: { label: 'Facturé', bar: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+};
+
+const getStatus = (item) => {
+  if (item.bTransf || item.bFact || item.IsConverted) return 'converted';
+  if (item.Valid) return 'valid';
+  return 'draft';
+};
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+const KpiCard = ({ label, value, sub, icon: Icon, accent, iconBg, valueColor }) => (
+  <motion.div
+    variants={fadeUp}
+    whileHover={{ y: -3, transition: { type: 'spring', stiffness: 400 } }}
+    className="relative bg-white rounded-2xl border border-slate-200/70 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+  >
+    <div className={`absolute top-0 left-0 right-0 h-0.5 ${accent}`} />
+    <div className="p-5">
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{label}</p>
+        <div className={`h-8 w-8 rounded-xl ${iconBg} flex items-center justify-center`}>
+          <Icon className={`h-4 w-4 ${valueColor}`} />
+        </div>
+      </div>
+      <p className={`text-2xl font-bold ${valueColor} leading-none mb-1`}>{value}</p>
+      <p className="text-[11px] text-slate-400 font-medium">{sub}</p>
+    </div>
+  </motion.div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const BlvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canEdit, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
+  const { canCreate, canEdit, canDelete, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
-  const { blvList: blv, loading, pagination } = useSelector((state) => state.blv);
+  const { blvList: blv, loading } = useSelector((state) => state.blv);
+
   const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
+  const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
   const isAgentUser = normalizedUserRole === 'agent';
-  const currentUserId = String(currentUser?.UserID || currentUser?.id || currentUser?.USER_ID || '');
+  const canShowEditAction = isCommercialUser || isAdminUser || canEdit;
+  const canShowDeleteAction = isAdminUser || canDelete;
 
-  // Filter states
+  // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    search: '',
-    status: 'all', // all, draft, valid, converted
-    minAmount: '',
-    maxAmount: '',
-    minProbability: '',
-    dateFrom: '',
-    dateTo: '',
-    commercial: '',
-    client: ''
+    search: '', status: 'all', minAmount: '', maxAmount: '',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: '',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
   const [allClients, setAllClients] = useState([]);
   const [historyTarget, setHistoryTarget] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
 
   const clientsFromVisibleBlv = useMemo(() => {
-    const uniqueClients = new Map();
-
+    const map = new Map();
     (blv || []).forEach((item) => {
-      const codTiers = String(item.CodTiers || '').trim();
-      if (!codTiers || uniqueClients.has(codTiers)) return;
-
-      uniqueClients.set(codTiers, {
+      const code = String(item.CodTiers || '').trim();
+      if (!code || map.has(code)) return;
+      map.set(code, {
         CodTiers: item.CodTiers,
         Raisoc: item.LibTiers || `Client ${item.CodTiers}`,
-        codRepresTiers: item.CodRepres ? String(item.CodRepres) : ''
+        codRepresTiers: item.CodRepres ? String(item.CodRepres) : '',
       });
     });
-
-    return Array.from(uniqueClients.values()).sort((a, b) =>
-      String(a.Raisoc || '').localeCompare(String(b.Raisoc || ''), 'fr', { sensitivity: 'base' })
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.Raisoc).localeCompare(String(b.Raisoc), 'fr', { sensitivity: 'base' })
     );
   }, [blv]);
 
   const filteredCommercials = useMemo(() => {
     if (isAgentUser && isFilterRepresEnabled && allClients.length > 0) {
-      const commercialIdsInRegion = new Set();
-      allClients.forEach((client) => {
-        if (client.codRepresTiers) {
-          commercialIdsInRegion.add(String(client.codRepresTiers));
-        }
-      });
-
-      return commercials.filter((com) => commercialIdsInRegion.has(String(com.UserID)));
+      const ids = new Set(allClients.map((c) => c.codRepresTiers).filter(Boolean));
+      return commercials.filter((c) => ids.has(String(c.UserID)));
     }
-
     return commercials;
   }, [commercials, isAgentUser, allClients, isFilterRepresEnabled]);
 
-  const filteredClientsForDropdown = useMemo(() => {
-    if (isCommercialUser && isFilterRepresEnabled) {
-      return allClients.filter((client) => String(client.codRepresTiers || '') === currentUserId);
+  const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
+  const resetFilters = () =>
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: '' });
+  const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
+
+  // ── Filtered list ──────────────────────────────────────────────────────────
+  const filteredBlv = useMemo(() => (blv || []).filter((item) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!(`${item.Prfx}${item.Nf}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
     }
-
-    return filters.commercial
-      ? allClients.filter((client) => String(client.codRepresTiers || '') === String(filters.commercial))
-      : allClients;
-  }, [filters.commercial, allClients, isCommercialUser, currentUserId, isFilterRepresEnabled]);
-
-  // Filter handler
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
-
-  // Reset filters
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      status: 'all',
-      minAmount: '',
-      maxAmount: '',
-      minProbability: '',
-      dateFrom: '',
-      dateTo: '',
-      commercial: '',
-      client: ''
-    });
-  };
-
-  // Count active filters
-  const activeFiltersCount = Object.values(filters).filter(v => v !== 'all' && v !== '').length;
-
-  // Apply filters to Blv list
-  const filteredBlv = blv?.filter(item => {
-    // Search filter
-    if (filters.search && !(`${item.Prfx}${item.Nf}`.toLowerCase().includes(filters.search.toLowerCase()) ||
-      item.LibTiers?.toLowerCase().includes(filters.search.toLowerCase()))) {
-      return false;
-    }
-
-    // Status filter
     if (filters.status !== 'all') {
-      if (filters.status === 'draft' && (item.Valid || item.IsConverted)) return false;
-      if (filters.status === 'valid' && (!item.Valid || item.bTransf)) return false;
-      if (filters.status === 'converted' && !item.bTransf) return false;
+      if (filters.status === 'draft' && (item.Valid || item.bTransf || item.bFact || item.IsConverted)) return false;
+      if (filters.status === 'valid' && (!item.Valid || item.bTransf || item.bFact || item.IsConverted)) return false;
+      if (filters.status === 'converted' && !(item.bTransf || item.bFact || item.IsConverted)) return false;
     }
-
-    // Amount filter
     const amount = item.TotTTC || 0;
     if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
     if (filters.maxAmount && amount > parseFloat(filters.maxAmount)) return false;
-
-    // Probability filter
-    if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) {
-      return false;
-    }
-
-    // Date range filter
-    if (filters.dateFrom) {
-      const itemDate = new Date(item.DatUser);
-      const filterDate = new Date(filters.dateFrom);
-      if (itemDate < filterDate) return false;
-    }
-    if (filters.dateTo) {
-      const itemDate = new Date(item.DatUser);
-      const filterDate = new Date(filters.dateTo);
-      if (itemDate > filterDate) return false;
-    }
-
-    if (filters.commercial) {
-      if (item.CodRepres !== filters.commercial) return false;
-    }
-
-    if (filters.client) {
-      if (item.CodTiers !== filters.client) return false;
-    }
-
+    if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
+    if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
+    if (filters.commercial && item.CodRepres !== filters.commercial) return false;
     return true;
-  }) || [];
+  }), [blv, filters]);
+
+  // ── KPI metrics ────────────────────────────────────────────────────────────
+  const totalCA = filteredBlv.reduce((s, i) => s + (i.TotTTC || 0), 0);
+  const convertedCount = filteredBlv.filter((i) => i.bTransf || i.bFact || i.IsConverted).length;
+  const conversionRate = filteredBlv.length > 0 ? ((convertedCount / filteredBlv.length) * 100).toFixed(1) : '0';
+  const avgAmount = filteredBlv.length > 0 ? totalCA / filteredBlv.length : 0;
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const totalItems = filteredBlv.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBlv = filteredBlv.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  useEffect(() => setCurrentPage(1), [filters]);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
+  const refreshData = () => {
+    if (!isModuleActive) return;
+    isClient
+      ? dispatch(fetchMyBlv({ page: 1, limit: 1000 }))
+      : dispatch(fetchBlv({ page: 1, limit: 1000 }));
+  };
+
+  const handleDeleteBlv = async (guid) => {
+    const confirmed = window.confirm('Voulez-vous vraiment supprimer ce bon de livraison ?');
+    if (!confirmed) return;
+    try {
+      await dispatch(deleteBlv(guid)).unwrap();
+      refreshData();
+    } catch (error) {
+      console.error('Error deleting blv:', error);
+    }
+  };
 
   const fetchCommercials = async () => {
     try {
-      const params = {
-        moduleCode: String(MODULE_CODES.LIVRAISONS),
-        includeAll: isFilterRepresEnabled ? 'false' : 'true'
-      };
-      const response = await axios.get('/users/commercials/devis-filter', { params });
-      const data = response.data;
-      const rawList = Array.isArray(data) ? data : data.data || [];
-      const commercialsList = rawList.map((c) => ({
-        UserID: c.userId || c.UserID,
-        FullName: c.fullName || c.FullName || c.label || c.login,
-        LoginName: c.login || c.LoginName
-      }));
-      setCommercials(commercialsList);
-    } catch (error) {
-      console.error('Error fetching commercials:', error);
-    }
+      const res = await axios.get('/users/commercials/devis-filter', {
+        params: { moduleCode: String(MODULE_CODES.LIVRAISONS), includeAll: isFilterRepresEnabled ? 'false' : 'true' },
+      });
+      const raw = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setCommercials(raw.map((c) => ({ UserID: c.userId || c.UserID, FullName: c.fullName || c.FullName || c.label || c.login, LoginName: c.login || c.LoginName })));
+    } catch (e) { console.error('fetchCommercials', e); }
   };
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get('/tiers?limit=10000');
-      const data = response.data;
-      const clientsData = Array.isArray(data) ? data : data.data || [];
-      setAllClients(clientsData);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
-
-  const refreshData = () => {
-    if (!isModuleActive) return;
-    if (isClient) {
-      dispatch(fetchMyBlv({ page: 1, limit: 1000 }));
-    } else {
-      dispatch(fetchBlv({ page: 1, limit: 1000 }));
-    }
-  };
-
-  // Export functions
-  const exportToCSV = () => {
-    const headers = ['N° Livraison', 'Date', 'Client', 'Montant HT', 'Montant TTC', 'Statut Facturation'];
-    const rows = filteredBlv.map(b => [
-      `${b.Prfx || ''}${b.Nf || ''}`,
-      b.DatUser ? new Date(b.DatUser).toLocaleDateString('fr-FR') : '',
-      b.LibTiers || '',
-      b.TotHT || 0,
-      b.TotTTC || 0,
-      b.bTransf ? 'Facturé' : 'Non facturé'
-    ]);
-    
-    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `livraisons_export_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
-
-  const exportToPDF = () => {
-    const printWindow = window.open('', '_blank');
-    const html = `
-      <html>
-        <head>
-          <title>Liste des Livraisons</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background: #3b82f6; color: white; }
-            tr:nth-child(even) { background: #f8fafc; }
-            .header { margin-bottom: 20px; }
-            .header h1 { color: #1e293b; margin: 0; }
-            .header p { color: #64748b; margin: 5px 0; }
-            .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-            .badge-invoiced { background: #d1fae5; color: #065f46; }
-            .badge-pending { background: #fef3c7; color: #92400e; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Liste des Livraisons</h1>
-            <p>Exporté le ${new Date().toLocaleDateString('fr-FR')} - ${filteredBlv.length} livraisons</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>N° Livraison</th>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Montant TTC</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredBlv.map(b => {
-                const statusClass = b.bTransf ? 'badge-invoiced' : 'badge-pending';
-                const statusText = b.bTransf ? 'Facturé' : 'Non facturé';
-                return `
-                  <tr>
-                    <td>${b.Prfx || ''}${b.Nf || ''}</td>
-                    <td>${b.DatUser ? new Date(b.DatUser).toLocaleDateString('fr-FR') : '-'}</td>
-                    <td>${b.LibTiers || '-'}</td>
-                    <td>${(b.TotTTC || 0).toFixed(2)} TND</td>
-                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.print();
+      const res = await axios.get('/tiers?limit=10000');
+      setAllClients(Array.isArray(res.data) ? res.data : res.data?.data || []);
+    } catch (e) { console.error('fetchClients', e); }
   };
 
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
-    if (!isCommercialUser) {
-      fetchCommercials();
-    } else {
-      setCommercials([]);
-    }
-    if (isFilterRepresEnabled) {
-      fetchClients();
-    }
+    if (!isCommercialUser) fetchCommercials();
+    if (isFilterRepresEnabled) fetchClients();
   }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient, isCommercialUser, isFilterRepresEnabled]);
 
   useEffect(() => {
-    if (!isFilterRepresEnabled) {
-      setAllClients(clientsFromVisibleBlv);
-    }
+    if (!isFilterRepresEnabled) setAllClients(clientsFromVisibleBlv);
   }, [isFilterRepresEnabled, clientsFromVisibleBlv]);
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filters]);
-
-  // Derived metrics for stats overlay
-  const totalBlvTTC = filteredBlv?.reduce((acc, curr) => acc + (curr.TotTTC || 0), 0) || 0;
-  const invoicedCount = filteredBlv?.filter(item => item.bTransf).length || 0;
-  const invoiceRate = filteredBlv?.length > 0 ? ((invoicedCount / filteredBlv.length) * 100).toFixed(1) : 0;
-
-  // Calculate Pagination
-  const totalItems = filteredBlv.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBlv = filteredBlv.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) return <LoadingSpinner />;
 
+  // ── Status buttons config ──────────────────────────────────────────────────
+  const STATUS_BTNS = [
+    { id: 'all', label: 'Tous', active: 'bg-slate-800 text-white border-slate-700' },
+    { id: 'draft', label: 'Brouillon', active: 'bg-amber-50 text-amber-700 border-amber-300' },
+    { id: 'valid', label: 'Validés', active: 'bg-blue-50 text-blue-700 border-blue-300' },
+    { id: 'converted', label: 'Facturés', active: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  ];
+
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-8 pb-12"
-    >
-      {/* Header Section */}
-      <motion.div variants={itemVariants} className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible" className="space-y-6 pb-12">
+
+      {/* ── Header ── */}
+      <motion.div variants={fadeUp} className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-            Registre des Livraisons
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Registre des Livraisons</h1>
+            <span className="relative flex h-2.5 w-2.5 mt-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
             </span>
-          </h1>
-          <p className="text-sm font-medium text-slate-500 mt-2">
-            Gérez vos flux logistiques et le suivi des livraisons clients.
-          </p>
+          </div>
+          <p className="text-sm text-slate-500">Gérez vos bons de livraison et suivez vos expéditions.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <motion.button
-            whileHover={{ scale: 1.05, rotate: 180 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ rotate: 180 }} whileTap={{ scale: 0.95 }}
             onClick={refreshData}
-            className="p-3 bg-white border border-slate-200 text-slate-500 rounded-2xl hover:bg-slate-50 hover:border-blue-300 transition-colors shadow-sm"
-            title="Rafraîchir"
+            className="h-10 w-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors shadow-sm"
           >
-            <ArrowPathIcon className="h-5 w-5" />
+            <ArrowPathIcon className="h-4 w-4" />
           </motion.button>
-          
-          {/* Export Buttons */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
-            title="Exporter en CSV"
-          >
-            <ArrowDownTrayIcon className="h-5 w-5" />
-            <span className="hidden sm:inline">CSV</span>
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={exportToPDF}
-            className="flex items-center gap-2 px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl font-semibold hover:bg-rose-100 transition-colors shadow-sm"
-            title="Imprimer / PDF"
-          >
-            <PrinterIcon className="h-5 w-5" />
-            <span className="hidden sm:inline">PDF</span>
-          </motion.button>
+          {canCreate && (
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/blv/new')}
+              className="flex items-center gap-2 h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm shadow-blue-500/20 transition-colors"
+            >
+              <PlusIcon className="h-4 w-4 stroke-[2.5]" />
+              Nouvelle livraison
+            </motion.button>
+          )}
         </div>
       </motion.div>
 
-      {/* Quick Stats Overlay */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <motion.div whileHover={{ y: -5 }} className="card-luxury p-0 overflow-hidden relative group">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="p-6 flex items-center justify-between relative z-10">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Total Filtré (TTC)</p>
-              <p className="text-3xl font-extrabold text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                {totalBlvTTC > 0 ? (totalBlvTTC / 1000).toFixed(1) + 'k' : '0'} <span className="text-sm text-slate-400 font-bold ml-1">TND</span>
-              </p>
-            </div>
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 flex items-center justify-center transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
-              <TruckIcon className="h-6 w-6 text-white" />
-            </div>
-          </div>
-          <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-        </motion.div>
-
-        <motion.div whileHover={{ y: -5 }} className="card-luxury p-0 overflow-hidden relative group">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="p-6 flex items-center justify-between relative z-10">
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Taux Conversion (Filtré)</p>
-              <div className="flex items-end gap-2">
-                <p className="text-3xl font-extrabold text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-600">
-                  {invoiceRate}%
-                </p>
-                <span className="mb-1 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center gap-1">
-                  <ArrowTrendingUpIcon className="h-3 w-3" /> Taux Facturation
-                </span>
-              </div>
-            </div>
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/30 flex items-center justify-center transform group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300">
-              <CheckCircleIcon className="h-6 w-6 text-white" />
-            </div>
-          </div>
-          <div className="h-1.5 w-full bg-gradient-to-r from-emerald-400 to-teal-500"></div>
-        </motion.div>
+      {/* ── KPI Strip ── */}
+      <motion.div variants={fadeUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          label="Montant Livré" sub="TND — filtré"
+          value={totalCA > 0 ? `${(totalCA / 1000).toFixed(1)}k` : '0'}
+          icon={CurrencyDollarIcon} accent="bg-blue-500"
+          iconBg="bg-blue-50" valueColor="text-blue-700"
+        />
+        <KpiCard
+          label="Livraisons" sub="documents trouvés"
+          value={filteredBlv.length}
+          icon={TruckIcon} accent="bg-emerald-500"
+          iconBg="bg-emerald-50" valueColor="text-emerald-700"
+        />
+        <KpiCard
+          label="Taux de facturation" sub="livraisons facturées"
+          value={`${conversionRate}%`}
+          icon={ArrowTrendingUpIcon} accent="bg-amber-400"
+          iconBg="bg-amber-50" valueColor="text-amber-700"
+        />
+        <KpiCard
+          label="Livraison moyenne" sub="TND par livraison"
+          value={avgAmount > 0 ? `${(avgAmount / 1000).toFixed(1)}k` : '0'}
+          icon={ChartBarIcon} accent="bg-violet-500"
+          iconBg="bg-violet-50" valueColor="text-violet-700"
+        />
       </motion.div>
 
-      {/* Filters Card */}
-      <motion.div variants={itemVariants} className="card-luxury p-0 overflow-hidden bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-xl shadow-slate-200/40 rounded-3xl">
-        {/* Main Filter Bar */}
-        <div className="p-4 sm:p-6 flex flex-col xl:flex-row gap-4 xl:items-center">
-          {/* Search Input */}
-          <div className="relative flex-1 w-full group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-transform group-focus-within:scale-110 group-focus-within:text-blue-500">
-              <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
-            </div>
+      {/* ── Filters ── */}
+      <motion.div variants={fadeUp} className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        {/* Main bar */}
+        <div className="p-4 flex flex-col xl:flex-row gap-3 xl:items-center">
+          {/* Search */}
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechercher par N° de pièce, client, entreprise..."
+              placeholder="N° pièce, client..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 bg-slate-50/50 border-2 border-slate-100 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
           </div>
 
-          {/* Quick Status Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { id: 'all', label: 'Tous' },
-              { id: 'draft', label: 'Brouillon', color: 'yellow' },
-              { id: 'valid', label: 'Validés', color: 'blue' },
-              { id: 'converted', label: 'Facturés', color: 'emerald' }
-            ].map(status => {
-              const isActive = filters.status === status.id;
-              let colors = "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50";
-              if (isActive) {
-                if (status.color === 'yellow') colors = "bg-yellow-50 text-yellow-700 border-yellow-300 shadow-sm shadow-yellow-200/50";
-                else if (status.color === 'blue') colors = "bg-blue-50 text-blue-700 border-blue-300 shadow-sm shadow-blue-200/50";
-                else if (status.color === 'emerald') colors = "bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm shadow-emerald-200/50";
-                else colors = "bg-slate-800 text-white border-slate-800 shadow-sm shadow-slate-400/50"; // all
-              }
-              return (
-                <button
-                  key={status.id}
-                  onClick={() => handleFilterChange('status', status.id)}
-                  className={clsx(
-                    "px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest border-2 transition-all duration-200 active:scale-95",
-                    colors
-                  )}
-                >
-                  {status.label}
-                </button>
-              );
-            })}
+          {/* Status segmented control */}
+          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+            {STATUS_BTNS.map((btn) => (
+              <button
+                key={btn.id}
+                onClick={() => handleFilterChange('status', btn.id)}
+                className={clsx(
+                  'px-4 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all duration-150 border',
+                  filters.status === btn.id
+                    ? btn.active + ' shadow-sm'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                )}
+              >
+                {btn.label}
+              </button>
+            ))}
           </div>
 
-          {/* Advanced Filters Toggle */}
+          {/* Advanced filters toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={clsx(
-              "px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap border-2 active:scale-95",
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider border transition-all',
               showFilters
-                ? "bg-slate-100 border-slate-300 text-slate-800"
-                : "bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                ? 'bg-slate-100 border-slate-300 text-slate-800'
+                : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'
             )}
           >
             <FunnelIcon className="h-4 w-4" />
-            Filtres Avancés
+            Filtres
             {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center h-5 w-5 bg-indigo-500 text-white text-[10px] rounded-full shadow-sm">
+              <span className="h-5 w-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center">
                 {activeFiltersCount}
               </span>
             )}
-            <ChevronDownIcon className={clsx("h-3 w-3 transition-transform duration-300", showFilters && "rotate-180")} />
+            <ChevronDownIcon className={clsx('h-3 w-3 transition-transform', showFilters && 'rotate-180')} />
           </button>
         </div>
 
-        {/* Advanced Filters Section */}
+        {/* Advanced panel */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -545,103 +354,46 @@ const BlvList = () => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="p-6 pt-0 border-t border-slate-100/80 bg-slate-50/30">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                  {/* Min Amount */}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <CurrencyDollarIcon className="h-3.5 w-3.5" />
-                      Montant Min (TND)
-                    </label>
-                    <input
-                      type="number" min="0" placeholder="Ex: 1000"
-                      value={filters.minAmount} onChange={(e) => handleFilterChange('minAmount', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    />
-                  </div>
-                  {/* Max Amount */}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <CurrencyDollarIcon className="h-3.5 w-3.5" />
-                      Montant Max (TND)
-                    </label>
-                    <input
-                      type="number" min="0" placeholder="Ex: 50000"
-                      value={filters.maxAmount} onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    />
-                  </div>
-                  {/* Date From */}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <CalendarIcon className="h-3.5 w-3.5" />
-                      Créé Après Le
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dateFrom} onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    />
-                  </div>
-                  {/* Date To */}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <CalendarIcon className="h-3.5 w-3.5" />
-                      Créé Avant Le
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.dateTo} onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    />
-                  </div>
+              <div className="px-5 pb-5 pt-4 border-t border-slate-100 bg-slate-50/60">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { key: 'minAmount', label: 'Montant min (TND)', type: 'number', placeholder: '1 000' },
+                    { key: 'maxAmount', label: 'Montant max (TND)', type: 'number', placeholder: '50 000' },
+                    { key: 'dateFrom', label: 'Créé après le', type: 'date', placeholder: '' },
+                    { key: 'dateTo', label: 'Créé avant le', type: 'date', placeholder: '' },
+                  ].map(({ key, label, type, placeholder }) => (
+                    <div key={key}>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">{label}</label>
+                      <input
+                        type={type} placeholder={placeholder} min="0"
+                        value={filters[key]}
+                        onChange={(e) => handleFilterChange(key, e.target.value)}
+                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
+                      />
+                    </div>
+                  ))}
                   {!isCommercialUser && (
-                    <div className="group">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                        <UserIcon className="h-3.5 w-3.5" />
-                        Commerciale
-                      </label>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Commercial</label>
                       <select
                         value={filters.commercial}
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
+                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="">-- Tous les commerciales --</option>
-                        {filteredCommercials.map(com => (
-                          <option key={com.UserID} value={com.UserID}>
-                            {com.FullName}
-                          </option>
+                        <option value="">Tous</option>
+                        {filteredCommercials.map((c) => (
+                          <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                         ))}
                       </select>
                     </div>
                   )}
-                  <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                      <BuildingOfficeIcon className="h-3.5 w-3.5" />
-                      Client
-                    </label>
-                    <select
-                      value={filters.client}
-                      onChange={(e) => handleFilterChange('client', e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                    >
-                      <option value="">-- Tous les clients --</option>
-                      {filteredClientsForDropdown.map(client => (
-                        <option key={client.CodTiers} value={client.CodTiers}>
-                          {client.Raisoc}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
-
-                {/* Filter Actions */}
-                <div className="flex justify-end gap-3 mt-8">
+                <div className="flex justify-end mt-4">
                   <button
                     onClick={resetFilters}
-                    className="px-5 py-2.5 bg-white border-2 border-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 hover:text-slate-900 transition-all flex items-center gap-2"
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-all"
                   >
-                    <XMarkIcon className="h-4 w-4 stroke-[3]" />
+                    <XMarkIcon className="h-3.5 w-3.5" />
                     Réinitialiser
                   </button>
                 </div>
@@ -651,238 +403,238 @@ const BlvList = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Table Section */}
-      <motion.div variants={itemVariants} className="card-luxury p-0 overflow-hidden border border-slate-200/50 shadow-xl shadow-slate-200/30 rounded-3xl">
-        <div className="px-8 py-6 border-b border-slate-100 bg-white flex items-center justify-between">
-          <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <TruckIcon className="h-5 w-5 text-blue-500" />
-            Liste des Livraisons (BL)
-          </h3>
-          <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold shadow-sm border border-slate-200/60">
-            {totalItems} documents trouvés
+      {/* ── Table ── */}
+      <motion.div variants={fadeUp} className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        {/* Table header bar */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <TruckIcon className="h-4 w-4 text-blue-500" />
+            Liste des Livraisons
+          </div>
+          <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-500 text-xs font-semibold rounded-lg">
+            {totalItems} document{totalItems !== 1 ? 's' : ''}
           </span>
         </div>
-        
-        <div className="overflow-x-auto bg-slate-50/30">
-          <table className="w-full text-left border-collapse">
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-white/80 backdrop-blur-sm border-b border-slate-200/80 shadow-sm">
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest group cursor-pointer hover:text-slate-700 transition-colors">Document</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Client</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Région</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Type</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Catégorie</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Classe</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Montant TTC</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Statut</th>
-                <th className="px-8 py-5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+              <tr className="border-b border-slate-100 bg-slate-50/60">
+                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
+                  <th
+                    key={i}
+                    className={clsx(
+                      'px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left',
+                      i === 7 && 'text-right'
+                    )}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100/80 bg-white">
-              <AnimatePresence>
-                {(!filteredBlv || filteredBlv.length === 0) ? (
-                  <motion.tr
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <td colSpan="9" className="px-8 py-32 text-center">
-                      <motion.div 
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="flex flex-col items-center gap-4 max-w-xs mx-auto"
-                      >
-                        <div className="h-20 w-20 bg-gradient-to-tr from-slate-100 to-slate-50 rounded-full flex items-center justify-center text-slate-300 shadow-inner border border-slate-200/50">
-                          <DocumentTextIcon className="h-10 w-10" />
+            <tbody>
+              <AnimatePresence mode="popLayout">
+                {paginatedBlv.length === 0 ? (
+                  <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <td colSpan={8} className="py-24 text-center">
+                      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-4">
+                        <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+                           <TruckIcon className="h-8 w-8 text-slate-300" />
                         </div>
                         <div>
-                          <p className="text-slate-800 font-bold mb-1">
-                            {blv && blv.length > 0 ? 'Aucun résultat trouvé' : 'Dossier vide'}
+                          <p className="text-sm font-semibold text-slate-700 mb-1">
+                            {blv?.length > 0 ? 'Aucun résultat' : 'Dossier vide'}
                           </p>
-                          <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                            {blv && blv.length > 0 
-                              ? "Ajustez vos filtres de recherche pour trouver ce que vous cherchez." 
-                              : "Vous n'avez pas encore créé de proposition commerciale. Commencez dès maintenant."}
+                          <p className="text-xs text-slate-400">
+                            {blv?.length > 0 ? 'Ajustez vos filtres pour trouver ce que vous cherchez.' : "Aucun bon de livraison créé pour le moment."}
                           </p>
                         </div>
+                        {(!blv || blv.length === 0) && canCreate && (
+                          <button onClick={() => navigate('/blv/new')} className="mt-1 text-sm text-blue-600 font-semibold hover:text-blue-700 transition-colors">
+                            + Créer une livraison
+                          </button>
+                        )}
                       </motion.div>
                     </td>
                   </motion.tr>
                 ) : (
-                  paginatedBlv.map((item, i) => (
-                    <motion.tr
-                      variants={rowVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      custom={i}
-                      // Staggered delay for list items
-                      transition={{ delay: i * 0.05 }}
-                      key={item.Guid || i}
-                      className="group hover:bg-slate-50/80 transition-colors cursor-pointer relative"
-                      onClick={() => navigate(`/blv/${item.Guid}`)}
-                    >
-                      <td className="px-8 py-4 relative">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500 transition-colors" />
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm font-extrabold text-blue-700 tracking-tight transition-colors group-hover:text-blue-900">
-                            {item.Prfx}{item.Nf}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                            <CalendarIcon className="h-3 w-3" />
-                            {formatDate(item.DatUser)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-100 to-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-black text-sm shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all">
-                            {item.LibTiers?.charAt(0) || '?'}
+                  paginatedBlv.map((item, i) => {
+                    const status = getStatus(item);
+                    const cfg = STATUS_CONFIG[status];
+                    return (
+                      <motion.tr
+                        key={item.Guid || i}
+                        custom={i}
+                        variants={rowVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        onClick={() => navigate(`/blv/${item.Guid}`)}
+                        className="group relative border-b border-slate-100 last:border-0 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                      >
+                        {/* Status bar */}
+                        <td className="px-5 py-3.5 relative">
+                          <div className={clsx('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity rounded-r', cfg.bar)} />
+                          <div className="font-semibold text-blue-700 text-sm">{item.Prfx}{item.Nf}</div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <CalendarIcon className="h-3 w-3 text-slate-300" />
+                            <span className="text-[10px] text-slate-400">{formatDate(item.DatUser)}</span>
                           </div>
-                          <div className="max-w-[160px]">
-                            <p className="text-sm font-bold text-slate-800 leading-tight mb-0.5 group-hover:text-blue-700 transition-colors truncate">
-                              {item.LibTiers || 'Inconnu'}
-                            </p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">Client Prospect</p>
+                        </td>
+
+                        {/* Client */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                              {(item.LibTiers || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800 truncate max-w-[150px] group-hover:text-blue-700 transition-colors">
+                                {item.LibTiers || 'Inconnu'}
+                              </p>
+                              <p className="text-[10px] text-slate-400">Client</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-4">
-                        {(item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat) ? (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 uppercase tracking-widest shadow-sm">
-                            {item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat}
+                        </td>
+
+                        {/* Région */}
+                        <td className="px-5 py-3.5">
+                          {(item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat) ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 uppercase tracking-wide">
+                              {item?.client?.region?.libelle || item?.client?.MapsRegion || item?.client?.Ville || item?.client?.Gouvernorat || item?.client?.gouvernorat || item.MapsRegion || item.Gouvernorat}
+                            </span>
+                          ) : <span className="text-slate-200">—</span>}
+                        </td>
+
+                        {/* Type */}
+                        <td className="px-5 py-3.5">
+                          <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                            {item.TypeBlv || 'Standard'}
                           </span>
-                        ) : <span className="text-slate-300">-</span>}
-                      </td>
-                      <td className="px-8 py-4">
-                        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg shadow-sm border border-slate-200">
-                          {item.TypeBlv || 'Standard'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-4">
-                         {(item?.client?.tiersCategorieObj?.libelle || item.Categorie) ? (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 uppercase tracking-widest shadow-sm">
-                            {item?.client?.tiersCategorieObj?.libelle || item.Categorie}
+                        </td>
+
+                        {/* Catégorie */}
+                        <td className="px-5 py-3.5">
+                          {(item?.client?.tiersCategorieObj?.libelle || item.Categorie) ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold text-violet-700 bg-violet-50 border border-violet-200 uppercase tracking-wide">
+                              {item?.client?.tiersCategorieObj?.libelle || item.Categorie}
+                            </span>
+                          ) : <span className="text-slate-200">—</span>}
+                        </td>
+
+                        {/* Montant */}
+                        <td className="px-5 py-3.5">
+                          <span className="text-sm font-bold text-slate-900 tabular-nums">{formatCurrency(item.TotTTC)}</span>
+                        </td>
+
+                        {/* Statut */}
+                        <td className="px-5 py-3.5">
+                          <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border', cfg.badge)}>
+                            <span className={clsx('h-1.5 w-1.5 rounded-full', cfg.dot)} />
+                            {cfg.label}
                           </span>
-                        ) : <span className="text-slate-300">-</span>}
-                      </td>
-                      <td className="px-8 py-4">
-                         {(item?.client?.tiersClasse?.libelle || item.Classe) ? (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-700 bg-white border border-slate-300 uppercase tracking-widest shadow-sm">
-                            {item?.client?.tiersClasse?.libelle || item.Classe}
-                          </span>
-                        ) : <span className="text-slate-300">-</span>}
-                      </td>
-                      <td className="px-8 py-4">
-                        <span className="text-sm font-black text-slate-900 tabular-nums">
-                          {formatCurrency(item.TotTTC)}
-                        </span>
-                      </td>
-                      <td className="px-8 py-4">
-                        <span className={clsx(
-                          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border",
-                          item.IsConverted ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                            item.Valid ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-white text-slate-500 border-slate-200"
-                        )}>
-                          {item.IsConverted && <CheckCircleIcon className="h-3.5 w-3.5" />}
-                          {!item.IsConverted && item.Valid && <SparklesIcon className="h-3.5 w-3.5" />}
-                          {item.bTransf ? "Facturé" : item.Valid ? "Validé" : "Brouillon"}
-                        </span>
-                      </td>
-                      <td className="px-8 py-4">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canEdit && (
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canShowEditAction && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/blv/edit/${item.Guid}`); }}
+                                title="Modifier"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50 transition-all"
+                              >
+                                <PencilSquareIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canShowDeleteAction && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteBlv(item.Guid); }}
+                                title="Supprimer"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/blv/edit/${item.Guid}`); }}
-                              className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all hover:-translate-y-0.5"
-                              title="Modifier"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHistoryTarget({ id: item.Guid, type: 'BL', label: `${item.Prfx || ''}${item.Nf || ''}` });
+                              }}
+                              title="Historique règlements"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all"
                             >
-                              <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                              <DocumentTextIcon className="h-3.5 w-3.5" />
                             </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHistoryTarget({
-                                id: item.Guid,
-                                type: 'BL',
-                                label: `${item.Prfx || ''}${item.Nf || ''}`,
-                              });
-                            }}
-                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 rounded-xl transition-all hover:-translate-y-0.5"
-                            title="Détails règlements"
-                          >
-                            <DocumentTextIcon className="h-4 w-4 stroke-[2.5]" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/blv/${item.Guid}`); }}
-                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all hover:-translate-y-0.5"
-                            title="Détails"
-                          >
-                            <ArrowUpRightIcon className="h-4 w-4 stroke-[2.5]" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/blv/${item.Guid}`); }}
+                              title="Ouvrir"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all"
+                            >
+                              <ArrowUpRightIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })
                 )}
               </AnimatePresence>
             </tbody>
           </table>
         </div>
-        {/* Footer - Pagination */}
+
+        {/* ── Pagination ── */}
         {totalPages > 1 && (
-          <div className="px-8 py-4 bg-slate-50/80 border-t border-slate-200/60 flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">
-              Affichage {startIndex + 1} - {Math.min(startIndex + itemsPerPage, totalItems)} sur {totalItems}
+          <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/50">
+            <span className="text-xs text-slate-400 font-medium">
+              {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} sur {totalItems}
             </span>
             <div className="flex items-center gap-1">
               <button
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                onClick={() => setCurrentPage((p) => p - 1)}
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-500 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-blue-600 transition-colors"
               >
-                Précédent
+                ← Préc.
               </button>
-              
-              <div className="flex items-center gap-1 px-2">
-                {Array.from({ length: totalPages }).map((_, idx) => {
-                  const pageNumber = idx + 1;
-                  // Show current page, first, last, and immediate neighbors
-                  if (pageNumber === 1 || pageNumber === totalPages || (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)) {
-                    return (
-                      <button
-                        key={pageNumber}
-                        onClick={() => setCurrentPage(pageNumber)}
-                        className={clsx(
-                          "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-colors",
-                          currentPage === pageNumber 
-                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" 
-                            : "bg-transparent text-slate-600 hover:bg-slate-200"
-                        )}
-                      >
-                        {pageNumber}
-                      </button>
-                    );
-                  } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
-                    return <span key={`ellipsis-${pageNumber}`} className="text-slate-400 text-xs">...</span>;
-                  }
-                  return null;
-                })}
-              </div>
-
+              {Array.from({ length: totalPages }).map((_, idx) => {
+                const p = idx + 1;
+                if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={clsx(
+                        'h-8 w-8 rounded-lg text-xs font-semibold transition-colors',
+                        currentPage === p
+                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                          : 'text-slate-500 hover:bg-slate-100'
+                      )}
+                    >
+                      {p}
+                    </button>
+                  );
+                } else if (p === currentPage - 2 || p === currentPage + 2) {
+                  return <span key={`e${p}`} className="text-slate-300 text-xs px-1">…</span>;
+                }
+                return null;
+              })}
               <button
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                onClick={() => setCurrentPage((p) => p + 1)}
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-slate-500 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-blue-600 transition-colors"
               >
-                Suivant
+                Suiv. →
               </button>
             </div>
           </div>
         )}
       </motion.div>
 
+      {/* ── Modal ── */}
       <DocumentReglementHistoryModal
         isOpen={Boolean(historyTarget)}
         onClose={() => setHistoryTarget(null)}
@@ -895,4 +647,3 @@ const BlvList = () => {
 };
 
 export default BlvList;
-

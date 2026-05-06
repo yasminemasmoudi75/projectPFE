@@ -43,7 +43,7 @@ import toast from 'react-hot-toast';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const PRIORITY_COLORS = { 'Haute': '#ef4444', 'Moyenne': '#f59e0b', 'Basse': '#10b981' };
-const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'Résolu': '#10b981', 'Fermé': '#64748b' };
+const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'R├⌐solu': '#10b981', 'Ferm├⌐': '#64748b' };
 const isExpectedAuthFailure = (error) => error?.response?.status === 401 || error?.isSessionExpired === true;
 const isForbidden = (error) => error?.response?.status === 403;
 const getCollection = (payload) => (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []);
@@ -56,7 +56,7 @@ const getProjectStatus = (project) => {
 
   if (phase.includes('suspend')) return 'Suspendu';
   if (phase.includes('attente')) return 'En attente';
-  if (phase.includes('clôt') || phase.includes('clot') || progress >= 100) return 'Complété';
+  if (phase.includes('cl├┤t') || phase.includes('clot') || progress >= 100) return 'Compl├⌐t├⌐';
 
   return 'Actif';
 };
@@ -73,11 +73,11 @@ const getObjectifStatus = (objectif) => {
   return 'Non atteint';
 };
 const getDevisStatus = (devis) => {
-  if (normalizeBoolean(devis?.bTransf)) return 'Transformé';
-  if (normalizeBoolean(devis?.Valid)) return 'Validé';
+  if (normalizeBoolean(devis?.bTransf)) return 'Transform├⌐';
+  if (normalizeBoolean(devis?.Valid)) return 'Valid├⌐';
   return 'En attente';
 };
-const isValidatedDevis = (devis) => ['Validé', 'Transformé'].includes(getDevisStatus(devis));
+const isValidatedDevis = (devis) => ['Valid├⌐', 'Transform├⌐'].includes(getDevisStatus(devis));
 const getUserRole = (userItem) => userItem?.UserRole || userItem?.Role || 'User';
 const isUserActive = (userItem) => userItem?.IsActive == null || normalizeBoolean(userItem.IsActive);
 const isUnreadMessage = (message) => !normalizeBoolean(message?.Delivered);
@@ -90,14 +90,14 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('week');
 
-  // Helper: Vérifier si un module est actif
+  // Helper: V├⌐rifier si un module est actif
   const hasModuleAccess = (moduleCode) => {
-    if (!moduleCode) return true; // Pas de vérification si pas de code
+    if (!moduleCode) return true; // Pas de v├⌐rification si pas de code
     const target = Number(moduleCode);
     return allPermissions.some((p) => Number(p.moduleCode) === target && p.isActive === true);
   };
 
-  // State pour les données
+  // State pour les donn├⌐es
   const [stats, setStats] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [chartData, setChartData] = useState([]);
@@ -122,7 +122,7 @@ const Dashboard = () => {
   const [commercialDevisData, setCommercialDevisData] = useState([]);
   const [monthlyDevisData, setMonthlyDevisData] = useState([]);
 
-  // Fetch les données au chargement
+  // Fetch les donn├⌐es au chargement
   useEffect(() => {
     const fetchDashboardData = async () => {
       const safeRequest = async (enabled, requestFn, fallback) => {
@@ -171,13 +171,13 @@ const Dashboard = () => {
         const blv = getCollection(blvRes);
         const fav = getCollection(favRes);
 
-        // Traiter les données de réclamations
+        // Traiter les donn├⌐es de r├⌐clamations
         const reclamations = getCollection(reclamationsRes);
         const reclamationsByStatus = {
           'Ouvert': reclamations.filter(r => r.Statut === 'Ouvert').length,
           'En cours': reclamations.filter(r => r.Statut === 'En cours').length,
-          'Résolu': reclamations.filter(r => r.Statut === 'Résolu').length,
-          'Fermé': reclamations.filter(r => r.Statut === 'Fermé').length
+          'R├⌐solu': reclamations.filter(r => r.Statut === 'R├⌐solu').length,
+          'Ferm├⌐': reclamations.filter(r => r.Statut === 'Ferm├⌐').length
         };
         const reclamationsByPriority = {
           'Haute': reclamations.filter(r => r.Priorite === 'Haute').length,
@@ -185,7 +185,7 @@ const Dashboard = () => {
           'Basse': reclamations.filter(r => r.Priorite === 'Basse').length
         };
 
-        // Réclamations par type
+        // R├⌐clamations par type
         const reclamationsByType = {};
         reclamations.forEach(r => {
           const type = r.TypeReclamation || 'Autre';
@@ -194,7 +194,7 @@ const Dashboard = () => {
         const typeData = Object.entries(reclamationsByType).map(([name, value]) => ({ name, value }));
         setTypeReclamationData(typeData);
 
-        // Statistiques par priorité pour graphique
+        // Statistiques par priorit├⌐ pour graphique
         const priorityData = [
           { name: 'Haute', value: reclamationsByPriority['Haute'], fill: '#ef4444' },
           { name: 'Moyenne', value: reclamationsByPriority['Moyenne'], fill: '#f59e0b' },
@@ -202,13 +202,13 @@ const Dashboard = () => {
         ];
         setPriorityChartData(priorityData);
 
-        // Taux de résolution
-        const resolvedCount = reclamationsByStatus['Résolu'] + reclamationsByStatus['Fermé'];
+        // Taux de r├⌐solution
+        const resolvedCount = reclamationsByStatus['R├⌐solu'] + reclamationsByStatus['Ferm├⌐'];
         const rate = reclamations.length > 0 ? ((resolvedCount / reclamations.length) * 100).toFixed(1) : 0;
         setResolutionRate(rate);
 
         // Tendances mensuelles (6 derniers mois)
-        const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const monthNames = ['Jan', 'F├⌐v', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
         const now = new Date();
         const monthlyData = [];
         for (let i = 5; i >= 0; i--) {
@@ -221,7 +221,7 @@ const Dashboard = () => {
           monthlyData.push({
             name: monthNames[date.getMonth()],
             ouvertes: monthReclamations.length,
-            resolues: monthReclamations.filter(r => r.Statut === 'Résolu' || r.Statut === 'Fermé').length
+            resolues: monthReclamations.filter(r => r.Statut === 'R├⌐solu' || r.Statut === 'Ferm├⌐').length
           });
         }
         setMonthlyTrendData(monthlyData);
@@ -234,7 +234,7 @@ const Dashboard = () => {
               techStats[r.NomTechnicien] = { total: 0, resolved: 0 };
             }
             techStats[r.NomTechnicien].total++;
-            if (r.Statut === 'Résolu' || r.Statut === 'Fermé') {
+            if (r.Statut === 'R├⌐solu' || r.Statut === 'Ferm├⌐') {
               techStats[r.NomTechnicien].resolved++;
             }
           }
@@ -257,11 +257,11 @@ const Dashboard = () => {
           resolutionRate: rate
         });
 
-        // Traiter les données de projets
+        // Traiter les donn├⌐es de projets
         const projects = getCollection(projectsRes);
         const projectsByStatus = {
           'Actif': projects.filter(p => getProjectStatus(p) === 'Actif').length,
-          'Complété': projects.filter(p => getProjectStatus(p) === 'Complété').length,
+          'Compl├⌐t├⌐': projects.filter(p => getProjectStatus(p) === 'Compl├⌐t├⌐').length,
           'En attente': projects.filter(p => getProjectStatus(p) === 'En attente').length,
           'Suspendu': projects.filter(p => getProjectStatus(p) === 'Suspendu').length
         };
@@ -269,10 +269,10 @@ const Dashboard = () => {
           total: projects.length,
           byStatus: projectsByStatus,
           activeCount: projectsByStatus['Actif'],
-          completedCount: projectsByStatus['Complété']
+          completedCount: projectsByStatus['Compl├⌐t├⌐']
         });
 
-        // Traiter les données d'objectifs
+        // Traiter les donn├⌐es d'objectifs
         const objectifs = getCollection(objectifsRes);
         const objectifsByStatus = {
           'Atteint': objectifs.filter(o => getObjectifStatus(o) === 'Atteint').length,
@@ -286,23 +286,23 @@ const Dashboard = () => {
           achievementRate: ((objectifsByStatus['Atteint'] || 0) / (objectifs.length || 1) * 100).toFixed(1)
         });
 
-        // Traiter les données de devis
+        // Traiter les donn├⌐es de devis
         const devis = getCollection(devisRes);
         const devisByStatus = {
           'En attente': devis.filter(d => getDevisStatus(d) === 'En attente').length,
-          'Validé': devis.filter(d => getDevisStatus(d) === 'Validé').length,
-          'Transformé': devis.filter(d => getDevisStatus(d) === 'Transformé').length
+          'Valid├⌐': devis.filter(d => getDevisStatus(d) === 'Valid├⌐').length,
+          'Transform├⌐': devis.filter(d => getDevisStatus(d) === 'Transform├⌐').length
         };
         const devisTotalAmount = devis.reduce((sum, d) => sum + Number(d.TotTTC || d.Montant || 0), 0);
         setDevisStats({
           total: devis.length,
           byStatus: devisByStatus,
           pendingCount: devisByStatus['En attente'],
-          validatedCount: devisByStatus['Validé'] + devisByStatus['Transformé'],
+          validatedCount: devisByStatus['Valid├⌐'] + devisByStatus['Transform├⌐'],
           totalAmount: devisTotalAmount
         });
 
-        // Traiter les données d'utilisateurs
+        // Traiter les donn├⌐es d'utilisateurs
         const users = getCollection(usersRes);
         const usersByRole = users.reduce((acc, currentUser) => {
           const role = getUserRole(currentUser);
@@ -315,7 +315,7 @@ const Dashboard = () => {
           activeCount: users.filter(isUserActive).length
         });
 
-        // Traiter les données des tiers (clients)
+        // Traiter les donn├⌐es des tiers (clients)
         const tiers = getCollection(tiersRes);
         const tiersByType = {};
         tiers.forEach(t => {
@@ -327,7 +327,7 @@ const Dashboard = () => {
           byType: tiersByType
         });
 
-        // Traiter les données des messages
+        // Traiter les donn├⌐es des messages
         const messages = getCollection(messagesRes);
         const unreadCount = messages.filter(isUnreadMessage).length;
         setMessagesStats({
@@ -336,10 +336,10 @@ const Dashboard = () => {
         });
 
         // ======= STATISTIQUES COMMERCIAUX =======
-        // Performance des commerciaux basée sur les devis
+        // Performance des commerciaux bas├⌐e sur les devis
         const commercialData = {};
         devis.forEach(d => {
-          const commercial = d.CUser || d.CodRepres || d.CreatedBy || 'Non assigné';
+          const commercial = d.CUser || d.CodRepres || d.CreatedBy || 'Non assign├⌐';
           if (!commercialData[commercial]) {
             commercialData[commercial] = {
               total: 0,
@@ -371,13 +371,13 @@ const Dashboard = () => {
         const commercialDevisChartData = commercialStatsArray.map(c => ({
           name: c.name,
           devis: c.total,
-          validés: c.validated,
+          valides: c.validated,
           montant: Math.round(c.totalAmount / 1000) // en milliers
         }));
         setCommercialDevisData(commercialDevisChartData);
 
         // Tendance mensuelle des devis (6 derniers mois)
-        const monthNamesDevis = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const monthNamesDevis = ['Jan', 'F├⌐v', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
         const nowDevis = new Date();
         const monthlyDevis = [];
         for (let i = 5; i >= 0; i--) {
@@ -390,16 +390,16 @@ const Dashboard = () => {
           monthlyDevis.push({
             name: monthNamesDevis[date.getMonth()],
             devis: monthDevis.length,
-            validés: validatedDevis.length,
+            valides: validatedDevis.length,
             montant: Math.round(monthDevis.reduce((sum, d) => sum + Number(d.TotTTC || d.Montant || 0), 0) / 1000)
           });
         }
         setMonthlyDevisData(monthlyDevis);
 
-        // Préparer les cartes KPI avec les données réelles
+        // Pr├⌐parer les cartes KPI avec les donn├⌐es r├⌐elles
         const newStats = [
           {
-            name: 'Réclamations',
+            name: 'R├⌐clamations',
             value: reclamations.length,
             unit: 'En cours',
             icon: DocumentTextIcon,
@@ -413,7 +413,7 @@ const Dashboard = () => {
             value: projectsByStatus['Actif'],
             unit: 'En cours',
             icon: BriefcaseIcon,
-            trend: `+${projectsByStatus['Complété']} complétés`,
+            trend: `+${projectsByStatus['Compl├⌐t├⌐']} compl├⌐t├⌐s`,
             trendUp: true,
             color: 'emerald',
             description: 'ce mois'
@@ -426,7 +426,7 @@ const Dashboard = () => {
             trend: `${objectifsByStatus['Atteint']}/${objectifs.length}`,
             trendUp: true,
             color: 'purple',
-            description: 'Taux de réalisation'
+            description: 'Taux de r├⌐alisation'
           },
           {
             name: 'Devis',
@@ -443,7 +443,7 @@ const Dashboard = () => {
             value: blv.length,
             unit: 'Total',
             icon: TruckIcon,
-            trend: `${blv.filter(b => b.Valid).length} validés`,
+            trend: `${blv.filter(b => b.Valid).length} valid├⌐s`,
             trendUp: true,
             color: 'blue',
             description: 'Logistique'
@@ -453,7 +453,7 @@ const Dashboard = () => {
             value: fav.length,
             unit: 'Total',
             icon: DocumentTextIcon,
-            trend: `${fav.filter(f => f.Valid).length} validées`,
+            trend: `${fav.filter(f => f.Valid).length} valid├⌐es`,
             trendUp: true,
             color: 'emerald',
             description: 'Finance'
@@ -461,31 +461,31 @@ const Dashboard = () => {
         ];
         setStats(newStats);
 
-        // Préparer les activités récentes
+        // Pr├⌐parer les activit├⌐s r├⌐centes
         const activities = getCollection(activitesRes);
         const formattedActivities = activities.slice(0, 5).map((activity, idx) => ({
           id: idx,
           type: 'activity',
-          title: activity.Type_Activite || 'Activité',
+          title: activity.Type_Activite || 'Activit├⌐',
           client: activity.Description || 'Sans description',
           status: 'success',
           time: 'Il y a peu'
         }));
         setRecentActivities(formattedActivities);
 
-        // Préparer les données de graphique
+        // Pr├⌐parer les donn├⌐es de graphique
         const statusData = [
           { name: 'Ouvert', value: reclamationsByStatus['Ouvert'] },
           { name: 'En cours', value: reclamationsByStatus['En cours'] },
-          { name: 'Résolu', value: reclamationsByStatus['Résolu'] },
-          { name: 'Fermé', value: reclamationsByStatus['Fermé'] }
+          { name: 'R├⌐solu', value: reclamationsByStatus['R├⌐solu'] },
+          { name: 'Ferm├⌐', value: reclamationsByStatus['Ferm├⌐'] }
         ];
         setChartData(statusData);
 
       } catch (error) {
         if (!isExpectedAuthFailure(error) && !isForbidden(error)) {
           console.error('Erreur lors du chargement du dashboard:', error);
-          toast.error('Erreur lors du chargement des données du dashboard');
+          toast.error('Erreur lors du chargement des donn├⌐es du dashboard');
         }
       } finally {
         setLoading(false);
@@ -583,16 +583,16 @@ const Dashboard = () => {
                 </div>
               </div>
               <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
-                Bonjour, {(user?.FullName || 'Utilisateur').split(' ')[0]} 👋
+                Bonjour, {(user?.FullName || 'Utilisateur').split(' ')[0]} ≡ƒæï
               </h1>
               <div className="space-y-3">
                 <p className="text-white/90 text-base max-w-xl leading-relaxed font-medium">
-                  Voici un aperçu de votre tableau de bord en temps réel avec tous vos KPI importants.
+                  Voici un aper├ºu de votre tableau de bord en temps r├⌐el avec tous vos KPI importants.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
                   <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
                     <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
-                    <span className="text-white/90 text-sm font-semibold">{reclamationStats?.openCount || 0} Réclamations urgentes</span>
+                    <span className="text-white/90 text-sm font-semibold">{reclamationStats?.openCount || 0} R├⌐clamations urgentes</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
                     <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse"></div>
@@ -607,7 +607,7 @@ const Dashboard = () => {
                 className="group/btn px-7 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold uppercase tracking-wider shadow-2xl hover:shadow-3xl hover:-translate-y-1.5 transition-all flex items-center gap-2 border-2 border-white/20 hover:border-white/50 hover:bg-blue-50"
               >
                 <DocumentTextIcon className="h-5 w-5 group-hover/btn:scale-110 transition-transform" />
-                Voir Réclamations
+                Voir R├⌐clamations
               </button>
               <button
                 onClick={() => navigate('/projets')}
@@ -686,11 +686,11 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
 
-        {/* Réclamations Status Chart - Professional Enhanced Design */}
+        {/* R├⌐clamations Status Chart - Professional Enhanced Design */}
         <div className="xl:col-span-4 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="Réclamations par Statut"
-            subtitle={`Total: ${reclamationStats?.total} | Taux de résolution: ${resolutionRate}%`}
+            title="R├⌐clamations par Statut"
+            subtitle={`Total: ${reclamationStats?.total} | Taux de r├⌐solution: ${resolutionRate}%`}
             icon={DocumentTextIcon}
             colorClass="blue"
           />
@@ -719,7 +719,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Détail des statuts */}
+          {/* D├⌐tail des statuts */}
           <div className="px-6 pb-6 space-y-3">
             {Object.entries(reclamationStats?.byStatus || {}).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between">
@@ -769,7 +769,7 @@ const Dashboard = () => {
           {/* Objectifs Achievement */}
           <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-slate-200/40 bg-white">
             <ChartCardHeader
-              title="Taux de Réalisation Objectifs"
+              title="Taux de R├⌐alisation Objectifs"
               subtitle={`${objectifStats?.achievementRate}% d'objectifs atteints`}
               icon={ArrowTrendingUpIcon}
               colorClass="purple"
@@ -850,14 +850,14 @@ const Dashboard = () => {
 
       {/* NOUVELLES STATISTIQUES */}
 
-      {/* Réclamations - Par Priorité & Tendance Mensuelle */}
+      {/* R├⌐clamations - Par Priorit├⌐ & Tendance Mensuelle */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
-        {/* Réclamations par Priorité */}
+        {/* R├⌐clamations par Priorit├⌐ */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="Réclamations par Priorité"
-            subtitle={`Taux de résolution: ${resolutionRate}%`}
+            title="R├⌐clamations par Priorit├⌐"
+            subtitle={`Taux de r├⌐solution: ${resolutionRate}%`}
             icon={ChartBarIcon}
             colorClass="rose"
           />
@@ -902,7 +902,7 @@ const Dashboard = () => {
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
           <ChartCardHeader
             title="Tendance Mensuelle"
-            subtitle="Évolution des réclamations sur 6 mois"
+            subtitle="├ëvolution des r├⌐clamations sur 6 mois"
             icon={ClockIcon}
             colorClass="blue"
           />
@@ -929,7 +929,7 @@ const Dashboard = () => {
                   />
                   <Legend />
                   <Area type="monotone" dataKey="ouvertes" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorOuvertes)" name="Ouvertes" />
-                  <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorResolues)" name="Résolues" />
+                  <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorResolues)" name="R├⌐solues" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -937,14 +937,14 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Performance Techniciens & Types de Réclamations */}
+      {/* Performance Techniciens & Types de R├⌐clamations */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
         {/* Performance des Techniciens */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
           <ChartCardHeader
             title="Performance Techniciens"
-            subtitle="Top 5 techniciens par volume de réclamations"
+            subtitle="Top 5 techniciens par volume de r├⌐clamations"
             icon={UsersIcon}
             colorClass="purple"
           />
@@ -962,13 +962,13 @@ const Dashboard = () => {
                     />
                     <Legend />
                     <Bar dataKey="total" fill="#8b5cf6" name="Total" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="resolved" fill="#10b981" name="Résolus" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="resolved" fill="#10b981" name="R├⌐solus" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
               <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>Aucune donnée de technicien disponible</p>
+                <p>Aucune donn├⌐e de technicien disponible</p>
               </div>
             )}
           </div>
@@ -989,11 +989,11 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Types de Réclamations */}
+        {/* Types de R├⌐clamations */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="Types de Réclamations"
-            subtitle="Répartition par catégorie"
+            title="Types de R├⌐clamations"
+            subtitle="R├⌐partition par cat├⌐gorie"
             icon={DocumentTextIcon}
             colorClass="cyan"
           />
@@ -1024,7 +1024,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Détail des types */}
+          {/* D├⌐tail des types */}
           <div className="px-6 pb-6 space-y-3">
             {typeReclamationData.map((type, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-lg hover:bg-slate-50 transition-colors">
@@ -1063,14 +1063,14 @@ const Dashboard = () => {
                       contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
                     />
                     <Legend />
-                    <Bar dataKey="devis" fill="#f59e0b" name="Devis créés" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="validés" fill="#10b981" name="Devis validés" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="devis" fill="#f59e0b" name="Devis cr├⌐├⌐s" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="valid├⌐s" fill="#10b981" name="Devis valid├⌐s" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
               <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>Aucune donnée de commercial disponible</p>
+                <p>Aucune donn├⌐e de commercial disponible</p>
               </div>
             )}
           </div>
@@ -1093,7 +1093,7 @@ const Dashboard = () => {
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
             title="Tendance Devis Mensuelle"
-            subtitle="Évolution des devis sur 6 mois"
+            subtitle="├ëvolution des devis sur 6 mois"
             icon={ClockIcon}
             colorClass="emerald"
           />
@@ -1107,7 +1107,7 @@ const Dashboard = () => {
                       <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="colorValidés" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorValid├⌐s" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
@@ -1119,8 +1119,8 @@ const Dashboard = () => {
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
                   />
                   <Legend />
-                  <Area type="monotone" dataKey="devis" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDevis)" name="Devis créés" />
-                  <Area type="monotone" dataKey="validés" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorValidés)" name="Validés" />
+                  <Area type="monotone" dataKey="devis" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDevis)" name="Devis cr├⌐├⌐s" />
+                  <Area type="monotone" dataKey="valid├⌐s" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorValid├⌐s)" name="Valid├⌐s" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -1134,7 +1134,7 @@ const Dashboard = () => {
             </div>
             <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50">
               <p className="text-2xl font-bold text-slate-800">{devisStats?.validatedCount || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">Validés</p>
+              <p className="text-xs text-slate-500 mt-1">Valid├⌐s</p>
             </div>
             <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50">
               <p className="text-2xl font-bold text-slate-800">{devisStats?.pendingCount || 0}</p>
@@ -1144,7 +1144,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Classement Commercial - Tableau détaillé */}
+      {/* Classement Commercial - Tableau d├⌐taill├⌐ */}
       <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
         <div className="p-6 lg:p-8 border-b border-slate-100/30 bg-gradient-to-r from-indigo-50/50 to-transparent flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1153,7 +1153,7 @@ const Dashboard = () => {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800">Classement des Commerciaux</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Performance détaillée par commercial</p>
+              <p className="text-sm text-slate-500 mt-0.5">Performance d├⌐taill├⌐e par commercial</p>
             </div>
           </div>
         </div>
@@ -1165,10 +1165,10 @@ const Dashboard = () => {
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Rang</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Commercial</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Devis</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Validés</th>
+                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Valid├⌐s</th>
                 <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Taux Conv.</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">CA Total</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">CA Validé</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">CA Valid├⌐</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1211,7 +1211,7 @@ const Dashboard = () => {
               {commercialStats.length === 0 && (
                 <tr>
                   <td colSpan="7" className="px-6 py-8 text-center text-slate-500">
-                    Aucune donnée de commercial disponible
+                    Aucune donn├⌐e de commercial disponible
                   </td>
                 </tr>
               )}
@@ -1220,14 +1220,14 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Résumé Rapide - 6 KPI Cards with Professional Styling */}
+      {/* R├⌐sum├⌐ Rapide - 6 KPI Cards with Professional Styling */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
           <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
             <DocumentTextIcon className="h-6 w-6 text-slate-700" />
           </div>
           <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{reclamationStats?.total || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Réclamations</p>
+          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">R├⌐clamations</p>
           <div className="mt-3 pt-3 border-t border-slate-200/50">
             <p className="text-xs text-slate-500 font-medium">{reclamationStats?.openCount} ouvertes</p>
           </div>
@@ -1239,7 +1239,7 @@ const Dashboard = () => {
           <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{reclamationStats?.openCount || 0}</p>
           <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">En Attente</p>
           <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">Priorité haute</p>
+            <p className="text-xs text-slate-500 font-medium">Priorit├⌐ haute</p>
           </div>
         </div>
         <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
@@ -1247,7 +1247,7 @@ const Dashboard = () => {
             <CheckCircleIcon className="h-6 w-6 text-slate-700" />
           </div>
           <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{resolutionRate}%</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Résolution</p>
+          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">R├⌐solution</p>
           <div className="mt-3 pt-3 border-t border-slate-200/50">
             <p className="text-xs text-slate-500 font-medium">Taux mensuel</p>
           </div>
@@ -1292,15 +1292,15 @@ const Dashboard = () => {
               <DocumentTextIcon className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Activités Récentes</h3>
-              <p className="text-sm text-slate-600/80 font-medium mt-0.5">Dernières mises à jour du système</p>
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Activit├⌐s R├⌐centes</h3>
+              <p className="text-sm text-slate-600/80 font-medium mt-0.5">Derni├¿res mises ├á jour du syst├¿me</p>
             </div>
           </div>
           <button
             onClick={() => navigate('/activities')}
             className="text-xs font-bold text-blue-600 uppercase tracking-wider hover:bg-blue-50 px-4 py-2 rounded-lg transition-all hover:translate-x-1"
           >
-            Voir tout →
+            Voir tout ΓåÆ
           </button>
         </div>
         <div className="divide-y divide-slate-200/40">
@@ -1329,7 +1329,7 @@ const Dashboard = () => {
             ))
           ) : (
             <div className="p-8 text-center">
-              <p className="text-slate-400 text-sm">Aucune activité récente</p>
+              <p className="text-slate-400 text-sm">Aucune activit├⌐ r├⌐cente</p>
             </div>
           )}
         </div>

@@ -36,13 +36,13 @@ import toast from 'react-hot-toast';
 const CalendarView = () => {
     const navigate = useNavigate();
     const { user, isAdmin } = useAuth();
-    const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.CALENDRIER);
+    const { canCreate, canEdit, canDelete, isFilterRepresEnabled } = usePermission(MODULE_CODES.CALENDRIER);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [viewMode, setViewMode] = useState('month'); // 'month' or 'list'
     const [events, setEvents] = useState([]);
-    const [users, setUsers] = useState([]);
+    const [commerciaux, setCommerciaux] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
 
     // Etas pour le modal de report
@@ -133,21 +133,31 @@ const CalendarView = () => {
         }
     }, [user]);
 
-    // Fetch users for Admin
+    // Fetch commercials for Admin and Agent
     useEffect(() => {
-        const fetchUsers = async () => {
-            if (isAdmin) {
+        const fetchCommerciaux = async () => {
+            const normalizedRole = String(user?.UserRole || '').trim().toLowerCase();
+            const isCommercial = ['commercial', 'commerciale'].includes(normalizedRole);
+            const isClient = normalizedRole === 'client';
+            
+            if (!isCommercial && !isClient) {
                 try {
-                    const response = await axios.get('/users');
-                    const usersList = Array.isArray(response.data) ? response.data : (response.data.data || []);
-                    setUsers(usersList);
+                    const response = await axios.get('/users/commercials/activites-filter', {
+                        params: { moduleCode: String(MODULE_CODES.CALENDRIER), includeAll: isFilterRepresEnabled ? 'false' : 'true' }
+                    });
+                    const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
+                    const mapped = rawData.map(c => ({
+                        UserID: c.userId || c.UserID,
+                        FullName: c.fullName || c.FullName || c.label || c.login || c.LoginName
+                    }));
+                    setCommerciaux(mapped);
                 } catch (error) {
-                    console.error('Error fetching users:', error);
+                    console.error('Error fetching commercials:', error);
                 }
             }
         };
-        fetchUsers();
-    }, [isAdmin]);
+        fetchCommerciaux();
+    }, [user, isFilterRepresEnabled]);
 
     useEffect(() => {
         const fetchUserActivities = async () => {
@@ -155,7 +165,9 @@ const CalendarView = () => {
             
             setLoading(true);
             try {
-                const params = {};
+                const params = {
+                    moduleCode: MODULE_CODES.CALENDRIER
+                };
                 if (selectedUserId) {
                     params.userId = selectedUserId;
                 }
@@ -348,18 +360,19 @@ const CalendarView = () => {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                    {/* Admin User Selector */}
-                    {isAdmin && (
+                    {/* Commercial Selector */}
+                    {!['commercial', 'commerciale', 'client'].includes(String(user?.UserRole || '').trim().toLowerCase()) && (
                         <div className="relative">
                             <select
                                 value={selectedUserId || ''}
                                 onChange={(e) => setSelectedUserId(e.target.value)}
                                 className="pl-3 pr-8 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-white text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             >
-                                <option value="">Tous les utilisateurs</option>
-                                {users.map(u => (
-                                    <option key={u.UserID} value={u.UserID}>
-                                        {u.FullName}
+                                <option value="">Tous les commerciaux</option>
+                                <option value={user?.UserID || user?.id}>Mes activités</option>
+                                {commerciaux.map(c => (
+                                    <option key={c.UserID} value={c.UserID}>
+                                        {c.FullName}
                                     </option>
                                 ))}
                             </select>

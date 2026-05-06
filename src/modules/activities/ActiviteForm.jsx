@@ -92,6 +92,7 @@ const ActiviteForm = () => {
     Statut: 'Planifié',
     IDTiers: '',
     ID_Projet: '',
+    Valide: 0,
   });
 
   const selectedProjetData = useMemo(() => {
@@ -265,6 +266,7 @@ const ActiviteForm = () => {
           Statut: activite.Statut || 'Planifié',
           IDTiers: activite.IDTiers || '',
           ID_Projet: activite.ID_Projet || '',
+          Valide: activite.Valide || 0,
         });
 
         if (activite?.tiers) {
@@ -289,6 +291,8 @@ const ActiviteForm = () => {
 
     fetchActivite();
   }, [id, isEdit, navigate]);
+  
+  const isReadOnly = useMemo(() => isEdit && (Number(formData.Valide) === 1 || formData.Statut === 'Terminé'), [isEdit, formData.Valide, formData.Statut]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -436,18 +440,18 @@ const ActiviteForm = () => {
             >
               Annuler
             </button>
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all disabled:opacity-60 flex items-center gap-2"
-            >
-              {saving ? (
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <CheckIcon className="h-4 w-4" />
-              )}
-              <span>{isEdit ? 'Enregistrer' : 'Créer l\'activité'}</span>
-            </button>
+    <button
+      onClick={handleSubmit}
+      disabled={saving || isReadOnly}
+      className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all disabled:opacity-60 flex items-center gap-2"
+    >
+      {saving ? (
+        <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      ) : (
+        <CheckIcon className="h-4 w-4" />
+      )}
+      <span>{isEdit ? (isReadOnly ? 'Activité validée' : 'Enregistrer') : 'Créer l\'activité'}</span>
+    </button>
           </div>
         </div>
       </div>
@@ -477,8 +481,9 @@ const ActiviteForm = () => {
                     name="Type_Activite"
                     value={formData.Type_Activite}
                     onChange={handleChange}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                     required
+                    disabled={isReadOnly}
                   >
                     <option>Appel</option>
                     <option>Email</option>
@@ -495,8 +500,9 @@ const ActiviteForm = () => {
                     name="Statut"
                     value={formData.Statut}
                     onChange={handleChange}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                     required
+                    disabled={isReadOnly}
                   >
                     <option>Planifié</option>
                     <option>En cours</option>
@@ -516,7 +522,8 @@ const ActiviteForm = () => {
                   onChange={handleChange}
                   rows={4}
                   placeholder="Notez les points clés de l'échange..."
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none resize-none"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none resize-none disabled:bg-slate-50 disabled:text-slate-500"
+                  disabled={isReadOnly}
                 />
               </div>
 
@@ -531,8 +538,9 @@ const ActiviteForm = () => {
                     name="Date_Activite"
                     value={formData.Date_Activite}
                     onChange={handleChange}
-                    className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                    className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
                     required
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
@@ -557,7 +565,8 @@ const ActiviteForm = () => {
                   <select
                     value={representativeCode}
                     onChange={(e) => handleCommercialChange(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
+                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3 disabled:bg-slate-50 disabled:text-slate-500"
+                    disabled={isReadOnly}
                   >
                     <option value="">Tous les commerciaux</option>
                     {commercials.map((item) => (
@@ -575,14 +584,16 @@ const ActiviteForm = () => {
                   value={clientSearchTerm}
                   onChange={(e) => setClientSearchTerm(e.target.value)}
                   placeholder="Rechercher par raison sociale, code, email ou tel"
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none mb-3"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none mb-3 disabled:bg-slate-50 disabled:text-slate-500"
+                  disabled={isReadOnly}
                 />
                 <label className="flex items-center gap-2 text-xs text-slate-600 mb-3">
                   <input
                     type="checkbox"
                     checked={prospectOnly}
                     onChange={(e) => setProspectOnly(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 disabled:opacity-50"
+                    disabled={isReadOnly}
                   />
                   Prospects uniquement
                 </label>
@@ -590,7 +601,8 @@ const ActiviteForm = () => {
                   name="IDTiers"
                   value={formData.IDTiers}
                   onChange={handleClientChange}
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                  disabled={isReadOnly}
                 >
                   <option value="">Aucun client</option>
                   {tierOptions.map(t => (
@@ -614,7 +626,8 @@ const ActiviteForm = () => {
                   name="ID_Projet"
                   value={formData.ID_Projet}
                   onChange={handleProjetChange}
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                  disabled={isReadOnly}
                 >
                   <option value="">Aucun projet</option>
                   {filteredProjets.map(p => (
