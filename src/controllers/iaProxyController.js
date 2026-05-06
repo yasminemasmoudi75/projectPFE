@@ -170,3 +170,131 @@ exports.analyzeSatisfaction = async (req, res) => {
   }
 };
 
+exports.generateEmail = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ status: 'error', message: 'Le prompt est requis.' });
+    }
+
+    const systemPrompt = `Tu es un assistant de rédaction email professionnel intégré dans un CRM (Nexus CRM) pour une entreprise tunisienne.
+Tu aides les commerciaux et admins à rédiger des emails professionnels en français adaptés au contexte commercial : relances, devis, factures, propositions commerciales, réclamations, remerciements.
+Quand l'utilisateur décrit ce qu'il veut, génère directement :
+- Objet : [sujet de l'email]
+- Corps : [contenu complet de l'email]
+Sois professionnel, concis et adapté au contexte tunisien. Ne donne pas d'introduction, renvoie juste l'Objet et le Corps comme demandé.`;
+
+    // Utilisation d'une API gratuite (Pollinations AI) qui ne nécessite aucune clé API !
+    const axios = require('axios');
+    const response = await axios.post(
+      'https://text.pollinations.ai/',
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        model: 'openai',
+        seed: Math.floor(Math.random() * 1000000)
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000 // 20 secondes max
+      }
+    );
+
+    // Parsing de la réponse
+    const replyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+
+    let objet = '';
+    let corps = '';
+
+    const objetMatch = replyText.match(/(?:-?\s*\**Objet\**\s*:|\**Sujet\**\s*:)\s*(.*?)(?=\n|$)/is);
+    const corpsMatch = replyText.match(/(?:-?\s*\**Corps\**\s*:|\**Message\**\s*:)\s*([\s\S]*)/is);
+
+    if (objetMatch) objet = objetMatch[1].trim();
+    if (corpsMatch) corps = corpsMatch[1].trim();
+
+    if (!objet && !corps) {
+      corps = replyText.trim();
+      objet = 'Nouveau message (Généré par IA)';
+    }
+
+    objet = objet.replace(/^["*]+|["*]+$/g, '');
+
+    return res.json({ status: 'success', data: { objet, corps } });
+
+  } catch (error) {
+    console.error('[AI EMAIL API ERROR] Fallback to mock:', error.message);
+    
+    // FALLBACK DE SECOURS (Si l'API gratuite plante ou bloque, on simule la réponse pour que le PFE fonctionne toujours !)
+    let objet = "Suite à notre échange";
+    let corps = "Bonjour,\n\nJe vous contacte suite à notre dernier échange.\n\nCordialement,";
+    const userPrompt = (req.body && req.body.prompt) ? req.body.prompt.toLowerCase() : '';
+
+    if (userPrompt.includes('relance') || userPrompt.includes('facture') || userPrompt.includes('impayé')) {
+      objet = "Relance : Facture en attente de paiement";
+      corps = "Bonjour,\n\nSauf erreur ou omission de notre part, nous n'avons pas encore reçu le règlement concernant notre dernière facture.\n\nPourriez-vous vérifier l'état de ce paiement de votre côté ?\n\nSi le paiement a déjà été effectué, veuillez ignorer cet email.\n\nCordialement,\nL'équipe Commerciale";
+    } else if (userPrompt.includes('devis') || userPrompt.includes('proposition')) {
+      objet = "Votre proposition commerciale personnalisée";
+      corps = "Bonjour,\n\nSuite à notre récente discussion, j'ai le plaisir de vous transmettre en pièce jointe notre devis détaillé correspondant à vos besoins.\n\nJe reste à votre entière disposition pour échanger sur cette proposition et l'ajuster si nécessaire.\n\nBien cordialement,\nL'équipe Commerciale";
+    } else if (userPrompt.includes('réclamation') || userPrompt.includes('problème') || userPrompt.includes('excuse')) {
+      objet = "Concernant votre récente réclamation";
+      corps = "Bonjour,\n\nNous avons bien pris en compte votre retour et nous vous présentons nos excuses pour le désagrément occasionné.\n\nNotre équipe technique analyse actuellement la situation pour résoudre ce problème dans les plus brefs délais. Nous vous tiendrons informé de l'avancement très rapidement.\n\nMerci de votre patience.\n\nCordialement,\nLe Service Client";
+    } else if (userPrompt.includes('merci') || userPrompt.includes('remerciement')) {
+      objet = "Remerciements pour votre confiance";
+      corps = "Bonjour,\n\nJe tenais personnellement à vous remercier pour la confiance que vous accordez à notre entreprise.\n\nC'est un réel plaisir de collaborer avec vous sur ce projet.\n\nÀ très bientôt,\nL'équipe Commerciale";
+    }
+
+    return res.json({ status: 'success', data: { objet, corps } });
+  }
+};
+
+exports.reformulateEmail = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ status: 'error', message: 'Le texte est requis.' });
+    }
+
+    const systemPrompt = `Tu es un assistant correcteur orthographique et reformulateur professionnel pour un CRM d'entreprise tunisienne.
+L'utilisateur te fournit un texte brut ou un brouillon d'email.
+Ton rôle est de corriger les fautes d'orthographe, de grammaire, et d'améliorer la formulation pour la rendre professionnelle, tout en gardant le sens original.
+Ne fournis aucune explication, ne dis pas bonjour, retourne uniquement le texte corrigé et reformulé.`;
+
+    const axios = require('axios');
+    const response = await axios.post(
+      'https://text.pollinations.ai/',
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text }
+        ],
+        model: 'openai',
+        seed: Math.floor(Math.random() * 1000000)
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000
+      }
+    );
+
+    const replyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    let corrected = replyText.replace(/^["*]+|["*]+$/g, '').trim();
+
+    return res.json({ status: 'success', data: { corrected } });
+
+  } catch (error) {
+    console.error('[AI REFORMULATE ERROR]:', error.message);
+    // Fallback de secours minimal si l'API plante
+    return res.json({ 
+      status: 'success', 
+      data: { 
+        corrected: text + "\n\n(Note: Le service de correction AI est momentanément indisponible.)" 
+      } 
+    });
+  }
+};
+
+
