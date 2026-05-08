@@ -240,6 +240,7 @@ const SidebarContent = () => {
         </div>
       </div>
 
+
       {/* User Profile Card */}
       <div className="px-4 py-4 border-b border-slate-200">
         <motion.button
@@ -262,6 +263,7 @@ const SidebarContent = () => {
           <ChevronDownIcon className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
         </motion.button>
       </div>
+
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">

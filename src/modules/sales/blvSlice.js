@@ -10,14 +10,26 @@ const initialState = {
 };
 
 // Récupérer tous les bons de livraison
-export const fetchBlv = createAsyncThunk('blv/fetchBlv', async ({ page = 1, limit = 100, search = '' } = {}) => {
-    const response = await axios.get('/blv', { params: { page, limit, search } });
-    return response; // interceptor already unwraps response.data
+export const fetchBlv = createAsyncThunk('blv/fetchBlv', async (params = {}) => {
+    const response = await axios.get('/blv', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
+    return response;
 });
 
 // Récupérer les bons de livraison de l'utilisateur (client sees only their deliveries)
-export const fetchMyBlv = createAsyncThunk('blv/fetchMyBlv', async ({ page = 1, limit = 100 } = {}) => {
-    const response = await axios.get('/blv/my-deliveries', { params: { page, limit } });
+export const fetchMyBlv = createAsyncThunk('blv/fetchMyBlv', async (params = {}) => {
+    const response = await axios.get('/blv/my-deliveries', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
     return response;
 });
 

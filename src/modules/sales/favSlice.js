@@ -10,14 +10,26 @@ const initialState = {
 };
 
 // Récupérer toutes les factures
-export const fetchFav = createAsyncThunk('fav/fetchFav', async ({ page = 1, limit = 100, search = '' } = {}) => {
-    const response = await axios.get('/fav', { params: { page, limit, search } });
-    return response; // interceptor already unwraps response.data
+export const fetchFav = createAsyncThunk('fav/fetchFav', async (params = {}) => {
+    const response = await axios.get('/fav', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
+    return response;
 });
 
 // Récupérer les factures de l'utilisateur (client sees only their invoices)
-export const fetchMyFav = createAsyncThunk('fav/fetchMyFav', async ({ page = 1, limit = 100 } = {}) => {
-    const response = await axios.get('/fav/my-invoices', { params: { page, limit } });
+export const fetchMyFav = createAsyncThunk('fav/fetchMyFav', async (params = {}) => {
+    const response = await axios.get('/fav/my-invoices', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
     return response;
 });
 

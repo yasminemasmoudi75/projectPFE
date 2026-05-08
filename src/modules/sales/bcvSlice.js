@@ -10,14 +10,26 @@ const initialState = {
 };
 
 // Récupérer tous les bons de commande
-export const fetchBcv = createAsyncThunk('bcv/fetchBcv', async ({ page = 1, limit = 100, search = '' } = {}) => {
-    const response = await axios.get('/bcv', { params: { page, limit, search } });
+export const fetchBcv = createAsyncThunk('bcv/fetchBcv', async (params = {}) => {
+    const response = await axios.get('/bcv', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
     return response;
 });
 
 // Récupérer les bons de commande de l'utilisateur (client sees only their orders)
-export const fetchMyBcv = createAsyncThunk('bcv/fetchMyBcv', async ({ page = 1, limit = 100 } = {}) => {
-    const response = await axios.get('/bcv/my-orders', { params: { page, limit } });
+export const fetchMyBcv = createAsyncThunk('bcv/fetchMyBcv', async (params = {}) => {
+    const response = await axios.get('/bcv/my-orders', { 
+        params: { 
+            page: 1, 
+            limit: 1000, 
+            ...params 
+        } 
+    });
     return response;
 });
 

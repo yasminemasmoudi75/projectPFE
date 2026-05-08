@@ -9,6 +9,7 @@ import iaReducer from '../modules/ai-engine/iaSlice';
 import bcvReducer from '../modules/sales/bcvSlice';
 import blvReducer from '../modules/sales/blvSlice';
 import favReducer from '../modules/sales/favSlice';
+import adminReducer from '../modules/admin/adminSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +23,7 @@ export const store = configureStore({
     bcv: bcvReducer,
     blv: blvReducer,
     fav: favReducer,
+    admin: adminReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

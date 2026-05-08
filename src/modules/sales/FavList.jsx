@@ -89,13 +89,15 @@ const FavList = () => {
 
   const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
+  const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
   const isAgentUser = normalizedUserRole === 'agent';
+  const adminId = currentUser?.UserID?.toString();
   const currentUserId = String(currentUser?.UserID || currentUser?.id || currentUser?.USER_ID || '');
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: '',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -130,7 +132,7 @@ const FavList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: '' });
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -150,9 +152,17 @@ const FavList = () => {
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
-    if (filters.commercial && item.CodRepres !== filters.commercial) return false;
+    
+    // Filter by selected commercial; default to 'mine'
+    if (filters.commercial === 'all') {
+      // Show everything
+    } else {
+      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+      if (String(item.CodRepres) !== String(targetId)) return false;
+    }
+    
     return true;
-  }), [fav, filters]);
+  }), [fav, filters, adminId, isAdminUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredFav.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -171,9 +181,22 @@ const FavList = () => {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const refreshData = () => {
     if (!isModuleActive) return;
+    const params = { 
+      page: 1, 
+      limit: 1000,
+      status: filters.status === 'all' ? '' : filters.status,
+    };
+    
+    if (filters.commercial && filters.commercial !== 'all') {
+      params.selectedCommercial = filters.commercial;
+    }
+    if (filters.commercial === 'all') {
+      params.includeAll = true;
+    }
+
     isClient
-      ? dispatch(fetchMyFav({ page: 1, limit: 1000 }))
-      : dispatch(fetchFav({ page: 1, limit: 1000 }));
+      ? dispatch(fetchMyFav(params))
+      : dispatch(fetchFav(params));
   };
 
   const fetchCommercials = async () => {
@@ -194,8 +217,11 @@ const FavList = () => {
   };
 
   useEffect(() => {
-    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
+  }, [filters.status, filters.commercial]);
+
+  useEffect(() => {
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     if (!isCommercialUser) fetchCommercials();
     if (isFilterRepresEnabled) fetchClients();
   }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient, isCommercialUser, isFilterRepresEnabled]);
@@ -368,7 +394,8 @@ const FavList = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="">Tous</option>
+                        <option value="mine">Mes factures</option>
+                        <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                         ))}

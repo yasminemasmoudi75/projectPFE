@@ -82,6 +82,7 @@ const BcvList = () => {
   const navigate = useNavigate();
   const { canCreate, canEdit, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.COMMANDES);
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
+  const adminId = currentUser?.UserID?.toString();
   const { bcvList: bcv, loading } = useSelector((state) => state.bcv);
 
   const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
@@ -93,7 +94,7 @@ const BcvList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: '',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -127,7 +128,7 @@ const BcvList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: '' });
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -147,9 +148,17 @@ const BcvList = () => {
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
-    if (filters.commercial && item.CodRepres !== filters.commercial) return false;
+    
+    // Filter by selected commercial; default to 'mine'
+    if (filters.commercial === 'all') {
+      // Show everything
+    } else {
+      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+      if (String(item.CodRepres) !== String(targetId)) return false;
+    }
+    
     return true;
-  }), [bcv, filters]);
+  }), [bcv, filters, adminId, isAdminUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredBcv.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -166,12 +175,27 @@ const BcvList = () => {
   useEffect(() => setCurrentPage(1), [filters]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
-  const refreshData = () => {
-    if (!isModuleActive) return;
-    isClient
-      ? dispatch(fetchMyBcv({ page: 1, limit: 1000 }))
-      : dispatch(fetchBcv({ page: 1, limit: 1000 }));
-  };
+    const refreshData = () => {
+      if (!isModuleActive) return;
+      const params = { 
+        page: 1, 
+        limit: 1000,
+        status: filters.status === 'all' ? '' : filters.status,
+      };
+      
+      // Include selectedCommercial (could be an ID or 'mine')
+      if (filters.commercial && filters.commercial !== 'all') {
+        params.selectedCommercial = filters.commercial;
+      }
+      // Explicitly request all records when 'all' is selected
+      if (filters.commercial === 'all') {
+        params.includeAll = true;
+      }
+      
+      isClient
+        ? dispatch(fetchMyBcv(params))
+        : dispatch(fetchBcv(params));
+    };
 
   const fetchCommercials = async () => {
     try {
@@ -191,8 +215,11 @@ const BcvList = () => {
   };
 
   useEffect(() => {
-    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
+  }, [filters.status, filters.commercial]);
+
+  useEffect(() => {
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     if (!isCommercialUser) fetchCommercials();
     if (isFilterRepresEnabled) fetchClients();
   }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient, isCommercialUser, isFilterRepresEnabled]);
@@ -365,7 +392,8 @@ const BcvList = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="">Tous</option>
+                        <option value="mine">Mes commandes</option>
+                        <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                         ))}

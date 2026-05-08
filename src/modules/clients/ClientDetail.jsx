@@ -204,7 +204,7 @@ const ClientDetail = () => {
             >
                 {value}
                 <svg className="h-3.5 w-3.5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                 </svg>
             </a>
         );
@@ -388,14 +388,13 @@ const ClientDetail = () => {
                                     </div>
                                 )}
                                 {client.classeAuto && (
-                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm ${
-                                        client.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm ${client.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                                         client.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                        client.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
-                                        client.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                        client.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
-                                        'bg-sky-50 text-sky-700 border-sky-200'
-                                    }`}>
+                                            client.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                                                client.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    client.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                                                        'bg-sky-50 text-sky-700 border-sky-200'
+                                        }`}>
                                         <SparklesIcon className="h-3 w-3" />
                                         {client.classeAuto.ClasseCalculee}
                                     </div>
@@ -537,14 +536,13 @@ const ClientDetail = () => {
                                                 <div className="flex items-center justify-between mb-2">
                                                     <p className="text-sm font-semibold text-slate-800">{contact.Responsable || '—'}</p>
                                                     {contact.classeAuto && (
-                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${
-                                                            contact.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${contact.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                                                             contact.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                            contact.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
-                                                            contact.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                            contact.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
-                                                            'bg-sky-50 text-sky-700 border-sky-200'
-                                                        }`}>
+                                                                contact.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                                                                    contact.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                        contact.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                                                                            'bg-sky-50 text-sky-700 border-sky-200'
+                                                            }`}>
                                                             {contact.classeAuto.ClasseCalculee}
                                                         </span>
                                                     )}
@@ -806,154 +804,152 @@ const ClientDetail = () => {
                                             </div>
                                         ))
                                     )}
-                                                    {activeTab === 'ia' && (
-                                <div className="animate-fade-in space-y-8 p-2">
-                                    {loadingSatisfaction ? (
-                                        <div className="py-32 flex flex-col items-center justify-center space-y-4">
-                                            <div className="relative h-20 w-20">
-                                                <div className="absolute inset-0 border-4 border-sky-100 rounded-full"></div>
-                                                <div className="absolute inset-0 border-4 border-sky-500 rounded-full border-t-transparent animate-spin"></div>
-                                                <SparklesIcon className="absolute inset-0 m-auto h-8 w-8 text-sky-400 animate-pulse" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-slate-800 font-bold text-lg">Analyse Cognitive en cours</p>
-                                                <p className="text-slate-500 text-sm">Le moteur IA ausculte les échanges et l'historique...</p>
-                                            </div>
-                                        </div>
-                                    ) : !satisfaction ? (
-                                        <div className="card-luxury p-20 text-center border-dashed border-2 border-slate-200">
-                                            <ChartBarIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                                            <p className="text-slate-500 font-medium">Données d'analyse non disponibles pour ce profil.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                                            {/* Left Column: Score Visualization */}
-                                            <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50">
-                                                <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8 text-center">Satisfaction Globale (NPS)</h4>
-                                                
-                                                <div className="relative h-48 w-48 flex items-center justify-center">
-                                                    {/* SVG Progress Ring */}
-                                                    <svg className="h-full w-full transform -rotate-90">
-                                                        <circle
-                                                            cx="96" cy="96" r="88"
-                                                            fill="transparent"
-                                                            stroke="currentColor"
-                                                            strokeWidth="12"
-                                                            className="text-slate-50"
-                                                        />
-                                                        <circle
-                                                            cx="96" cy="96" r="88"
-                                                            fill="transparent"
-                                                            stroke="currentColor"
-                                                            strokeWidth="12"
-                                                            strokeDasharray={552.92}
-                                                            strokeDashoffset={552.92 - (552.92 * (satisfaction.isProspect ? 0 : (satisfaction.score || 0) / 10))}
-                                                            strokeLinecap="round"
-                                                            className={`transition-all duration-1000 ease-out ${
-                                                                satisfaction.isProspect ? 'text-slate-300' :
-                                                                satisfaction.score >= 8 ? 'text-emerald-500' : 
-                                                                satisfaction.score >= 5 ? 'text-amber-500' : 'text-rose-500'
-                                                            }`}
-                                                        />
-                                                    </svg>
-                                                    <div className="absolute flex flex-col items-center">
-                                                        {satisfaction.isProspect ? (
-                                                            <span className="text-2xl font-black text-slate-400">N/A</span>
-                                                        ) : (
-                                                            <>
-                                                                <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                                                                    {satisfaction.score ?? 0}
-                                                                </span>
-                                                                <span className="text-xs font-bold text-slate-400 mt-1 uppercase">Sur 10</span>
-                                                            </>
+                                    {activeTab === 'ia' && (
+                                        <div className="animate-fade-in space-y-8 p-2">
+                                            {loadingSatisfaction ? (
+                                                <div className="py-32 flex flex-col items-center justify-center space-y-4">
+                                                    <div className="relative h-20 w-20">
+                                                        <div className="absolute inset-0 border-4 border-sky-100 rounded-full"></div>
+                                                        <div className="absolute inset-0 border-4 border-sky-500 rounded-full border-t-transparent animate-spin"></div>
+                                                        <SparklesIcon className="absolute inset-0 m-auto h-8 w-8 text-sky-400 animate-pulse" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-slate-800 font-bold text-lg">Analyse Cognitive en cours</p>
+                                                        <p className="text-slate-500 text-sm">Le moteur IA ausculte les échanges et l'historique...</p>
+                                                    </div>
+                                                </div>
+                                            ) : !satisfaction ? (
+                                                <div className="card-luxury p-20 text-center border-dashed border-2 border-slate-200">
+                                                    <ChartBarIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                                                    <p className="text-slate-500 font-medium">Données d'analyse non disponibles pour ce profil.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                                                    {/* Left Column: Score Visualization */}
+                                                    <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50">
+                                                        <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8 text-center">Satisfaction Globale (NPS)</h4>
+
+                                                        <div className="relative h-48 w-48 flex items-center justify-center">
+                                                            {/* SVG Progress Ring */}
+                                                            <svg className="h-full w-full transform -rotate-90">
+                                                                <circle
+                                                                    cx="96" cy="96" r="88"
+                                                                    fill="transparent"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="12"
+                                                                    className="text-slate-50"
+                                                                />
+                                                                <circle
+                                                                    cx="96" cy="96" r="88"
+                                                                    fill="transparent"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="12"
+                                                                    strokeDasharray={552.92}
+                                                                    strokeDashoffset={552.92 - (552.92 * (satisfaction.isProspect ? 0 : (satisfaction.score || 0) / 10))}
+                                                                    strokeLinecap="round"
+                                                                    className={`transition-all duration-1000 ease-out ${satisfaction.isProspect ? 'text-slate-300' :
+                                                                        satisfaction.score >= 8 ? 'text-emerald-500' :
+                                                                            satisfaction.score >= 5 ? 'text-amber-500' : 'text-rose-500'
+                                                                        }`}
+                                                                />
+                                                            </svg>
+                                                            <div className="absolute flex flex-col items-center">
+                                                                {satisfaction.isProspect ? (
+                                                                    <span className="text-2xl font-black text-slate-400">N/A</span>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className="text-5xl font-black text-slate-800 tracking-tighter">
+                                                                            {satisfaction.score ?? 0}
+                                                                        </span>
+                                                                        <span className="text-xs font-bold text-slate-400 mt-1 uppercase">Sur 10</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-8 text-center space-y-2">
+                                                            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${satisfaction.isProspect ? 'bg-slate-100 text-slate-600' :
+                                                                satisfaction.score >= 8 ? 'bg-emerald-50 text-emerald-700' :
+                                                                    satisfaction.score >= 5 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
+                                                                }`}>
+                                                                <SparklesIcon className="h-4 w-4" />
+                                                                {satisfaction.isProspect ? 'Compte Prospect' :
+                                                                    satisfaction.score >= 8 ? 'Excellent Engagement' :
+                                                                        satisfaction.score >= 5 ? 'Relation Stable' : 'Alerte Satisfaction'}
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 font-medium italic">
+                                                                Moteur Analytics v{satisfaction.version || '2.3'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right Column: Breakdown & Recommendations */}
+                                                    <div className="lg:col-span-8 space-y-6">
+                                                        <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative">
+                                                            <div className="relative z-10 flex items-center justify-between">
+                                                                <div>
+                                                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                                                        Synthèse Cognitive
+                                                                    </h3>
+                                                                    <p className="text-slate-400 text-sm mt-1">
+                                                                        {satisfaction.isProspect ?
+                                                                            "Profil en cours de constitution. Historique insuffisant pour une analyse prédictive." :
+                                                                            "Voici les leviers identifiés par l'IA sur la base de l'interaction client."}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="h-12 w-12 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20">
+                                                                    <DocumentTextIcon className="h-6 w-6 text-sky-400" />
+                                                                </div>
+                                                            </div>
+                                                            {/* Background Glow */}
+                                                            <div className="absolute -top-20 -right-20 h-64 w-64 bg-sky-500/20 blur-[100px] rounded-full"></div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            {(satisfaction.factors || []).map((factor, idx) => {
+                                                                const isPositive = factor.impact >= 0;
+                                                                return (
+                                                                    <div key={idx} className="group hover:scale-[1.02] transition-all duration-300">
+                                                                        <div className={`h-full p-5 rounded-3xl border ${isPositive ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'} transition-all`}>
+                                                                            <div className="flex items-center justify-between mb-4">
+                                                                                <div className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${isPositive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'}`}>
+                                                                                    {isPositive ? '+' : ''}{factor.impact} IMPACT
+                                                                                </div>
+                                                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isPositive ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                                                                    {isPositive ? <ArrowUpRightIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                                                                                </div>
+                                                                            </div>
+                                                                            <h5 className="font-bold text-slate-800 text-sm">{factor.factor}</h5>
+                                                                            <p className="text-xs text-slate-500 mt-2 leading-relaxed">{factor.desc}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {(!satisfaction.factors || satisfaction.factors.length === 0) && (
+                                                                <div className="col-span-2 p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                                                                    <p className="text-slate-400 text-sm italic">Aucun facteur détecté à ce stade.</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Protip Action */}
+                                                        {!satisfaction.isProspect && (
+                                                            <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-center gap-4">
+                                                                <div className="h-10 w-10 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0 animate-bounce">
+                                                                    <SparklesIcon className="h-5 w-5 text-white" />
+                                                                </div>
+                                                                <p className="text-xs text-sky-800 font-medium">
+                                                                    <span className="font-bold">Conseil de l'IA :</span> {satisfaction.score < 5 ?
+                                                                        "Ce client montre des signes de frustration. Un appel de courtoisie est fortement recommandé." :
+                                                                        "La relation est positive. Profitez-en pour proposer de nouveaux produits ou services."}
+                                                                </p>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
-
-                                                <div className="mt-8 text-center space-y-2">
-                                                    <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${
-                                                        satisfaction.isProspect ? 'bg-slate-100 text-slate-600' :
-                                                        satisfaction.score >= 8 ? 'bg-emerald-50 text-emerald-700' : 
-                                                        satisfaction.score >= 5 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
-                                                    }`}>
-                                                        <SparklesIcon className="h-4 w-4" />
-                                                        {satisfaction.isProspect ? 'Compte Prospect' : 
-                                                         satisfaction.score >= 8 ? 'Excellent Engagement' : 
-                                                         satisfaction.score >= 5 ? 'Relation Stable' : 'Alerte Satisfaction'}
-                                                    </div>
-                                                    <p className="text-[10px] text-slate-400 font-medium italic">
-                                                        Moteur Analytics v{satisfaction.version || '2.3'}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Right Column: Breakdown & Recommendations */}
-                                            <div className="lg:col-span-8 space-y-6">
-                                                <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative">
-                                                    <div className="relative z-10 flex items-center justify-between">
-                                                        <div>
-                                                            <h3 className="text-lg font-bold flex items-center gap-2">
-                                                                Synthèse Cognitive
-                                                            </h3>
-                                                            <p className="text-slate-400 text-sm mt-1">
-                                                                {satisfaction.isProspect ? 
-                                                                    "Profil en cours de constitution. Historique insuffisant pour une analyse prédictive." : 
-                                                                    "Voici les leviers identifiés par l'IA sur la base de l'interaction client."}
-                                                            </p>
-                                                        </div>
-                                                        <div className="h-12 w-12 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20">
-                                                            <DocumentTextIcon className="h-6 w-6 text-sky-400" />
-                                                        </div>
-                                                    </div>
-                                                    {/* Background Glow */}
-                                                    <div className="absolute -top-20 -right-20 h-64 w-64 bg-sky-500/20 blur-[100px] rounded-full"></div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {(satisfaction.factors || []).map((factor, idx) => {
-                                                        const isPositive = factor.impact >= 0;
-                                                        return (
-                                                            <div key={idx} className="group hover:scale-[1.02] transition-all duration-300">
-                                                                <div className={`h-full p-5 rounded-3xl border ${isPositive ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'} transition-all`}>
-                                                                    <div className="flex items-center justify-between mb-4">
-                                                                        <div className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${isPositive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'}`}>
-                                                                            {isPositive ? '+' : ''}{factor.impact} IMPACT
-                                                                        </div>
-                                                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isPositive ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                                                            {isPositive ? <ArrowUpRightIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                                                                        </div>
-                                                                    </div>
-                                                                    <h5 className="font-bold text-slate-800 text-sm">{factor.factor}</h5>
-                                                                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">{factor.desc}</p>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {(!satisfaction.factors || satisfaction.factors.length === 0) && (
-                                                        <div className="col-span-2 p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                                                            <p className="text-slate-400 text-sm italic">Aucun facteur détecté à ce stade.</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Protip Action */}
-                                                {!satisfaction.isProspect && (
-                                                    <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-center gap-4">
-                                                        <div className="h-10 w-10 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0 animate-bounce">
-                                                            <SparklesIcon className="h-5 w-5 text-white" />
-                                                        </div>
-                                                        <p className="text-xs text-sky-800 font-medium">
-                                                            <span className="font-bold">Conseil de l'IA :</span> {satisfaction.score < 5 ? 
-                                                                "Ce client montre des signes de frustration. Un appel de courtoisie est fortement recommandé." : 
-                                                                "La relation est positive. Profitez-en pour proposer de nouveaux produits ou services."}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            )}                    </div>
+                                    )}                    </div>
                             )}
                         </div>
                     </div>

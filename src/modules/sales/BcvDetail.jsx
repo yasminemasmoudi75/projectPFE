@@ -27,7 +27,7 @@ const BcvDetail = () => {
         tel: ''
     });
 
-    const alreadyTransferred = Boolean(bcv?.bTransf);
+    const alreadyTransferred = Boolean(bcv?.bTransf || bcv?.bLivr || bcv?.IsConverted);
 
     const canSubmitDriver = useMemo(() => {
         const nomOk = String(chauffeur?.nom || '').trim().length > 0;
@@ -204,26 +204,28 @@ const BcvDetail = () => {
                     Retour à la liste
                 </button>
                 <div className="flex gap-2 flex-wrap">
-                    <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                        <button
-                            onClick={() => handleTransfer('BL')}
-                            disabled={isTransferring || alreadyTransferred}
-                            className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-blue-50 border-r border-slate-100 transition-all font-bold text-xs"
-                            title="Transférer vers Bon de Livraison"
-                        >
-                            <TruckIcon className="h-4 w-4 mr-2 text-blue-500" />
-                            {alreadyTransferred ? 'Déjà transféré' : 'Transférer en BL'}
-                        </button>
-                        <button
-                            onClick={() => handleTransfer('FAC')}
-                            disabled={isTransferring || alreadyTransferred}
-                            className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-emerald-50 transition-all font-bold text-xs"
-                            title="Transférer vers Facture"
-                        >
-                            <BanknotesIcon className="h-4 w-4 mr-2 text-emerald-500" />
-                            Facturer
-                        </button>
-                    </div>
+                    {!alreadyTransferred && (
+                        <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                            <button
+                                onClick={() => handleTransfer('BL')}
+                                disabled={isTransferring}
+                                className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-blue-50 border-r border-slate-100 transition-all font-bold text-xs"
+                                title="Transférer vers Bon de Livraison"
+                            >
+                                <TruckIcon className="h-4 w-4 mr-2 text-blue-500" />
+                                Transférer en BL
+                            </button>
+                            <button
+                                onClick={() => handleTransfer('FAC')}
+                                disabled={isTransferring}
+                                className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-emerald-50 transition-all font-bold text-xs"
+                                title="Transférer vers Facture"
+                            >
+                                <BanknotesIcon className="h-4 w-4 mr-2 text-emerald-500" />
+                                Facturer
+                            </button>
+                        </div>
+                    )}
                     <button
                         onClick={handleDownloadPDF}
                         className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-bold text-xs shadow-sm"

@@ -74,8 +74,8 @@ const ClientSatisfactionBadge = ({ codTiers }) => {
                 </div>
             ) : (
                 <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border w-fit ${(score ?? 0) >= 8 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                        (score ?? 0) >= 5 ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                            'bg-rose-50 text-rose-600 border-rose-100'
+                    (score ?? 0) >= 5 ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                        'bg-rose-50 text-rose-600 border-rose-100'
                     }`}>
                     <span className="text-xs font-bold">
                         {score !== null ? `${score} / 10` : '—'}
@@ -714,11 +714,11 @@ const ClientsList = () => {
                                         <td className="px-6 py-5">
                                             {client.classeAuto ? (
                                                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-sm ${client.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                        client.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                            client.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
-                                                                client.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                                    client.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
-                                                                        'bg-sky-50 text-sky-700 border-sky-200'
+                                                    client.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        client.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
+                                                            client.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                client.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                                                                    'bg-sky-50 text-sky-700 border-sky-200'
                                                     }`}>
                                                     <SparklesIcon className="h-3 w-3" />
                                                     {client.classeAuto.ClasseCalculee}

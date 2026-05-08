@@ -19,9 +19,13 @@ const initialState = {
 // Note: axiosInstance (dans ../../app/axios) retourne déjà response.data via un intercepteur
 export const fetchDevis = createAsyncThunk(
   'devis/fetchDevis',
-  async ({ page = 1, limit = 100, search = '', status = '' }) => {
+  async (params = {}) => {
     const response = await axios.get('/devis', {
-      params: { page, limit, search, status }
+      params: { 
+        page: 1, 
+        limit: 1000,
+        ...params 
+      }
     });
     // response est ici { status: 'success', data: [...], pagination: {...} }
     return response;

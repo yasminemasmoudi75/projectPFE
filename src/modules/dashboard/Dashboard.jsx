@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChartBarIcon,
@@ -43,7 +43,7 @@ import toast from 'react-hot-toast';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const PRIORITY_COLORS = { 'Haute': '#ef4444', 'Moyenne': '#f59e0b', 'Basse': '#10b981' };
-const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'R├⌐solu': '#10b981', 'Ferm├⌐': '#64748b' };
+const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'Résolu': '#10b981', 'Fermé': '#64748b' };
 const isExpectedAuthFailure = (error) => error?.response?.status === 401 || error?.isSessionExpired === true;
 const isForbidden = (error) => error?.response?.status === 403;
 const getCollection = (payload) => (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []);
@@ -117,6 +117,12 @@ const Dashboard = () => {
   const [tiersStats, setTiersStats] = useState(null);
   const [messagesStats, setMessagesStats] = useState(null);
 
+  // Nouvelles statistiques avancées
+  const [productYield, setProductYield] = useState([]);
+  const [goalPredictions, setGoalPredictions] = useState([]);
+  const [globalSatisfaction, setGlobalSatisfaction] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+
   // Statistiques commerciaux
   const [commercialStats, setCommercialStats] = useState([]);
   const [commercialDevisData, setCommercialDevisData] = useState([]);
@@ -143,16 +149,19 @@ const Dashboard = () => {
 
         // Construire dynamiquement les appels API selon les permissions
         const apiCalls = [
-          safeRequest(hasModuleAccess(31), () => axiosInstance.get('/reclamations?limit=1000'), { data: [] }), // SAV/Reclamations (31)
-          safeRequest(hasModuleAccess(3), () => axiosInstance.get('/projets?limit=1000'), { data: [] }), // Projets (3)
-          safeRequest(hasModuleAccess(42), () => axiosInstance.get('/objectifs?limit=1000'), { data: [] }), // Objectifs (42)
-          safeRequest(hasModuleAccess(4), () => axiosInstance.get('/devis?limit=1000'), { data: [] }), // Devis (4)
-          safeRequest(hasModuleAccess(1), () => axiosInstance.get('/users?limit=1000'), { data: [] }), // Users (1)
-          safeRequest(hasModuleAccess(41), () => axiosInstance.get('/activites?limit=50'), { data: [] }), // Activites (41)
-          safeRequest(hasModuleAccess(30), () => axiosInstance.get('/tiers?limit=1000'), { data: [] }), // Clients/Tiers (30)
-          safeRequest(hasModuleAccess(2), () => axiosInstance.get('/messages?limit=100'), { data: [] }), // Messages (2)
-          safeRequest(hasModuleAccess(6), () => axiosInstance.get('/blv?limit=1000'), { data: { data: [] } }), // BLV/Livraisons (6)
-          safeRequest(hasModuleAccess(7), () => axiosInstance.get('/fav?limit=1000'), { data: { data: [] } }) // Factures (7)
+          safeRequest(hasModuleAccess(31), () => axiosInstance.get('/reclamations'), { data: [] }), // SAV/Reclamations (31)
+          safeRequest(hasModuleAccess(3), () => axiosInstance.get('/projets'), { data: [] }), // Projets (3)
+          safeRequest(hasModuleAccess(42), () => axiosInstance.get('/objectifs'), { data: [] }), // Objectifs (42)
+          safeRequest(hasModuleAccess(4), () => axiosInstance.get('/devis'), { data: [] }), // Devis (4)
+          safeRequest(hasModuleAccess(1), () => axiosInstance.get('/users'), { data: [] }), // Users (1)
+          safeRequest(hasModuleAccess(41), () => axiosInstance.get('/activites'), { data: [] }), // Activites (41)
+          safeRequest(hasModuleAccess(30), () => axiosInstance.get('/tiers'), { data: [] }), // Clients/Tiers (30)
+          safeRequest(hasModuleAccess(2), () => axiosInstance.get('/messages'), { data: [] }), // Messages (2)
+          safeRequest(hasModuleAccess(6), () => axiosInstance.get('/blv'), { data: { data: [] } }), // BLV/Livraisons (6)
+          safeRequest(hasModuleAccess(7), () => axiosInstance.get('/fav'), { data: { data: [] } }), // Factures (7)
+          safeRequest(true, () => axiosInstance.get('/stats/products-yield'), { data: [] }),
+          safeRequest(true, () => axiosInstance.get('/stats/goal-predictions'), { data: [] }),
+          safeRequest(true, () => axiosInstance.get('/stats/satisfaction-global'), { data: null })
         ];
 
         const [
@@ -166,18 +175,21 @@ const Dashboard = () => {
           messagesRes,
           blvRes,
           favRes,
+          yieldRes,
+          predictionsRes,
+          satisfactionRes
         ] = await Promise.all(apiCalls);
 
         const blv = getCollection(blvRes);
         const fav = getCollection(favRes);
 
-        // Traiter les donn├⌐es de r├⌐clamations
+        // Traiter les donn├⌐es de réclamations
         const reclamations = getCollection(reclamationsRes);
         const reclamationsByStatus = {
           'Ouvert': reclamations.filter(r => r.Statut === 'Ouvert').length,
           'En cours': reclamations.filter(r => r.Statut === 'En cours').length,
-          'R├⌐solu': reclamations.filter(r => r.Statut === 'R├⌐solu').length,
-          'Ferm├⌐': reclamations.filter(r => r.Statut === 'Ferm├⌐').length
+          'Résolu': reclamations.filter(r => r.Statut === 'Résolu').length,
+          'Fermé': reclamations.filter(r => r.Statut === 'Fermé').length
         };
         const reclamationsByPriority = {
           'Haute': reclamations.filter(r => r.Priorite === 'Haute').length,
@@ -185,7 +197,7 @@ const Dashboard = () => {
           'Basse': reclamations.filter(r => r.Priorite === 'Basse').length
         };
 
-        // R├⌐clamations par type
+        // réclamations par type
         const reclamationsByType = {};
         reclamations.forEach(r => {
           const type = r.TypeReclamation || 'Autre';
@@ -202,13 +214,13 @@ const Dashboard = () => {
         ];
         setPriorityChartData(priorityData);
 
-        // Taux de r├⌐solution
-        const resolvedCount = reclamationsByStatus['R├⌐solu'] + reclamationsByStatus['Ferm├⌐'];
+        // Taux de Résolution
+        const resolvedCount = reclamationsByStatus['Résolu'] + reclamationsByStatus['Fermé'];
         const rate = reclamations.length > 0 ? ((resolvedCount / reclamations.length) * 100).toFixed(1) : 0;
         setResolutionRate(rate);
 
         // Tendances mensuelles (6 derniers mois)
-        const monthNames = ['Jan', 'F├⌐v', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
+        const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
         const now = new Date();
         const monthlyData = [];
         for (let i = 5; i >= 0; i--) {
@@ -221,7 +233,7 @@ const Dashboard = () => {
           monthlyData.push({
             name: monthNames[date.getMonth()],
             ouvertes: monthReclamations.length,
-            resolues: monthReclamations.filter(r => r.Statut === 'R├⌐solu' || r.Statut === 'Ferm├⌐').length
+            resolues: monthReclamations.filter(r => r.Statut === 'Résolu' || r.Statut === 'Fermé').length
           });
         }
         setMonthlyTrendData(monthlyData);
@@ -234,7 +246,7 @@ const Dashboard = () => {
               techStats[r.NomTechnicien] = { total: 0, resolved: 0 };
             }
             techStats[r.NomTechnicien].total++;
-            if (r.Statut === 'R├⌐solu' || r.Statut === 'Ferm├⌐') {
+            if (r.Statut === 'Résolu' || r.Statut === 'Fermé') {
               techStats[r.NomTechnicien].resolved++;
             }
           }
@@ -336,7 +348,7 @@ const Dashboard = () => {
         });
 
         // ======= STATISTIQUES COMMERCIAUX =======
-        // Performance des commerciaux bas├⌐e sur les devis
+        // Performance des commerciaux Basée sur les devis
         const commercialData = {};
         devis.forEach(d => {
           const commercial = d.CUser || d.CodRepres || d.CreatedBy || 'Non assign├⌐';
@@ -377,7 +389,7 @@ const Dashboard = () => {
         setCommercialDevisData(commercialDevisChartData);
 
         // Tendance mensuelle des devis (6 derniers mois)
-        const monthNamesDevis = ['Jan', 'F├⌐v', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
+        const monthNamesDevis = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Ao├╗', 'Sep', 'Oct', 'Nov', 'D├⌐c'];
         const nowDevis = new Date();
         const monthlyDevis = [];
         for (let i = 5; i >= 0; i--) {
@@ -399,7 +411,7 @@ const Dashboard = () => {
         // Pr├⌐parer les cartes KPI avec les donn├⌐es r├⌐elles
         const newStats = [
           {
-            name: 'R├⌐clamations',
+            name: 'réclamations',
             value: reclamations.length,
             unit: 'En cours',
             icon: DocumentTextIcon,
@@ -477,10 +489,23 @@ const Dashboard = () => {
         const statusData = [
           { name: 'Ouvert', value: reclamationsByStatus['Ouvert'] },
           { name: 'En cours', value: reclamationsByStatus['En cours'] },
-          { name: 'R├⌐solu', value: reclamationsByStatus['R├⌐solu'] },
-          { name: 'Ferm├⌐', value: reclamationsByStatus['Ferm├⌐'] }
+          { name: 'Résolu', value: reclamationsByStatus['Résolu'] },
+          { name: 'Fermé', value: reclamationsByStatus['Fermé'] }
         ];
         setChartData(statusData);
+
+        // Update advanced stats
+        setProductYield(getCollection(yieldRes));
+        setGoalPredictions(getCollection(predictionsRes));
+        setGlobalSatisfaction(satisfactionRes?.data || null);
+
+        // Fetch recommendations for current user if commercial
+        if (user?.UserID) {
+          try {
+            const recRes = await axiosInstance.get(`/stats/recommendations/${user.UserID}`);
+            setRecommendations(recRes.data?.recommendations || []);
+          } catch (e) { console.warn('Could not fetch recommendations'); }
+        }
 
       } catch (error) {
         if (!isExpectedAuthFailure(error) && !isForbidden(error)) {
@@ -592,7 +617,7 @@ const Dashboard = () => {
                 <div className="flex flex-wrap gap-4 pt-2">
                   <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
                     <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
-                    <span className="text-white/90 text-sm font-semibold">{reclamationStats?.openCount || 0} R├⌐clamations urgentes</span>
+                    <span className="text-white/90 text-sm font-semibold">{reclamationStats?.openCount || 0} réclamations urgentes</span>
                   </div>
                   <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
                     <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse"></div>
@@ -607,7 +632,7 @@ const Dashboard = () => {
                 className="group/btn px-7 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold uppercase tracking-wider shadow-2xl hover:shadow-3xl hover:-translate-y-1.5 transition-all flex items-center gap-2 border-2 border-white/20 hover:border-white/50 hover:bg-blue-50"
               >
                 <DocumentTextIcon className="h-5 w-5 group-hover/btn:scale-110 transition-transform" />
-                Voir R├⌐clamations
+                Voir réclamations
               </button>
               <button
                 onClick={() => navigate('/projets')}
@@ -686,11 +711,11 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
 
-        {/* R├⌐clamations Status Chart - Professional Enhanced Design */}
+        {/* réclamations Status Chart - Professional Enhanced Design */}
         <div className="xl:col-span-4 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="R├⌐clamations par Statut"
-            subtitle={`Total: ${reclamationStats?.total} | Taux de r├⌐solution: ${resolutionRate}%`}
+            title="réclamations par Statut"
+            subtitle={`Total: ${reclamationStats?.total} | Taux de Résolution: ${resolutionRate}%`}
             icon={DocumentTextIcon}
             colorClass="blue"
           />
@@ -850,14 +875,14 @@ const Dashboard = () => {
 
       {/* NOUVELLES STATISTIQUES */}
 
-      {/* R├⌐clamations - Par Priorit├⌐ & Tendance Mensuelle */}
+      {/* réclamations - Par Priorit├⌐ & Tendance Mensuelle */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
-        {/* R├⌐clamations par Priorit├⌐ */}
+        {/* réclamations par Priorit├⌐ */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="R├⌐clamations par Priorit├⌐"
-            subtitle={`Taux de r├⌐solution: ${resolutionRate}%`}
+            title="réclamations par Priorit├⌐"
+            subtitle={`Taux de Résolution: ${resolutionRate}%`}
             icon={ChartBarIcon}
             colorClass="rose"
           />
@@ -902,7 +927,7 @@ const Dashboard = () => {
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
           <ChartCardHeader
             title="Tendance Mensuelle"
-            subtitle="├ëvolution des r├⌐clamations sur 6 mois"
+            subtitle="├ëvolution des réclamations sur 6 mois"
             icon={ClockIcon}
             colorClass="blue"
           />
@@ -929,7 +954,7 @@ const Dashboard = () => {
                   />
                   <Legend />
                   <Area type="monotone" dataKey="ouvertes" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorOuvertes)" name="Ouvertes" />
-                  <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorResolues)" name="R├⌐solues" />
+                  <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorResolues)" name="Résolues" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -937,14 +962,14 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Performance Techniciens & Types de R├⌐clamations */}
+      {/* Performance Techniciens & Types de réclamations */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
         {/* Performance des Techniciens */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
           <ChartCardHeader
             title="Performance Techniciens"
-            subtitle="Top 5 techniciens par volume de r├⌐clamations"
+            subtitle="Top 5 techniciens par volume de réclamations"
             icon={UsersIcon}
             colorClass="purple"
           />
@@ -962,7 +987,7 @@ const Dashboard = () => {
                     />
                     <Legend />
                     <Bar dataKey="total" fill="#8b5cf6" name="Total" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="resolved" fill="#10b981" name="R├⌐solus" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="resolved" fill="#10b981" name="Résolus" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -989,10 +1014,10 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Types de R├⌐clamations */}
+        {/* Types de réclamations */}
         <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
           <ChartCardHeader
-            title="Types de R├⌐clamations"
+            title="Types de réclamations"
             subtitle="R├⌐partition par cat├⌐gorie"
             icon={DocumentTextIcon}
             colorClass="cyan"
@@ -1220,14 +1245,191 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* R├⌐sum├⌐ Rapide - 6 KPI Cards with Professional Styling */}
+      {/* ======= ANALYSE AVANC├ëE - PRODUITS & OBJECTIFS ======= */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        
+        {/* Rendement Produits */}
+        <div className="xl:col-span-7 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
+          <ChartCardHeader
+            title="Rendement des Produits"
+            subtitle="Top 10 produits par chiffre d'affaires HT"
+            icon={ChartBarIcon}
+            colorClass="blue"
+          />
+          <div className="p-6 lg:p-8">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={productYield} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="LibArt" type="category" width={150} tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    formatter={(value) => [`${value.toLocaleString()} TND`, 'CA HT']}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Bar dataKey="totalHT" fill="url(#colorHT)" radius={[0, 4, 4, 0]}>
+                    <defs>
+                      <linearGradient id="colorHT" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Satisfaction Client Global */}
+        <div className="xl:col-span-5 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
+          <ChartCardHeader
+            title="Satisfaction Client"
+            subtitle="Index de satisfaction global (Basé sur IA)"
+            icon={CheckCircleIcon}
+            colorClass="emerald"
+          />
+          <div className="p-10 flex flex-col items-center justify-center h-full min-h-[320px]">
+            <div className="relative w-48 h-48 flex items-center justify-center">
+              {/* Circular Progress Background */}
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
+                <circle 
+                  cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" 
+                  strokeDasharray={552.9}
+                  strokeDashoffset={552.9 - (552.9 * (globalSatisfaction?.score || 8.5)) / 10}
+                  className="text-emerald-500 transition-all duration-1000 ease-out"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-5xl font-black text-slate-800">{globalSatisfaction?.score || '8.5'}</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">sur 10</span>
+              </div>
+            </div>
+            <div className="mt-8 text-center">
+              <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${
+                (globalSatisfaction?.score || 8.5) > 7 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {globalSatisfaction?.label || 'Excellente'}
+              </span>
+              <p className="text-sm text-slate-500 mt-4 font-medium">
+                Basé sur {globalSatisfaction?.resolvedClaims || 0} réclamations Résolues
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pr├⌐diction des Objectifs & Recommandations IA */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        
+        {/* Pr├⌐dictions Commerciaux */}
+        <div className="xl:col-span-8 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30 bg-white">
+          <ChartCardHeader
+            title="Estimation d'Atteinte des Objectifs"
+            subtitle="Analyse prédictive basée sur le rythme actuel"
+            icon={SparklesIcon}
+            colorClass="purple"
+          />
+          <div className="p-6 lg:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {goalPredictions.length > 0 ? goalPredictions.map((pred, idx) => (
+                <div key={idx} className="p-5 rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/50 hover:shadow-md transition-all">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{pred.commercial}</p>
+                      <h4 className="text-lg font-bold text-slate-800 mt-1">Objectif: {pred.target.toLocaleString()} DT</h4>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                      pred.willReach ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {pred.willReach ? 'En bonne voie' : '├Ç risque'}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5">
+                        <span>Probabilit├⌐ de succès</span>
+                        <span>{pred.probability}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ${
+                            pred.probability > 70 ? 'bg-emerald-500' : pred.probability > 40 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${pred.probability}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 py-3 border-t border-slate-100">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">R├⌐alis├⌐</p>
+                        <p className="text-sm font-bold text-slate-700">{pred.actual.toLocaleString()} DT</p>
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Temps restant</p>
+                        <p className="text-sm font-bold text-slate-700">{pred.daysRemaining} jours</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="col-span-2 py-10 text-center text-slate-400 font-medium">
+                  Aucun objectif actif avec données de prédiction
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Recommandations IA */}
+        <div className="xl:col-span-4 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30 bg-gradient-to-br from-indigo-600 to-blue-700 text-white">
+          <div className="p-6 lg:p-8 border-b border-white/10 bg-white/5 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">Conseils IA</h2>
+                <p className="text-xs text-white/70 font-medium mt-1">Comment atteindre votre objectif</p>
+              </div>
+              <SparklesIcon className="h-6 w-6 text-amber-300 animate-pulse" />
+            </div>
+          </div>
+          
+          <div className="p-6 lg:p-8 space-y-6">
+            {recommendations.length > 0 ? (
+              <>
+                <p className="text-sm font-medium text-white/90 leading-relaxed">
+                  Pour combler votre ├⌐cart de <span className="font-bold text-amber-300">{(recommendations[0]?.qtyToSell * recommendations[0]?.avgPrice || 0).toLocaleString()} DT</span>, nous vous sugg├⌐rons :
+                </p>
+                <div className="space-y-4">
+                  {recommendations.map((rec, i) => (
+                    <div key={i} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 transition-all">
+                      <p className="text-xs font-bold text-white/70 uppercase tracking-widest mb-1">{rec.CodArt}</p>
+                      <p className="text-sm font-bold mb-3">{rec.LibArt}</p>
+                      <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg">
+                        <span className="text-[10px] font-bold uppercase text-white/60">Vendre</span>
+                        <span className="text-sm font-black text-amber-300">{rec.qtyToSell} unit├⌐s</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="py-10 text-center text-white/60">
+                <p className="text-sm">F├⌐licitations ! Vous avez atteint votre objectif ou aucun objectif n'est d├⌐fini.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
           <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
             <DocumentTextIcon className="h-6 w-6 text-slate-700" />
           </div>
           <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{reclamationStats?.total || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">R├⌐clamations</p>
+          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">réclamations</p>
           <div className="mt-3 pt-3 border-t border-slate-200/50">
             <p className="text-xs text-slate-500 font-medium">{reclamationStats?.openCount} ouvertes</p>
           </div>
@@ -1247,7 +1449,7 @@ const Dashboard = () => {
             <CheckCircleIcon className="h-6 w-6 text-slate-700" />
           </div>
           <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{resolutionRate}%</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">R├⌐solution</p>
+          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Résolution</p>
           <div className="mt-3 pt-3 border-t border-slate-200/50">
             <p className="text-xs text-slate-500 font-medium">Taux mensuel</p>
           </div>
@@ -1340,3 +1542,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

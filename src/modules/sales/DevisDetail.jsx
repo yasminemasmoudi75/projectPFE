@@ -104,7 +104,7 @@ const DevisDetail = () => {
               {isValidating ? 'Validation...' : 'Valider'}
             </button>
           )}
-          {!devis.IsConverted && devis.Valid && (
+          {!(devis.IsConverted || devis.bTransf) && devis.Valid && (
             <button
               onClick={handleConvert}
               disabled={isConverting}

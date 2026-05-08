@@ -84,6 +84,7 @@ const BlvList = () => {
   const navigate = useNavigate();
   const { canCreate, canEdit, canDelete, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.LIVRAISONS);
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
+  const adminId = currentUser?.UserID?.toString();
   const { blvList: blv, loading } = useSelector((state) => state.blv);
 
   const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
@@ -96,7 +97,7 @@ const BlvList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: '',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -131,7 +132,7 @@ const BlvList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: '' });
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -151,9 +152,17 @@ const BlvList = () => {
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
-    if (filters.commercial && item.CodRepres !== filters.commercial) return false;
+    
+    // Filter by selected commercial; default to 'mine'
+    if (filters.commercial === 'all') {
+      // Show everything
+    } else {
+      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+      if (String(item.CodRepres) !== String(targetId)) return false;
+    }
+    
     return true;
-  }), [blv, filters]);
+  }), [blv, filters, adminId, isAdminUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredBlv.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -172,9 +181,22 @@ const BlvList = () => {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const refreshData = () => {
     if (!isModuleActive) return;
+    const params = { 
+      page: 1, 
+      limit: 1000,
+      status: filters.status === 'all' ? '' : filters.status,
+    };
+    
+    if (filters.commercial && filters.commercial !== 'all') {
+      params.selectedCommercial = filters.commercial;
+    }
+    if (filters.commercial === 'all') {
+      params.includeAll = true;
+    }
+
     isClient
-      ? dispatch(fetchMyBlv({ page: 1, limit: 1000 }))
-      : dispatch(fetchBlv({ page: 1, limit: 1000 }));
+      ? dispatch(fetchMyBlv(params))
+      : dispatch(fetchBlv(params));
   };
 
   const handleDeleteBlv = async (guid) => {
@@ -206,8 +228,11 @@ const BlvList = () => {
   };
 
   useEffect(() => {
-    if (permissionLoading || authLoading || !isAuthenticated) return;
     refreshData();
+  }, [filters.status, filters.commercial]);
+
+  useEffect(() => {
+    if (permissionLoading || authLoading || !isAuthenticated) return;
     if (!isCommercialUser) fetchCommercials();
     if (isFilterRepresEnabled) fetchClients();
   }, [dispatch, permissionLoading, authLoading, isAuthenticated, isModuleActive, isClient, isCommercialUser, isFilterRepresEnabled]);
@@ -380,7 +405,8 @@ const BlvList = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="">Tous</option>
+                        <option value="mine">Mes livraisons</option>
+                        <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                         ))}
