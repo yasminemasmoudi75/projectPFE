@@ -15,7 +15,7 @@ const { randomUUID } = require('crypto');
  */
 exports.getAllDevis = async (req, res, next) => {
   try {
-    console.log('🚀 [DevisController] getAllDevis started');
+    console.log('🚀 [DevisController] getAllDevis (v2.1 - Robust Filter) started');
     const filterHelper = require('../utils/filterHelper');
     
     // Module 4 = Devis
@@ -27,8 +27,39 @@ exports.getAllDevis = async (req, res, next) => {
       req.user
     );
     const { where, limit, offset, page } = filterResult;
+    
+    // Status filter handling
+    const status = req.query.status || 'all';
+    let statusWhere = {};
+    
+    if (status === 'converted') {
+      // Robust filtering using subqueries and explicit column casting with table alias
+      statusWhere = sequelize.literal(`(
+        [TabDevm].bTransf = 1 OR 
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabBcvm WHERE CodDev IS NOT NULL) OR
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabBlvm WHERE CodDev IS NOT NULL) OR
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabFavm WHERE CodDev IS NOT NULL)
+      )`);
+    } else if (status === 'draft') {
+      statusWhere = { 
+        [Op.and]: [
+          { bTransf: false },
+          { Valid: { [Op.or]: [false, null] } }
+        ]
+      };
+    } else if (status === 'valid') {
+       statusWhere = {
+         [Op.and]: [
+           { bTransf: false },
+           { Valid: true }
+         ]
+       };
+    } else if (status === 'not_converted') {
+      statusWhere = { bTransf: false };
+    }
+
     const listWhere = {
-      [Op.and]: [where, { bTransf: false }]
+      [Op.and]: [where, statusWhere]
     };
     console.log('✅ [DevisController] Filters applied:', JSON.stringify(listWhere));
 
@@ -61,7 +92,16 @@ exports.getAllDevis = async (req, res, next) => {
 
   } catch (error) {
     console.error('❌ [DevisController] Error in getAllDevis:', error);
-    next(error);
+    if (error.parent) {
+      console.error('❌ [DevisController] DB Error:', error.parent.message);
+      console.error('❌ [DevisController] SQL:', error.parent.sql);
+    }
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'Erreur lors de la récupération des devis',
+      details: error.message,
+      sqlError: error.parent ? error.parent.message : null
+    });
   }
 };
 
@@ -793,7 +833,28 @@ exports.convertDevis = async (req, res, next) => {
 
     if (devis.bTransf) {
       await t.rollback();
-      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été converti en bon de commande' });
+      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été transféré.' });
+    }
+
+    // Double check with existing records in other tables
+    const { QueryTypes } = require('sequelize');
+    const existingLinks = await sequelize.query(`
+      SELECT TOP 1 Nf FROM TabBcvm WHERE CodDev = :nf
+      UNION ALL
+      SELECT TOP 1 Nf FROM TabBlvm WHERE CodDev = :nf
+      UNION ALL
+      SELECT TOP 1 Nf FROM TabFavm WHERE CodDev = :nf
+    `, {
+      replacements: { nf: String(devis.Nf) },
+      type: QueryTypes.SELECT,
+      transaction: t
+    });
+
+    if (existingLinks.length > 0) {
+      await t.rollback();
+      // Sync the flag if it was missing
+      await DevisMaster.update({ bTransf: true }, { where: { Guid: id } });
+      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été transféré.' });
     }
 
     const data = devis.toJSON();
@@ -826,7 +887,7 @@ exports.convertDevis = async (req, res, next) => {
       CodMag: data.CodMag,
       CodRepres: data.CodRepres,
       CodProject: data.CodProject || null,
-      CodDev: data.CodDev,
+      CodDev: String(data.Nf), // Store source Devis number
       MDate: sequelize.literal('GETDATE()'),
       DatCreateUser: sequelize.literal('GETDATE()'),
       DatUser: sequelize.literal('GETDATE()'),

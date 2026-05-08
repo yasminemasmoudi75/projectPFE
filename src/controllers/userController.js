@@ -228,11 +228,16 @@ exports.getAllUsers = async (req, res, next) => {
     const filterHelper = require('../utils/filterHelper');
 
     // Module 19 = Users (Table-driven filters from TabRoleFilterVisibility)
+    console.log('📋 [getAllUsers] Getting users with module code 19');
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
       '19',
       req.query,
       req.user
     );
+
+    console.log('📋 [getAllUsers] where:', JSON.stringify(where, (key, value) => 
+      typeof value === 'symbol' ? value.toString() : value
+    , 2));
 
     const { count, rows } = await User.findAndCountAll({
       where,
@@ -253,6 +258,8 @@ exports.getAllUsers = async (req, res, next) => {
       filterHelper.formatPaginatedResponse(rows, count, page, limit)
     );
   } catch (error) {
+    console.error('❌ [USERS ERROR]:', error.message);
+    console.error('❌ Stack:', error.stack);
     next(error);
   }
 };

@@ -30,6 +30,7 @@ const recapRoutes = require('./recap.routes'); // ✅ Routes pour le récapitula
 const banquesRoutes = require('./banques.routes'); // ✅ Référentiel banques
 const iaRoutes = require('./ia.routes'); // ✅ Routes IA
 const notificationsRoutes = require('./notifications.routes'); // ✅ Nouvelles notifications système
+const statsRoutes = require('./stats.routes'); // ✅ Statistiques avancées dashboard
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -60,6 +61,7 @@ router.use('/reglements', reglementsRoutes); // ✅ Gestion des règlements
 router.use('/recap', recapRoutes); // ✅ Récapitulatif mouvements
 router.use('/banques', banquesRoutes); // ✅ Référentiel banques
 router.use('/ia', iaRoutes); // ✅ Moteur IA et analytique
+router.use('/stats', statsRoutes); // ✅ Statistiques avancées dashboard
 
 // Route de base de l'API
 router.get('/', (req, res) => {

@@ -250,8 +250,12 @@ exports.getAllBcv = async (req, res, next) => {
             filterHelper.formatPaginatedResponse(rows, count, page, limit)
         );
     } catch (error) {
-        console.error('❌ Error getAllBcv:', error);
-        next(error);
+        console.error('❌ [BcvController] Error in getAllBcv:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Erreur lors de la récupération des bons de commande',
+            details: error.message 
+        });
     }
 };
 
@@ -359,7 +363,26 @@ exports.transferBcv = async (req, res, next) => {
 
         if (sourceData.bTransf) {
             await t.rollback();
-            return res.status(400).json({ status: 'error', message: 'Ce bon de commande a déjà été transféré' });
+            return res.status(400).json({ status: 'error', message: 'Cette bon de commande est déjà transférée.' });
+        }
+
+        // Additional check: verify if any BL or Facture already references this BCV Nf in CodDev
+        const { QueryTypes } = require('sequelize');
+        const existingLinks = await sequelize.query(`
+            SELECT TOP 1 Nf FROM TabBlvm WHERE CodDev = :nf
+            UNION ALL
+            SELECT TOP 1 Nf FROM TabFavm WHERE CodDev = :nf
+        `, {
+            replacements: { nf: String(sourceData.Nf) },
+            type: QueryTypes.SELECT,
+            transaction: t
+        });
+
+        if (existingLinks.length > 0) {
+            await t.rollback();
+            // Also update the source record to be consistent if it wasn't marked
+            await BcvMaster.update({ bTransf: true }, { where: { Guid: id } });
+            return res.status(400).json({ status: 'error', message: 'Cette bon de commande est déjà transférée.' });
         }
 
         const data = sourceData.toJSON();
@@ -397,7 +420,7 @@ exports.transferBcv = async (req, res, next) => {
             CodMag: data.CodMag,
             CodRepres: data.CodRepres,
             CodProject: data.CodProject || null,
-            CodDev: data.CodDev,
+            CodDev: data.CodDev || String(data.Nf), // Keep original Devis or use BCV Nf as reference
             Valid: false,
             bTransf: false,
             bLivr: targetType === 'BL',

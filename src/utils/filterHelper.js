@@ -1,5 +1,7 @@
 const { Op, QueryTypes } = require('sequelize');
-const { TabRoleFilterVisibility, sequelize } = require('../models');
+const { sequelize } = require('../config/database');
+// Import models lazily inside functions if needed, or at the top if no circular dep
+const getModels = () => require('../models');
 
 const RESERVED_QUERY_KEYS = new Set([
   'page',
@@ -17,6 +19,9 @@ const RESERVED_QUERY_KEYS = new Set([
   'include',
   'fields',
   'expand',
+  'status',
+  'selectedCommercial',
+  'includeAll',
 ]);
 
 const isFilterableField = (key) => {
@@ -203,9 +208,73 @@ const getRepresentativeScope = async (user = {}, normalizedRole = '') => {
   return ownIdentifiers;
 };
 
-const buildModuleScopeFilter = async (moduleCode, user = {}) => {
+const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
   const normalizedRole = normalizeRole(user?.UserRole);
-  if (normalizedRole === 'admin') return {};
+  const selectedCommercialId = query.selectedCommercial;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADMIN role: usually sees everything, but can filter by a selected commercial
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (normalizedRole === 'admin') {
+    const includeAll = query.includeAll === 'true' || query.includeAll === true || query.includeAll === '1';
+    
+    // Determine the target commercial ID based on selectedCommercial or default to 'mine'
+    let targetId = null;
+    let isAll = false;
+
+    if (selectedCommercialId === 'all' || includeAll) {
+      isAll = true;
+    } else if (selectedCommercialId === 'mine' || !selectedCommercialId) {
+      targetId = user?.UserID || user?.id || user?.USER_ID;
+      console.log(`🔍 [filterHelper] Admin viewing OWN records (Resolved ID: ${targetId})`);
+    } else {
+      targetId = selectedCommercialId;
+      console.log(`🔍 [filterHelper] Admin filtering by SPECIFIC commercial: ${targetId}`);
+    }
+
+    const moduleKey = String(moduleCode);
+    const hasCodRepres = ['4', '5', '6', '7'].includes(moduleKey);
+    const isTiersModule = moduleKey === '11' || moduleKey === '30';
+
+    if (isAll || !targetId) {
+      console.log('🔍 [filterHelper] Admin requested ALL records (or no target ID found)');
+      return {};
+    }
+
+    // Ensure targetId is not the literal string 'mine' if it somehow passed through
+    const resolvedTargetId = String(targetId) === 'mine' ? (user?.UserID || user?.id || user?.USER_ID) : targetId;
+
+    // Get the client portfolio for this specific commercial
+    const clientRows = await sequelize.query(`
+      SELECT CodTiers
+      FROM TabTiers
+      WHERE CONVERT(VARCHAR, codRepresTiers) = :targetId
+    `, {
+      replacements: { targetId: String(resolvedTargetId) },
+      type: QueryTypes.SELECT
+    });
+
+    const clientCodes = clientRows.map(row => row.CodTiers).filter(Boolean);
+    
+    const conditions = [];
+    
+    if (isTiersModule) {
+      conditions.push({ codRepresTiers: String(resolvedTargetId) });
+    } else if (hasCodRepres) {
+      conditions.push({ CodRepres: String(resolvedTargetId) });
+    }
+    
+    if (clientCodes.length > 0) {
+      conditions.push({ CodTiers: { [Op.in]: clientCodes } });
+    }
+
+    if (conditions.length === 0) {
+      console.log(`🔍 [filterHelper] No specific column-based filter for module ${moduleKey}, and no clients found.`);
+      return {}; // Or some other fallback
+    }
+
+    return conditions.length === 1 ? conditions[0] : { [Op.or]: conditions };
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CLIENT role: always filter — show only their own data (no FiltreRepres needed)
@@ -353,7 +422,12 @@ const buildModuleScopeFilter = async (moduleCode, user = {}) => {
 
   // Activites (TabActivite): scope through user assignment (User column)
   if (moduleKey === '45' || moduleKey === '8') {
-    if (normalizedRole === 'admin') return {};
+    if (normalizedRole === 'admin') {
+      if (selectedCommercialId) {
+        return { User: Number(selectedCommercialId) };
+      }
+      return {};
+    }
 
     const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
     if (!filtreRepresEnabled) {
@@ -468,7 +542,7 @@ exports.applyTableDrivenFiltersWithPagination = async (moduleCode, queryParams, 
       }
     }
 
-    const scopedWhere = await buildModuleScopeFilter(moduleCode, user);
+    const scopedWhere = await buildModuleScopeFilter(moduleCode, user, queryParams);
     console.log(`   📋 [filterHelper] buildModuleScopeFilter returned:`, scopedWhere);
     console.log(`   📋 [filterHelper] hasWhereConditions(scopedWhere):`, hasWhereConditions(scopedWhere));
 
@@ -542,6 +616,7 @@ exports.formatPaginatedResponse = (rows, count, page, limit) => {
  */
 exports.getRoleVisibilityFilters = async (moduleCode, roleID) => {
   try {
+    const { TabRoleFilterVisibility } = getModels();
     const filters = await TabRoleFilterVisibility.findAll({
       where: {
         ModuleCode: moduleCode,

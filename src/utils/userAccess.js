@@ -202,7 +202,25 @@ async function attachAccessToUser(user, options = {}) {
 }
 
 async function attachAccessToUsers(users, options = {}) {
-  return Promise.all((users || []).map((user) => attachAccessToUser(user, options)));
+  const result = [];
+  const batchSize = 20;
+  for (let i = 0; i < (users || []).length; i += batchSize) {
+    const batch = users.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map((user) => attachAccessToUser(user, options)));
+    for (let j = 0; j < batchResults.length; j++) {
+      if (batchResults[j].status === 'fulfilled') {
+        result.push(batchResults[j].value);
+      } else {
+        const u = batch[j];
+        if (u) {
+          u.setDataValue('UserRole', 'User');
+          u.setDataValue('IsActive', false);
+          result.push(u);
+        }
+      }
+    }
+  }
+  return result;
 }
 
 module.exports = {
