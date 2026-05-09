@@ -13,6 +13,9 @@ router.get('/available-commercials', checkPermission(MODULES.TIERS, 'read'), tie
 router.get('/check-email', checkPermission(MODULES.TIERS, 'read'), tiersController.checkTierEmailUnique);
 router.get('/next-code', checkPermission(MODULES.TIERS, 'read'), tiersController.getNextCodTiers);
 
+// Classe calculée automatiquement via ViewCalculClasseContact
+router.get('/:id/classe-calculee', checkPermission(MODULES.TIERS, 'read'), tiersController.getClasseCalculee);
+
 // Envoi en masse des identifiants aux clients (admin uniquement)
 router.post('/bulk-send-credentials', restrictTo('Admin'), tiersController.bulkSendCredentials);
 

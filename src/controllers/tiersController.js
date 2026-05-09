@@ -1213,3 +1213,40 @@ exports.bulkSendCredentials = async (req, res, next) => {
         next(error);
     }
 };
+
+// ─── GET CLASSE CALCULÉE (via ViewCalculClasseContact) ────────────────────────
+// Retourne la meilleure classe calculée parmi tous les contacts d'un Tiers
+exports.getClasseCalculee = async (req, res, next) => {
+    try {
+        const { id } = req.params; // IDTiers (UUID)
+
+        const results = await sequelize.query(
+            `SELECT TOP 1 vcc.ClasseCalculee
+             FROM dbo.ViewCalculClasseContact vcc
+             INNER JOIN dbo.TabTiersContact tc ON tc.ID = vcc.idcontact
+             WHERE tc.IDTiers = :tiersId
+             ORDER BY
+               CASE vcc.ClasseCalculee
+                 WHEN 'Diamant'       THEN 1
+                 WHEN 'Gold'          THEN 2
+                 WHEN 'Silver'        THEN 3
+                 WHEN 'Passif'        THEN 4
+                 WHEN 'Inactif'       THEN 5
+                 WHEN 'Non Classifié' THEN 6
+                 WHEN 'Prospect'      THEN 7
+                 ELSE 8
+               END ASC`,
+            {
+                replacements: { tiersId: id },
+                type: QueryTypes.SELECT
+            }
+        );
+
+        const classe = results[0]?.ClasseCalculee || 'Prospect';
+        return res.json({ classe });
+
+    } catch (error) {
+        console.error('❌ Error getClasseCalculee:', error);
+        next(error);
+    }
+};
