@@ -28,6 +28,6 @@ router.delete('/:id', checkPermission(MODULES.BCV, 'delete'), bcvController.dele
 router.get('/:id/pdf', checkPermission(MODULES.BCV, 'read'), bcvController.generateBcvPDF);
 
 // POST /api/bcv/:id/transfer — transférer vers BL ou Facture
-router.post('/:id/transfer', checkPermission(MODULES.BCV, 'update'), bcvController.transferBcv);
+router.post('/:id/transfer', bcvController.transferBcv);
 
 module.exports = router;

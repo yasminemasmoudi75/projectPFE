@@ -20,6 +20,40 @@ const roleAliases = (normalizedRole) => {
   return aliases[normalizedRole] || [normalizedRole];
 };
 
+/**
+ * Générer un LoginName unique à partir du nom complet
+ */
+const generateUniqueLoginName = async (fullName, transaction) => {
+  if (!fullName) return null;
+
+  const cleanName = fullName
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '.');
+
+  let baseLogin = cleanName;
+  let loginName = baseLogin;
+  let counter = 1;
+  let exists = true;
+
+  while (exists) {
+    const user = await User.findOne({
+      where: { EmailPro: loginName },
+      transaction
+    });
+    if (!user) {
+      exists = false;
+    } else {
+      loginName = `${baseLogin}${counter}`;
+      counter++;
+    }
+  }
+  return loginName;
+};
+
 const resolveGouvernoratId = async (gouvernoratValue, { transaction } = {}) => {
   if (gouvernoratValue === undefined || gouvernoratValue === null || gouvernoratValue === '') {
     return null;
@@ -67,28 +101,58 @@ exports.createUser = async (req, res, next) => {
     const selectedRole = UserRole || 'User';
     const selectedIsActive = IsActive !== undefined ? IsActive : true;
 
-    // 1. Validation des champs obligatoires
-    if (!LoginName || !Password || !FullName || !EmailPro) {
+    // Règle métier : Gouvernorat obligatoire si un rôle est assigné
+    if (selectedRole && !Gouvernorat) {
       return res.status(400).json({
         status: 'error',
-        message: 'LoginName, Password, FullName et EmailPro sont obligatoires'
+        message: 'Le champ Gouvernorat est obligatoire lorsqu\'un rôle est assigné.'
+      });
+    }
+
+    // 1. Validation des champs obligatoires
+    if (!Password || !FullName || !EmailPro || !TelPro) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Password, FullName, EmailPro et Téléphone (8 chiffres) sont obligatoires'
+      });
+    }
+
+    // Validation du format du téléphone (8 chiffres)
+    if (!/^\d{8}$/.test(TelPro)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Le numéro de téléphone doit contenir exactement 8 chiffres.'
       });
     }
 
     transaction = await sequelize.transaction();
 
-    // 2. Vérifier l'unicité du LoginName
-    const existingUser = await User.findOne({
+    // 2. Vérifier l'unicité de l'Email et du Téléphone
+    const existingEmail = await User.findOne({
       where: { EmailPro },
       transaction
     });
 
-    if (existingUser) {
+    if (existingEmail) {
       await transaction.rollback();
       transaction = null;
       return res.status(400).json({
         status: 'error',
-        message: 'Un utilisateur avec ce LoginName existe déjà'
+        message: 'Cet email est déjà utilisé par un autre collaborateur.'
+      });
+    }
+
+    const existingPhone = await User.findOne({
+      where: { TelPro },
+      transaction
+    });
+
+    if (existingPhone) {
+      await transaction.rollback();
+      transaction = null;
+      return res.status(400).json({
+        status: 'error',
+        message: 'Ce numéro de téléphone est déjà utilisé par un autre collaborateur.'
       });
     }
 
@@ -102,21 +166,18 @@ exports.createUser = async (req, res, next) => {
       });
     }
 
-    // 3. Sécurité : Hasher le mot de passe
+    // 3. Sécurité : Hasher le mot de passe et générer les identifiants
     const hashedPassword = await bcrypt.hash(Password, 10);
+    const resolvedLoginName = LoginName || await generateUniqueLoginName(FullName, transaction);
     const nextUserId = await allocateNextUserId({ transaction });
 
     // 4. Création dans la base de données
-    // NOTE : On ne passe pas CreatedDate ici pour éviter l'erreur de conversion de date MSSQL
     const newUser = await User.create({
       UserID: nextUserId,
-      LoginName,
+      LoginName: resolvedLoginName,
       Password: hashedPassword,
       FullName,
       EmailPro,
-      TelPro,
-      PosteOccupe: Poste,
-      Departement,
       Gouvernorat: gouvernoratId,
       DateNaissance: sanitizeDate(DateNaissance)
     }, { transaction });
@@ -165,25 +226,28 @@ exports.createUser = async (req, res, next) => {
 exports.getAllUsers = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
-    
+
     // Module 19 = Users (Table-driven filters from TabRoleFilterVisibility)
+    console.log('📋 [getAllUsers] Getting users with module code 19');
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-        '19',
-        req.query,
-        req.user
+      '19',
+      req.query,
+      req.user
     );
 
+    console.log('📋 [getAllUsers] where:', JSON.stringify(where, (key, value) => 
+      typeof value === 'symbol' ? value.toString() : value
+    , 2));
+
     const { count, rows } = await User.findAndCountAll({
-      attributes: { exclude: ['Password', 'RefreshToken'] },
       where,
-      order: [['USER_NAME', 'ASC']],
       limit,
       offset,
-      tableHint: TableHints.NOLOCK
+      order: [['UserID', 'DESC']]
     });
 
-
-
+    console.log(`👥 [USERS] Found ${rows.length} users in DB for admin list`);
+    console.log('👥 [USERS] count:', count);
 
     // Indispensable pour que le champ virtuel UserRole soit peuplé pour le Frontend
     const { attachAccessToUsers } = require('../utils/userAccess');
@@ -194,6 +258,8 @@ exports.getAllUsers = async (req, res, next) => {
       filterHelper.formatPaginatedResponse(rows, count, page, limit)
     );
   } catch (error) {
+    console.error('❌ [USERS ERROR]:', error.message);
+    console.error('❌ Stack:', error.stack);
     next(error);
   }
 };
@@ -203,7 +269,10 @@ exports.getAllUsers = async (req, res, next) => {
  */
 exports.getUserById = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ status: 'error', message: 'ID utilisateur invalide' });
+    }
 
     const user = await User.findByPk(id, {
       attributes: { exclude: ['Password', 'RefreshToken'] }
@@ -217,6 +286,12 @@ exports.getUserById = async (req, res, next) => {
     }
 
     await attachAccessToUser(user);
+
+    // S'assurer que le Gouvernorat renvoyé est un ID (pour le select du Front)
+    if (user.Gouvernorat && isNaN(parseInt(user.Gouvernorat))) {
+      const govId = await resolveGouvernoratId(user.Gouvernorat);
+      if (govId) user.Gouvernorat = String(govId);
+    }
 
     res.status(200).json({
       status: 'success',
@@ -235,7 +310,11 @@ exports.updateUser = async (req, res, next) => {
   let transaction;
 
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ status: 'error', message: 'ID utilisateur invalide' });
+    }
+
     const {
       FullName,
       EmailPro,
@@ -248,7 +327,37 @@ exports.updateUser = async (req, res, next) => {
       Password
     } = req.body;
 
+    // Validation du format du téléphone (8 chiffres)
+    if (TelPro && !/^\d{8}$/.test(TelPro)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Le numéro de téléphone doit contenir exactement 8 chiffres.'
+      });
+    }
+
     transaction = await sequelize.transaction();
+
+    const { Op } = require('sequelize');
+
+    // Vérifier l'unicité de l'email s'il a changé
+    if (EmailPro) {
+      const existingEmail = await User.findOne({
+        where: { 
+          EmailPro,
+          UserID: { [Op.ne]: id }
+        },
+        transaction
+      });
+
+      if (existingEmail) {
+        await transaction.rollback();
+        transaction = null;
+        return res.status(400).json({
+          status: 'error',
+          message: 'Cet email est déjà utilisé par un autre collaborateur.'
+        });
+      }
+    }
 
     const user = await User.findByPk(id, { transaction });
 
@@ -269,9 +378,6 @@ exports.updateUser = async (req, res, next) => {
     const updateData = {};
     if (FullName) updateData.FullName = FullName;
     if (EmailPro) updateData.EmailPro = EmailPro;
-    if (TelPro) updateData.TelPro = TelPro;
-    if (Poste) updateData.PosteOccupe = Poste;
-    if (Departement) updateData.Departement = Departement;
     if (Gouvernorat !== undefined) {
       const gouvernoratId = await resolveGouvernoratId(Gouvernorat, { transaction });
       if (Gouvernorat !== null && Gouvernorat !== '' && !gouvernoratId) {
@@ -324,7 +430,10 @@ exports.updateUser = async (req, res, next) => {
  */
 exports.deleteUser = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ status: 'error', message: 'ID utilisateur invalide' });
+    }
 
     const user = await User.findByPk(id);
 
@@ -410,7 +519,9 @@ exports.getAssignableCommercials = async (req, res, next) => {
         u.USER_ID AS UserID,
         u.USER_NAME AS LoginName,
         u.REAL_NAME AS FullName,
-        u.Gouvernorat AS Gouvernorat
+        u.PhotoProfil AS PhotoProfil,
+        u.Gouvernorat AS Gouvernorat,
+        u.GUID AS GUID
       FROM UCS_USERS u
       INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
       INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
@@ -430,7 +541,8 @@ exports.getAssignableCommercials = async (req, res, next) => {
           u.USER_ID AS UserID,
           u.USER_NAME AS LoginName,
           u.REAL_NAME AS FullName,
-          u.Gouvernorat AS Gouvernorat
+          u.Gouvernorat AS Gouvernorat,
+          u.GUID AS GUID
         FROM UCS_USERS u
         INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
         INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
@@ -450,7 +562,9 @@ exports.getAssignableCommercials = async (req, res, next) => {
         userId: row.UserID,
         login: row.LoginName,
         fullName: row.FullName,
+        PhotoProfil: row.PhotoProfil,
         gouvernorat: row.Gouvernorat,
+        guid: row.GUID,
         label: row.FullName || row.LoginName || `Commercial ${row.UserID}`
       })),
       meta: {

@@ -14,8 +14,8 @@ const { Op, fn, col, where, literal } = require('sequelize');
  */
 exports.enregistrerTransformation = async (sourceType, sourceNf, targetType, targetNf, montants = {}, userId = null) => {
     try {
-        console.log(`📝 Transformation: ${sourceType} #${sourceNf} → ${targetType} #${targetNf}`);
-        
+        console.log(` Transformation: ${sourceType} #${sourceNf} → ${targetType} #${targetNf}`);
+
         const mouvement = await Mouvement.create({
             NF: targetNf,
             Document: targetType,
@@ -32,7 +32,7 @@ exports.enregistrerTransformation = async (sourceType, sourceNf, targetType, tar
             Flags: 1,  // Flag = 1 pour indiquer une transformation
             UserId: userId
         });
-        
+
         console.log(`✅ Mouvement transformation enregistré: ${targetType} #${targetNf}`);
         return mouvement;
     } catch (error) {
@@ -63,7 +63,7 @@ exports.enregistrerCreation = async (docType, docNf, montants = {}, userId = nul
             Flags: 0,  // Flag = 0 pour indiquer une création
             UserId: userId
         });
-        
+
         console.log(`✅ Création enregistrée: ${docType} #${docNf}`);
         return mouvement;
     } catch (error) {
@@ -86,7 +86,7 @@ exports.obtenirHistorique = async (docType, docNf) => {
             order: [['MDate', 'DESC']],
             raw: false
         });
-        
+
         console.log(`📊 Historique: ${historique.length} mouvement(s) trouvé(s)`);
         return historique;
     } catch (error) {
@@ -103,11 +103,11 @@ exports.obtenirTousMouvements = async (page = 1, limit = 50, filters = {}) => {
         const offset = (page - 1) * limit;
         const whereConditions = {};
         const andConditions = [];
-        
+
         if (filters.docType) whereConditions.Document = filters.docType;
         if (filters.codTiers) whereConditions.CodTiers = filters.codTiers;
         if (filters.nf) whereConditions.NF = filters.nf;
-        
+
         // Filtres de dates - utiliser CONVERT pour SQL Server (MSSQL syntax)
         if (filters.dateDebut) {
             console.log('🗓️ DateDebut filter:', filters.dateDebut);
@@ -119,7 +119,7 @@ exports.obtenirTousMouvements = async (page = 1, limit = 50, filters = {}) => {
                 )
             );
         }
-        
+
         if (filters.dateFin) {
             console.log('🗓️ DateFin filter:', filters.dateFin);
             andConditions.push(
@@ -130,14 +130,14 @@ exports.obtenirTousMouvements = async (page = 1, limit = 50, filters = {}) => {
                 )
             );
         }
-        
+
         // Ajouter les conditions AND si des filtres de date existent
         if (andConditions.length > 0) {
             whereConditions[Op.and] = andConditions;
         }
-        
+
         console.log('🔍 WhereConditions prepared. DateDebut:', !!filters.dateDebut, 'DateFin:', !!filters.dateFin);
-        
+
         const { count, rows } = await Mouvement.findAndCountAll({
             where: whereConditions,
             order: [['MDate', 'DESC']],
@@ -145,9 +145,9 @@ exports.obtenirTousMouvements = async (page = 1, limit = 50, filters = {}) => {
             offset,
             raw: false
         });
-        
+
         console.log('✅ Found', count, 'total movements, returning', rows.length);
-        
+
         return {
             total: count,
             page,
@@ -168,7 +168,7 @@ exports.obtenirStatistiques = async (dateDebut, dateFin) => {
     try {
         const whereConditions = {};
         const andConditions = [];
-        
+
         // Filtres de dates - utiliser CONVERT pour SQL Server
         if (dateDebut) {
             andConditions.push(
@@ -179,7 +179,7 @@ exports.obtenirStatistiques = async (dateDebut, dateFin) => {
                 )
             );
         }
-        
+
         if (dateFin) {
             andConditions.push(
                 sequelize.where(
@@ -189,12 +189,12 @@ exports.obtenirStatistiques = async (dateDebut, dateFin) => {
                 )
             );
         }
-        
+
         // Ajouter les conditions AND si des filtres de date existent
         if (andConditions.length > 0) {
             whereConditions[Op.and] = andConditions;
         }
-        
+
         const stats = await Mouvement.findAll({
             attributes: [
                 'Document',
@@ -208,7 +208,7 @@ exports.obtenirStatistiques = async (dateDebut, dateFin) => {
             raw: true,
             subQuery: false
         });
-        
+
         return stats;
     } catch (error) {
         console.error('❌ Erreur récupération statistiques:', error);
@@ -222,7 +222,7 @@ exports.obtenirStatistiques = async (dateDebut, dateFin) => {
 exports.obtenirMouvementsClient = async (codTiers, page = 1, limit = 50) => {
     try {
         const offset = (page - 1) * limit;
-        
+
         const { count, rows } = await Mouvement.findAndCountAll({
             where: {
                 CodTiers: codTiers
@@ -232,7 +232,7 @@ exports.obtenirMouvementsClient = async (codTiers, page = 1, limit = 50) => {
             offset,
             raw: false
         });
-        
+
         return {
             total: count,
             page,

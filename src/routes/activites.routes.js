@@ -6,12 +6,12 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
-router.get('/', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getAllActivites);
-router.get('/tiers-lookup', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.lookupActivityTiers);
-router.get('/:id', checkPermission(MODULES.ACTIVITES, 'read'), activiteController.getActiviteById);
-router.post('/', checkPermission(MODULES.ACTIVITES, 'create'), activiteController.createActivite);
-router.patch('/:id/validate', checkPermission(MODULES.ACTIVITES, 'update'), activiteController.validateActivite);
-router.put('/:id', checkPermission(MODULES.ACTIVITES, 'update'), activiteController.updateActivite);
-router.delete('/:id', checkPermission(MODULES.ACTIVITES, 'delete'), activiteController.deleteActivite);
+router.get('/', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), activiteController.getAllActivites);
+router.get('/tiers-lookup', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), activiteController.lookupActivityTiers);
+router.get('/:id', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), activiteController.getActiviteById);
+router.post('/', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'create'), activiteController.createActivite);
+router.patch('/:id/validate', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'update'), activiteController.validateActivite);
+router.put('/:id', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'update'), activiteController.updateActivite);
+router.delete('/:id', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'delete'), activiteController.deleteActivite);
 
 module.exports = router;

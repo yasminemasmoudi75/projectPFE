@@ -328,25 +328,28 @@ exports.getProjets = async (req, res, next) => {
         req.user
     );
 
+    console.log('📋 [getProjets] where:', JSON.stringify(where, (key, value) => 
+      typeof value === 'symbol' ? value.toString() : value
+    , 2));
 
     const { count, rows } = await Projet.findAndCountAll({
       where,
-      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }],
-      order: [['dateSave', 'DESC']],
+      attributes: ['ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers', 'Date_Creation', 'CodDev', 'CodBc', 'nf'],
+      order: [['Date_Creation', 'DESC']],
       limit,
       offset,
+      subQuery: false,
       tableHint: TableHints.NOLOCK
     });
 
-
-
-
+    console.log('✅ [getProjets] Found', count, 'projets');
 
     res.json(
       filterHelper.formatPaginatedResponse(rows, count, page, limit)
     );
   } catch (error) {
-    console.error('❌ [PROJET LIST ERROR]:', error);
+    console.error('❌ [PROJET LIST ERROR]:', error.message);
+    console.error('❌ Stack:', error.stack);
     next(error);
   }
 };
@@ -369,7 +372,7 @@ exports.getProjectsByClient = async (req, res, next) => {
       where: { [Op.and]: [{ IDTiers: codTiers }, securityWhere] },
       include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers'] }],
       attributes: ['ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers', 'Date_Creation', 'CodDev', 'CodBc', 'nf'],
-      order: [['dateSave', 'DESC']],
+      order: [['Date_Creation', 'DESC']],
       tableHint: TableHints.NOLOCK
     });
 

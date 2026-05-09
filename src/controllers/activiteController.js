@@ -355,10 +355,15 @@ exports.getAllActivites = async (req, res, next) => {
     delete queryForTableFilters.commercial;
     delete queryForTableFilters.userId;
     delete queryForTableFilters.tierId;
+    delete queryForTableFilters.moduleCode;
     
-    // Module 45 = Activités (Table-driven filters from TabRoleFilterVisibility)
+    // Module 45 = Activités, Module 8 = Calendrier (Table-driven filters from TabRoleFilterVisibility)
+    const reqModuleCode = req.query.moduleCode;
+    const isValidModuleCode = reqModuleCode === '8' || reqModuleCode === '45';
+    const moduleCodeToUse = (isValidModuleCode ? reqModuleCode : req.grantedModule) || '45';
+    
     const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-        '45',
+        String(moduleCodeToUse),
         queryForTableFilters,
         req.user
     );
@@ -393,6 +398,26 @@ exports.getAllActivites = async (req, res, next) => {
         Object.keys(finalWhere).length > 0 || Object.getOwnPropertySymbols(finalWhere).length > 0
       );
       finalWhere = hasWhere ? { [Op.and]: [finalWhere, tierWhere] } : tierWhere;
+    }
+
+    // ✅ Fix: Robust Projet filtering
+    const selectedProjectId = String(req.query?.projetId || '').trim();
+    if (selectedProjectId && !['null', 'undefined'].includes(selectedProjectId.toLowerCase())) {
+      try {
+        const projet = await resolveProjetReference(selectedProjectId);
+        if (projet && projet.nf) {
+          const projetWhere = { Nf: projet.nf };
+          finalWhere = hasWhereConditions(finalWhere) 
+            ? { [Op.and]: [finalWhere, projetWhere] } 
+            : projetWhere;
+        } else {
+          // If project requested but not found, return empty set instead of 500
+          console.log(`⚠️ [activiteController] Project not found: ${selectedProjectId}`);
+          return res.json(filterHelper.formatPaginatedResponse([], 0, page, limit));
+        }
+      } catch (projErr) {
+        console.error('❌ Error resolving project reference:', projErr);
+      }
     }
 
     const { count, rows } = await Activite.findAndCountAll({

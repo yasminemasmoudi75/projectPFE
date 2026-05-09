@@ -138,6 +138,11 @@ const Devis = sequelize.define('TabDevm', {
     allowNull: true,
     field: 'bTransf'
   },
+  // Alias UI: many frontend screens expect IsConverted, while DB uses bTransf
+  IsConverted: {
+    type: DataTypes.VIRTUAL,
+    get() { return !!this.getDataValue('bTransf'); }
+  },
   CodProject: {
     type: DataTypes.UUID,
     allowNull: true,

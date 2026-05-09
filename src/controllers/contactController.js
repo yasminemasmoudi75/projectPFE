@@ -11,6 +11,13 @@ exports.getContacts = async (req, res, next) => {
 
     const contacts = await TiersContact.findAll({
       attributes: ['IDTiers', 'ID', 'Responsable', 'Tel'],
+      include: [
+        {
+          model: require('../models').TiersContactClasse,
+          as: 'classeAuto',
+          attributes: ['CA', 'ClasseCalculee']
+        }
+      ],
       limit: 1000
     });
 
@@ -34,7 +41,14 @@ exports.getContactsByTier = async (req, res, next) => {
 
     const contacts = await TiersContact.findAll({
       where: { IDTiers: tierId },
-      attributes: ['IDTiers', 'ID', 'Responsable', 'Tel']
+      attributes: ['IDTiers', 'ID', 'Responsable', 'Tel'],
+      include: [
+        {
+          model: require('../models').TiersContactClasse,
+          as: 'classeAuto',
+          attributes: ['CA', 'ClasseCalculee']
+        }
+      ]
     });
 
     res.status(200).json({

@@ -161,6 +161,9 @@ exports.createProduct = async (req, res, next) => {
 
 exports.getAllProducts = async (req, res) => {
     try {
+        console.log('🚀 [getAllProducts] START');
+        console.log('   User:', { id: req.user?.id, role: req.user?.UserRole, email: req.user?.EmailPro });
+        
         const filterHelper = require('../utils/filterHelper');
         
         // Module 12 = Products (Table-driven filters from TabRoleFilterVisibility)
@@ -170,6 +173,11 @@ exports.getAllProducts = async (req, res) => {
             req.user
         );
 
+        console.log('📋 Filter WHERE clause:', JSON.stringify(where, (key, value) => {
+            if (typeof value === 'symbol') return value.toString();
+            return value;
+        }));
+
         const { count, rows } = await Product.findAndCountAll({
             attributes: { exclude: ['imgArt'] },
             where,
@@ -178,12 +186,22 @@ exports.getAllProducts = async (req, res) => {
             offset
         });
 
+        console.log(`✅ Found ${rows.length} products (total: ${count})`);
+        
+        if (rows.length === 0) {
+            console.warn('⚠️ ATTENTION: Aucun produit retourné!');
+            console.warn('   - Vérifiez les produits en base (SELECT COUNT(*) FROM TabStock)');
+            console.warn('   - Vérifiez les filtres de permissions');
+            console.warn('   - Vérifiez le rôle utilisateur et ses permissions');
+        }
 
         res.json(
             filterHelper.formatPaginatedResponse(rows, count, page, limit)
         );
     } catch (error) {
-        console.error('[Product list error]:', error);
+        console.error('[Product list error]:', error.message);
+        console.error('   Stack:', error.stack);
+        console.error('   SQL:', error.sql || 'N/A');
         res.status(500).json({ status: 'error', message: 'Erreur lors de la recuperation des produits', error: error.message });
     }
 };

@@ -39,6 +39,31 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'Gouvernorat'
   },
+  PhotoProfil: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'PhotoProfil'
+  },
+  TelPro: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'TelPro'
+  },
+  PosteOccupe: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'PosteOccupe'
+  },
+  Departement: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'Departement'
+  },
+  DateNaissance: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'DateNaissance'
+  },
   // --- VIRTUALS ---
   UserRole: {
     type: DataTypes.VIRTUAL,

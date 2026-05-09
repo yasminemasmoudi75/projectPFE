@@ -15,7 +15,7 @@ const { randomUUID } = require('crypto');
  */
 exports.getAllDevis = async (req, res, next) => {
   try {
-    console.log('🚀 [DevisController] getAllDevis started');
+    console.log('🚀 [DevisController] getAllDevis (v2.1 - Robust Filter) started');
     const filterHelper = require('../utils/filterHelper');
     
     // Module 4 = Devis
@@ -27,8 +27,39 @@ exports.getAllDevis = async (req, res, next) => {
       req.user
     );
     const { where, limit, offset, page } = filterResult;
+    
+    // Status filter handling
+    const status = req.query.status || 'all';
+    let statusWhere = {};
+    
+    if (status === 'converted') {
+      // Robust filtering using subqueries and explicit column casting with table alias
+      statusWhere = sequelize.literal(`(
+        [TabDevm].bTransf = 1 OR 
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabBcvm WHERE CodDev IS NOT NULL) OR
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabBlvm WHERE CodDev IS NOT NULL) OR
+        CAST([TabDevm].Nf AS VARCHAR(20)) IN (SELECT CodDev FROM TabFavm WHERE CodDev IS NOT NULL)
+      )`);
+    } else if (status === 'draft') {
+      statusWhere = { 
+        [Op.and]: [
+          { bTransf: false },
+          { Valid: { [Op.or]: [false, null] } }
+        ]
+      };
+    } else if (status === 'valid') {
+       statusWhere = {
+         [Op.and]: [
+           { bTransf: false },
+           { Valid: true }
+         ]
+       };
+    } else if (status === 'not_converted') {
+      statusWhere = { bTransf: false };
+    }
+
     const listWhere = {
-      [Op.and]: [where, { bTransf: false }]
+      [Op.and]: [where, statusWhere]
     };
     console.log('✅ [DevisController] Filters applied:', JSON.stringify(listWhere));
 
@@ -61,7 +92,16 @@ exports.getAllDevis = async (req, res, next) => {
 
   } catch (error) {
     console.error('❌ [DevisController] Error in getAllDevis:', error);
-    next(error);
+    if (error.parent) {
+      console.error('❌ [DevisController] DB Error:', error.parent.message);
+      console.error('❌ [DevisController] SQL:', error.parent.sql);
+    }
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'Erreur lors de la récupération des devis',
+      details: error.message,
+      sqlError: error.parent ? error.parent.message : null
+    });
   }
 };
 
@@ -159,6 +199,7 @@ const sanitizeMasterData = (masterData) => {
 
   // Remove computed columns
   delete sanitized.NetHT;
+  delete sanitized.Rest;
 
   // Do not send audit dates through Sequelize for TabDevm.
   // MSSQL binds DataTypes.DATE with a timezone suffix (+00:00), which this legacy DATETIME column rejects.
@@ -196,8 +237,52 @@ const sanitizeMasterData = (masterData) => {
     }
   });
 
+  // Truncate string fields to match SQL Server column widths
+  // CodRepres may receive an email from codRepresTiers but column is VARCHAR(10)
+  const stringLimits = {
+    CodRepres: 10,
+    CUser: 50,
+    CodMag: 10,
+    CodDev: 10,
+    Prfx: 50,
+    Sufx: 10,
+    CodTiers: 20,
+    LibTiers: 100,
+    Adresse: 100,
+    Remarq: 255
+  };
+  Object.entries(stringLimits).forEach(([field, maxLen]) => {
+    if (sanitized[field] && typeof sanitized[field] === 'string' && sanitized[field].length > maxLen) {
+      console.warn(`⚠️ [sanitizeMasterData] Truncating ${field} from ${sanitized[field].length} to ${maxLen} chars`);
+      sanitized[field] = sanitized[field].substring(0, maxLen);
+    }
+  });
+
   return sanitized;
 };
+
+/**
+ * Helper function to sanitize devis detail data
+ */
+const sanitizeDevisDetailData = (detail = {}) => {
+  const sanitized = { ...detail };
+
+  // DB-managed / computed columns should never be written from client payload.
+  delete sanitized.MntHT;
+  delete sanitized.MntTVA;
+  delete sanitized.MntFodec;
+  delete sanitized.NetHT;
+
+  // Identity / generated fields.
+  delete sanitized.NoDetail;
+  delete sanitized.Guid;
+
+  // ✅ Note: La colonne 'Tva' n'existe pas dans TabDevd.
+  delete sanitized.Tva;
+
+  return sanitized;
+};
+
 
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 
@@ -207,6 +292,10 @@ const isCommercialUser = (user = {}) => {
 
 const isAdminUser = (user = {}) => {
   return ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole));
+};
+
+const isAgentUser = (user = {}) => {
+  return normalizeRole(user?.UserRole) === 'agent';
 };
 
 const isFiltreRepresEnabledForCommercialDevis = async (transaction) => {
@@ -317,6 +406,7 @@ exports.createDevis = async (req, res, next) => {
   try {
     transaction = await sequelize.transaction();
     const { master, details } = req.body;
+    console.log('🚀 [createDevis] Payload:', JSON.stringify({ master, detailsCount: details?.length }, null, 2));
 
     // Validate input
     if (!master) {
@@ -329,7 +419,7 @@ exports.createDevis = async (req, res, next) => {
 
     const selectedTier = await Tiers.findOne({
       where: { CodTiers: master.CodTiers },
-      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'codRepresTiers', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+      attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'codRepresTiers', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie', 'Email'],
       transaction
     });
 
@@ -362,8 +452,8 @@ exports.createDevis = async (req, res, next) => {
       }
     }
 
-    if (isAdminUser(req.user)) {
-      // Admin can create for any client, but keep Devis <-> Client <-> Commercial link coherent.
+    if (isAdminUser(req.user) || isAgentUser(req.user)) {
+      // Admin/Agent can create for any client, but keep Devis <-> Client <-> Commercial link coherent.
       // If CodRepres is not explicitly provided, inherit client's assigned commercial.
       if (!master.CodRepres) {
         const tierRep = String(selectedTier.codRepresTiers || '').trim();
@@ -414,24 +504,27 @@ exports.createDevis = async (req, res, next) => {
     masterData.Guid = randomUUID();
 
     // Créer le master
+    console.log('🚀 [createDevis] Creating Master record...');
     const newDevis = await DevisMaster.create(masterData, { transaction });
+    console.log('✅ [createDevis] Master created successfully. Nf:', newDevis.Nf);
 
     // 3. Créer les détails
     if (details && Array.isArray(details) && details.length > 0) {
+      console.log(`🚀 [createDevis] Creating ${details.length} detail records...`);
       const detailsWithNf = details.map((d) => {
-        const detail = { ...d };
-        delete detail.NetHT;  // Computed column in TabDevm
-        delete detail.MntHT;  // Computed column in TabDevd
-        delete detail.Guid;
-        delete detail.NoDetail; // autoIncrement - SQL Server generates it
+        const detail = sanitizeDevisDetailData(d);
         return {
           ...detail,
           NF: newDevis.Nf,
-          ID: newDevis.Nf,
+          ID: String(newDevis.Nf),
+          Guid: randomUUID()
         };
       });
       await DevisDetail.bulkCreate(detailsWithNf, { transaction });
+      console.log('✅ [createDevis] Details created successfully.');
     }
+
+
 
     await transaction.commit();
 
@@ -449,8 +542,30 @@ exports.createDevis = async (req, res, next) => {
       const userId = req.user?.id || req.user?.UserID;
       await mouvementService.enregistrerCreation('DEV', newDevis.Nf, montants, userId);
       console.log(`✅ Mouvement enregistré: Création Devis #${newDevis.Nf} par utilisateur ${userId}`);
+
+      // 🔔 NOTIFICATION SITE & EMAIL CLIENT
+      const { notifyDocumentCreated } = require('../utils/notificationUtils');
+      const emailService = require('../utils/emailService');
+
+      // Log debugging information
+      console.log('📧 [DEBUG-MAIL-DEV] Tentative d\'envoi email Devis...');
+      console.log('📧 [DEBUG-MAIL-DEV] Email client (selectedTier.Email):', selectedTier?.Email);
+      console.log('📧 [DEBUG-MAIL-DEV] SMTP Config - USER:', process.env.EMAIL_USER);
+
+      // Notif site
+      await notifyDocumentCreated('DEV', newDevis.Nf, selectedTier, userId);
+
+      // Email client
+      if (selectedTier.Email) {
+        await emailService.sendDocumentNotification(selectedTier.Email, selectedTier.Raisoc, {
+          type: 'DEVIS',
+          numero: `DEV-${newDevis.Nf}`,
+          montant: masterData.TotTTC,
+          id: newDevis.Guid
+        });
+      }
     } catch (mouvementError) {
-      console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+      console.error('⚠️ Erreur notifications creation (non bloquant):', mouvementError.message);
     }
 
     const result = await DevisMaster.findByPk(newDevis.Guid, {
@@ -463,23 +578,22 @@ exports.createDevis = async (req, res, next) => {
       data: result
     });
   } catch (error) {
-    // Safely rollback transaction
-    if (transaction) {
-      try {
-        if (!transaction.finished) {
-          await transaction.rollback();
-        }
-      } catch (rollbackError) {
-        console.error('❌ Error rolling back transaction:', rollbackError.message);
-      }
+    if (transaction && !transaction.finished) {
+      try { await transaction.rollback(); } catch (e) { console.error('Rollback error:', e); }
     }
-    console.error('❌ Error createDevis:', error.message);
-    console.error('❌ SQL Error details:', error.original?.message || error.parent?.message || 'No SQL details');
-    console.error('❌ SQL:', error.sql || 'N/A');
-    console.error('❌ Parameters:', JSON.stringify(error.parameters || []));
-    console.error('❌ Full error:', JSON.stringify({ name: error.name, message: error.message, fields: error.fields }));
-    next(error);
+    console.error('❌ [createDevis] Error:', error);
+    
+    const errorMessage = error.original?.message || error.message;
+    const sql = error.sql || 'N/A';
+    
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'Erreur lors de la création du devis',
+      details: errorMessage,
+      sql: process.env.NODE_ENV === 'development' ? sql : undefined
+    });
   }
+
 };
 
 /**
@@ -544,7 +658,7 @@ exports.updateDevis = async (req, res, next) => {
       }
     }
 
-    if (isAdminUser(req.user) && !master.CodRepres) {
+    if ((isAdminUser(req.user) || isAgentUser(req.user)) && !master.CodRepres) {
       const tierRep = String(selectedTier.codRepresTiers || '').trim();
       if (tierRep) {
         master.CodRepres = tierRep;
@@ -592,20 +706,18 @@ exports.updateDevis = async (req, res, next) => {
       await DevisDetail.destroy({ where: { NF: devis.Nf }, transaction });
       if (details.length > 0) {
         const detailsWithNf = details.map((d) => {
-          const detail = { ...d };
-          delete detail.NetHT;  // Computed column in TabDevm
-          delete detail.MntHT;  // Computed column in TabDevd
-          delete detail.Guid;
-          delete detail.NoDetail; // autoIncrement - let SQL Server generate it
+          const detail = sanitizeDevisDetailData(d);
           return {
             ...detail,
             NF: devis.Nf,
-            ID: devis.Nf
+            ID: devis.Nf,
+            Guid: randomUUID()
           };
         });
         await DevisDetail.bulkCreate(detailsWithNf, { transaction });
       }
     }
+
 
     await transaction.commit();
 
@@ -707,7 +819,10 @@ exports.convertDevis = async (req, res, next) => {
     const devisWhere = await buildDevisSecurityWhere(id, req.user, t);
     const devis = await DevisMaster.findOne({
       where: devisWhere,
-      include: [{ model: DevisDetail, as: 'details' }],
+      include: [
+        { model: DevisDetail, as: 'details' },
+        { model: Tiers, as: 'tiers' }
+      ],
       transaction: t
     });
 
@@ -718,10 +833,32 @@ exports.convertDevis = async (req, res, next) => {
 
     if (devis.bTransf) {
       await t.rollback();
-      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été converti en bon de commande' });
+      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été transféré.' });
+    }
+
+    // Double check with existing records in other tables
+    const { QueryTypes } = require('sequelize');
+    const existingLinks = await sequelize.query(`
+      SELECT TOP 1 Nf FROM TabBcvm WHERE CodDev = :nf
+      UNION ALL
+      SELECT TOP 1 Nf FROM TabBlvm WHERE CodDev = :nf
+      UNION ALL
+      SELECT TOP 1 Nf FROM TabFavm WHERE CodDev = :nf
+    `, {
+      replacements: { nf: String(devis.Nf) },
+      type: QueryTypes.SELECT,
+      transaction: t
+    });
+
+    if (existingLinks.length > 0) {
+      await t.rollback();
+      // Sync the flag if it was missing
+      await DevisMaster.update({ bTransf: true }, { where: { Guid: id } });
+      return res.status(400).json({ status: 'error', message: 'Ce devis a déjà été transféré.' });
     }
 
     const data = devis.toJSON();
+    const tiers = devis.tiers;
     const details = data.details || [];
     const newGuid = randomUUID();
 
@@ -750,7 +887,7 @@ exports.convertDevis = async (req, res, next) => {
       CodMag: data.CodMag,
       CodRepres: data.CodRepres,
       CodProject: data.CodProject || null,
-      CodDev: data.CodDev,
+      CodDev: String(data.Nf), // Store source Devis number
       MDate: sequelize.literal('GETDATE()'),
       DatCreateUser: sequelize.literal('GETDATE()'),
       DatUser: sequelize.literal('GETDATE()'),
@@ -798,8 +935,25 @@ exports.convertDevis = async (req, res, next) => {
       const userId = req.user?.id || req.user?.UserID;
       await mouvementService.enregistrerTransformation('DEV', data.Nf, 'BCV', nextNf, montants, userId);
       console.log(`✅ Mouvement enregistré: Transformation DEV #${data.Nf} → BCV #${nextNf} par utilisateur ${userId}`);
+
+      // 🔔 NOTIFICATION SITE & EMAIL CLIENT
+      const { notifyDocumentCreated } = require('../utils/notificationUtils');
+      const emailService = require('../utils/emailService');
+
+      // Notif site
+      await notifyDocumentCreated('BCV', nextNf, tiers, userId);
+
+      // Email client
+      if (tiers?.Email) {
+        await emailService.sendDocumentNotification(tiers.Email, tiers.Raisoc, {
+          type: 'BCV',
+          numero: `BC-${nextNf}`,
+          montant: data.TotTTC,
+          id: newGuid
+        });
+      }
     } catch (mouvementError) {
-      console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+      console.error('⚠️ Erreur notifications transformation (non bloquant):', mouvementError.message);
     }
 
     res.status(200).json({

@@ -8,6 +8,15 @@ const { randomUUID } = require('crypto');
 // ont été supprimées car elles sont maintenant gérées de manière centralisée par 
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
+// ⚠️ Helpers nécessaires ici (sinon ReferenceError au runtime)
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+const isCommercialRole = (role) => ['commercial', 'commerciale'].includes(normalizeRole(role));
+const resolveCommercialCodRepresValue = (user = {}) => String(user?.id || user?.UserID || '').trim();
+const buildCommercialCodRepresFilter = (user = {}) => {
+    const codRepres = resolveCommercialCodRepresValue(user);
+    return codRepres ? { CodRepres: codRepres } : {};
+};
+
 
 /**
  * Helper function to parse dates for SQL Server through Sequelize
@@ -39,6 +48,7 @@ const parseDateValue = (dateValue) => {
 const sanitizeMasterData = (masterData) => {
     const sanitized = { ...masterData };
     delete sanitized.NetHT;
+    delete sanitized.Rest;
     delete sanitized.DatUser;
     delete sanitized.DatCreateUser;
 
@@ -68,6 +78,18 @@ const sanitizeMasterData = (masterData) => {
         }
     });
 
+    return sanitized;
+};
+
+/**
+ * Helper function to sanitize blv detail data
+ */
+const sanitizeBlvDetailData = (detail = {}) => {
+    const sanitized = { ...detail };
+    // Remove computed columns from TabBlvd
+    delete sanitized.MntHT;
+    delete sanitized.NoDetail;
+    delete sanitized.Guid;
     return sanitized;
 };
 
@@ -191,7 +213,7 @@ exports.createBlv = async (req, res, next) => {
 
         if (details && Array.isArray(details) && details.length > 0) {
             const detailsWithNf = details.map((d) => ({
-                ...d,
+                ...sanitizeBlvDetailData(d),
                 NF: newBlv.Nf,
                 ID: 'BL',
                 Guid: randomUUID()
@@ -272,7 +294,7 @@ exports.updateBlv = async (req, res, next) => {
             await BlvDetail.destroy({ where: { NF: blv.Nf }, transaction });
             if (details.length > 0) {
                 const detailsWithNf = details.map((d) => ({
-                    ...d,
+                    ...sanitizeBlvDetailData(d),
                     NF: blv.Nf,
                     ID: 'BL',
                     Guid: randomUUID()

@@ -255,7 +255,11 @@ Tiers.associate = (models) => {
   Tiers.belongsTo(models.TiersClasse, { foreignKey: 'Classe', as: 'tiersClasse' });
   Tiers.belongsTo(models.TiersGouvernorat, { foreignKey: 'Gouvernorat', as: 'region' });
   Tiers.belongsTo(models.TiersCategorie, { foreignKey: 'Categorie', as: 'tiersCategorieObj' });
-  Tiers.belongsTo(models.User, { foreignKey: 'codRepresTiers', as: 'commercialObj' });
+  Tiers.belongsTo(models.User, { 
+    foreignKey: 'codRepresTiers', 
+    as: 'commercialObj',
+    on: sequelize.literal("TRY_CONVERT(NVARCHAR(50), [Tiers].[codRepresTiers]) = TRY_CONVERT(NVARCHAR(50), [commercialObj].[USER_ID])")
+  });
 };
 
 module.exports = Tiers;

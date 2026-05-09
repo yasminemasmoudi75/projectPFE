@@ -133,6 +133,11 @@ const BcvMaster = sequelize.define('TabBcvm', {
         allowNull: true,
         field: 'bTransf'
     },
+    // Alias UI: frontend expects IsConverted, DB uses bTransf
+    IsConverted: {
+        type: DataTypes.VIRTUAL,
+        get() { return !!this.getDataValue('bTransf'); }
+    },
     bLivr: {
         type: DataTypes.BOOLEAN,
         allowNull: true,

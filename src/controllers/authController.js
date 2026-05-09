@@ -4,6 +4,7 @@ const { signToken, signRefreshToken, verifyToken } = require('../utils/jwtUtils'
 const { logAction } = require('../utils/logger');
 const { allocateNextUserId, ensureUserHasUserId } = require('../utils/userId');
 const { attachAccessToUser, resolveUserAccess, upsertUserAccess } = require('../utils/userAccess');
+const { notifyAdmins } = require('../utils/notificationUtils');
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -21,14 +22,49 @@ const CLEAR_REFRESH_COOKIE_OPTIONS = {
 const isBcryptHash = (value) => typeof value === 'string' && /^\$2[aby]\$/.test(value);
 
 /**
+ * Générer un LoginName unique à partir du nom complet
+ */
+const generateUniqueLoginName = async (fullName, transaction) => {
+  if (!fullName) return null;
+
+  // Nettoyage : minuscules, suppression des accents, remplacement des espaces par des points
+  const cleanName = fullName
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Supprimer les accents
+    .replace(/[^a-z0-9\s]/g, '')     // Supprimer les caractères spéciaux
+    .replace(/\s+/g, '.');           // Espaces -> points
+
+  let baseLogin = cleanName;
+  let loginName = baseLogin;
+  let counter = 1;
+  let exists = true;
+
+  while (exists) {
+    const user = await User.findOne({
+      where: { EmailPro: loginName }, // EmailPro maps to USER_NAME in DB
+      transaction
+    });
+    if (!user) {
+      exists = false;
+    } else {
+      loginName = `${baseLogin}${counter}`;
+      counter++;
+    }
+  }
+  return loginName;
+};
+
+/**
  * Inscription d'un nouvel utilisateur
  */
 exports.register = async (req, res, next) => {
   let transaction;
 
   try {
+    console.log('📝 [AUTH] Register request body:', req.body);
     const {
-      LoginName,
       Password,
       FullName,
       EmailPro,
@@ -42,7 +78,6 @@ exports.register = async (req, res, next) => {
 
     // 1. Validation de base
     const missingFields = [];
-    if (!LoginName) missingFields.push('LoginName');
     if (!Password) missingFields.push('Password');
     if (!FullName) missingFields.push('FullName');
     if (!EmailPro) missingFields.push('EmailPro');
@@ -66,6 +101,7 @@ exports.register = async (req, res, next) => {
     transaction = await sequelize.transaction();
 
     // 2. Vérifier si l'utilisateur existe déjà
+
     const existingUser = await User.findOne({
       where: { EmailPro },
       transaction
@@ -80,45 +116,36 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // 3. Hasher le mot de passe
+    // 3. Hasher le mot de passe et générer les identifiants
     const hashedPassword = await bcrypt.hash(Password, 10);
+    const loginName = await generateUniqueLoginName(FullName, transaction);
     const nextUserId = await allocateNextUserId({ transaction });
 
-    // 4. Créer l'utilisateur
+    // 4. Créer l'utilisateur (Inactif par défaut)
     const newUser = await User.create({
       UserID: nextUserId,
-      LoginName,
+      LoginName: loginName,
       Password: hashedPassword,
       FullName,
       EmailPro,
       TelPro,
       PosteOccupe: Poste,
       Departement,
-      DateNaissance: DateNaissance || null, // Gestion explicite du null
-      IsActive: true,
-      Enabled: true
+      DateNaissance: DateNaissance || null,
+      IsActive: false,
+      Enabled: false
     }, { transaction });
 
-    await upsertUserAccess(newUser.UserID, selectedRole, { transaction, isActive: true });
+    await upsertUserAccess(newUser.UserID, selectedRole, { transaction, isActive: false });
     await attachAccessToUser(newUser, { transaction });
-
-    // 5. Générer les tokens
-    const token = signToken({ id: newUser.UserID, role: newUser.UserRole });
-    const refreshToken = signRefreshToken({ id: newUser.UserID });
 
     await transaction.commit();
     transaction = null;
 
-    // 6. Envoyer le refresh token dans un cookie sécurisé.
-    // RefreshToken est virtuel dans le modèle User et n'est pas persisté en base.
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
-
     res.status(201).json({
       status: 'success',
-      message: 'Utilisateur créé avec succès',
+      message: 'Compte créé avec succès. Veuillez attendre l’acceptation de l’administration avant de pouvoir vous connecter.',
       data: {
-        token,
-        // refreshToken (Envoyé uniquement via cookie HttpOnly)
         user: {
           UserID: newUser.UserID,
           LoginName: newUser.LoginName,
@@ -130,6 +157,14 @@ exports.register = async (req, res, next) => {
 
     // Log Register
     await logAction(newUser.UserID, 'REGISTER', 'User', newUser.UserID, 'Inscription nouvel utilisateur');
+
+    // NOTIFIER LES ADMINS
+    console.log('🚀 [AUTH] Déclenchement de la notification admin...');
+    await notifyAdmins(
+      'Nouveau collaborateur inscrit',
+      `Un nouvel utilisateur s'est inscrit sur le site : ${FullName} (${EmailPro}). Le compte est actuellement INACTIF et nécessite votre validation.`
+    );
+    console.log('✅ [AUTH] Notification admin envoyée au service.');
   } catch (error) {
     if (transaction) {
       await transaction.rollback();
@@ -187,18 +222,25 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    if (!user.IsActive || !user.Enabled) {
+    // 3.5 Résoudre l'accès (Rôle et Statut Actif) depuis UCS_USERINFO
+    const loginAccess = await resolveUserAccess(user.UserID, user.UserRole, { transaction });
+    user.setDataValue('UserRole', loginAccess.role);
+    user.setDataValue('IsActive', loginAccess.isActive);
+
+    console.log('🔑 [AUTH] Login Access resolved:', loginAccess);
+    console.log('🔑 [AUTH] UserRole:', user.UserRole);
+    console.log('🔑 [AUTH] isActive check:', !loginAccess.isActive || !user.UserRole);
+
+    if (!loginAccess.isActive || !user.UserRole) {
       await transaction.rollback();
       transaction = null;
       return res.status(403).json({
         status: 'error',
-        message: 'Votre compte est désactivé'
+        message: 'Votre compte est en attente. Veuillez attendre l’acceptation de l’administration.'
       });
     }
 
     await ensureUserHasUserId(User, user, { transaction });
-    const loginAccess = await resolveUserAccess(user.UserID, user.UserRole, { transaction });
-    user.setDataValue('UserRole', loginAccess.role);
 
     // 4. Générer les tokens
     const token = signToken({ id: user.UserID, role: user.UserRole });
@@ -279,15 +321,16 @@ exports.refreshToken = async (req, res, next) => {
       });
     }
 
-    if (!user.IsActive || !user.Enabled) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Votre compte est désactivé'
-      });
-    }
-
     const refreshAccess = await resolveUserAccess(user.UserID, user.UserRole);
     user.setDataValue('UserRole', refreshAccess.role);
+    user.setDataValue('IsActive', refreshAccess.isActive);
+
+    if (!refreshAccess.isActive || !user.UserRole) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Votre compte est en attente. Veuillez attendre l’acceptation de l’administration.'
+      });
+    }
 
     // 3. Générer un nouveau token d'accès
     const newToken = signToken({ id: user.UserID, role: user.UserRole });

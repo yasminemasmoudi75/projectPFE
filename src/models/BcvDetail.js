@@ -30,6 +30,14 @@ const BcvDetail = sequelize.define('TabBcvd', {
         type: DataTypes.STRING(255),
         field: 'LibArt'
     },
+    ExLibArt: {
+        type: DataTypes.STRING(255),
+        field: 'ExLibArt'
+    },
+    IDArt: {
+        type: DataTypes.STRING(50),
+        field: 'IDArt'
+    },
     Qt: {
         type: DataTypes.FLOAT,
         field: 'Qt'
@@ -42,6 +50,23 @@ const BcvDetail = sequelize.define('TabBcvd', {
         type: DataTypes.FLOAT,
         field: 'PuTTC'
     },
+    PvPub: {
+        type: DataTypes.FLOAT,
+        field: 'PvPub'
+    },
+    PuDev: {
+        type: DataTypes.FLOAT,
+        field: 'PuDev'
+    },
+    /* 
+    Tva: {
+        type: DataTypes.FLOAT,
+        field: 'Tva'
+    },
+    */
+    // ✅ Note: La colonne 'Tva' n'existe pas dans TabBcvd. 
+    // Le montant de la TVA est stocké dans 'MntTVA'.
+
     MntRem: {
         type: DataTypes.FLOAT,
         field: 'MntRem'
@@ -53,10 +78,32 @@ const BcvDetail = sequelize.define('TabBcvd', {
     MntHT: {
         type: DataTypes.FLOAT,
         field: 'MntHT'
+        // ✅ Note: Colonne calculée dans la DB. Ne pas envoyer lors de l'INSERT/UPDATE.
     },
+
     MntFodec: {
         type: DataTypes.FLOAT,
         field: 'MntFodec'
+    },
+    MntFrais: {
+        type: DataTypes.FLOAT,
+        field: 'MntFrais'
+    },
+    CodColor: {
+        type: DataTypes.STRING(30),
+        field: 'CodColor'
+    },
+    DesColor: {
+        type: DataTypes.STRING(100),
+        field: 'DesColor'
+    },
+    CodTaille: {
+        type: DataTypes.STRING(30),
+        field: 'CodTaille'
+    },
+    Taille: {
+        type: DataTypes.STRING(100),
+        field: 'Taille'
     },
     NumBL: {
         type: DataTypes.STRING(30),
@@ -70,14 +117,35 @@ const BcvDetail = sequelize.define('TabBcvd', {
         type: DataTypes.STRING(50),
         field: 'Codabar'
     },
-    IDArt: {
+    NumImport: {
         type: DataTypes.STRING(50),
-        field: 'IDArt'
+        field: 'NumImport'
+    },
+    DatImport: {
+        type: DataTypes.DATE,
+        field: 'DatImport'
     }
 }, {
     tableName: 'TabBcvd',
     timestamps: false,
-    freezeTableName: true
+    freezeTableName: true,
+    hooks: {
+        beforeCreate: (record) => {
+            delete record.MntHT;
+            delete record.Tva;
+        },
+        beforeUpdate: (record) => {
+            delete record.MntHT;
+            delete record.Tva;
+        },
+        beforeBulkCreate: (records) => {
+            records.forEach(record => {
+                delete record.MntHT;
+                delete record.Tva;
+            });
+        }
+    }
 });
+
 
 module.exports = BcvDetail;

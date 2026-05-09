@@ -53,7 +53,9 @@ const BlvDetail = sequelize.define('TabBlvd', {
     MntHT: {
         type: DataTypes.FLOAT,
         field: 'MntHT'
+        // ✅ Note: Colonne calculée dans la DB
     },
+
     MntFodec: {
         type: DataTypes.FLOAT,
         field: 'MntFodec'
@@ -69,7 +71,21 @@ const BlvDetail = sequelize.define('TabBlvd', {
 }, {
     tableName: 'TabBlvd',
     timestamps: false,
-    freezeTableName: true
+    freezeTableName: true,
+    hooks: {
+        beforeCreate: (record) => {
+            delete record.MntHT;
+        },
+        beforeUpdate: (record) => {
+            delete record.MntHT;
+        },
+        beforeBulkCreate: (records) => {
+            records.forEach(record => {
+                delete record.MntHT;
+            });
+        }
+    }
 });
+
 
 module.exports = BlvDetail;

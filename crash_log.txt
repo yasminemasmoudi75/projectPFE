@@ -1,0 +1,204 @@
+
+[2026-04-27T11:08:26.865Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-04-27T11:10:20.270Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-04-27T11:10:39.101Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-04-27T15:00:41.265Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-04T10:39:11.752Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-04T15:37:39.141Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:82:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-05T09:39:16.517Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-05T09:40:41.724Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-05T09:45:55.006Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T07:24:18.533Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T07:28:52.809Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T07:31:19.840Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T07:42:59.954Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T07:46:02.298Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T08:13:28.247Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T08:17:19.975Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T08:21:53.342Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T09:03:06.469Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T09:05:45.807Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T09:38:41.461Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-06T19:22:54.619Z] ❌ Unhandled Rejection: ReferenceError: prompt is not defined
+    at exports.generateEmail (D:\pfe\pfe2\backend\src\controllers\iaProxyController.js:234:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-07T14:06:58.451Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-07T14:18:08.193Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-08T08:21:39.306Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-08T08:25:02.119Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-08T09:38:10.133Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1937:16)
+    at listenInCluster (node:net:1994:12)
+    at Server.listen (node:net:2099:7)
+    at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (D:\pfe\pfe2\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

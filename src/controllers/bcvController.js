@@ -10,6 +10,16 @@ const { randomUUID } = require('crypto');
 // le service applyTableDrivenFilters via la table TabRoleFilterVisibility.
 
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const isAdminUser = (user = {}) => {
+  return ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole));
+};
+
+const isAgentUser = (user = {}) => {
+  return normalizeRole(user?.UserRole) === 'agent';
+};
+
 /**
  * Helper function to parse dates for SQL Server through Sequelize
  */
@@ -42,6 +52,8 @@ const sanitizeMasterData = (masterData) => {
 
     // Remove computed columns if any
     delete sanitized.NetHT;
+    delete sanitized.Rest;
+    delete sanitized.DiffLiv;
 
     // Do not send audit dates through Sequelize for TabBcvm to avoid timezone issues with legacy DATETIME.
     delete sanitized.DatUser;
@@ -73,6 +85,26 @@ const sanitizeMasterData = (masterData) => {
     booleanFields.forEach(field => {
         if (sanitized.hasOwnProperty(field)) {
             sanitized[field] = !!sanitized[field];
+        }
+    });
+
+    // Truncate string fields to match SQL Server column widths
+    const stringLimits = {
+        CodRepres: 10,
+        CUser: 50,
+        CodMag: 10,
+        CodDev: 10,
+        Prfx: 50,
+        Sufx: 10,
+        CodTiers: 20,
+        LibTiers: 100,
+        Adresse: 100,
+        Remarq: 255
+    };
+    Object.entries(stringLimits).forEach(([field, maxLen]) => {
+        if (sanitized[field] && typeof sanitized[field] === 'string' && sanitized[field].length > maxLen) {
+            console.warn(`⚠️ [sanitizeBcvMasterData] Truncating ${field} from ${sanitized[field].length} to ${maxLen} chars`);
+            sanitized[field] = sanitized[field].substring(0, maxLen);
         }
     });
 
@@ -218,8 +250,12 @@ exports.getAllBcv = async (req, res, next) => {
             filterHelper.formatPaginatedResponse(rows, count, page, limit)
         );
     } catch (error) {
-        console.error('❌ Error getAllBcv:', error);
-        next(error);
+        console.error('❌ [BcvController] Error in getAllBcv:', error);
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Erreur lors de la récupération des bons de commande',
+            details: error.message 
+        });
     }
 };
 
@@ -301,16 +337,23 @@ exports.transferBcv = async (req, res, next) => {
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
-        const { targetType } = req.body; // 'BL' ou 'FAC'
+        const { targetType, transport } = req.body; // 'BL' ou 'FAC'
 
         if (!['BL', 'FAC'].includes(targetType)) {
             return res.status(400).json({ status: 'error', message: 'Type de transfert invalide' });
         }
 
-        // 1. Chercher le BCV dans TabBcvm
+        // 1. Chercher le BCV dans TabBcvm (avec filtre de sécurité mandataire)
+        const filterHelper = require('../utils/filterHelper');
+        const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user, t);
+        const sourceWhere = { [Op.and]: [{ Guid: id }, securityWhere] };
         const sourceData = await BcvMaster.findOne({
-            where: { Guid: id },
-            include: [{ model: BcvDetail, as: 'details' }]
+            where: sourceWhere,
+            include: [
+                { model: BcvDetail, as: 'details' },
+                { model: Tiers, as: 'client' }
+            ],
+            transaction: t
         });
 
         if (!sourceData) {
@@ -320,7 +363,26 @@ exports.transferBcv = async (req, res, next) => {
 
         if (sourceData.bTransf) {
             await t.rollback();
-            return res.status(400).json({ status: 'error', message: 'Ce bon de commande a déjà été transféré' });
+            return res.status(400).json({ status: 'error', message: 'Cette bon de commande est déjà transférée.' });
+        }
+
+        // Additional check: verify if any BL or Facture already references this BCV Nf in CodDev
+        const { QueryTypes } = require('sequelize');
+        const existingLinks = await sequelize.query(`
+            SELECT TOP 1 Nf FROM TabBlvm WHERE CodDev = :nf
+            UNION ALL
+            SELECT TOP 1 Nf FROM TabFavm WHERE CodDev = :nf
+        `, {
+            replacements: { nf: String(sourceData.Nf) },
+            type: QueryTypes.SELECT,
+            transaction: t
+        });
+
+        if (existingLinks.length > 0) {
+            await t.rollback();
+            // Also update the source record to be consistent if it wasn't marked
+            await BcvMaster.update({ bTransf: true }, { where: { Guid: id } });
+            return res.status(400).json({ status: 'error', message: 'Cette bon de commande est déjà transférée.' });
         }
 
         const data = sourceData.toJSON();
@@ -357,13 +419,53 @@ exports.transferBcv = async (req, res, next) => {
             MntCredit: data.MntCredit,
             CodMag: data.CodMag,
             CodRepres: data.CodRepres,
-            CodDev: data.CodDev,
+            CodProject: data.CodProject || null,
+            CodDev: data.CodDev || String(data.Nf), // Keep original Devis or use BCV Nf as reference
             Valid: false,
             bTransf: false,
             bLivr: targetType === 'BL',
             MDate: sequelize.literal('GETDATE()'),
-            DatUser: sequelize.literal('GETDATE()')
+            DatUser: sequelize.literal('GETDATE()'),
+            // Champs chauffeur (initialisés à null, remplis ci-dessous si BL)
+            CodChauff: null,
+            DesChauff: null
         };
+
+        // Si transfert vers BL: mapper les infos chauffeur dans les colonnes dédiées
+        if (targetType === 'BL' && transport && typeof transport === 'object') {
+            const safe = (v) => (v === null || v === undefined) ? '' : String(v).trim();
+            const transportPayload = {
+                nom: safe(transport.nom),
+                tel: safe(transport.tel)
+            };
+
+            // Validation: nom + téléphone obligatoires, téléphone = 8 chiffres uniquement
+            if (!transportPayload.nom) {
+                await t.rollback();
+                return res.status(400).json({ status: 'error', message: 'Nom chauffeur obligatoire pour créer le BL' });
+            }
+            if (!transportPayload.tel) {
+                await t.rollback();
+                return res.status(400).json({ status: 'error', message: 'Numéro de téléphone obligatoire' });
+            }
+            if (!/^\d+$/.test(transportPayload.tel)) {
+                await t.rollback();
+                return res.status(400).json({ status: 'error', message: 'Le numéro de téléphone doit contenir uniquement des chiffres' });
+            }
+            if (transportPayload.tel.length !== 8) {
+                await t.rollback();
+                return res.status(400).json({ status: 'error', message: 'Le numéro de téléphone doit contenir exactement 8 chiffres' });
+            }
+
+            // ✅ Mapper dans les colonnes dédiées de TabBlvm
+            masterData.DesChauff = transportPayload.nom;
+            masterData.CodChauff = transportPayload.tel;
+
+            // Conserver aussi un tag dans Remarq pour rétrocompatibilité avec le frontend
+            const tag = `__transport__=${JSON.stringify(transportPayload)}`;
+            const base = safe(masterData.Remarq);
+            masterData.Remarq = base ? `${base}\n${tag}` : tag;
+        }
 
         // 3. Créer le Master
         await MasterModel.create(masterData, { transaction: t });
@@ -393,10 +495,10 @@ exports.transferBcv = async (req, res, next) => {
 
         await DetailModel.bulkCreate(sanitizedDetails, { transaction: t });
 
-        // 5. Marquer le BC source comme transféré (disparaît de la liste BC)
+        // 5. Marquer le BC source comme transféré + livré si BL
         await BcvMaster.update(
-            { bTransf: true },
-            { where: { Guid: id }, transaction: t }
+            { bTransf: true, bLivr: targetType === 'BL' ? true : sourceData.bLivr },
+            { where: sourceWhere, transaction: t }
         );
 
         await t.commit();
@@ -417,8 +519,28 @@ exports.transferBcv = async (req, res, next) => {
           const userId = req.user?.id || req.user?.UserID;
           await mouvementService.enregistrerTransformation('BCV', sourceData.Nf, targetTypeDisplay, nextNf, montants, userId);
           console.log(`✅ Mouvement enregistré: Transformation BCV #${sourceData.Nf} → ${targetTypeDisplay} #${nextNf} par utilisateur ${userId}`);
+
+          // 🔔 NOTIFICATION SITE & EMAIL CLIENT
+          const { notifyDocumentCreated } = require('../utils/notificationUtils');
+          const emailService = require('../utils/emailService');
+          
+          // Récupérer le tiers (il est déjà dans sourceData.client car inclus à la ligne 314)
+          const tiers = sourceData.client;
+
+          // Notif site
+          await notifyDocumentCreated(targetType === 'FAC' ? 'FAV' : 'BLV', nextNf, tiers, userId);
+
+          // Email client
+          if (tiers?.Email) {
+            await emailService.sendDocumentNotification(tiers.Email, tiers.Raisoc, {
+              type: targetType === 'FAC' ? 'FAV' : 'BLV',
+              numero: `${targetType === 'BL' ? 'BL' : 'FA'}-${nextNf}`,
+              montant: sourceData.TotTTC,
+              id: newGuid
+            });
+          }
         } catch (mouvementError) {
-          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+          console.error('⚠️ Erreur notifications transformation (non bloquant):', mouvementError.message);
         }
 
         return res.status(201).json({
@@ -427,7 +549,8 @@ exports.transferBcv = async (req, res, next) => {
             data: {
                 Guid: newGuid,
                 Nf: nextNf,
-                type: targetType
+                type: targetType,
+                isTransferred: true
             }
         });
 
@@ -458,7 +581,7 @@ exports.createBcv = async (req, res, next) => {
 
         const selectedTier = await Tiers.findOne({
             where: { CodTiers: master.CodTiers },
-            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie', 'Email'],
             transaction
         });
 
@@ -485,9 +608,16 @@ exports.createBcv = async (req, res, next) => {
         delete master.projetId;
         master.CodProject = selectedProjectId || null;
 
-        if (req.user?.UserRole && req.user.UserRole.toLowerCase().includes('commercial')) {
+        if (req.user?.UserRole && String(req.user.UserRole).toLowerCase().includes('commercial')) {
             const codRepres = req.user.id || req.user.UserID;
             master.CodRepres = String(codRepres);
+        }
+
+        if (isAdminUser(req.user) || isAgentUser(req.user)) {
+            // Admin/Agent can assign or inherit
+            if (!master.CodRepres && selectedTier.codRepresTiers) {
+                master.CodRepres = String(selectedTier.codRepresTiers);
+            }
         }
 
 
@@ -538,9 +668,32 @@ exports.createBcv = async (req, res, next) => {
           };
           const userId = req.user?.id || req.user?.UserID;
           await mouvementService.enregistrerCreation('BCV', newBcv.Nf, montants, userId);
-          console.log(`✅ Mouvement enregistré: Création BCV #${newBcv.Nf} par utilisateur ${userId}`);
+          console.log('✅ Mouvement enregistré: Création BCV #${newBcv.Nf} par utilisateur ${userId}');
+
+          // 🔔 NOTIFICATION SITE & EMAIL CLIENT
+          const { notifyDocumentCreated } = require('../utils/notificationUtils');
+          const emailService = require('../utils/emailService');
+
+          // Log debugging information
+          console.log('📧 [DEBUG-MAIL] Tentative d\'envoi email BCV...');
+          console.log('📧 [DEBUG-MAIL] Email client (selectedTier.Email):', selectedTier?.Email);
+          console.log('📧 [DEBUG-MAIL] SMTP Config - USER:', process.env.EMAIL_USER);
+          console.log('📧 [DEBUG-MAIL] SMTP Config - SERVICE:', process.env.EMAIL_SERVICE);
+
+          // Notif site
+          await notifyDocumentCreated('BCV', newBcv.Nf, selectedTier, userId);
+
+          // Email client
+          if (selectedTier.Email) {
+            await emailService.sendDocumentNotification(selectedTier.Email, selectedTier.Raisoc, {
+              type: 'BCV',
+              numero: `BC-${newBcv.Nf}`,
+              montant: masterData.TotTTC,
+              id: newBcv.Guid
+            });
+          }
         } catch (mouvementError) {
-          console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+          console.error('⚠️ Erreur notifications creation (non bloquant):', mouvementError.message);
         }
 
         const result = await BcvMaster.findOne({
@@ -586,7 +739,7 @@ exports.updateBcv = async (req, res, next) => {
         const targetCodTiers = master.CodTiers || bcv.CodTiers;
         const selectedTier = await Tiers.findOne({
             where: { CodTiers: targetCodTiers },
-            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie'],
+            attributes: ['IDTiers', 'CodTiers', 'Raisoc', 'Adresse', 'Ville', 'Gouvernorat', 'MapsRegion', 'Classe', 'Categorie', 'Email'],
             transaction
         });
 
@@ -619,6 +772,13 @@ exports.updateBcv = async (req, res, next) => {
                 return res.status(403).json({ status: 'error', message: 'Code représentant introuvable pour ce commercial' });
             }
             master.CodRepres = codRepres;
+        }
+
+        if (isAdminUser(req.user) || isAgentUser(req.user)) {
+            // Admin/Agent can assign or inherit
+            if (!master.CodRepres && selectedTier.codRepresTiers) {
+                master.CodRepres = String(selectedTier.codRepresTiers);
+            }
         }
 
         const masterData = sanitizeMasterData(master);

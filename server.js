@@ -3,10 +3,16 @@ const app = require('./src/app');
 const { testConnection, sequelize } = require('./src/config/database');
 const { PORT } = require('./src/config/constants');
 const { verifyAuthEmailTransport } = require('./src/utils/emailService');
+const models = require('./src/models');
 
 // Import des services Gmail
 const { initializeGmailAuth } = require('./src/services/gmailAuthService');
 const { startGmailSyncJob } = require('./src/services/gmailSyncJob');
+
+// Routes de debug
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/debug', require('./debug_routes'));
+}
 
 // Fonction pour démarrer le serveur
 const startServer = async () => {
@@ -15,6 +21,9 @@ const startServer = async () => {
     const isConnected = await testConnection();
 
     if (!isConnected) {
+// Exposer les modèles aux routes qui en ont besoin
+app.locals.models = models;
+
       console.error('❌ Impossible de démarrer le serveur sans connexion à la base de données');
       process.exit(1);
     }
@@ -90,12 +99,18 @@ startServer();
 
 // Gestion des erreurs non capturées
 process.on('unhandledRejection', (err) => {
-  console.error('❌ Erreur non gérée (Promise):', err);
+  const fs = require('fs');
+  const log = `\n[${new Date().toISOString()}] ❌ Unhandled Rejection: ${err.stack || err}\n`;
+  fs.appendFileSync('crash_log.txt', log);
+  console.error(log);
   process.exit(1);
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('❌ Erreur non gérée (Exception):', err);
+  const fs = require('fs');
+  const log = `\n[${new Date().toISOString()}] ❌ Uncaught Exception: ${err.stack || err}\n`;
+  fs.appendFileSync('crash_log.txt', log);
+  console.error(log);
   process.exit(1);
 });
 

@@ -29,6 +29,8 @@ const reglementsRoutes = require('./reglements.routes'); // ✅ Routes pour les 
 const recapRoutes = require('./recap.routes'); // ✅ Routes pour le récapitulatif
 const banquesRoutes = require('./banques.routes'); // ✅ Référentiel banques
 const iaRoutes = require('./ia.routes'); // ✅ Routes IA
+const notificationsRoutes = require('./notifications.routes'); // ✅ Nouvelles notifications système
+const statsRoutes = require('./stats.routes'); // ✅ Statistiques avancées dashboard
 
 // Utiliser les routes
 router.use('/auth', authRoutes);
@@ -38,6 +40,7 @@ router.use('/objectifs', objectifsRoutes);
 router.use('/projets', projetsRoutes);
 router.use('/activites', activitesRoutes);
 router.use('/messages', messagesRoutes);
+router.use('/notifications', notificationsRoutes);
 router.use('/tiers', tiersRoutes);
 router.use('/contacts', contactsRoutes);
 router.use('/products', productsRoutes);
@@ -58,6 +61,7 @@ router.use('/reglements', reglementsRoutes); // ✅ Gestion des règlements
 router.use('/recap', recapRoutes); // ✅ Récapitulatif mouvements
 router.use('/banques', banquesRoutes); // ✅ Référentiel banques
 router.use('/ia', iaRoutes); // ✅ Moteur IA et analytique
+router.use('/stats', statsRoutes); // ✅ Statistiques avancées dashboard
 
 // Route de base de l'API
 router.get('/', (req, res) => {

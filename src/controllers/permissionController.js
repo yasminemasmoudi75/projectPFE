@@ -55,18 +55,18 @@ exports.getMyPermissions = async (req, res) => {
         userRole,
         normalizedRole: effectiveRole,
         totalPermissions: permissions.length,
-        activeModules: permissions.filter(p => p.isActive === 1).length,
+        activeModules: permissions.filter(p => p.isActive == 1 || p.isActive === true).length,
         permissions: permissions.map(p => ({
           moduleCode: p.moduleCode,
           moduleName: p.moduleName,
-          isActive: p.isActive === 1,
-          filterRepres: p.filterRepres === 1,
-          canCreate: p.canCreate === 1,
-          canEdit: p.canEdit === 1,
-          canDelete: p.canDelete === 1,
-          canValidate: p.canValidate === 1,
-          canExport: p.canExport === 1,
-          canPDF: p.canPDF === 1
+          isActive: p.isActive == 1 || p.isActive === true,
+          filterRepres: p.filterRepres == 1 || p.filterRepres === true,
+          canCreate: p.canCreate == 1 || p.canCreate === true,
+          canEdit: p.canEdit == 1 || p.canEdit === true,
+          canDelete: p.canDelete == 1 || p.canDelete === true,
+          canValidate: p.canValidate == 1 || p.canValidate === true,
+          canExport: p.canExport == 1 || p.canExport === true,
+          canPDF: p.canPDF == 1 || p.canPDF === true
         }))
       }
     };
