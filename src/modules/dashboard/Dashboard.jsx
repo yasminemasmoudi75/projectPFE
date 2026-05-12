@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChartBarIcon,
@@ -40,6 +40,7 @@ import useAuth from '../../hooks/useAuth';
 import usePermission from '../../hooks/usePermission';
 import axiosInstance from '../../app/axios';
 import toast from 'react-hot-toast';
+import predictionService from '../sales/predictionService';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const PRIORITY_COLORS = { 'Haute': '#ef4444', 'Moyenne': '#f59e0b', 'Basse': '#10b981' };
@@ -122,6 +123,8 @@ const Dashboard = () => {
   const [goalPredictions, setGoalPredictions] = useState([]);
   const [globalSatisfaction, setGlobalSatisfaction] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [regionalPredictions, setRegionalPredictions] = useState([]);
+  const [isMLAvailable, setIsMLAvailable] = useState(false);
 
   // Statistiques commerciaux
   const [commercialStats, setCommercialStats] = useState([]);
@@ -505,6 +508,16 @@ const Dashboard = () => {
             const recRes = await axiosInstance.get(`/stats/recommendations/${user.UserID}`);
             setRecommendations(recRes.data?.recommendations || []);
           } catch (e) { console.warn('Could not fetch recommendations'); }
+        }
+
+        // Fetch ML Regional Predictions
+        try {
+          const mlData = await predictionService.predictAllRegions(3, 2026);
+          setRegionalPredictions(mlData.predictions || []);
+          setIsMLAvailable(true);
+        } catch (mlError) {
+          console.warn('ML Service not available for dashboard:', mlError.message);
+          setIsMLAvailable(false);
         }
 
       } catch (error) {
@@ -1423,6 +1436,48 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* PRÉDICTIONS RÉGIONALES IA (NOUVEAU) */}
+      {isMLAvailable && regionalPredictions.length > 0 && (
+        <div className="card-luxury p-0 overflow-hidden group hover:shadow-xl transition-all duration-300 border border-slate-200/30 bg-white">
+          <ChartCardHeader
+            title="Prédictions de Ventes par Gouvernorat (IA)"
+            subtitle="Analyse prédictive basée sur le modèle Machine Learning (XGBoost/LSTM)"
+            icon={SparklesIcon}
+            colorClass="cyan"
+          />
+          <div className="p-6 lg:p-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {regionalPredictions.map((pred, i) => (
+                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:shadow-md transition-all border-l-4" 
+                     style={{ borderLeftColor: pred.prediction === 'HAUSSE' ? '#10b981' : '#ef4444' }}>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-bold text-slate-700">{pred.region}</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                      pred.prediction === 'HAUSSE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {pred.prediction === 'HAUSSE' ? '📈' : '📉'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-end justify-between">
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Confiance</p>
+                      <p className="text-lg font-black text-slate-800">{Math.round(pred.confiance)}%</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Action</p>
+                      <p className={`text-xs font-bold ${
+                        pred.recommandation === 'AUGMENTER' ? 'text-green-600' : 'text-amber-600'
+                      }`}>{pred.recommandation}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
           <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">

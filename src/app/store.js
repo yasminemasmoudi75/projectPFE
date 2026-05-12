@@ -10,6 +10,7 @@ import bcvReducer from '../modules/sales/bcvSlice';
 import blvReducer from '../modules/sales/blvSlice';
 import favReducer from '../modules/sales/favSlice';
 import adminReducer from '../modules/admin/adminSlice';
+import predictionReducer from '../modules/sales/predictionSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     blv: blvReducer,
     fav: favReducer,
     admin: adminReducer,
+    prediction: predictionReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -37,7 +39,9 @@ export const store = configureStore({
           'activites.activites',
           'bcv.bcv',
           'blv.blv',
-          'fav.fav'
+          'fav.fav',
+          'prediction.predictions',
+          'prediction.currentPrediction',
         ],
         warnAfter: 256,
       },

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../app/axios';
 import useAuth from '../../hooks/useAuth';
+import SalesPredictionDashboard from '../sales/SalesPredictionDashboard';
 import {
   UsersIcon,
   ShieldCheckIcon,
@@ -270,6 +271,11 @@ const AdminDashboard = () => {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ML Sales Prediction Dashboard */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <SalesPredictionDashboard />
       </div>
 
       {/* Admin Cards Grid */}
