@@ -222,8 +222,20 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // 3.5 Résoudre l'accès (Rôle et Statut Actif) depuis UCS_USERINFO
-    const loginAccess = await resolveUserAccess(user.UserID, user.UserRole, { transaction });
+    // 3.5 Résoudre l'accès (Rôle et Statut Actif) depuis UCS_USERINFO.
+    // Si la table d'accès n'est pas disponible (environnement partiel), on
+    // bascule sur un mode dégradé pour éviter un 500 au login.
+    let loginAccess;
+    try {
+      loginAccess = await resolveUserAccess(user.UserID, user.UserRole, { transaction });
+    } catch (accessError) {
+      console.error('⚠️ [AUTH] resolveUserAccess failed, fallback mode:', accessError.message);
+      loginAccess = {
+        role: user.UserRole || 'User',
+        isActive: typeof user.IsActive === 'boolean' ? user.IsActive : true
+      };
+    }
+
     user.setDataValue('UserRole', loginAccess.role);
     user.setDataValue('IsActive', loginAccess.isActive);
 

@@ -4,10 +4,49 @@ const { testConnection, sequelize } = require('./src/config/database');
 const { PORT } = require('./src/config/constants');
 const { verifyAuthEmailTransport } = require('./src/utils/emailService');
 const models = require('./src/models');
+const { spawn } = require('child_process');
+const path = require('path');
 
 // Import des services Gmail
 const { initializeGmailAuth } = require('./src/services/gmailAuthService');
 const { startGmailSyncJob } = require('./src/services/gmailSyncJob');
+
+// ═══════════════════════════════════════════════════════════════════════
+// Lancer automatiquement le service ML (Flask) au démarrage
+// ═══════════════════════════════════════════════════════════════════════
+const startPythonMLService = () => {
+  const fs = require('fs');
+  const logFile = path.join(__dirname, 'ml_service.log');
+  const out = fs.openSync(logFile, 'a');
+  const err = fs.openSync(logFile, 'a');
+
+  console.log('🤖 Tentative de lancement du service ML (Flask)...');
+  
+  const flaskScript = path.join(__dirname, '../../ml_service/flask_api.py');
+  
+  // On tente 'python' (standard Windows)
+  const pythonProcess = spawn('python', [flaskScript], {
+    cwd: path.join(__dirname, '../../'),
+    stdio: ['ignore', out, err], // Redirige la sortie vers un fichier log
+    detached: true,
+    windowsHide: true
+  });
+
+  pythonProcess.on('error', (err) => {
+    console.warn('⚠️ Erreur au lancement de "python":', err.message);
+    // Si 'python' échoue, on pourrait tenter 'py' ou 'python3' ici si besoin
+  });
+
+  pythonProcess.unref();
+
+  setTimeout(() => {
+    console.log(`🤖 Service ML lancé en arrière-plan (Log: ${logFile})`);
+    console.log('🤖 Vérification sur http://localhost:5000/api/health');
+  }, 2000);
+};
+
+// Lancer Python au démarrage
+startPythonMLService();
 
 // Routes de debug
 if (process.env.NODE_ENV !== 'production') {

@@ -264,13 +264,15 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
       conditions.push({ CodRepres: String(resolvedTargetId) });
     }
     
-    if (clientCodes.length > 0) {
+    const isCodTiersModule = isTiersModule || hasCodRepres || ['31', '51'].includes(moduleKey);
+
+    if (clientCodes.length > 0 && isCodTiersModule) {
       conditions.push({ CodTiers: { [Op.in]: clientCodes } });
     }
 
     if (conditions.length === 0) {
-      console.log(`🔍 [filterHelper] No specific column-based filter for module ${moduleKey}, and no clients found.`);
-      return {}; // Or some other fallback
+      console.log(`🔍 [filterHelper] No specific column-based filter for module ${moduleKey}, and no specific restrictions found.`);
+      return {}; 
     }
 
     return conditions.length === 1 ? conditions[0] : { [Op.or]: conditions };

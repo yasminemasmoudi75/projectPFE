@@ -202,3 +202,11 @@
     at Function.listen (D:\pfe\pfe2\backend\node_modules\express\lib\application.js:635:24)
     at startServer (D:\pfe\pfe2\backend\server.js:86:9)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+[2026-05-11T13:53:31.882Z] ❌ Uncaught Exception: Error: listen EADDRINUSE: address already in use :::3066
+    at Server.setupListenHandle [as _listen2] (node:net:1904:16)
+    at listenInCluster (node:net:1961:12)
+    at Server.listen (node:net:2063:7)
+    at Function.listen (C:\Pfe\pf\backend\backend\node_modules\express\lib\application.js:635:24)
+    at startServer (C:\Pfe\pf\backend\backend\server.js:86:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
