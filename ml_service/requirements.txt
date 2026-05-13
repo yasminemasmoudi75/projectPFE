@@ -10,7 +10,7 @@ scikit-learn>=1.3.0
 joblib==1.4.2
 
 # Database
-pyodbc==4.0.39
+pyodbc>=5.1.0,<6
 
 # API & Web Framework
 Flask==3.0.0

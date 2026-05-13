@@ -34,9 +34,9 @@ app.config['JSON_AS_ASCII'] = False
 # Initialiser le service
 try:
     prediction_service = PredictionService()
-    logger.info("✅ Service de prédiction initialisé dans Flask")
+    logger.info("Service de prediction initialise dans Flask")
 except Exception as e:
-    logger.error(f"❌ Erreur initialisation service: {e}")
+    logger.error(f"Erreur initialisation service: {e}")
     prediction_service = None
 
 
@@ -63,7 +63,7 @@ def not_found(error):
 @app.errorhandler(500)
 def server_error(error):
     """Erreur serveur"""
-    logger.error(f"❌ Erreur serveur: {error}")
+    logger.error(f"Erreur serveur: {error}")
     return jsonify({
         'success': False,
         'error': 'Erreur serveur interne'
@@ -84,7 +84,7 @@ def health():
         503: Service indisponible
     """
     if prediction_service is None:
-        logger.error("❌ Service non initialisé")
+        logger.error("Service non initialise")
         return jsonify({
             'success': False,
             'status': 'unhealthy',
@@ -140,7 +140,7 @@ def predict():
     """
     
     if prediction_service is None:
-        logger.error("❌ Service non initialisé")
+        logger.error("Service non initialise")
         return jsonify({
             'success': False,
             'error': 'Service indisponible'
@@ -179,7 +179,7 @@ def predict():
             trimestre = data['trimestre']
             year = data.get('year', 2026)
         
-        logger.info(f"🔮 Prédiction: {region} Q{trimestre}/{year}")
+        logger.info(f"Prediction: {region} Q{trimestre}/{year}")
         
         # Appeler le service
         result = prediction_service.predict(region, trimestre, year)
@@ -190,7 +190,7 @@ def predict():
         return jsonify(result), 200
     
     except Exception as e:
-        logger.error(f"❌ Erreur endpoint predict: {e}", exc_info=True)
+        logger.error(f"Erreur endpoint predict: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': f'Erreur: {str(e)}'
@@ -252,14 +252,14 @@ def batch_predict():
                 'error': 'Maximum 24 régions à la fois'
             }), 400
         
-        logger.info(f"📊 Prédictions batch: {len(regions)} régions")
+        logger.info(f"Predictions batch: {len(regions)} regions")
         
         result = prediction_service.predict_batch(regions, trimestre, year)
         
         return jsonify(result), 200
     
     except Exception as e:
-        logger.error(f"❌ Erreur batch-predict: {e}", exc_info=True)
+        logger.error(f"Erreur batch-predict: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': f'Erreur: {str(e)}'
@@ -334,7 +334,7 @@ if __name__ == '__main__':
     debug = os.getenv('FLASK_ENV') == 'development'
     
     logger.info(f"\n{'='*70}")
-    logger.info(f"🚀 Démarrage Flask sur le port {port}")
+    logger.info(f"Demarrage Flask sur le port {port}")
     logger.info(f"{'='*70}\n")
     
     app.run(
