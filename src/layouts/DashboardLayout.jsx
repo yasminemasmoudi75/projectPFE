@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import ChatbotWidget from '../components/ui/ChatbotWidget';
 
 /**
  * Layout principal du dashboard - Light Gray & Blue Premium Design
@@ -48,6 +49,9 @@ const DashboardLayout = () => {
             <Outlet />
           </div>
         </main>
+
+        {/* Chatbot */}
+        <ChatbotWidget />
 
         {/* Footer */}
         <footer className="relative z-10 border-t border-slate-200/50 bg-gradient-to-r from-white/50 to-blue-50/30 backdrop-blur-sm">

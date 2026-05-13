@@ -4,7 +4,7 @@
  * Affiche les prédictions commerciales par région
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChartBarIcon, SparklesIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import usePrediction from '../../hooks/usePrediction';
@@ -31,11 +31,21 @@ const SalesPredictionDashboard = () => {
     selectedRegion: null,
   });
 
+  const handlePredictAll = useCallback(async () => {
+    console.log('[SalesPredictionDashboard] handlePredictAll called with:', localFilters);
+    try {
+      const result = await predictAll(localFilters.trimestre, localFilters.year);
+      console.log('[SalesPredictionDashboard] predictAll result:', result);
+    } catch (err) {
+      console.error('Prediction error:', err);
+    }
+  }, [predictAll, localFilters]);
+
   // Load predictions on mount or filter change
   useEffect(() => {
     console.log('[SalesPredictionDashboard] useEffect triggered with filters:', localFilters);
     handlePredictAll();
-  }, [localFilters, handlePredictAll]);
+  }, [handlePredictAll]);
 
   // Handle errors
   useEffect(() => {
@@ -44,16 +54,6 @@ const SalesPredictionDashboard = () => {
       clearError();
     }
   }, [error, errorMessage, clearError]);
-
-  const handlePredictAll = async () => {
-    console.log('[SalesPredictionDashboard] handlePredictAll called with:', localFilters);
-    try {
-      const result = await predictAll(localFilters.trimestre, localFilters.year);
-      console.log('[SalesPredictionDashboard] predictAll result:', result);
-    } catch (err) {
-      console.error('Prediction error:', err);
-    }
-  };
 
   const handleTrimestreChange = (e) => {
     setLocalFilters({ ...localFilters, trimestre: parseInt(e.target.value) });

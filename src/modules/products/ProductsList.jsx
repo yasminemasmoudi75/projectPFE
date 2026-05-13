@@ -12,13 +12,13 @@ import {
     ListBulletIcon,
     FunnelIcon,
     XMarkIcon,
-    ChevronDownIcon,
     CurrencyDollarIcon,
-    ArrowUpRightIcon,
-    ArrowTrendingUpIcon,
-    CheckCircleIcon,
     ArrowDownTrayIcon,
-    PrinterIcon
+    PrinterIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    ShieldCheckIcon,
+    CubeIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -32,132 +32,77 @@ import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: { staggerChildren: 0.08, delayChildren: 0.12 },
-    },
+/* ── Stock badge config ── */
+const STOCK_CFG = {
+    ok:      { label: 'Dispo',   badge: 'bg-emerald-50 text-emerald-600 border border-emerald-200', dot: 'bg-emerald-400' },
+    low:     { label: 'Faible',  badge: 'bg-amber-50 text-amber-600 border border-amber-200',       dot: 'bg-amber-400'   },
+    rupture: { label: 'Rupture', badge: 'bg-rose-50 text-rose-600 border border-rose-200',           dot: 'bg-rose-400'    },
 };
 
-const itemVariants = {
-    hidden: { y: 16, opacity: 0, scale: 0.98 },
-    visible: {
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        transition: { type: 'spring', stiffness: 320, damping: 26 },
-    },
+const stockBadge = (product) => {
+    const q = Number(product.Qte) || 0;
+    if (q === 0)  return { key: 'rupture', ...STOCK_CFG.rupture };
+    if (q <= 5)   return { key: 'low',     ...STOCK_CFG.low     };
+    return              { key: 'ok',      ...STOCK_CFG.ok      };
 };
 
-const rowVariants = {
-    hidden: { opacity: 0, x: -12 },
-    visible: { opacity: 1, x: 0, transition: { type: 'spring', bounce: 0, duration: 0.35 } },
-    exit: { opacity: 0, scale: 0.98, transition: { duration: 0.15 } },
-};
-
-const gridItemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } },
-};
+const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 transition-all';
 
 const ProductsList = () => {
     const navigate = useNavigate();
     const { isClient } = useAuth();
     const { canCreate, canEdit } = usePermission(MODULE_CODES.STOCK);
+
     const [bootstrapping, setBootstrapping] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [products, setProducts] = useState([]);
+    const [refreshing, setRefreshing]       = useState(false);
+    const [products, setProducts]           = useState([]);
     const [stockFilterMeta, setStockFilterMeta] = useState({
-        all: { id: 'all', label: 'Tous', count: 0, visible: true },
-        ok: { id: 'ok', label: 'Dispo', count: 0, visible: true },
-        low: { id: 'low', label: 'Faible', count: 0, visible: true },
+        all:     { id: 'all',     label: 'Tous',    count: 0, visible: true },
+        ok:      { id: 'ok',      label: 'Dispo',   count: 0, visible: true },
+        low:     { id: 'low',     label: 'Faible',  count: 0, visible: true },
         rupture: { id: 'rupture', label: 'Rupture', count: 0, visible: true },
     });
-    const [searchTerm, setSearchTerm] = useState('');
-    const [viewMode, setViewMode] = useState(isClient ? 'grid' : 'table');
-    const [filters, setFilters] = useState({
-        collection: '',
-        priceMin: '',
-        priceMax: '',
-        stockStatus: 'all',
-        marque: '',
-    });
+    const [searchTerm, setSearchTerm]   = useState('');
+    const [viewMode, setViewMode]       = useState(isClient ? 'grid' : 'table');
+    const [filters, setFilters]         = useState({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
     const [showFilters, setShowFilters] = useState(false);
-    const firstFetchDone = useRef(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
+    const firstFetchDone = useRef(false);
 
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            fetchProducts(searchTerm);
-        }, 500);
-        return () => clearTimeout(timeoutId);
+        const t = setTimeout(() => fetchProducts(searchTerm), 500);
+        return () => clearTimeout(t);
     }, [searchTerm]);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filters, searchTerm]);
+    useEffect(() => { setCurrentPage(1); }, [filters, searchTerm]);
 
     useEffect(() => {
-        if (isClient) {
-            setViewMode('grid');
-            setShowFilters(false);
-        }
+        if (isClient) { setViewMode('grid'); setShowFilters(false); }
     }, [isClient]);
 
     const fetchProducts = async (search = '') => {
         if (!firstFetchDone.current) setBootstrapping(true);
         else setRefreshing(true);
         try {
-            const response = await axios.get('/products', {
-                params: { search, sort: 'recent' },
-            });
-            // Axios interceptor already returns response.data, so response IS the apiData
-            // response = { status, data: [...], meta: { stockFilters } }
-            const apiData = response || {};
+            const apiData = await axios.get('/products', { params: { search, sort: 'recent' } }) || {};
             const productData = apiData?.data || [];
             setProducts(Array.isArray(productData) ? productData : []);
-            
-            // Get filter visibility from backend
-            console.log('[ProductsList] apiData?.meta?.stockFilters exists:', !!apiData?.meta?.stockFilters);
-            console.log('[ProductsList] full response:', JSON.stringify(apiData?.meta, null, 2));
             if (apiData?.meta?.stockFilters) {
-                console.log('[ProductsList] stockFilters:', apiData.meta.stockFilters);
                 setStockFilterMeta(apiData.meta.stockFilters);
                 const selected = apiData.meta.stockFilters?.[filters.stockStatus];
-                if (selected && selected.visible === false) {
-                    setFilters((prev) => ({ ...prev, stockStatus: 'all' }));
-                }
+                if (selected?.visible === false) setFilters(p => ({ ...p, stockStatus: 'all' }));
             }
             firstFetchDone.current = true;
-        } catch (error) {
-            console.error('Error fetching products:', error);
-        } finally {
-            setBootstrapping(false);
-            setRefreshing(false);
-        }
+        } catch {}
+        finally { setBootstrapping(false); setRefreshing(false); }
     };
 
-    const handleFilterChange = (key, value) => {
-        setFilters((prev) => ({ ...prev, [key]: value }));
-    };
-
-    const resetFilters = () => {
-        setFilters({
-            collection: '',
-            priceMin: '',
-            priceMax: '',
-            stockStatus: 'all',
-            marque: '',
-        });
-    };
+    const handleFilterChange = (key, value) => setFilters(p => ({ ...p, [key]: value }));
+    const resetFilters = () => setFilters({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
 
     const exportToCSV = () => {
-        // For clients, exclude stock column
-        const headers = isClient 
-            ? ['Code', 'Libelle', 'Marque', 'Prix']
-            : ['Code', 'Libelle', 'Marque', 'Prix', 'Stock'];
+        const headers = isClient ? ['Code', 'Libelle', 'Marque', 'Prix'] : ['Code', 'Libelle', 'Marque', 'Prix', 'Stock'];
         const rows = filteredProducts.map(p => isClient
             ? [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0]
             : [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0, p.Qte || 0]
@@ -166,51 +111,21 @@ const ProductsList = () => {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `produits_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.download = `produits_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
-        toast.success('Export CSV reussi');
+        toast.success('Export CSV réussi');
     };
 
     const exportToPDF = () => {
         const printWindow = window.open('', '_blank');
-        const stockHeader = isClient ? '' : '<th>Stock</th>';
-        const stockCell = isClient ? '' : '<td>${p.Qte || 0}</td>';
-        const html = `
-          <html>
-            <head>
-              <title>Liste des Produits</title>
-              <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                th { background: #3b82f6; color: white; }
-                tr:nth-child(even) { background: #f8fafc; }
-              </style>
-            </head>
-            <body>
-              <h1>Liste des Produits</h1>
-              <p>Exporte le ${new Date().toLocaleDateString('fr-FR')} - ${filteredProducts.length} produits</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Code</th><th>Libelle</th><th>Marque</th><th>Prix</th>${stockHeader}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filteredProducts.map(p => `
-                    <tr>
-                      <td>${p.CodArt || '-'}</td>
-                      <td>${p.LibArt || '-'}</td>
-                      <td>${p.Marque || '-'}</td>
-                      <td>${(p.PrixVente || 0).toFixed(2)} TND</td>
-                      ${isClient ? '' : `<td>${p.Qte || 0}</td>`}
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </body>
-          </html>
-        `;
+        const html = `<html><head><title>Produits</title>
+          <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #e2e8f0;padding:10px;text-align:left}th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}tr:nth-child(even){background:#f8fafc}</style>
+          </head><body>
+          <h2 style="color:#1e293b;margin-bottom:4px">Liste des Produits</h2>
+          <p style="color:#94a3b8;font-size:12px;margin-bottom:20px">Exporté le ${new Date().toLocaleDateString('fr-FR')} · ${filteredProducts.length} produits</p>
+          <table><thead><tr><th>Code</th><th>Désignation</th><th>Marque</th><th>Prix</th>${isClient ? '' : '<th>Stock</th>'}</tr></thead>
+          <tbody>${filteredProducts.map(p => `<tr><td>${p.CodArt || '-'}</td><td>${p.LibArt || '-'}</td><td>${p.Marque || '-'}</td><td>${(p.PrixVente || 0).toFixed(2)} TND</td>${isClient ? '' : `<td>${p.Qte || 0}</td>`}</tr>`).join('')}</tbody>
+          </table></body></html>`;
         printWindow.document.write(html);
         printWindow.document.close();
         printWindow.print();
@@ -218,398 +133,384 @@ const ProductsList = () => {
 
     const handleDelete = async (id) => {
         if (isClient) return;
-        if (window.confirm('Etes-vous sur de vouloir supprimer ce produit ?')) {
-            try {
-                await axios.delete(`/products/${id}`);
-                setProducts((prev) => prev.filter((p) => p.IDArt !== id));
-                toast.success('Produit supprime avec succes');
-            } catch (error) {
-                console.error('Error deleting product:', error);
-                toast.error('Erreur lors de la suppression');
-            }
-        }
+        if (!window.confirm('Supprimer ce produit ?')) return;
+        try {
+            await axios.delete(`/products/${id}`);
+            setProducts(p => p.filter(x => x.IDArt !== id));
+            toast.success('Produit supprimé');
+        } catch { toast.error('Erreur lors de la suppression'); }
     };
 
-    const filteredProducts = useMemo(() => {
-        return products.filter((product) => {
-            const matchesSearch =
-                searchTerm === '' ||
-                product.CodArt?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.LibArt?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.Marque?.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredProducts = useMemo(() => products.filter(p => {
+        const q = Number(p.Qte) || 0;
+        const price = Number(p.PrixVente) || 0;
+        const s = searchTerm.toLowerCase();
+        const matchSearch = !s || p.CodArt?.toLowerCase().includes(s) || p.LibArt?.toLowerCase().includes(s) || p.Marque?.toLowerCase().includes(s);
+        const matchColl   = !filters.collection || p.Collection === filters.collection;
+        const matchBrand  = !filters.marque     || p.Marque === filters.marque;
+        const matchPrice  = price >= (filters.priceMin === '' ? 0 : +filters.priceMin) && price <= (filters.priceMax === '' ? Infinity : +filters.priceMax);
+        let matchStock = true;
+        if (filters.stockStatus === 'ok')      matchStock = q > 5;
+        else if (filters.stockStatus === 'low') matchStock = q > 0 && q <= 5;
+        else if (filters.stockStatus === 'rupture') matchStock = q === 0;
+        return matchSearch && matchColl && matchBrand && matchPrice && matchStock;
+    }), [products, searchTerm, filters]);
 
-            const matchesCollection =
-                filters.collection === '' || product.Collection === filters.collection;
-            const matchesBrand = filters.marque === '' || product.Marque === filters.marque;
+    const activeAdvancedCount = [filters.collection, filters.priceMin, filters.priceMax, filters.marque].filter(Boolean).length;
+    const filteredValueTTC    = useMemo(() => filteredProducts.reduce((a, p) => a + (Number(p.PrixVente) || 0) * (Number(p.Qte) || 0), 0), [filteredProducts]);
+    const stockHealthPct      = useMemo(() => filteredProducts.length ? +((filteredProducts.filter(p => (Number(p.Qte) || 0) > 5).length / filteredProducts.length) * 100).toFixed(1) : 0, [filteredProducts]);
+    const ruptureCount        = useMemo(() => filteredProducts.filter(p => (Number(p.Qte) || 0) === 0).length, [filteredProducts]);
 
-            const priceMin = filters.priceMin === '' ? 0 : parseFloat(filters.priceMin);
-            const priceMax = filters.priceMax === '' ? Infinity : parseFloat(filters.priceMax);
-            const matchesPrice =
-                (Number(product.PrixVente) || 0) >= priceMin &&
-                (Number(product.PrixVente) || 0) <= priceMax;
+    const uniqueCollections = useMemo(() => [...new Set(products.map(p => p.Collection).filter(Boolean))], [products]);
+    const uniqueMarques     = useMemo(() => [...new Set(products.map(p => p.Marque).filter(Boolean))], [products]);
 
-            const q = Number(product.Qte) || 0;
-            let matchesStock = true;
-            if (filters.stockStatus === 'ok') matchesStock = q > 5;
-            else if (filters.stockStatus === 'low') matchesStock = q > 0 && q <= 5;
-            else if (filters.stockStatus === 'rupture') matchesStock = q === 0;
-
-            return matchesSearch && matchesCollection && matchesBrand && matchesPrice && matchesStock;
-        });
-    }, [products, searchTerm, filters]);
-
-    const activeAdvancedCount = [
-        filters.collection, filters.priceMin, filters.priceMax, filters.marque,
-    ].filter((v) => v !== '').length;
-
-    const filteredValueTTC = useMemo(
-        () => filteredProducts.reduce((acc, p) => acc + (Number(p.PrixVente) || 0) * (Number(p.Qte) || 0), 0),
-        [filteredProducts]
-    );
-
-    const stockHealthPct = useMemo(() => {
-        if (!filteredProducts.length) return 0;
-        const ok = filteredProducts.filter((p) => (Number(p.Qte) || 0) > 5).length;
-        return ((ok / filteredProducts.length) * 100).toFixed(1);
-    }, [filteredProducts]);
-
-    const uniqueCollections = useMemo(
-        () => [...new Set(products.map((p) => p.Collection).filter(Boolean))],
-        [products]
-    );
-    const uniqueMarques = useMemo(
-        () => [...new Set(products.map((p) => p.Marque).filter(Boolean))],
-        [products]
-    );
-
-    const totalItems = filteredProducts.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-    const startIndex = (currentPage - 1) * itemsPerPage;
+    const totalItems     = filteredProducts.length;
+    const totalPages     = Math.ceil(totalItems / itemsPerPage) || 1;
+    const startIndex     = (currentPage - 1) * itemsPerPage;
     const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
-
-    const stockBadge = (product) => {
-        const q = Number(product.Qte) || 0;
-        if (q === 0) return { key: 'rupture', label: 'Rupture', className: 'bg-rose-50 text-rose-700 border-rose-200' };
-        if (q <= 5) return { key: 'low', label: 'Faible', className: 'bg-amber-50 text-amber-700 border-amber-200' };
-        return { key: 'ok', label: 'OK', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-    };
 
     if (bootstrapping && products.length === 0) return <LoadingSpinner />;
 
     return (
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8 pb-12">
-            {/* Header */}
-            <motion.div variants={itemVariants} className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-                        Registre des Produits
-                        <span className="flex h-3 w-3 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
-                        </span>
-                    </h1>
-                    <p className="text-sm font-medium text-slate-500 mt-2">
-                        Catalogue, prix et stocks
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <motion.button
-                        whileHover={{ scale: 1.05, rotate: 180 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => fetchProducts(searchTerm)}
-                        disabled={refreshing}
-                        className="p-3 bg-white border border-slate-200 text-slate-500 rounded-2xl hover:bg-slate-50 hover:border-blue-300 transition-colors shadow-sm disabled:opacity-60"
-                        title="Rafraichir"
-                    >
-                        <ArrowPathIcon className={clsx('h-5 w-5', refreshing && 'animate-spin')} />
-                    </motion.button>
-                    {!isClient && (
-                    <div className="flex rounded-2xl border-2 border-slate-200 bg-white p-1 shadow-sm">
-                        <button type="button" onClick={() => setViewMode('table')}
-                            className={clsx('px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all',
-                                viewMode === 'table' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:text-blue-600')}>
-                            <ListBulletIcon className="h-4 w-4" /> Liste
-                        </button>
-                        <button type="button" onClick={() => setViewMode('grid')}
-                            className={clsx('px-4 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all',
-                                viewMode === 'grid' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:text-blue-600')}>
-                            <Squares2X2Icon className="h-4 w-4" /> Grille
-                        </button>
-                    </div>
-                    )}
-                                        {/* Export buttons - hidden for clients */}
-                    {!isClient && (
-                    <>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={exportToCSV}
-                        className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-semibold hover:bg-emerald-100 transition-colors shadow-sm">
-                        <ArrowDownTrayIcon className="h-5 w-5" />
-                        <span className="hidden sm:inline">CSV</span>
-                    </motion.button>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={exportToPDF}
-                        className="flex items-center gap-2 px-4 py-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl font-semibold hover:bg-rose-100 transition-colors shadow-sm">
-                        <PrinterIcon className="h-5 w-5" />
-                        <span className="hidden sm:inline">PDF</span>
-                    </motion.button>
-                    </>
-                    )}
-                    {!isClient && canCreate && (
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                            onClick={() => navigate('/products/new')}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold shadow-lg transition-all hover:from-blue-700 hover:to-indigo-700">
-                            <PlusIcon className="h-5 w-5 stroke-[3]" /> Nouveau produit
-                        </motion.button>
-                    )}
-                </div>
-            </motion.div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
+            className="space-y-5 pb-12">
 
-            {/* Stats - hidden for clients */}
+            {/* ── Top bar ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="h-7 w-7 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center">
+                            <CubeIcon className="h-4 w-4 text-violet-500" />
+                        </div>
+                        <h1 className="text-xl font-bold text-slate-800">Catalogue Produits</h1>
+                        {refreshing && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium pl-9">Références, prix et stocks</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <button onClick={() => fetchProducts(searchTerm)} disabled={refreshing}
+                        className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+                        title="Actualiser">
+                        <ArrowPathIcon className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
+                    </button>
+
+                    {!isClient && (
+                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                            {[{ id: 'table', icon: ListBulletIcon, label: 'Liste' }, { id: 'grid', icon: Squares2X2Icon, label: 'Grille' }].map(v => (
+                                <button key={v.id} onClick={() => setViewMode(v.id)}
+                                    className={clsx('inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all', viewMode === v.id ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                                    <v.icon className="h-3.5 w-3.5" /> {v.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {!isClient && (
+                        <>
+                            <button onClick={exportToCSV}
+                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm">
+                                <ArrowDownTrayIcon className="h-4 w-4" /> CSV
+                            </button>
+                            <button onClick={exportToPDF}
+                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm">
+                                <PrinterIcon className="h-4 w-4" /> PDF
+                            </button>
+                        </>
+                    )}
+
+                    {!isClient && canCreate && (
+                        <button onClick={() => navigate('/products/new')}
+                            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all shadow-sm">
+                            <PlusIcon className="h-4 w-4" /> Nouveau produit
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── KPI strip (admin only) ── */}
             {!isClient && (
-            <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <motion.div whileHover={{ y: -5 }} className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Valeur stock (filtre)</p>
-                    <p className="text-3xl font-extrabold text-slate-900">
-                        {filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k' : '0'} <span className="text-sm text-slate-400 font-bold ml-1">TND</span>
-                    </p>
-                    <p className="text-[11px] text-slate-400 font-medium mt-1">{totalItems} references</p>
-                </motion.div>
-                <motion.div whileHover={{ y: -5 }} className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sante stock (filtre)</p>
-                    <p className="text-3xl font-extrabold text-emerald-600">{stockHealthPct}%</p>
-                    <p className="text-[11px] text-slate-400 font-medium mt-1">Part avec stock &gt; 5</p>
-                </motion.div>
-            </motion.div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                        { label: 'Total produits',   value: products.length,                                    icon: CubeIcon,           iconCls: 'text-violet-500',  iconBg: 'bg-violet-50 border-violet-200'   },
+                        { label: 'Valeur stock',      value: filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k TND' : '0 TND', icon: CurrencyDollarIcon, iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
+                        { label: 'Santé stock',       value: stockHealthPct + '%',                               icon: ShieldCheckIcon,    iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200'         },
+                        { label: 'En rupture',        value: ruptureCount,                                       icon: ArchiveBoxIcon,     iconCls: 'text-rose-500',    iconBg: 'bg-rose-50 border-rose-200'       },
+                    ].map((s, i) => (
+                        <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.06 }}
+                            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                            <div className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-none ${s.iconBg}`}>
+                                <s.icon className={`h-4 w-4 ${s.iconCls}`} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{s.label}</p>
+                                <p className="text-xl font-bold text-slate-700 leading-tight tabular-nums">{s.value}</p>
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
             )}
 
-            {/* Filters */}
-            <motion.div variants={itemVariants} className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
-                <div className="flex flex-col xl:flex-row gap-4 xl:items-center">
-                    <div className="relative flex-1">
-                        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                        <input type="text" placeholder="Reference, designation, marque..."
-                            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all" />
+            {/* ── Toolbar ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    {/* Search */}
+                    <div className="relative flex-1 w-full">
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input type="text" placeholder="Référence, désignation, marque…"
+                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 transition-all" />
                     </div>
-                    {/* Stock filters - hidden for clients */}
+
+                    {/* Stock pills */}
                     {!isClient && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        {[
-                            { id: 'all', label: stockFilterMeta?.all?.label || 'Tous', color: null },
-                            { id: 'ok', label: stockFilterMeta?.ok?.label || 'Dispo', color: 'emerald' },
-                            { id: 'low', label: stockFilterMeta?.low?.label || 'Faible', color: 'yellow' },
-                            { id: 'rupture', label: stockFilterMeta?.rupture?.label || 'Rupture', color: 'rose' },
-                        ].filter((s) => stockFilterMeta?.[s.id]?.visible !== false).map((s) => {
-                            const active = filters.stockStatus === s.id;
-                            let colors = 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50';
-                            if (active) {
-                                if (s.color === 'yellow') colors = 'bg-yellow-50 text-yellow-700 border-yellow-300';
-                                else if (s.color === 'emerald') colors = 'bg-emerald-50 text-emerald-700 border-emerald-300';
-                                else if (s.color === 'rose') colors = 'bg-rose-50 text-rose-700 border-rose-300';
-                                else colors = 'bg-slate-800 text-white border-slate-800';
-                            }
-                            return (
-                                <motion.button key={s.id} type="button" whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleFilterChange('stockStatus', s.id)}
-                                    className={clsx('px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest border-2 transition-all', colors)}>
-                                    {s.label} ({stockFilterMeta?.[s.id]?.count ?? 0})
-                                </motion.button>
-                            );
-                        })}
-                    </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {[
+                                { id: 'all',     label: 'Tous' },
+                                { id: 'ok',      label: 'Dispo' },
+                                { id: 'low',     label: 'Faible' },
+                                { id: 'rupture', label: 'Rupture' },
+                            ].filter(s => stockFilterMeta?.[s.id]?.visible !== false).map(s => {
+                                const active = filters.stockStatus === s.id;
+                                return (
+                                    <button key={s.id} type="button"
+                                        onClick={() => handleFilterChange('stockStatus', s.id)}
+                                        className={clsx(
+                                            'h-8 px-3 rounded-full text-xs font-semibold border transition-all',
+                                            active
+                                                ? s.id === 'ok'      ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
+                                                : s.id === 'low'     ? 'bg-amber-50 text-amber-600 border-amber-300'
+                                                : s.id === 'rupture' ? 'bg-rose-50 text-rose-600 border-rose-300'
+                                                : 'bg-violet-600 text-white border-violet-600'
+                                                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                        )}>
+                                        {stockFilterMeta?.[s.id]?.label || s.label}
+                                        <span className="ml-1.5 opacity-60">{stockFilterMeta?.[s.id]?.count ?? 0}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     )}
+
+                    {/* Advanced filters toggle */}
                     {!isClient && (
-                    <button type="button" onClick={() => setShowFilters(!showFilters)}
-                        className={clsx('px-5 py-3 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border-2',
-                            showFilters ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300')}>
-                        <FunnelIcon className="h-4 w-4" /> Filtres avances
-                        {activeAdvancedCount > 0 && <span className="h-5 w-5 bg-indigo-500 text-white text-[10px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>}
-                    </button>
+                        <button type="button" onClick={() => setShowFilters(!showFilters)}
+                            className={clsx('inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border text-xs font-semibold transition-all flex-none',
+                                showFilters ? 'bg-violet-50 border-violet-200 text-violet-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
+                            <FunnelIcon className="h-3.5 w-3.5" /> Filtres
+                            {activeAdvancedCount > 0 && (
+                                <span className="h-4 w-4 bg-violet-600 text-white text-[9px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>
+                            )}
+                        </button>
                     )}
                 </div>
+
+                {/* Advanced filters panel */}
                 <AnimatePresence>
                     {showFilters && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }} className="overflow-hidden">
+                            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Collection</label>
-                                    <select value={filters.collection} onChange={(e) => handleFilterChange('collection', e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none">
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Collection</label>
+                                    <select value={filters.collection} onChange={e => handleFilterChange('collection', e.target.value)} className={inputCls}>
                                         <option value="">Toutes</option>
-                                        {uniqueCollections.map((col) => <option key={col} value={col}>{col}</option>)}
+                                        {uniqueCollections.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Marque</label>
-                                    <select value={filters.marque} onChange={(e) => handleFilterChange('marque', e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none">
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Marque</label>
+                                    <select value={filters.marque} onChange={e => handleFilterChange('marque', e.target.value)} className={inputCls}>
                                         <option value="">Toutes</option>
-                                        {uniqueMarques.map((m) => <option key={m} value={m}>{m}</option>)}
+                                        {uniqueMarques.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Prix min</label>
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Prix min</label>
                                     <input type="number" min="0" placeholder="0" value={filters.priceMin}
-                                        onChange={(e) => handleFilterChange('priceMin', e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
+                                        onChange={e => handleFilterChange('priceMin', e.target.value)} className={inputCls} />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Prix max</label>
-                                    <input type="number" min="0" placeholder="Infini" value={filters.priceMax}
-                                        onChange={(e) => handleFilterChange('priceMax', e.target.value)}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none" />
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Prix max</label>
+                                    <input type="number" min="0" placeholder="∞" value={filters.priceMax}
+                                        onChange={e => handleFilterChange('priceMax', e.target.value)} className={inputCls} />
                                 </div>
                             </div>
-                            <div className="flex justify-end mt-4">
+                            <div className="flex justify-end mt-3">
                                 <button type="button" onClick={resetFilters}
-                                    className="px-5 py-2.5 bg-white border-2 border-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
-                                    <XMarkIcon className="h-4 w-4 stroke-[3]" /> Reinitialiser
+                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:bg-slate-50 transition-all">
+                                    <XMarkIcon className="h-3.5 w-3.5" /> Réinitialiser
                                 </button>
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </motion.div>
+            </div>
 
-            {/* Table / Grid */}
-            <motion.div variants={itemVariants} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                        <ArchiveBoxIcon className="h-5 w-5 text-blue-500" /> Catalogue produits
-                    </h3>
-                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold">
-                        {totalItems} articles (page {currentPage}/{totalPages})
+            {/* ── Product list/grid ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                {/* Table header */}
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ArchiveBoxIcon className="h-4 w-4 text-slate-400" />
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Catalogue</span>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-semibold">
+                        {totalItems} article{totalItems !== 1 ? 's' : ''}
+                        {totalPages > 1 && <span className="text-slate-400">· p.{currentPage}/{totalPages}</span>}
                     </span>
                 </div>
 
-                <div className="overflow-x-auto min-h-[320px]">
-                    {totalItems === 0 ? (
-                        <div className="py-32 text-center">
-                            <PhotoIcon className="h-12 w-12 mx-auto text-slate-300" />
-                            <p className="mt-4 text-slate-800 font-bold">{products.length > 0 ? 'Aucun resultat' : 'Catalogue vide'}</p>
-                            <p className="text-xs text-slate-500 mt-1">{products.length > 0 ? 'Ajustez la recherche' : 'Ajoutez votre premier produit'}</p>
+                {totalItems === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3">
+                        <div className="h-14 w-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
+                            <PhotoIcon className="h-7 w-7 text-slate-300" />
                         </div>
-                    ) : viewMode === 'grid' ? (
-                        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                            <AnimatePresence mode="popLayout">
-                                {paginatedProducts.map((product) => {
-                                    const badge = stockBadge(product);
-                                    const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
-                                    return (
-                                        <motion.div key={product.IDArt} layout variants={gridItemVariants} initial="hidden" animate="visible" exit="hidden"
-                                            whileHover={{ y: -4 }} onClick={() => navigate(`/products/${product.IDArt}`)}
-                                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all cursor-pointer text-left">
-                                            <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 mb-3">
-                                                {product.urlimg ? (
-                                                    <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <PhotoIcon className="h-12 w-12 text-slate-300" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-wider">{product.CodArt}</p>
-                                            <h4 className="font-extrabold text-slate-900 text-sm line-clamp-2 mt-1">{product.LibArt}</h4>
-                                            <div className="mt-3 flex items-center justify-between gap-2">
-                                                <span className="text-sm font-black text-slate-900">{formatCurrency(product.PrixVente || 0)}</span>
-                                                {/* Stock badge hidden for clients */}
-                                                {!isClient && showBadge && (
-                                                    <span className={clsx('text-[10px] font-black uppercase px-2 py-1 rounded-lg border', badge.className)}>{badge.label}</span>
-                                                )}
-                                            </div>
-                                            {/* Quantity hidden for clients */}
-                                            {!isClient && (
-                                                <p className="text-xs text-slate-500 mt-2 font-bold">Qte {product.Qte}</p>
+                        <p className="text-sm font-semibold text-slate-500">
+                            {products.length > 0 ? 'Aucun résultat' : 'Catalogue vide'}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                            {products.length > 0 ? 'Ajustez la recherche ou les filtres' : 'Ajoutez votre premier produit'}
+                        </p>
+                    </div>
+
+                ) : viewMode === 'grid' ? (
+                    /* ── Grid view ── */
+                    <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <AnimatePresence mode="popLayout">
+                            {paginatedProducts.map((product, i) => {
+                                const badge = stockBadge(product);
+                                const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
+                                return (
+                                    <motion.div key={product.IDArt}
+                                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                                        transition={{ delay: i * 0.04 }}
+                                        onClick={() => navigate(`/products/${product.IDArt}`)}
+                                        className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-violet-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
+                                        {/* Image */}
+                                        <div className="aspect-[4/3] bg-slate-50 overflow-hidden border-b border-slate-100">
+                                            {product.urlimg ? (
+                                                <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <PhotoIcon className="h-10 w-10 text-slate-300" />
+                                                </div>
                                             )}
-                                        </motion.div>
-                                    );
-                                })}
-                            </AnimatePresence>
-                        </div>
-                    ) : (
-                        <table className="w-full text-left border-collapse">
+                                        </div>
+                                        {/* Info */}
+                                        <div className="p-3.5">
+                                            <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-1">{product.CodArt}</p>
+                                            <h4 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">{product.LibArt}</h4>
+                                            <div className="mt-3 flex items-center justify-between gap-2">
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums">{formatCurrency(product.PrixVente || 0)}</span>
+                                                {!isClient && showBadge && (
+                                                    <span className={clsx('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', badge.badge)}>
+                                                        <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+                                                        {badge.label}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {!isClient && (
+                                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Qté : {product.Qte ?? '—'}</p>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
+                    </div>
+
+                ) : (
+                    /* ── Table view ── */
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest w-14">#</th>
-                                    <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Reference</th>
-                                    <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Produit</th>
-                                    <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Prix</th>
-                                    {/* Stock and Etat columns hidden for clients */}
+                                <tr className="border-b border-slate-100 bg-slate-50">
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-left w-12">#</th>
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-left">Référence</th>
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-left">Produit</th>
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-right">Prix</th>
                                     {!isClient && (
                                         <>
-                                            <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Stock</th>
-                                            <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Etat</th>
+                                            <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-right">Stock</th>
+                                            <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-left">État</th>
                                         </>
                                     )}
-                                    <th className="px-6 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody className="divide-y divide-slate-50">
                                 <AnimatePresence>
                                     {paginatedProducts.map((product, idx) => {
                                         const badge = stockBadge(product);
                                         const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
                                         return (
-                                            <motion.tr key={product.IDArt} variants={rowVariants} initial="hidden" animate="visible" exit="exit" layout
-                                                className="group hover:bg-blue-50/60 transition-colors cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-500"
-                                                onClick={() => navigate(`/products/${product.IDArt}`)}>
-                                                <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-lg font-bold text-xs">{startIndex + idx + 1}</span>
+                                            <motion.tr key={product.IDArt}
+                                                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                                                transition={{ duration: 0.2, delay: idx * 0.03 }}
+                                                onClick={() => navigate(`/products/${product.IDArt}`)}
+                                                className="group hover:bg-violet-50/40 transition-colors cursor-pointer">
+                                                <td className="px-5 py-3.5">
+                                                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-bold">
+                                                        {startIndex + idx + 1}
+                                                    </span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors">{product.CodArt}</span>
+                                                <td className="px-5 py-3.5">
+                                                    <span className="text-xs font-bold text-slate-600 font-mono group-hover:text-violet-600 transition-colors">{product.CodArt}</span>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        {product.urlimg ? (
-                                                            <img src={getImageUrl(product.urlimg)} alt="" className="w-10 h-10 rounded-xl object-cover border border-slate-100" />
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                                                                <PhotoIcon className="h-5 w-5 text-slate-400" />
-                                                            </div>
-                                                        )}
+                                                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-none">
+                                                            {product.urlimg
+                                                                ? <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover" />
+                                                                : <div className="w-full h-full flex items-center justify-center"><PhotoIcon className="h-4 w-4 text-slate-300" /></div>
+                                                            }
+                                                        </div>
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{product.LibArt}</p>
-                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{product.Collection || '-'}</p>
+                                                            <p className="text-sm font-semibold text-slate-700 group-hover:text-violet-600 transition-colors line-clamp-1">{product.LibArt}</p>
+                                                            {product.Collection && <p className="text-[10px] text-slate-400">{product.Collection}</p>}
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm font-black text-blue-600">{formatCurrency(product.PrixVente || 0)}</span>
+                                                <td className="px-5 py-3.5 text-right">
+                                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{formatCurrency(product.PrixVente || 0)}</span>
                                                 </td>
-                                                {/* Stock and Etat cells hidden for clients */}
                                                 {!isClient && (
                                                     <>
-                                                        <td className="px-6 py-4">
-                                                            <span className={clsx('text-sm font-black', (Number(product.Qte) || 0) === 0 ? 'text-rose-600' : (Number(product.Qte) || 0) <= 5 ? 'text-amber-600' : 'text-emerald-600')}>
-                                                                {product.Qte}
+                                                        <td className="px-5 py-3.5 text-right">
+                                                            <span className={clsx('text-sm font-semibold tabular-nums',
+                                                                (Number(product.Qte) || 0) === 0 ? 'text-rose-500' :
+                                                                (Number(product.Qte) || 0) <= 5 ? 'text-amber-600' : 'text-emerald-600')}>
+                                                                {product.Qte ?? '—'}
                                                             </span>
                                                         </td>
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-5 py-3.5">
                                                             {showBadge ? (
-                                                                <span className={clsx('inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border', badge.className)}>
+                                                                <span className={clsx('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', badge.badge)}>
+                                                                    <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
                                                                     {badge.label}
                                                                 </span>
-                                                            ) : (
-                                                                <span className="text-xs font-semibold text-slate-400">-</span>
-                                                            )}
+                                                            ) : <span className="text-xs text-slate-300">—</span>}
                                                         </td>
                                                     </>
                                                 )}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/products/${product.IDArt}`); }}
-                                                            className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 rounded-xl transition-all">
-                                                            <EyeIcon className="h-4 w-4 stroke-[2.5]" />
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button type="button" onClick={e => { e.stopPropagation(); navigate(`/products/${product.IDArt}`); }}
+                                                            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all">
+                                                            <EyeIcon className="h-3.5 w-3.5" />
                                                         </button>
                                                         {!isClient && canEdit && (
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/products/edit/${product.IDArt}`); }}
-                                                                className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-amber-600 hover:border-amber-300 hover:bg-amber-50 rounded-xl transition-all">
-                                                                <PencilSquareIcon className="h-4 w-4 stroke-[2.5]" />
+                                                            <button type="button" onClick={e => { e.stopPropagation(); navigate(`/products/edit/${product.IDArt}`); }}
+                                                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50 transition-all">
+                                                                <PencilSquareIcon className="h-3.5 w-3.5" />
                                                             </button>
                                                         )}
                                                         {!isClient && (
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(product.IDArt); }}
-                                                                className="p-2.5 text-slate-400 bg-white border border-slate-200 shadow-sm hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 rounded-xl transition-all">
-                                                                <TrashIcon className="h-4 w-4 stroke-[2.5]" />
+                                                            <button type="button" onClick={e => { e.stopPropagation(); handleDelete(product.IDArt); }}
+                                                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all">
+                                                                <TrashIcon className="h-3.5 w-3.5" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -620,28 +521,38 @@ const ProductsList = () => {
                                 </AnimatePresence>
                             </tbody>
                         </table>
-                    )}
-                </div>
+                    </div>
+                )}
 
+                {/* ── Pagination ── */}
                 {totalPages > 1 && (
-                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                        <span className="text-xs text-slate-500">
-                            Affichage {startIndex + 1} - {Math.min(startIndex + itemsPerPage, totalItems)} sur {totalItems}
+                    <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between">
+                        <span className="text-xs text-slate-400">
+                            {startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} sur {totalItems}
                         </span>
-                        <div className="flex items-center gap-2">
-                            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold disabled:opacity-50 hover:bg-slate-50">
-                                Precedent
+                        <div className="flex items-center gap-1">
+                            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 disabled:opacity-40 transition-all">
+                                <ChevronLeftIcon className="h-3.5 w-3.5" />
                             </button>
-                            <span className="px-3 py-1.5 text-xs font-bold text-slate-600">Page {currentPage}/{totalPages}</span>
-                            <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold disabled:opacity-50 hover:bg-slate-50">
-                                Suivant
+                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                const page = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
+                                return (
+                                    <button key={page} type="button" onClick={() => setCurrentPage(page)}
+                                        className={clsx('h-7 w-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
+                                            currentPage === page ? 'bg-violet-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                                        {page}
+                                    </button>
+                                );
+                            })}
+                            <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 disabled:opacity-40 transition-all">
+                                <ChevronRightIcon className="h-3.5 w-3.5" />
                             </button>
                         </div>
                     </div>
                 )}
-            </motion.div>
+            </div>
         </motion.div>
     );
 };

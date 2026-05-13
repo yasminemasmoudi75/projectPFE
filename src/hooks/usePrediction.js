@@ -26,7 +26,7 @@ import {
   selectErrorMessage,
   selectFilters,
   selectServiceHealth,
-} from '../sales/predictionSlice';
+} from '../modules/sales/predictionSlice';
 
 /**
  * Hook principal pour les prédictions

@@ -169,7 +169,7 @@ const SidebarContent = () => {
 
     // 2. Client restricted view
     if (role === 'client') {
-      return ['Dashboard', 'Bons de Commande', 'Livraisons', 'Factures'].includes(item.name);
+      return ['Dashboard', 'Messages', 'Bons de Commande', 'Livraisons', 'Factures'].includes(item.name);
     }
 
     // 3. Module specific hardcoded rules

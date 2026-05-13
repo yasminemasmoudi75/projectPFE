@@ -1,18 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  PlusIcon,
-  MapPinIcon,
-  CurrencyDollarIcon,
-  CalendarDaysIcon,
-  ChartBarIcon,
-  BriefcaseIcon,
-  ArrowPathIcon,
-  RocketLaunchIcon,
-  ArrowUpRightIcon,
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  XMarkIcon,
+  PlusIcon, CurrencyDollarIcon, CalendarDaysIcon,
+  ChartBarIcon, BriefcaseIcon, ArrowPathIcon, RocketLaunchIcon,
+  ArrowUpRightIcon, MagnifyingGlassIcon, FunnelIcon, XMarkIcon,
+  ClockIcon, CheckCircleIcon, SparklesIcon, Squares2X2Icon,
+  ListBulletIcon, UserIcon, ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
+import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
+import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,142 +17,401 @@ import usePermission from '../../hooks/usePermission';
 import { MODULE_CODES } from '../../utils/constants';
 import axios from '../../app/axios';
 
+/* ─── helpers ──────────────────────────────────────────────── */
+const getInitials = (name = '') => (name || 'PR').substring(0, 2).toUpperCase();
+
+const phaseConfig = (phase) => {
+  const p = (phase || '').toLowerCase();
+  if (p === 'clôture' || p === 'cloture' || p === 'terminé')
+    return { bg: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', ring: 'ring-emerald-200' };
+  if (p.includes('cours'))
+    return { bg: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', ring: 'ring-blue-200' };
+  if (p === 'planification' || p === 'analyse')
+    return { bg: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500', ring: 'ring-violet-200' };
+  return { bg: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400', ring: 'ring-slate-200' };
+};
+
+const priorityConfig = (p) => {
+  const v = (p || '').toLowerCase();
+  if (v === 'haute' || v === 'high')
+    return { label: p || 'Haute', cls: 'text-rose-600 bg-rose-50 border border-rose-200', icon: ExclamationTriangleIcon };
+  if (v === 'moyenne' || v === 'medium')
+    return { label: p || 'Moyenne', cls: 'text-amber-600 bg-amber-50 border border-amber-200', icon: null };
+  return { label: p || 'Normale', cls: 'text-slate-500 bg-slate-50 border border-slate-200', icon: null };
+};
+
+const progressLabel = (v) =>
+  v === 0 ? 'Non démarré' : v < 30 ? 'Démarrage' : v < 70 ? 'En cours' : v < 100 ? 'Phase finale' : 'Terminé';
+
+const progressColor = (v) =>
+  v >= 100 ? '#22c55e' : v >= 70 ? '#3b82f6' : v >= 30 ? '#6366f1' : '#94a3b8';
+
+const gradients = [
+  'from-blue-500 to-cyan-500',
+  'from-indigo-500 to-blue-500',
+  'from-blue-600 to-violet-500',
+  'from-cyan-500 to-blue-600',
+  'from-violet-500 to-indigo-500',
+  'from-blue-500 to-indigo-600',
+];
+
+/* ─── Circular SVG progress ─────────────────────────────────── */
+const ProgressRing = ({ value = 0, size = 72 }) => {
+  const r = 30;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (value / 100) * circ;
+  const color = progressColor(value);
+  return (
+    <svg width={size} height={size} viewBox="0 0 72 72" className="-rotate-90">
+      <circle cx="36" cy="36" r={r} fill="none" stroke="#f1f5f9" strokeWidth="5" />
+      <circle
+        cx="36" cy="36" r={r} fill="none"
+        stroke={color} strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        style={{ transition: 'stroke-dashoffset 1s ease' }}
+      />
+    </svg>
+  );
+};
+
+/* ─── ProjetCard (grid view) ─────────────────────────────────── */
+const ProjetCard = ({ projet, index, onView }) => {
+  const avancement = Number(projet.Avancement) || 0;
+  const phase = phaseConfig(projet.Phase);
+  const priority = priorityConfig(projet.Priorite);
+  const daysLeft = projet.Date_Echeance
+    ? Math.ceil((new Date(projet.Date_Echeance) - Date.now()) / 86400000)
+    : null;
+  const isUrgent = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+  const isDueSoon = daysLeft !== null && daysLeft > 7 && daysLeft <= 14;
+  const isComplete = avancement >= 100;
+  const gradient = gradients[index % gradients.length];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
+      whileHover={{ y: -3 }}
+      className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-100 transition-all duration-300 flex flex-col overflow-hidden"
+    >
+      {/* Color accent bar */}
+      <div className={`h-1 w-full bg-gradient-to-r ${gradient}`} />
+
+      <div className="p-5 flex-1 flex flex-col gap-4">
+
+        {/* Header row */}
+        <div className="flex items-start gap-3">
+          <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-xs font-black shadow flex-none group-hover:scale-110 transition-transform duration-300`}>
+            {getInitials(projet.Nom_Projet)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <Link to={`/projets/${projet.ID_Projet}`}>
+              <h3 className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors leading-tight line-clamp-2">
+                {projet.Nom_Projet}
+              </h3>
+            </Link>
+            <div className="flex items-center gap-1 mt-0.5">
+              <UserIcon className="h-3 w-3 text-slate-400 flex-none" />
+              <span className="text-xs text-slate-400 truncate">{projet.client?.Raisoc || 'Client non spécifié'}</span>
+            </div>
+          </div>
+          {isComplete && (
+            <CheckCircleSolid className="h-5 w-5 text-emerald-500 flex-none" />
+          )}
+        </div>
+
+        {/* Badges */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${phase.bg}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${phase.dot}`} />
+            {projet.Phase || 'Nouveau'}
+          </span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${priority.cls}`}>
+            {priority.label}
+          </span>
+          {isUrgent && (
+            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200 animate-pulse">
+              <ClockIcon className="h-2.5 w-2.5" /> Urgent
+            </span>
+          )}
+        </div>
+
+        {/* Progress ring + stats */}
+        <div className="flex items-center gap-4">
+          <div className="relative flex-none">
+            <ProgressRing value={avancement} size={72} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-sm font-black text-slate-800 leading-none">{avancement}%</span>
+              <span className="text-[8px] font-semibold text-slate-400 uppercase leading-none mt-0.5">avct.</span>
+            </div>
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Statut</span>
+              <span className="text-xs font-bold text-slate-700">{progressLabel(avancement)}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000"
+                style={{ width: `${avancement}%`, backgroundColor: progressColor(avancement) }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Budget</span>
+              <span className="text-xs font-bold text-slate-700">{formatCurrency(projet.Budget_Alloue || 0)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Deadline */}
+        <div className={`flex items-center justify-between px-3 py-2 rounded-xl mt-auto ${
+          isUrgent    ? 'bg-red-50 border border-red-200'
+          : isDueSoon ? 'bg-amber-50 border border-amber-200'
+          : 'bg-slate-50 border border-slate-100'
+        }`}>
+          <div className="flex items-center gap-1.5">
+            <CalendarDaysIcon className={`h-3.5 w-3.5 flex-none ${isUrgent ? 'text-red-500' : isDueSoon ? 'text-amber-500' : 'text-slate-400'}`} />
+            <span className={`text-xs font-semibold ${isUrgent ? 'text-red-700' : isDueSoon ? 'text-amber-700' : 'text-slate-600'}`}>
+              {projet.Date_Echeance ? formatDate(projet.Date_Echeance) : 'Pas d\'échéance'}
+            </span>
+          </div>
+          {daysLeft !== null && daysLeft >= 0 && daysLeft <= 14 && (
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${isUrgent ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+              J-{daysLeft}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+        <span className="text-[10px] text-slate-400 font-medium">
+          #{projet.ID_Projet}
+          {projet.Date_Creation && ` · ${formatDate(projet.Date_Creation)}`}
+        </span>
+        <button
+          onClick={onView}
+          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors group/btn"
+        >
+          Voir détails
+          <ArrowUpRightIcon className="h-3.5 w-3.5 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+/* ─── ProjetRow (list view) ──────────────────────────────────── */
+const ProjetRow = ({ projet, index, onView }) => {
+  const avancement = Number(projet.Avancement) || 0;
+  const phase = phaseConfig(projet.Phase);
+  const priority = priorityConfig(projet.Priorite);
+  const daysLeft = projet.Date_Echeance
+    ? Math.ceil((new Date(projet.Date_Echeance) - Date.now()) / 86400000)
+    : null;
+  const isUrgent = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+  const gradient = gradients[index % gradients.length];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.03 }}
+      className="group bg-white border border-slate-100 rounded-xl hover:border-blue-200 hover:shadow-md transition-all duration-200 flex items-center gap-4 px-4 py-3.5"
+    >
+      {/* Avatar */}
+      <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-xs font-black flex-none group-hover:scale-105 transition-transform`}>
+        {getInitials(projet.Nom_Projet)}
+      </div>
+
+      {/* Name + client */}
+      <div className="flex-1 min-w-0">
+        <Link to={`/projets/${projet.ID_Projet}`}>
+          <p className="text-sm font-bold text-slate-800 hover:text-blue-600 transition-colors truncate">{projet.Nom_Projet}</p>
+        </Link>
+        <p className="text-xs text-slate-400 truncate">{projet.client?.Raisoc || 'Client non spécifié'}</p>
+      </div>
+
+      {/* Phase badge */}
+      <div className="hidden sm:flex items-center gap-1.5 flex-none w-28">
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${phase.bg}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${phase.dot}`} />
+          {projet.Phase || 'Nouveau'}
+        </span>
+      </div>
+
+      {/* Priority */}
+      <div className="hidden md:flex flex-none w-20">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${priority.cls}`}>
+          {priority.label}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="hidden lg:flex flex-none w-32 flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-slate-500 font-semibold">{progressLabel(avancement)}</span>
+          <span className="text-[10px] font-black text-slate-700">{avancement}%</span>
+        </div>
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-1000"
+            style={{ width: `${avancement}%`, backgroundColor: progressColor(avancement) }}
+          />
+        </div>
+      </div>
+
+      {/* Budget */}
+      <div className="hidden xl:block flex-none w-28 text-right">
+        <p className="text-xs font-bold text-slate-700">{formatCurrency(projet.Budget_Alloue || 0)}</p>
+      </div>
+
+      {/* Deadline */}
+      <div className="flex-none text-right hidden md:flex items-center gap-1.5">
+        <CalendarDaysIcon className={`h-3.5 w-3.5 ${isUrgent ? 'text-red-500' : 'text-slate-400'}`} />
+        <span className={`text-xs font-semibold ${isUrgent ? 'text-red-600' : 'text-slate-500'}`}>
+          {projet.Date_Echeance ? formatDate(projet.Date_Echeance) : '—'}
+        </span>
+        {daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && (
+          <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-red-100 text-red-700">J-{daysLeft}</span>
+        )}
+      </div>
+
+      {/* Action */}
+      <button
+        onClick={onView}
+        className="flex-none h-7 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all"
+      >
+        Voir
+      </button>
+    </motion.div>
+  );
+};
+
+/* ─── ProjetsList ──────────────────────────────────────────────── */
 const ProjetsList = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { canCreate } = usePermission(MODULE_CODES.PROJETS);
-  const { projets, loading, pagination } = useSelector((state) => state.projets);
-  const [typeFilter, setTypeFilter] = useState('All');
-  const [search, setSearch] = useState('');
-  const [commerciaux, setCommerciaux] = useState([]);
+  const { projets, loading } = useSelector((s) => s.projets);
+
+  const [typeFilter, setTypeFilter]             = useState('All');
+  const [search, setSearch]                     = useState('');
+  const [commerciaux, setCommerciaux]           = useState([]);
   const [selectedCommercial, setSelectedCommercial] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom]                 = useState('');
+  const [dateTo, setDateTo]                     = useState('');
+  const [showFilters, setShowFilters]           = useState(false);
+  const [viewMode, setViewMode]                 = useState('grid'); // 'grid' | 'list'
 
-  const getProgressColor = (percentage) => {
-    if (percentage < 30) return '#ef4444'; // Red
-    if (percentage < 70) return '#f97316'; // Orange
-    return '#f59e0b'; // Amber
-  };
+  useEffect(() => { dispatch(fetchProjets({ page: 1, limit: 50 })); }, [dispatch]);
 
   useEffect(() => {
-    dispatch(fetchProjets({ page: 1, limit: 12 }));
-  }, [dispatch]);
-
-  useEffect(() => {
-    const fetchCommerciaux = async () => {
-      try {
-        const response = await axios.get('/users/commercials/projets-filter');
-        const data = response.data;
-        const rawList = Array.isArray(data) ? data : data.data || [];
-        // Map to { value (UserID string), label (FullName) }
-        setCommerciaux(rawList.map(c => ({
-          value: String(c.userId || c.value || c.UserID),
-          label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
-        })));
-      } catch (error) {
-        console.error('Error fetching commercials:', error);
-        // Fallback: extract from loaded projects
-        const reps = Array.from(
-          new Set(
-            projets
-              .map((p) => p.client?.codRepresTiers)
-              .filter((v) => v && String(v).trim() !== '')
-          )
-        );
-        setCommerciaux(reps.map(code => ({ value: code, label: code })));
-      }
-    };
-    fetchCommerciaux();
+    axios.get('/users/commercials/projets-filter').then(r => {
+      const raw = Array.isArray(r.data) ? r.data : r.data?.data || [];
+      setCommerciaux(raw.map(c => ({
+        value: String(c.userId || c.value || c.UserID),
+        label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
+      })));
+    }).catch(() => {});
   }, []);
 
-  const availableTypes = useMemo(() => {
-    const phases = projets.map((p) => p.Phase).filter(Boolean);
-    return Array.from(new Set(phases));
-  }, [projets]);
+  const availableTypes = useMemo(() =>
+    [...new Set(projets.map(p => p.Phase).filter(Boolean))], [projets]);
 
-  const filteredProjets = useMemo(() => {
-    return projets.filter((projet) => {
-      const searchValue = search.trim().toLowerCase();
-
-      const tiers = projet.client;
-      const clientName = (tiers?.Raisoc || 'Client non spécifié').toLowerCase();
-
-      const matchesSearch =
-        !searchValue ||
-        (projet.Nom_Projet || '').toLowerCase().includes(searchValue) ||
-        clientName.includes(searchValue) ||
-        String(projet.ID_Projet || '').toLowerCase().includes(searchValue);
-
-      const matchesType =
-        typeFilter === 'All' ||
-        (projet.Phase || '').toLowerCase() === typeFilter.toLowerCase();
-
-      const repCode = tiers?.codRepresTiers;
-      const matchesCommercial =
-        !selectedCommercial || String(repCode || '') === selectedCommercial;
-
-      const createdDate = projet.Date_Creation
-        ? new Date(projet.Date_Creation)
-        : null;
-      const fromOk =
-        !dateFrom || (createdDate && createdDate >= new Date(dateFrom));
-      const toOk =
-        !dateTo || (createdDate && createdDate <= new Date(dateTo));
-
-      return matchesSearch && matchesType && matchesCommercial && fromOk && toOk;
-    });
-  }, [projets, typeFilter, selectedCommercial, dateFrom, dateTo, search]);
+  const filteredProjets = useMemo(() => projets.filter(p => {
+    const s = search.trim().toLowerCase();
+    const clientName = (p.client?.Raisoc || '').toLowerCase();
+    const matchSearch  = !s || (p.Nom_Projet || '').toLowerCase().includes(s) || clientName.includes(s) || String(p.ID_Projet || '').includes(s);
+    const matchType    = typeFilter === 'All' || (p.Phase || '').toLowerCase() === typeFilter.toLowerCase();
+    const matchComm    = !selectedCommercial || String(p.client?.codRepresTiers || '') === selectedCommercial;
+    const d = p.Date_Creation ? new Date(p.Date_Creation) : null;
+    return matchSearch && matchType && matchComm
+      && (!dateFrom || (d && d >= new Date(dateFrom)))
+      && (!dateTo   || (d && d <= new Date(dateTo)));
+  }), [projets, typeFilter, selectedCommercial, dateFrom, dateTo, search]);
 
   const stats = useMemo(() => {
     const total = filteredProjets.length;
-    const totalBudget = filteredProjets.reduce((acc, p) => acc + (Number(p.Budget_Alloue) || 0), 0);
+    const totalBudget = filteredProjets.reduce((a, p) => a + (Number(p.Budget_Alloue) || 0), 0);
     const avgProgress = total > 0
-      ? Math.round(filteredProjets.reduce((acc, p) => acc + (Number(p.Avancement) || 0), 0) / total)
+      ? Math.round(filteredProjets.reduce((a, p) => a + (Number(p.Avancement) || 0), 0) / total)
       : 0;
-    const dueSoon = filteredProjets.filter((p) => {
+    const dueSoon = filteredProjets.filter(p => {
       if (!p.Date_Echeance) return false;
-      const due = new Date(p.Date_Echeance);
-      if (Number.isNaN(due.getTime())) return false;
-      const diffDays = (due.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-      return diffDays >= 0 && diffDays <= 14;
+      const d = Math.ceil((new Date(p.Date_Echeance) - Date.now()) / 86400000);
+      return d >= 0 && d <= 14;
     }).length;
-
-    return { total, totalBudget, avgProgress, dueSoon };
+    const done = filteredProjets.filter(p => Number(p.Avancement) >= 100).length;
+    return { total, totalBudget, avgProgress, dueSoon, done };
   }, [filteredProjets]);
+
+  const resetFilters = () => { setSearch(''); setTypeFilter('All'); setSelectedCommercial(''); setDateFrom(''); setDateTo(''); };
+  const hasFilters = !!(search || typeFilter !== 'All' || selectedCommercial || dateFrom || dateTo);
 
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="animate-fade-in space-y-6 pb-12">
-      {/* Header - Inspired Design */}
-      <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div className="animate-fade-in space-y-5 pb-12">
+
+      {/* ── Hero Header ─────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 via-blue-50/60 to-indigo-50/80 border border-slate-200/80 p-7 shadow-sm">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-100/40" />
+          <div className="absolute right-20 bottom-0 h-32 w-32 rounded-full bg-indigo-100/50" />
+          <div className="absolute left-0 bottom-0 h-20 w-48 rounded-full bg-sky-100/40 blur-xl" />
+        </div>
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
-              <BriefcaseIcon className="h-3 w-3" />
-              Opérations CRM
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold mb-3">
+              <SparklesIcon className="h-3.5 w-3.5" />
+              CRM & Opérations
             </div>
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight">
               Projets & Opportunités
             </h1>
-            <p className="text-slate-600 mt-1 text-sm">
-              Suivez l'avancement, les budgets et les échéances de vos chantiers.
+            <p className="text-slate-500 mt-1.5 text-sm font-medium">
+              Pilotez vos chantiers, budgets et délais en temps réel.
             </p>
+
+            {/* Mini stats */}
+            <div className="flex items-center gap-5 mt-5">
+              {[
+                { icon: BriefcaseIcon, value: stats.total, label: 'projets', color: 'bg-blue-100 text-blue-600' },
+                { icon: CheckCircleIcon, value: stats.done, label: 'terminés', color: 'bg-emerald-100 text-emerald-600' },
+                { icon: ChartBarIcon, value: `${stats.avgProgress}%`, label: 'avancement', color: 'bg-indigo-100 text-indigo-600' },
+                { icon: ClockIcon, value: stats.dueSoon, label: 'échéances', color: 'bg-amber-100 text-amber-600' },
+              ].map((s, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  {i > 0 && <div className="h-7 w-px bg-slate-200" />}
+                  <div className={`h-8 w-8 rounded-lg ${s.color} flex items-center justify-center flex-none`}>
+                    <s.icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800 leading-none">{s.value}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{s.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2.5">
             <button
-              onClick={() => dispatch(fetchProjets({ page: 1, limit: 12 }))}
-              className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all"
+              onClick={() => dispatch(fetchProjets({ page: 1, limit: 50 }))}
+              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors shadow-sm"
               title="Rafraîchir"
             >
-              <ArrowPathIcon className="h-5 w-5" />
+              <ArrowPathIcon className="h-4 w-4" />
             </button>
             {canCreate && (
               <button
                 onClick={() => navigate('/projets/new')}
-                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-md hover:bg-blue-700 hover:shadow-lg transition-all"
               >
                 <PlusIcon className="h-4 w-4" />
                 Nouveau Projet
@@ -167,296 +421,247 @@ const ProjetsList = () => {
         </div>
       </div>
 
-      {/* Quick Stats - Inspired Design */}
+      {/* ── KPI cards ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Projets', value: stats.total, sub: 'projets visibles', icon: BriefcaseIcon, color: 'sky' },
-          { label: 'Budget Total', value: formatCurrency(stats.totalBudget), sub: 'total alloué', icon: CurrencyDollarIcon, color: 'emerald' },
-          { label: 'Avancement', value: `${stats.avgProgress}%`, sub: 'moyenne', icon: ChartBarIcon, color: 'amber' },
-          { label: 'Échéances', value: stats.dueSoon, sub: 'dans 14 jours', icon: CalendarDaysIcon, color: 'violet' },
-        ].map((stat, i) => {
-          const colorMap = {
-            sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
-            emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
-            amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
-            violet: { bg: 'bg-violet-50', text: 'text-violet-500', bar: 'bg-violet-400' },
-          };
-          const colors = colorMap[stat.color];
-
-          return (
-            <div
-              key={i}
-              className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group"
-            >
-              <div className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-                      {stat.label}
-                    </p>
-                    <h3 className="text-2xl font-bold text-slate-800">
-                      {stat.value}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">{stat.sub}</p>
-                  </div>
-                  <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
-                    <stat.icon className={`h-5 w-5 ${colors.text}`} />
-                  </div>
-                </div>
-                <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
-              </div>
+          { label: 'Total Projets',     value: stats.total,                       sub: 'actifs',        icon: BriefcaseIcon,      color: 'bg-blue-500',   glow: 'shadow-blue-100' },
+          { label: 'Budget Total',      value: formatCurrency(stats.totalBudget),  sub: 'alloué',        icon: CurrencyDollarIcon,  color: 'bg-indigo-500', glow: 'shadow-indigo-100' },
+          { label: 'Avancement moyen',  value: `${stats.avgProgress}%`,            sub: 'progression',   icon: ChartBarIcon,        color: 'bg-cyan-500',   glow: 'shadow-cyan-100' },
+          { label: 'Échéances proches', value: stats.dueSoon,                      sub: 'dans 14 jours', icon: CalendarDaysIcon,    color: 'bg-amber-500',  glow: 'shadow-amber-100' },
+        ].map((k, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.07 }}
+            className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 hover:shadow-lg hover:${k.glow} hover:border-slate-200 transition-all group cursor-default`}
+          >
+            <div className={`h-11 w-11 rounded-xl ${k.color} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-none`}>
+              <k.icon className="h-5 w-5 text-white" />
             </div>
-          );
-        })}
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{k.label}</p>
+              <p className="text-xl font-black text-slate-800 leading-tight">{k.value}</p>
+              <p className="text-xs text-slate-400">{k.sub}</p>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Search + Filters - Inspired Design */}
-      <div className="card-luxury shadow-sm">
-        <div className="p-4 sm:p-6">
-          <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
-            <div className="relative flex-1 w-full">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Rechercher par projet, client, ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 justify-end">
+      {/* ── Toolbar ──────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+        {/* Search + toggle row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par projet, client, ID…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 h-10 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 transition-shadow"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center h-10 bg-slate-50 border border-slate-200 rounded-xl p-1 gap-0.5">
               <button
-                type="button"
-                onClick={() => setShowFilters((v) => !v)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 whitespace-nowrap border ${
-                  showFilters
-                    ? 'bg-sky-50 border-sky-200 text-sky-600'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
+                onClick={() => setViewMode('grid')}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow text-blue-600 border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                title="Vue grille"
               >
-                <FunnelIcon className="h-4 w-4" />
-                Filtres
+                <Squares2X2Icon className="h-4 w-4" />
               </button>
               <button
-                type="button"
-                onClick={() => {
-                  setSearch('');
-                  setTypeFilter('All');
-                  setSelectedCommercial('');
-                  setDateFrom('');
-                  setDateTo('');
-                }}
-                className="px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 whitespace-nowrap border bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                title="Réinitialiser"
+                onClick={() => setViewMode('list')}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow text-blue-600 border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                title="Vue liste"
+              >
+                <ListBulletIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold border transition-all ${
+                showFilters
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <FunnelIcon className="h-4 w-4" />
+              Filtres
+              {hasFilters && <span className={`h-2 w-2 rounded-full ${showFilters ? 'bg-white' : 'bg-blue-600'}`} />}
+            </button>
+            {hasFilters && (
+              <button
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-medium border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                title="Réinitialiser les filtres"
               >
                 <XMarkIcon className="h-4 w-4" />
-                Reset
               </button>
-            </div>
+            )}
           </div>
+        </div>
 
+        {/* Phase quick-tabs */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setTypeFilter('All')}
+            className={`h-7 px-3 rounded-lg text-xs font-bold transition-all ${
+              typeFilter === 'All'
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Tous
+          </button>
+          {availableTypes.map(t => {
+            const cfg = phaseConfig(t);
+            return (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(prev => prev === t ? 'All' : t)}
+                className={`h-7 px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-all ${
+                  typeFilter === t
+                    ? `${cfg.bg} ring-2 ${cfg.ring}`
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                {t}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Advanced filters panel */}
+        <AnimatePresence>
           {showFilters && (
-            <div className="pt-4 border-t border-slate-200 mt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                    Phase
-                  </label>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                  >
-                    <option value="All">Toutes les phases</option>
-                    {availableTypes.map((phase) => (
-                      <option key={phase} value={phase}>
-                        {phase}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                    Commercial
-                  </label>
-                  <select
-                    value={selectedCommercial}
-                    onChange={(e) => setSelectedCommercial(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                  >
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Commercial</label>
+                  <select value={selectedCommercial} onChange={e => setSelectedCommercial(e.target.value)}
+                    className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700">
                     <option value="">Tous les commerciaux</option>
-                    {commerciaux.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
+                    {commerciaux.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                    Créé après
-                  </label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Créé après</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                    Créé avant
-                  </label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                  />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Créé avant</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700" />
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
 
-      {/* Grid Layout for Projects */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filteredProjets.length === 0 && (
-          <div className="card-luxury p-10 md:col-span-2 lg:col-span-3 text-center">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-300">
-              <RocketLaunchIcon className="h-8 w-8" />
-            </div>
-            <h3 className="mt-4 text-lg font-extrabold text-slate-800">Aucun projet trouvé</h3>
-            <p className="mt-2 text-sm text-slate-500 font-medium">
-              Modifie ta recherche ou tes filtres, ou crée un nouveau projet.
-            </p>
-            <div className="mt-6 flex items-center justify-center gap-2">
-              <button
-                onClick={() => {
-                  setSearch('');
-                  setTypeFilter('All');
-                  setSelectedCommercial('');
-                  setDateFrom('');
-                  setDateTo('');
-                }}
-                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-bold text-xs shadow-sm"
-              >
+      {/* ── Count row ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm text-slate-500">
+          <span className="font-bold text-slate-800">{filteredProjets.length}</span> projet{filteredProjets.length !== 1 ? 's' : ''} trouvé{filteredProjets.length !== 1 ? 's' : ''}
+          {hasFilters && <span className="ml-1 text-blue-500 font-medium">(filtré{filteredProjets.length !== 1 ? 's' : ''})</span>}
+        </p>
+        {viewMode === 'list' && (
+          <div className="hidden lg:flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-wide pr-2">
+            <span className="w-28">Phase</span>
+            <span className="w-20">Priorité</span>
+            <span className="w-32">Avancement</span>
+            <span className="w-28 text-right">Budget</span>
+            <span>Échéance</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Content ──────────────────────────────────────────── */}
+      {filteredProjets.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 flex flex-col items-center text-center"
+        >
+          <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center mb-5 shadow-sm">
+            <RocketLaunchIcon className="h-10 w-10 text-blue-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-1">Aucun projet trouvé</h3>
+          <p className="text-sm text-slate-500 mb-6 max-w-xs">Modifiez vos filtres de recherche ou créez un nouveau projet.</p>
+          <div className="flex items-center gap-3">
+            {hasFilters && (
+              <button onClick={resetFilters} className="h-9 px-5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
                 Réinitialiser
               </button>
-              {canCreate && (
-                <button
-                  onClick={() => navigate('/projets/new')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-xs shadow-sm"
-                >
-                  + Nouveau projet
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {filteredProjets.map((projet) => (
-          <div key={projet.ID_Projet} className="card-luxury p-0 overflow-hidden flex flex-col h-full group">
-            <div className="p-8 flex-1">
-              <div className="flex justify-between items-start mb-6">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-blue flex items-center justify-center text-white font-extrabold text-lg shadow-glow-blue group-hover:scale-110 transition-transform">
-                  {projet.Nom_Projet?.substring(0, 2).toUpperCase()}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider ${projet.Phase === 'Clôture' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
-                    {projet.Phase || 'Nouveau'}
-                  </span>
-                  <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-xl ${projet.Priorite === 'Haute' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                    {projet.Priorite || 'Normale'}
-                  </span>
-                </div>
-              </div>
-
-              <Link to={`/projets/${projet.ID_Projet}`} className="block">
-                <h3 className="text-xl font-extrabold text-slate-800 group-hover:text-blue-600 transition-colors mb-2 leading-tight">
-                  {projet.Nom_Projet}
-                </h3>
-              </Link>
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 mb-6">
-                <MapPinIcon className="h-4 w-4 text-blue-500" />
-                {projet.client?.Raisoc || 'Client non spécifié'}
-              </div>
-
-              <div className="flex flex-col items-center justify-center py-6 gap-4">
-                <div className="relative h-28 w-28 drop-shadow-sm">
-                  <svg className="h-full w-full rotate-[-90deg]" viewBox="0 0 36 36">
-                    <path
-                      className="stroke-slate-100/80 stroke-[2.5]"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="stroke-[3] transition-all duration-1000 ease-out"
-                      fill="none"
-                      stroke={getProgressColor(projet.Avancement || 0)}
-                      strokeDasharray={`${projet.Avancement || 0}, 100`}
-                      strokeLinecap="round"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-black text-slate-800 tracking-tighter">{projet.Avancement || 0}%</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest -mt-1">Avancement</span>
-                  </div>
-                </div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                  {projet.Avancement < 30 ? 'Initialisation' : projet.Avancement < 70 ? 'En cours' : 'Phase finale'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 py-4 border-t border-slate-100/50 mt-4">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Budget Prévu</span>
-                  <span className="text-sm font-black text-slate-800">{formatCurrency(projet.Budget_Alloue || 0)}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Délai Final</span>
-                  <span className="text-sm font-black text-slate-800">{projet.Date_Echeance ? formatDate(projet.Date_Echeance) : 'Non définie'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-8 py-4 bg-slate-50/50 flex justify-between items-center text-xs font-bold border-t border-slate-100/50">
-              <span className="flex items-center gap-2 text-slate-500 uppercase tracking-tighter">
-                <ChartBarIcon className="h-4 w-4 text-blue-500" />
-                Phase: <span className="text-slate-800">{projet.Phase || 'N/A'}</span>
-              </span>
-              <button
-                onClick={() => navigate(`/projets/${projet.ID_Projet}`)}
-                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-all group/btn"
-              >
-                Visionner
-                <ArrowUpRightIcon className="h-4 w-4 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+            )}
+            {canCreate && (
+              <button onClick={() => navigate('/projets/new')} className="h-9 px-5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-md hover:shadow-lg transition-all">
+                + Nouveau projet
               </button>
-            </div>
+            )}
           </div>
-        ))}
-
-        {/* Create New Project Card Placeholder */}
-        {canCreate && (
-          <button
-            onClick={() => navigate('/projets/new')}
-            className="card-luxury p-8 border-2 border-dashed border-slate-200 bg-slate-50/30 flex flex-col items-center justify-center text-center gap-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all group"
-          >
-            <div className="h-16 w-16 bg-white rounded-2xl shadow-soft flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all">
-              <PlusIcon className="h-8 w-8 stroke-[3]" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lancer un chantier</h4>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Créer un nouveau suivi projet</p>
-            </div>
-          </button>
-        )}
-      </div>
+        </motion.div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filteredProjets.map((projet, i) => (
+            <ProjetCard
+              key={projet.ID_Projet}
+              projet={projet}
+              index={i}
+              onView={() => navigate(`/projets/${projet.ID_Projet}`)}
+            />
+          ))}
+          {canCreate && (
+            <motion.button
+              whileHover={{ y: -3, scale: 1.01 }}
+              onClick={() => navigate('/projets/new')}
+              className="flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/30 p-8 text-center hover:border-blue-400 hover:from-blue-50/50 hover:to-indigo-50/30 transition-all group min-h-[220px]"
+            >
+              <div className="h-14 w-14 rounded-2xl bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm group-hover:border-blue-400 group-hover:shadow-md transition-all">
+                <PlusIcon className="h-7 w-7 text-slate-300 group-hover:text-blue-500 stroke-[2.5] transition-colors" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-500 group-hover:text-blue-600 transition-colors">Lancer un chantier</p>
+                <p className="text-xs text-slate-400 mt-0.5">Créer un nouveau suivi projet</p>
+              </div>
+            </motion.button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredProjets.map((projet, i) => (
+            <ProjetRow
+              key={projet.ID_Projet}
+              projet={projet}
+              index={i}
+              onView={() => navigate(`/projets/${projet.ID_Projet}`)}
+            />
+          ))}
+          {canCreate && (
+            <motion.button
+              whileHover={{ x: 4 }}
+              onClick={() => navigate('/projets/new')}
+              className="w-full flex items-center gap-4 px-4 py-3.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition-all group"
+            >
+              <div className="h-9 w-9 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center group-hover:border-blue-400 transition-colors">
+                <PlusIcon className="h-4 w-4 text-slate-300 group-hover:text-blue-500 stroke-[2.5] transition-colors" />
+              </div>
+              <span className="text-sm font-bold text-slate-400 group-hover:text-blue-600 transition-colors">Lancer un nouveau chantier</span>
+            </motion.button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
