@@ -1,0 +1,267 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  ArrowLeftIcon,
+  PrinterIcon,
+  CheckCircleIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
+import { fetchDevisById, validateDevis, convertDevis } from './devisSlice';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
+import { formatDate, formatCurrency } from '../../utils/format';
+import toast from 'react-hot-toast';
+import api from '@app/axios';
+
+const DevisDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { currentDevis: devis, loading, error } = useSelector((state) => state.devis);
+  const [isConverting, setIsConverting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      dispatch(fetchDevisById(id));
+    }
+  }, [dispatch, id]);
+
+  const handleValidate = async () => {
+    if (isValidating) return;
+    try {
+      setIsValidating(true);
+      await dispatch(validateDevis(id)).unwrap();
+      toast.success('Devis validé avec succès');
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Erreur lors de la validation';
+      toast.error(message);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleConvert = async () => {
+    if (isConverting) return;
+    try {
+      setIsConverting(true);
+      await dispatch(convertDevis(id)).unwrap();
+      toast.success('Devis converti en commande');
+      navigate('/bcv');
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Erreur lors de la conversion';
+      toast.error(message);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      const response = await api.get(`/devis/${id}/pdf`, {
+        responseType: 'blob'
+      });
+      const pdfBlob = response instanceof Blob ? response : new Blob([response]);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `devis_${devis.Prfx}${devis.Nf}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF généré avec succès');
+    } catch (err) {
+      console.error('Erreur PDF:', err);
+      toast.error('Erreur lors de la génération du PDF');
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <div className="text-center text-red-600 p-8">Erreur: {error}</div>;
+  if (!devis) return <div className="text-center text-gray-500 p-8">Devis non trouvé</div>;
+
+  return (
+    <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-20 pt-10 px-4 font-sans">
+      
+      {/* Action Buttons (Simple - Print Hidden) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+        <button
+          onClick={() => navigate('/devis')}
+          className="flex items-center text-slate-500 hover:text-blue-600 transition-colors font-semibold text-xs py-2"
+        >
+          <ArrowLeftIcon className="h-4 w-4 mr-2" />
+          Retour à la liste
+        </button>
+        <div className="flex gap-2 flex-wrap">
+          {!devis.Valid && (
+            <button
+              onClick={handleValidate}
+              disabled={isValidating}
+              className="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors font-bold text-xs"
+            >
+              <CheckCircleIcon className="h-4 w-4 inline mr-2" />
+              {isValidating ? 'Validation...' : 'Valider'}
+            </button>
+          )}
+          {!(devis.IsConverted || devis.bTransf) && devis.Valid && (
+            <button
+              onClick={handleConvert}
+              disabled={isConverting}
+              className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-bold text-xs"
+            >
+              <ArrowPathIcon className="h-4 w-4 inline mr-2" />
+              {isConverting ? 'Conversion...' : 'Convertir en BC'}
+            </button>
+          )}
+          <button
+            onClick={handleDownloadPDF}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-bold text-xs shadow-sm"
+          >
+            <PrinterIcon className="h-4 w-4 inline mr-2" />
+            Télécharger PDF
+          </button>
+        </div>
+      </div>
+
+      {/* CLEAN DOCUMENT VIEW */}
+      <div className="bg-white rounded-lg border border-slate-100 p-12 shadow-sm min-h-[1000px] text-slate-700 print:shadow-none print:border-none print:p-0">
+        
+        {/* Header Section */}
+        <div className="flex justify-between items-start mb-16">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">AMS-LABO</h1>
+            <div className="text-[11px] text-slate-500 font-medium leading-relaxed uppercase tracking-wider space-y-0.5">
+              <p>RUE TAHER KAMMOUN</p>
+              <p>3000 SFAX — TUNISIE</p>
+              <p className="pt-2">Tel: <span className="text-slate-700">74 407 194</span></p>
+              <p>Email: <span className="text-slate-700 lowercase">contact@amslabo.com</span></p>
+            </div>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-bold text-slate-800 tracking-wider uppercase border-b border-slate-100 pb-1">NEXUS</h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1 italic">Innovation</p>
+          </div>
+        </div>
+
+        {/* Big Centered Title */}
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-[0.3em] py-4 border-y border-slate-100">Devis</h2>
+        </div>
+
+        {/* Ref & Client Information */}
+        <div className="grid grid-cols-2 gap-20 mb-16">
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Détails Document</p>
+              <div className="space-y-1 text-sm">
+                <p className="font-bold text-slate-800">Réf: <span className="text-blue-600 tracking-tight">{devis.Prfx}{devis.Nf}</span></p>
+                <p>Émis le: <span className="font-semibold">{formatDate(devis.DatUser)}</span></p>
+                <p>État: <span className={`font-semibold ${devis.Valid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {devis.Valid ? 'Validé' : 'Brouillon'}
+                </span></p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Destinataire</p>
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-slate-900">{devis.LibTiers}</h3>
+              <div className="text-sm text-slate-500 leading-relaxed">
+                <p>{devis.Adresse}</p>
+                <p className="font-semibold text-slate-700">{devis.Ville}</p>
+              </div>
+              {devis.Cin && (
+                <p className="text-[10px] font-mono text-slate-400 mt-2 italic">ID: {devis.Cin}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Simple Articles Table */}
+        <div className="mb-16">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-32">Article</th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Désignation</th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">P.U HT</th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-24">Qté</th>
+                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-40">Total HT</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {devis.details?.map((item, idx) => (
+                <tr key={idx} className="group">
+                  <td className="py-5 font-mono text-[11px] text-slate-400 italic">#{item.CodArt}</td>
+                  <td className="py-5">
+                    <p className="text-sm font-bold text-slate-800 leading-none mb-1">{item.LibArt}</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg">{item.ExLibArt || '-'}</p>
+                  </td>
+                  <td className="py-5 text-sm font-medium text-slate-600 text-right tabular-nums">
+                    {formatCurrency(item.PuHT || 0).replace(' TND', '')}
+                  </td>
+                  <td className="py-5 text-sm font-bold text-slate-800 text-center tabular-nums">
+                    {item.Qt}
+                  </td>
+                  <td className="py-5 text-sm font-bold text-slate-900 text-right tabular-nums">
+                    {formatCurrency((item.Qt * (item.PuHT || 0))).replace(' TND', '')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(!devis.details || devis.details.length === 0) && (
+            <div className="py-12 text-center text-slate-300 italic text-sm">
+              Aucun article présent.
+            </div>
+          )}
+        </div>
+
+        {/* Clean Financial Section */}
+        <div className="flex justify-end pt-8">
+          <div className="w-80 space-y-3">
+            <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+              <span className="font-semibold text-slate-400 uppercase tracking-widest">Total Hors Taxe</span>
+              <span className="font-bold text-slate-700 tabular-nums">
+                {formatCurrency(devis.TotHT || 0)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
+              <span className="font-semibold text-slate-400 uppercase tracking-widest">TVA (19%)</span>
+              <span className="font-bold text-slate-700 tabular-nums">
+                {formatCurrency(devis.TotTva || 0)}
+              </span>
+            </div>
+            {devis.TotRem > 0 && (
+              <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50 text-rose-600">
+                <span className="font-semibold uppercase tracking-widest">Remise</span>
+                <span className="font-bold tabular-nums">
+                  -{formatCurrency(devis.TotRem || 0)}
+                </span>
+              </div>
+            )}
+            <div className="pt-6 mt-4 border-t-2 border-slate-100">
+              <div className="flex justify-between items-end">
+                <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Total Net TTC</span>
+                <div className="text-right">
+                  <span className="text-4xl font-black text-blue-600 tabular-nums">
+                    {formatCurrency(devis.TotTTC || 0).replace(' TND', '')}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 ml-2">TND</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page End Design */}
+        <div className="mt-32 border-t border-slate-50"></div>
+      </div>
+    </div>
+  );
+};
+
+export default DevisDetail;
+
