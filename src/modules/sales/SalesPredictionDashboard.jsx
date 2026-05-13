@@ -148,7 +148,7 @@ const SalesPredictionDashboard = () => {
 
               <div className="mb-3">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-600">Confiance</span>
+                  <span className="text-gray-600">Fiabilité</span>
                   <span className="font-bold">{(pred.confiance || 0).toFixed(1)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -163,7 +163,7 @@ const SalesPredictionDashboard = () => {
 
               <div className={`p-2 rounded text-xs font-medium text-center ${
                 pred.recommandation === 'AUGMENTER' ? 'bg-green-50 text-green-800' : 
-                pred.recommandation === 'MAINTENIR' ? 'bg-yellow-50 text-yellow-800' : 'bg-red-50 text-red-800'
+                pred.recommandation === 'MAINTENIR' ? 'bg-yellow-50 text-yellow-800' : 'bg-red-50 text-red-600 font-bold'
               }`}>
                 {pred.recommandation || 'MAINTENIR'}
               </div>
