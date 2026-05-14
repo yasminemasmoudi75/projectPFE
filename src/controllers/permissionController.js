@@ -208,4 +208,51 @@ exports.getAllPermissions = async (req, res) => {
   }
 };
 
+/**
+ * Met à jour les permissions (admin seulement)
+ * @route PUT /api/permissions/update
+ */
+exports.updatePermissions = async (req, res) => {
+  try {
+    const userRole = req.user?.UserRole;
+    if (userRole?.toLowerCase() !== 'admin') {
+      return res.status(403).json({ status: 'error', message: 'Accès réservé aux administrateurs' });
+    }
+
+    const { role, moduleCode, isActive, canAdd, canEdit, canDelete, canValid, canExport } = req.body;
+
+    if (!role || moduleCode == null) {
+      return res.status(400).json({ status: 'error', message: 'role et moduleCode sont requis' });
+    }
+
+    await sequelize.query(`
+      UPDATE TabAWProfileAccess
+      SET Actif    = :isActive,
+          canAdd   = :canAdd,
+          canEdit  = :canEdit,
+          canDelt  = :canDelete,
+          canValid = :canValid,
+          CanImp   = :canExport
+      WHERE ProfileUser = :role AND CodMod = :moduleCode
+    `, {
+      replacements: {
+        role,
+        moduleCode: parseInt(moduleCode),
+        isActive:  isActive  ? 1 : 0,
+        canAdd:    canAdd    ? 1 : 0,
+        canEdit:   canEdit   ? 1 : 0,
+        canDelete: canDelete ? 1 : 0,
+        canValid:  canValid  ? 1 : 0,
+        canExport: canExport ? 1 : 0,
+      },
+      type: QueryTypes.UPDATE
+    });
+
+    res.json({ status: 'success', message: 'Permission mise à jour' });
+  } catch (error) {
+    console.error('❌ Erreur updatePermissions:', error);
+    res.status(500).json({ status: 'error', message: 'Erreur lors de la mise à jour' });
+  }
+};
+
 module.exports = exports;

@@ -1,7 +1,29 @@
 const bcrypt = require('bcryptjs');
-const { User, sequelize } = require('../models');
+const { User, LoginLog, sequelize } = require('../models');
 const { signToken, signRefreshToken, verifyToken } = require('../utils/jwtUtils');
 const { logAction } = require('../utils/logger');
+
+const recordLoginLog = async ({ req, userId, loginName, fullName, role, action, details }) => {
+  try {
+    const ip = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim()
+      || req?.socket?.remoteAddress
+      || req?.ip
+      || null;
+    const ua = req?.headers?.['user-agent'] || null;
+    await LoginLog.create({
+      ID_Utilisateur: userId || null,
+      LoginName: loginName || null,
+      FullName: fullName || null,
+      Role: role || null,
+      Action: action,
+      IPAddress: ip,
+      UserAgent: ua ? ua.substring(0, 500) : null,
+      Details: details || null
+    });
+  } catch (e) {
+    console.warn('⚠️ LoginLog write failed (non-blocking):', e.message);
+  }
+};
 const { allocateNextUserId, ensureUserHasUserId } = require('../utils/userId');
 const { attachAccessToUser, resolveUserAccess, upsertUserAccess } = require('../utils/userAccess');
 const { notifyAdmins } = require('../utils/notificationUtils');
@@ -201,6 +223,7 @@ exports.login = async (req, res, next) => {
     if (!user) {
       await transaction.rollback();
       transaction = null;
+      await recordLoginLog({ req, userId: null, loginName: EmailPro, fullName: null, role: null, action: 'LOGIN_FAILED', details: 'Identifiant inconnu' });
       return res.status(401).json({
         status: 'error',
         message: 'Identifiant ou mot de passe incorrect'
@@ -216,6 +239,7 @@ exports.login = async (req, res, next) => {
     if (!isBcryptMatch && !isPlainMatch) {
       await transaction.rollback();
       transaction = null;
+      await recordLoginLog({ req, userId: user.UserID, loginName: user.LoginName, fullName: user.FullName, role: user.UserRole, action: 'LOGIN_FAILED', details: 'Mot de passe incorrect' });
       return res.status(401).json({
         status: 'error',
         message: 'Identifiant ou mot de passe incorrect'
@@ -288,6 +312,7 @@ exports.login = async (req, res, next) => {
 
     // Log Login
     await logAction(user.UserID, 'LOGIN', 'User', user.UserID, 'Connexion réussie');
+    await recordLoginLog({ req, userId: user.UserID, loginName: user.LoginName, fullName: user.FullName, role: user.UserRole, action: 'LOGIN_SUCCESS', details: 'Connexion réussie' });
   } catch (error) {
     if (transaction) {
       await transaction.rollback();
@@ -376,6 +401,8 @@ exports.logout = async (req, res, next) => {
     // Log Logout
     if (UserID) {
       await logAction(UserID, 'LOGOUT', 'User', UserID, 'Déconnexion réussie');
+      const loggedUser = await User.findByPk(UserID).catch(() => null);
+      await recordLoginLog({ req, userId: UserID, loginName: loggedUser?.LoginName, fullName: loggedUser?.FullName, role: loggedUser?.UserRole, action: 'LOGOUT', details: 'Déconnexion réussie' });
     }
   } catch (error) {
     next(error);

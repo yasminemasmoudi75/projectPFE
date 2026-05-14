@@ -39,6 +39,7 @@ const TabModReg = require('./TabModReg');
 const Notification = require('./Notification');
 const TiersContactClasse = require('./TiersContactClasse');
 const TiersClasseAuto = require('./TiersClasseAuto')(sequelize);
+const LoginLog = require('./LoginLog');
 
 // Définition des relations
 console.log('🔗 Setting up associations...');
@@ -429,5 +430,6 @@ module.exports = {
   TabRegD,
   TabRegF,
   MvtRecap,
-  TabModReg
+  TabModReg,
+  LoginLog
 };

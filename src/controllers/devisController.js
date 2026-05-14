@@ -115,10 +115,16 @@ exports.getDevisById = async (req, res, next) => {
     const { id } = req.params;
     const filterHelper = require('../utils/filterHelper');
 
-    // Pour la récupération par ID, on applique aussi les filtres de sécurité mandataires (Module 4)
-    const securityWhere = await filterHelper.applyTableDrivenFilters('4', {}, req.user);
+    // Pour un accès par ID spécifique, les admins voient tout (pas de filtre par CodRepres)
+    const roleRaw = String(req.user?.UserRole || '').trim().toLowerCase();
+    const isAdmin = ['admin', 'administrateur'].includes(roleRaw);
+    const securityWhere = isAdmin
+      ? {}
+      : await filterHelper.applyTableDrivenFilters('4', {}, req.user);
 
-    const where = { [Op.and]: [{ Guid: id }, securityWhere] };
+    const where = isAdmin
+      ? { Guid: id }
+      : { [Op.and]: [{ Guid: id }, securityWhere] };
 
 
     const devis = await DevisMaster.findOne({

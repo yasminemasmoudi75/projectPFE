@@ -25,4 +25,10 @@ router.get('/module/:codMod', protect, permissionController.getModulePermission)
  */
 router.get('/all', protect, permissionController.getAllPermissions);
 
+/**
+ * PUT /api/permissions/update
+ * Met à jour une permission (admin seulement)
+ */
+router.put('/update', protect, permissionController.updatePermissions);
+
 module.exports = router;

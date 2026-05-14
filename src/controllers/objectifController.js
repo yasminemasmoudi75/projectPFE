@@ -143,9 +143,9 @@ const calculateRealisedForObjectif = async (objectif) => {
             return 0; // TypePeriode invalide ou non supporté
         }
 
-        // Règle métier : 
+        // Règle métier :
         // 1. Si l'objectif est ARCHIVÉ et a une DateArchivage, il s'arrête à cette date.
-        // 2. S'il n'est pas ARCHIVÉ, il accumule indéfiniment jusqu'à ce qu'un nouvel objectif soit créé (qui l'archivera).
+        // 2. S'il n'est pas ARCHIVÉ, il accumule jusqu'à la fin de sa période (objectifs multiples coexistent par indicateur).
         if (String(objectif.StatutObjectif || '').toUpperCase() === 'ARCHIVÉ' && objectif.DateArchivage) {
             endDate = new Date(objectif.DateArchivage);
         } else if (String(objectif.StatutObjectif || '').toUpperCase() !== 'ARCHIVÉ') {
@@ -305,70 +305,38 @@ const isObjectifRelatedToCommercial = (objectif, user = {}) => {
 };
 
 /**
- * Vérifier les conflits entre objectifs Mensuel et Hebdomadaire
- * Un commercial ne peut pas avoir simultanément un Mensuel et un Hebdomadaire ACTIFS/ATTEINTS pour la même période
+ * Vérifier qu'un commercial n'a pas déjà un objectif actif avec le même TypeObjectif pour la même période.
+ * Mensuel : unicité par (IdCont, TypeObjectif, TypePeriode, Mois, Annee)
+ * Hebdomadaire : unicité par (IdCont, TypeObjectif, TypePeriode, Numsem, Annee)
  */
-const checkObjectifConflict = async (userGuid, typePeriode, mois, annee, dateDebut) => {
-    if (!userGuid) return null;
-
-    // Déterminer le mois/année cible
-    let targetMois = mois;
-    let targetAnnee = annee;
-
-    if (typePeriode === 'Hebdomadaire' && dateDebut) {
-        const dateObj = new Date(dateDebut);
-        targetMois = dateObj.getMonth() + 1; // 1-12
-        targetAnnee = dateObj.getFullYear();
-    }
-
-    if (!targetMois || !targetAnnee) return null;
+const checkDuplicateIndicateur = async (userGuid, typePeriode, typeObjectif, mois, annee, numsem) => {
+    if (!userGuid || !typeObjectif) return null;
 
     try {
+        const where = {
+            IdCont: userGuid,
+            TypeObjectif: typeObjectif,
+            TypePeriode: typePeriode,
+            StatutObjectif: { [Op.in]: ['ACTIF', 'ATTEINT'] }
+        };
+
         if (typePeriode === 'Mensuel') {
-            // Vérifier s'il existe un Hebdomadaire ACTIF ou ATTEINT pour le même mois/année
-            // Pour un Hebdomadaire, on vérifie que sa DateDebut tombe dans le mois cible
-            const firstDayOfMonth = new Date(targetAnnee, targetMois - 1, 1);
-            const lastDayOfMonth = new Date(targetAnnee, targetMois, 0, 23, 59, 59, 999);
-
-            const conflictingWeekly = await Objectif.findOne({
-                where: {
-                    IdCont: userGuid,
-                    TypePeriode: 'Hebdomadaire',
-                    StatutObjectif: { [Op.in]: ['ACTIF', 'ATTEINT'] },
-                    DateDebut: {
-                        [Op.between]: [firstDayOfMonth, lastDayOfMonth]
-                    }
-                }
-            });
-
-            if (conflictingWeekly) {
-                return {
-                    error: 'Ce commercial a déjà un objectif hebdomadaire en cours pour cette période. Terminez ou clôturez l\'objectif hebdomadaire avant de créer un objectif mensuel.'
-                };
-            }
+            where.Mois = mois;
+            where.Annee = annee;
         } else if (typePeriode === 'Hebdomadaire') {
-            // Vérifier s'il existe un Mensuel ACTIF ou ATTEINT pour le même mois/année
-            const conflictingMonthly = await Objectif.findOne({
-                where: {
-                    IdCont: userGuid,
-                    TypePeriode: 'Mensuel',
-                    StatutObjectif: { [Op.in]: ['ACTIF', 'ATTEINT'] },
-                    Mois: targetMois,
-                    Annee: targetAnnee
-                }
-            });
-
-            if (conflictingMonthly) {
-                return {
-                    error: 'Ce commercial a déjà un objectif mensuel en cours pour cette période. Terminez ou clôturez l\'objectif mensuel avant de créer un objectif hebdomadaire.'
-                };
-            }
+            where.Numsem = numsem;
+            where.Annee = annee;
         }
 
+        const existing = await Objectif.findOne({ where });
+        if (existing) {
+            return {
+                error: `Ce commercial a déjà un objectif actif avec l'indicateur "${typeObjectif}" pour cette période.`
+            };
+        }
         return null;
     } catch (error) {
-        console.error('❌ Erreur vérification conflit objectif:', error);
-        // En cas d'erreur, on laisse la création procéder (fail-safe)
+        console.error('❌ Erreur vérification doublon indicateur:', error);
         return null;
     }
 };
@@ -428,13 +396,15 @@ exports.createObjectif = async (req, res, next) => {
             });
         }
 
-        // Vérifier les conflits entre Mensuel et Hebdomadaire
-        const conflictCheck = await checkObjectifConflict(
+        // Vérifier qu'un objectif avec le même indicateur n'existe pas déjà pour cette période
+        const resolvedNumsem = extractWeekNumber(Numsem ?? Semaine);
+        const conflictCheck = await checkDuplicateIndicateur(
             resolvedUser?.user?.GUID,
             TypePeriode,
+            TypeObjectif,
             normalizeInteger(Mois),
             normalizeInteger(Annee),
-            DateDebut
+            resolvedNumsem
         );
 
         if (conflictCheck?.error) {
@@ -449,14 +419,6 @@ exports.createObjectif = async (req, res, next) => {
             : null;
 
         const { sequelize } = require('../models');
-
-        // Archiver les anciens objectifs actifs pour ce commercial
-        if (resolvedUser?.user?.GUID) {
-            await Objectif.update(
-                { StatutObjectif: 'ARCHIVÉ', DateArchivage: sequelize.fn('GETDATE') },
-                { where: { IdCont: resolvedUser.user.GUID, StatutObjectif: 'ACTIF' } }
-            );
-        }
 
         const newObjectif = await Objectif.create({
             IdCont: resolvedUser?.user?.GUID || null,
