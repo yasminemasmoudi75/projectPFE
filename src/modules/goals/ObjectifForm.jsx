@@ -94,54 +94,30 @@ const ObjectifForm = () => {
     });
 
     /**
-     * Vérifier les conflits entre Mensuel et Hebdomadaire
+     * Vérifier qu'un objectif avec le même TypeObjectif n'existe pas déjà pour la même période.
+     * Autorise mensuel ET hebdomadaire simultanément — seul le doublon d'indicateur est bloqué.
      */
-    const checkConflict = (userId, typePeriode, mois, annee, dateDebut) => {
-        if (!userId || !existingObjectifs.length) return null;
+    const checkDuplicate = (userId, typePeriode, typeObjectif, mois, annee, numsem) => {
+        if (!userId || !typeObjectif || !existingObjectifs.length) return null;
 
-        // Déterminer le mois/année cible
-        let targetMois = mois;
-        let targetAnnee = annee;
+        const found = existingObjectifs.find(obj => {
+            if (String(obj.ID_Utilisateur || obj.utilisateur?.UserID) !== String(userId)) return false;
+            if (obj.TypeObjectif !== typeObjectif) return false;
+            if (obj.TypePeriode !== typePeriode) return false;
+            if (!['ACTIF', 'ATTEINT'].includes(String(obj.StatutObjectif || '').toUpperCase())) return false;
 
-        if (typePeriode === 'Hebdomadaire' && dateDebut) {
-            const dateObj = new Date(dateDebut);
-            targetMois = dateObj.getMonth() + 1;
-            targetAnnee = dateObj.getFullYear();
-        }
-
-        if (!targetMois || !targetAnnee) return null;
-
-        if (typePeriode === 'Mensuel') {
-            // Vérifier s'il existe un Hebdomadaire ACTIF ou ATTEINT pour le même mois/année
-            const conflictingWeekly = existingObjectifs.find(obj => {
-                if (String(obj.ID_Utilisateur || obj.utilisateur?.UserID) !== String(userId)) return false;
-                if (obj.TypePeriode !== 'Hebdomadaire') return false;
-                if (!['ACTIF', 'ATTEINT'].includes(String(obj.StatutObjectif || '').toUpperCase())) return false;
-
-                // Vérifier que la DateDebut tombe dans le mois cible
-                if (!obj.DateDebut) return false;
-                const dateObj = new Date(obj.DateDebut);
-                return dateObj.getMonth() + 1 === targetMois && dateObj.getFullYear() === targetAnnee;
-            });
-
-            if (conflictingWeekly) {
-                return 'Ce commercial a déjà un objectif hebdomadaire en cours pour cette période. Terminez ou clôturez l\'objectif hebdomadaire avant de créer un objectif mensuel.';
+            if (typePeriode === 'Mensuel') {
+                return parseInt(obj.Mois) === parseInt(mois) && parseInt(obj.Annee) === parseInt(annee);
             }
-        } else if (typePeriode === 'Hebdomadaire') {
-            // Vérifier s'il existe un Mensuel ACTIF ou ATTEINT pour le même mois/année
-            const conflictingMonthly = existingObjectifs.find(obj => {
-                if (String(obj.ID_Utilisateur || obj.utilisateur?.UserID) !== String(userId)) return false;
-                if (obj.TypePeriode !== 'Mensuel') return false;
-                if (!['ACTIF', 'ATTEINT'].includes(String(obj.StatutObjectif || '').toUpperCase())) return false;
-                return parseInt(obj.Mois) === targetMois && parseInt(obj.Annee) === targetAnnee;
-            });
-
-            if (conflictingMonthly) {
-                return 'Ce commercial a déjà un objectif mensuel en cours pour cette période. Terminez ou clôturez l\'objectif mensuel avant de créer un objectif hebdomadaire.';
+            if (typePeriode === 'Hebdomadaire') {
+                return parseInt(obj.Numsem) === parseInt(numsem) && parseInt(obj.Annee) === parseInt(annee);
             }
-        }
+            return false;
+        });
 
-        return null;
+        return found
+            ? `Ce commercial a déjà un objectif actif avec l'indicateur "${typeObjectif}" pour cette période.`
+            : null;
     };
 
     useEffect(() => {
@@ -189,21 +165,25 @@ const ObjectifForm = () => {
         fetchData();
     }, []);
 
-    // Vérifier les conflits à chaque changement du formulaire
+    // Vérifier le doublon d'indicateur à chaque changement pertinent
     useEffect(() => {
         if (!isEditMode) {
-            const error = checkConflict(
+            const typeObjectif = formData.TypeObjectif === 'Autre'
+                ? formData.TypeObjectifCustom
+                : formData.TypeObjectif;
+            const error = checkDuplicate(
                 formData.ID_Utilisateur,
                 formData.TypePeriode,
+                typeObjectif,
                 parseInt(formData.Mois, 10),
                 parseInt(formData.Annee, 10),
-                formData.DateDebut
+                formData.Numsem
             );
             setConflictError(error);
         } else {
-            setConflictError(null); // Pas de validation de conflit en mode édition
+            setConflictError(null);
         }
-    }, [formData.ID_Utilisateur, formData.TypePeriode, formData.Mois, formData.Annee, formData.DateDebut, isEditMode]);
+    }, [formData.ID_Utilisateur, formData.TypePeriode, formData.TypeObjectif, formData.TypeObjectifCustom, formData.Mois, formData.Annee, formData.Numsem, isEditMode, existingObjectifs]);
 
     useEffect(() => {
         if (formData.TypePeriode !== 'Hebdomadaire') {
@@ -371,7 +351,7 @@ const ObjectifForm = () => {
                             </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-amber-900 mb-1">Conflit d'Objectif Détecté</h3>
+                            <h3 className="text-sm font-semibold text-amber-900 mb-1">Indicateur déjà utilisé pour cette période</h3>
                             <p className="text-sm text-amber-800 leading-relaxed">
                                 {conflictError}
                             </p>

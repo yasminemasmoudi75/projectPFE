@@ -116,7 +116,7 @@ const DevisForm = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const isEdit = Boolean(id);
-    const { currentDevis, loading: loadingSlice } = useSelector((state) => state.devis);
+    const { currentDevis, loading: loadingSlice, error: devisError } = useSelector((state) => state.devis);
 
     // Charger les tables de lookup (Classe, Gouvernorat, Catégorie)
     const { tiersClasses, tiersGouvernorats, tiersCategories, loading: lookupsLoading } = useLookupTables();
@@ -484,6 +484,12 @@ const DevisForm = () => {
     }, [id, isEdit, dispatch]);
 
     useEffect(() => {
+        if (isEdit && !loadingSlice && !currentDevis) {
+            setLoading(false);
+        }
+    }, [isEdit, loadingSlice, currentDevis]);
+
+    useEffect(() => {
         if (isEdit && currentDevis) {
             const { details, tiers, ...master } = currentDevis;
 
@@ -789,659 +795,793 @@ const DevisForm = () => {
 
     if (loading || loadingSlice) return <LoadingSpinner />;
 
-    return (
-        <div className="animate-fade-in space-y-10 pb-20 bg-mesh-luxury min-h-screen">
-            {/* Header section - Modern Luxury Design */}
-            <div className="card-luxury p-8 border-none shadow-xl shadow-slate-200/50">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                    <div className="flex items-center gap-6">
-                        <button
-                            onClick={() => navigate('/devis')}
-                            className="group h-12 w-12 bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-100 hover:bg-white rounded-2xl transition-all flex items-center justify-center shadow-sm"
-                        >
-                            <ArrowLeftIcon className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                        </button>
-                        <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider mb-2 border border-indigo-100/50">
-                                <SparklesIcon className="h-3 w-3" />
-                                Sales Intelligence
+    if (isEdit && !currentDevis) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100/50 flex items-center justify-center">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 max-w-md w-full text-center space-y-4">
+                    <div className="h-14 w-14 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto">
+                        <DocumentTextIcon className="h-7 w-7 text-rose-400" />
+                    </div>
+                    <h2 className="text-base font-bold text-slate-800">Devis introuvable</h2>
+                    <p className="text-sm text-slate-400">
+                        Ce devis n'existe pas ou vous n'avez pas les droits pour y accéder.
+                    </p>
+                    {devisError && (
+                        <p className="text-[11px] text-rose-400 bg-rose-50 px-3 py-2 rounded-lg font-mono">{devisError}</p>
+                    )}
+                    <button
+                        onClick={() => navigate('/devis')}
+                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-slate-700 hover:bg-slate-800 rounded-xl mx-auto transition-all"
+                    >
+                        <ArrowLeftIcon className="h-4 w-4" />
+                        Retour à la liste
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    /* Visual step index: internal steps 1->3->4 map to display 1->2->3 */
+    const displayStep = currentStep === 1 ? 1 : currentStep === 3 ? 2 : 3;
+
+    const fmt = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3 });
+
+    /* Shared articles table used in both edit and new-devis modes */
+    const ArticlesTable = () => (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-teal-50/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
+                        <DocumentTextIcon className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold text-slate-800">Articles du devis</h2>
+                        <p className="text-[11px] text-slate-500">{items.length} article{items.length > 1 ? 's' : ''}</p>
+                    </div>
+                </div>
+                <button type="button" onClick={addItem}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all">
+                    <PlusIcon className="h-4 w-4" /> Ajouter
+                </button>
+            </div>
+
+            <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-2.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="col-span-1">#</div>
+                <div className="col-span-4">Article</div>
+                <div className="col-span-2 text-center">Qté</div>
+                <div className="col-span-2 text-right">P.U HT</div>
+                <div className="col-span-2 text-right">Total HT</div>
+                <div className="col-span-1"></div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+                {items.length === 0 && (
+                    <div className="py-16 text-center">
+                        <DocumentTextIcon className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                        <p className="text-sm text-slate-400">Aucun article. Cliquez sur Ajouter.</p>
+                    </div>
+                )}
+                {items.map((item, index) => (
+                    <div key={item.tempId} className="hover:bg-slate-50/40 transition-colors">
+                        <div className="px-6 py-3 grid grid-cols-12 gap-3 items-center">
+                            <div className="col-span-1">
+                                <span className="text-[11px] font-bold text-slate-300">{index + 1}</span>
                             </div>
-                            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
-                                {isEdit ? `Devis N°${formData.Nf}` : 'Nouvelle Offre Commerciale'}
-                                {!isEdit && <span className="text-indigo-600 text-sm font-medium px-2 py-0.5 bg-indigo-50 rounded-lg">Draft</span>}
-                            </h1>
-                            <p className="text-slate-500 mt-1 text-sm font-medium">
-                                {isEdit ? 'Consultation et modification des détails de la proposition' : 'Élaboration d\'une nouvelle proposition commerciale personnalisée'}
-                            </p>
+                            <div className="col-span-4 space-y-1.5">
+                                <input
+                                    type="text"
+                                    value={item.productSearch ?? (item.LibArt ? getProductSearchLabel(item) : '')}
+                                    onFocus={() => setActiveProductRowId(item.tempId)}
+                                    onChange={(e) => handleProductSearchChange(item.tempId, e.target.value)}
+                                    placeholder="Rechercher..."
+                                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition-all"
+                                />
+                                <select
+                                    value={item.IDArt || ''}
+                                    onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
+                                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-600 focus:border-blue-400 focus:outline-none"
+                                >
+                                    <option value="">{loadingProducts && activeProductRowId === item.tempId ? 'Chargement...' : '-- Selectionner --'}</option>
+                                    {item.IDArt && <option value={item.IDArt}>{item.CodArt} {item.LibArt}</option>}
+                                    {productOptions.map(p => <option key={p.IDArt} value={p.IDArt}>{p.CodArt} {getProductName(p)}</option>)}
+                                </select>
+                            </div>
+                            <div className="col-span-2">
+                                <input type="number" min="0" value={item.Qt || 0}
+                                    onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-center px-2 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-blue-600 focus:border-blue-400 focus:outline-none" />
+                            </div>
+                            <div className="col-span-2">
+                                <input type="number" min="0" value={item.PuHT || 0}
+                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
+                                    className="w-full text-right px-2 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:border-blue-400 focus:outline-none" />
+                            </div>
+                            <div className="col-span-2 text-right">
+                                <span className="text-sm font-bold text-slate-700">{fmt(item.MntHT)}</span>
+                                <span className="block text-[10px] text-slate-400">TND</span>
+                            </div>
+                            <div className="col-span-1 flex items-center justify-end gap-1">
+                                <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
+                                    className={`p-1.5 rounded-lg transition-colors ${expandedItems[item.tempId] ? 'bg-blue-100 text-blue-600' : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}`}>
+                                    <ChevronDownIcon className={`h-4 w-4 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
+                                </button>
+                                <button type="button" onClick={() => removeItem(item.tempId)}
+                                    className="p-1.5 rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-colors">
+                                    <TrashIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <AnimatePresence>
+                            {expandedItems[item.tempId] && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                    <div className="px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/60">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">TVA (%)</label>
+                                            <input type="number" value={item.Tva || 19} onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remise (%)</label>
+                                            <input type="number" value={item.Remise || 0} onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Observation</label>
+                                            <input type="text" value={item.Observation || ''} onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
+                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" maxLength="255" />
+                                        </div>
+                                        <div className="text-[11px] text-slate-400 col-span-2 md:col-span-4 flex gap-4 pt-1">
+                                            <span>Remise : <strong>{fmt(item.MntRem)}</strong> TND</span>
+                                            <span>TVA : <strong>{fmt(item.MntTVA)}</strong> TND</span>
+                                            <span>TTC : <strong className="text-blue-600">{fmt(item.PuTTC)}</strong> TND/u</span>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                ))}
+            </div>
+
+            {items.length > 0 && (
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <span className="text-xs text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
+                    <div className="flex gap-6">
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Total HT</p>
+                            <p className="text-base font-bold text-slate-700">{fmt(formData.TotHT)} <span className="text-[10px] text-slate-400">TND</span></p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">TVA</p>
+                            <p className="text-base font-bold text-slate-600">{fmt(formData.TotTva)} <span className="text-[10px] text-slate-400">TND</span></p>
+                        </div>
+                        <div className="text-right pl-4 border-l border-slate-200">
+                            <p className="text-[10px] font-bold text-blue-500 uppercase">Net TTC</p>
+                            <p className="text-xl font-black text-blue-600">{fmt(formData.TotTTC)} <span className="text-xs text-blue-400">TND</span></p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/20 pb-16">
+
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+                <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate('/devis')}
+                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all group"
+                        >
+                            <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                        </button>
+                        <div className="h-9 w-9 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200/60 flex-shrink-0">
+                            <DocumentTextIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h1 className="text-base font-bold text-slate-800">
+                                    {isEdit ? `Devis N° ${formData.Nf || '—'}` : 'Nouveau Devis'}
+                                </h1>
+                                {isEdit && formData.Valid && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+                                        {' '}Validé
+                                    </span>
+                                )}
+                                {isEdit && formData.bTransf && (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                        Transformé
+                                    </span>
+                                )}
+                                {!isEdit && (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                        {'Étape'} {displayStep}/3
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs text-slate-400">
+                                    {formData.LibTiers || 'Sélectionnez un client pour commencer'}
+                                </p>
+                                {isEdit && formData.DatUser && (
+                                    <>
+                                        <span className="text-slate-200 text-xs">·</span>
+                                        <p className="text-[10px] text-slate-400">
+                                            {new Date(formData.DatUser).toLocaleDateString('fr-TN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {isEdit && (
+                            <div className="hidden sm:block text-right border-r border-slate-100 pr-3">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net TTC</p>
+                                <p className="text-base font-black text-indigo-600">{fmt(formData.TotTTC)} <span className="text-xs font-bold text-indigo-400">TND</span></p>
+                            </div>
+                        )}
                         <button
                             type="button"
                             onClick={() => window.location.reload()}
-                            className="p-3 bg-white border border-slate-200 text-slate-500 rounded-2xl hover:bg-slate-50 transition-all shadow-sm group"
-                            title="Actualiser les données"
+                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all group"
                         >
-                            <ArrowPathIcon className="h-5 w-5 group-active:rotate-180 transition-transform duration-500" />
+                            <ArrowPathIcon className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
                         </button>
-                        <button
-                            form="devis-form"
-                            type="submit"
-                            disabled={saving}
-                            className="px-10 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 font-bold text-xs uppercase tracking-widest disabled:opacity-50 group"
-                        >
-                            {saving ? (
-                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : (
-                                <CheckIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                            )}
-                            <span>{isEdit ? 'Mettre à jour' : 'Finaliser le Devis'}</span>
-                        </button>
+                        {(isEdit || currentStep === 4) && (
+                            <button
+                                form="devis-form"
+                                type="submit"
+                                disabled={saving}
+                                className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-200/50 transition-all disabled:opacity-60"
+                            >
+                                {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                                {isEdit ? 'Sauvegarder' : 'Finaliser'}
+                            </button>
+                        )}
                     </div>
                 </div>
 
+                {/* Step progress bar — new devis only */}
+                {!isEdit && (
+                    <div className="max-w-6xl mx-auto px-6 pb-3">
+                        <div className="flex items-center gap-0">
+                            {[
+                                { n: 1, label: 'Client', icon: UserGroupIcon, step: 1 },
+                                { n: 2, label: 'Articles', icon: DocumentTextIcon, step: 3 },
+                                { n: 3, label: 'Confirmation', icon: CalculatorIcon, step: 4 },
+                            ].map((s, i, arr) => {
+                                const done = displayStep > s.n;
+                                const active = displayStep === s.n;
+                                return (
+                                    <React.Fragment key={s.n}>
+                                        <button
+                                            type="button"
+                                            onClick={() => done && setCurrentStep(s.step)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${active ? 'text-indigo-700 bg-indigo-50' : done ? 'text-emerald-600 cursor-pointer hover:bg-emerald-50' : 'text-slate-400 cursor-default'}`}
+                                        >
+                                            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all ${active ? 'bg-indigo-600 border-indigo-600 text-white' : done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-slate-400'}`}>
+                                                {done ? <CheckIcon className="h-3 w-3" /> : s.n}
+                                            </div>
+                                            {s.label}
+                                        </button>
+                                        {i < arr.length - 1 && (
+                                            <div className={`flex-1 h-0.5 mx-1 rounded-full transition-all ${displayStep > s.n ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <form id="devis-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-10 px-4">
-                <div className="space-y-8">
+            {/* EDIT MODE — two-column continuous layout */}
+            {isEdit ? (
+                <form id="devis-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto px-6 pt-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-                    {/* Step 1: Client Info */}
-                    <AnimatePresence mode="wait">
-                        {currentStep === 1 && (
-                            <motion.div
-                                key="step1"
-                                initial={{ opacity: 0, y: 30, scale: 0.98 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -30, scale: 0.95 }}
-                                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                                className="space-y-8"
-                            >
-                                {/* Client Info Card */}
-                                <div className="card-luxury p-0 overflow-hidden border-none shadow-soft-xl bg-white/60">
-                                    <div className="px-8 py-6 border-b border-blue-50 bg-gradient-to-r from-white via-blue-50/20 to-white flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-12 w-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                                                <UserGroupIcon className="h-6 w-6 text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none mb-1.5">Informations Client</h2>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                                                    <span className="h-1 w-1 rounded-full bg-blue-400"></span> Identification
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Référentiel Tiers</span>
-                                            {formData.CodTiers && <span className="text-[9px] font-mono text-slate-400">#{formData.CodTiers}</span>}
-                                        </div>
+                        {/* Left column — main content */}
+                        <div className="lg:col-span-2 space-y-6">
+
+                            {/* Client info — read-only card */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
+                                        <BuildingOfficeIcon className="h-5 w-5 text-white" />
                                     </div>
-                                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Client Selector with Search */}
-                                        <div className="group md:col-span-2 relative" ref={clientDropdownRef}>
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Rechercher un Client</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <UserGroupIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={clientSearch}
-                                                    onChange={(e) => {
-                                                        setClientSearch(e.target.value);
-                                                        setShowClientDropdown(true);
-                                                        // Clear selection if user types something different
-                                                        if (formData.CodTiers && !clients.some(c =>
-                                                            c.Raisoc === e.target.value || c.CodTiers === e.target.value
-                                                        )) {
-                                                            setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
-                                                        }
-                                                    }}
-                                                    onFocus={() => setShowClientDropdown(true)}
-                                                    className={`input-modern pl-11 pr-10 w-full text-slate-700 ${isEdit ? 'bg-slate-100 cursor-not-allowed opacity-75' : 'bg-white'} border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500`}
-                                                    autoComplete="off"
-                                                    readOnly={isEdit}
-                                                />
-                                                {clientSearch && !isEdit && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setClientSearch('');
-                                                            setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
-                                                            setShowClientDropdown(false);
-                                                        }}
-                                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                                    >
-                                                        <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-                                                    </button>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Client</h2>
+                                        <p className="text-[11px] text-slate-500">Informations du tiers</p>
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                            <BuildingOfficeIcon className="h-6 w-6 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-base font-bold text-slate-800">{formData.LibTiers || '—'}</p>
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {formData.CodTiers && (
+                                                    <span className="text-[11px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>
+                                                )}
+                                                {formData.Ville && (
+                                                    <span className="text-[11px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1">
+                                                        <MapPinIcon className="h-3 w-3 text-slate-400" />{formData.Ville}
+                                                    </span>
+                                                )}
+                                                {formData.Classe && (
+                                                    <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">{formData.Classe}</span>
+                                                )}
+                                                {formData.Tel && (
+                                                    <span className="text-[11px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>
                                                 )}
                                             </div>
-
-                                            {/* Dropdown */}
-                                            {showClientDropdown && filteredClients.length > 0 && (
-                                                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto">
-                                                    {filteredClients.map(client => (
-                                                        <button
-                                                            key={client.CodTiers}
-                                                            type="button"
-                                                            onClick={() => handleClientSelect(client.CodTiers)}
-                                                            className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}
-                                                        >
-                                                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                                                                <UserGroupIcon className="h-4 w-4 text-slate-500" />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-bold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
-                                                                <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}</p>
-                                                            </div>
-                                                            {formData.CodTiers === client.CodTiers && (
-                                                                <CheckCircleIcon className="h-4 w-4 text-blue-600" />
-                                                            )}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* No results message */}
-                                            {showClientDropdown && clientSearch && filteredClients.length === 0 && (
-                                                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4">
-                                                    <p className="text-sm text-slate-500 text-center">Aucun client trouvé pour "{clientSearch}"</p>
-                                                </div>
-                                            )}
-
-                                            {/* Selected client indicator */}
-                                            {formData.CodTiers && !showClientDropdown && (
-                                                <div className="mt-2 flex items-center gap-2 text-xs text-green-600">
-                                                    <CheckCircleIcon className="h-4 w-4" />
-                                                    <span>Client sélectionné: <strong>{formData.LibTiers}</strong></span>
-                                                </div>
+                                            {formData.Adresse && (
+                                                <p className="text-xs text-slate-400 mt-1.5">{formData.Adresse}</p>
                                             )}
                                         </div>
-
-                                        {formData.CodTiers && (
-                                            <div className="md:col-span-2">
-                                                <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Projet associé (optionnel)</label>
-                                                <select
-                                                    value={selectedProjectId}
-                                                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                                                    className={`input-modern ${isEdit ? 'bg-slate-100 cursor-not-allowed opacity-75' : ''}`}
-                                                    disabled={loadingProjects || isEdit}
-                                                >
-                                                    <option value="">Sans projet lié</option>
-                                                    {projects.map((project) => (
-                                                        <option key={project.ID_Projet} value={project.ID_Projet}>
-                                                            {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
-                                                            {project.CodDev ? ` | Devis ${project.CodDev}` : ''}
-                                                            {project.CodBc ? ` | BC ${project.CodBc}` : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <p className="mt-2 text-xs text-slate-500">
-                                                    {loadingProjects
-                                                        ? 'Chargement des projets du client...'
-                                                        : 'Ce lien est facultatif. Il sera enregistré dans TabProjet uniquement à la création ou la modification du devis.'}
-                                                </p>
+                                        {selectedProjectId && projects.length > 0 && (
+                                            <div className="flex-shrink-0">
+                                                <span className="text-[11px] text-violet-600 bg-violet-50 px-2.5 py-1 rounded-xl border border-violet-200 font-medium">
+                                                    {projects.find(p => String(p.ID_Projet) === selectedProjectId)?.Nom_Projet || `Projet #${selectedProjectId}`}
+                                                </span>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            </div>
 
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Code Client (ID)</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <IdentificationIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
+                            {/* Articles */}
+                            <ArticlesTable />
+
+                            {/* Remarks */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50/60 to-yellow-50/20 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-amber-500 rounded-xl flex items-center justify-center shadow-md shadow-amber-200/50">
+                                        <SparklesIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Remarques</h2>
+                                        <p className="text-[11px] text-slate-500">Notes internes sur ce devis</p>
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    <textarea
+                                        name="Remarq"
+                                        value={formData.Remarq || ''}
+                                        onChange={handleChange}
+                                        rows={3}
+                                        placeholder="Ajouter une remarque ou note sur ce devis..."
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 focus:outline-none transition-all resize-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right sidebar */}
+                        <div className="lg:col-span-1">
+                            <div className="lg:sticky lg:top-24 space-y-4">
+
+                                {/* Financial summary */}
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/70 to-blue-50/30 flex items-center gap-3">
+                                        <div className="h-8 w-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200/50">
+                                            <CalculatorIcon className="h-4 w-4 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-bold text-slate-800">Récapitulatif</h2>
+                                            <p className="text-[11px] text-slate-500">Totaux financiers</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-500">Base HT</span>
+                                            <span className="text-sm font-semibold text-slate-700">{fmt(formData.TotHT)} TND</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-500">TVA</span>
+                                            <span className="text-sm font-semibold text-slate-700">{fmt(formData.TotTva)} TND</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-slate-500">Remise globale</span>
+                                            <div className="w-28">
                                                 <input
-                                                    type="text"
-                                                    name="CodTiers"
-                                                    value={formData.CodTiers || ''}
+                                                    type="number" min="0"
+                                                    name="TotRem"
+                                                    value={formData.TotRem || 0}
                                                     onChange={handleChange}
-                                                    className={`input-modern pl-11 font-mono uppercase ${(isEdit || formData.CodTiers) ? 'bg-slate-100 cursor-not-allowed opacity-75' : ''}`}
-                                                    required
-                                                    readOnly={true}
+                                                    className="w-full text-right px-3 py-1 border border-slate-200 rounded-lg text-sm font-semibold text-rose-600 focus:border-rose-300 focus:outline-none"
                                                 />
                                             </div>
                                         </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Raison Sociale</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <BuildingOfficeIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                        <div className="border-t border-dashed border-indigo-100 pt-3">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Net TTC</p>
+                                                    <p className="text-[11px] text-slate-400">Toutes taxes comprises</p>
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    name="LibTiers"
-                                                    value={formData.LibTiers || ''}
-                                                    onChange={handleChange}
-                                                    className={`input-modern pl-11 ${(isEdit || formData.CodTiers) ? 'bg-slate-100 cursor-not-allowed opacity-75' : ''}`}
-                                                    required
-                                                    readOnly={true}
-                                                />
+                                                <div className="text-right">
+                                                    <span className="text-2xl font-black text-indigo-600">{fmt(formData.TotTTC)}</span>
+                                                    <span className="ml-1 text-sm font-bold text-indigo-400">TND</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="md:col-span-2 group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Adresse Complète</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <MapPinIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Adresse"
-                                                    value={formData.Adresse || ''}
-                                                    onChange={handleChange}
-                                                    className={`input-modern pl-11 ${(isEdit || formData.CodTiers) ? 'bg-slate-100 cursor-not-allowed opacity-75' : ''}`}
-                                                    readOnly={true}
-                                                />
-                                            </div>
+                                    </div>
+                                    <div className="px-5 pb-5">
+                                        <button type="submit" form="devis-form" disabled={saving}
+                                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-60">
+                                            {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                                            Sauvegarder les modifications
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Dates */}
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                                        <TagIcon className="h-4 w-4 text-slate-400" />
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dates</h3>
+                                    </div>
+                                    <div className="p-5 space-y-4">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Date du devis</label>
+                                            <input
+                                                type="date"
+                                                name="DatUser"
+                                                value={formData.DatUser ? String(formData.DatUser).split('T')[0] : ''}
+                                                onChange={handleChange}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+                                            />
                                         </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Commercial Assigné</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <UserIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                {isAdmin || isAgent ? (
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Date de livraison</label>
+                                            <input
+                                                type="date"
+                                                name="DatLiv"
+                                                value={formData.DatLiv ? String(formData.DatLiv).split('T')[0] : ''}
+                                                onChange={handleChange}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Commercial */}
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-violet-50/60 to-purple-50/20 flex items-center gap-2">
+                                        <UserIcon className="h-4 w-4 text-violet-500" />
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Commercial</h3>
+                                    </div>
+                                    <div className="p-5">
+                                        {isAdmin || isAgent ? (
+                                            <div>
+                                                <div className="relative">
+                                                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                                     <select
                                                         name="CodRepres"
                                                         value={formData.CodRepres || ''}
                                                         onChange={(e) => {
                                                             const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value);
-                                                            setFormData(prev => ({
-                                                                ...prev,
-                                                                CodRepres: e.target.value,
-                                                                DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : ''
-                                                            }));
+                                                            setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' }));
                                                         }}
-                                                        className="input-modern pl-11 w-full"
+                                                        className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
                                                         disabled={loadingCommercials}
                                                     >
-                                                        <option value="">-- Sélectionner un commercial --</option>
+                                                        <option value="">-- Sélectionner --</option>
                                                         {commercials.map(comm => (
-                                                            <option key={comm.value || comm.userId} value={comm.value || comm.userId}>
-                                                                {comm.label || comm.fullName}
-                                                            </option>
+                                                            <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
                                                         ))}
                                                     </select>
-                                                ) : (
-                                                    <input
-                                                        type="text"
-                                                        name="DesRepres"
-                                                        value={formData.DesRepres || ''}
-                                                        onChange={handleChange}
-                                                        className="input-modern pl-11 bg-slate-100 cursor-not-allowed opacity-75"
-                                                        readOnly={true}
-                                                    />
-                                                )}
-                                            </div>
-                                            {loadingCommercials && <p className="text-[10px] text-blue-500 mt-1 animate-pulse">Chargement des commerciaux...</p>}
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Gouvernorat / Ville</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <MapPinIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    name="Ville"
-                                                    value={formData.Ville || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
+                                                {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
                                             </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Classe</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <TagIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                        ) : (
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                                    <UserIcon className="h-4 w-4 text-violet-600" />
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    name="Classe"
-                                                    value={formData.Classe || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="md:col-span-2 group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Numéro Social / Code Fiscal</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <IdentificationIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
+                                                    <p className="text-[10px] text-slate-400">Commercial assigné</p>
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    name="Cin"
-                                                    value={clientCin}
-                                                    onChange={(e) => setClientCin(e.target.value)}
-                                                    className="input-modern pl-11 font-mono bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Fonction</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <BuildingOfficeIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Fonction"
-                                                    value={formData.Fonction || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Catégorie</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <TagIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Categorie"
-                                                    value={formData.Categorie || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Domaine</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <BuildingOfficeIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Domaine"
-                                                    value={formData.Domaine || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Responsable</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <UserIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Responsable"
-                                                    value={formData.Responsable || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="group">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Téléphone</label>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                    <TagIcon className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    name="Tel"
-                                                    value={formData.Tel || ''}
-                                                    className="input-modern pl-11 bg-slate-50 cursor-not-allowed"
-                                                    readOnly
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Billing Address Card (Alternative Address) */}
-                                <div className="card-luxury p-0 overflow-hidden">
-                                    <div className="px-8 py-5 border-b border-slate-100/50 bg-slate-50/50 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="icon-shape icon-shape-sm bg-gradient-amber shadow-glow-amber scale-90">
-                                                <MapPinIcon className="h-5 w-5 text-white" />
-                                            </div>
-                                            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Adresse de Facturation</h2>
-                                        </div>
-                                    </div>
-                                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="group md:col-span-2">
-                                            <label className="label-modern italic tracking-[0.2em] mb-2 px-1">Raison Sociale Facturation</label>
-                                            <input
-                                                type="text"
-                                                name="LibTiersA"
-                                                value={formData.LibTiersA || ''}
-                                                onChange={handleChange}
-                                                className="input-modern w-full"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Next Button for Step 1 - Aller directement aux Articles */}
-                                <div className="flex justify-end pt-6">
-                                    <button type="button" onClick={() => setCurrentStep(3)} className="group py-4 px-10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1 active:scale-95 transition-all">
-                                        Suivant : Articles <ArrowLeftIcon className="h-4 w-4 rotate-180 stroke-[3] group-hover:translate-x-1 transition-transform" />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                    <AnimatePresence mode="wait">
-                        {currentStep === 3 && (
-                            <motion.div
-                                key="step3"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="space-y-6"
-                            >
-                                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                                    {/* Simple Header */}
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-                                        <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Articles</h2>
-                                        <button
-                                            type="button"
-                                            onClick={addItem}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm active:scale-95"
-                                        >
-                                            <PlusIcon className="h-4 w-4 stroke-[3]" /> Ajouter un article
-                                        </button>
-                                    </div>
-
-                                    {/* Minimalist List */}
-                                    <div className="divide-y divide-slate-100">
-                                        {items.length === 0 && (
-                                            <div className="text-center py-12 text-slate-400 text-xs italic">
-                                                Aucun article ajouté. Utilisez le bouton ci-dessus pour commencer.
                                             </div>
                                         )}
-                                        {items.map((item, index) => (
-                                            <div key={item.tempId} className="p-4 hover:bg-slate-50/50 transition-colors">
-                                                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                                                    {/* Index & Search */}
-                                                    <div className="flex items-center gap-3 flex-1 w-full">
-                                                        <span className="text-[10px] font-bold text-slate-300 w-4">{index + 1}</span>
-                                                        <div className="flex-1">
-                                                            <input
-                                                                type="text"
-                                                                value={item.productSearch ?? (item.LibArt ? getProductSearchLabel(item) : '')}
-                                                                onFocus={() => setActiveProductRowId(item.tempId)}
-                                                                onChange={(e) => handleProductSearchChange(item.tempId, e.target.value)}
-                                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-400 transition-all"
-                                                            />
-                                                        </div>
-                                                        <select
-                                                            value={item.IDArt || ''}
-                                                            onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
-                                                            className="w-48 bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 focus:border-blue-400"
-                                                        >
-                                                            <option value="">
-                                                                {loadingProducts && activeProductRowId === item.tempId ? 'Chargement...' : '-- Sélectionner --'}
-                                                            </option>
-                                                            {item.IDArt && <option value={item.IDArt}>{item.CodArt} - {item.LibArt}</option>}
-                                                            {productOptions.map(p => (
-                                                                <option key={p.IDArt} value={p.IDArt}>{p.CodArt} - {getProductName(p)}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                    </div>
+                                </div>
 
-                                                    {/* Price & Qty Row */}
-                                                    <div className="flex items-center gap-3 w-full md:w-auto">
-                                                        <div className="flex flex-col items-center">
-                                                            <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">Qté</label>
-                                                            <input type="number" min="0" value={item.Qt || 0} onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
-                                                                className="w-16 text-center border border-slate-200 rounded-lg py-1.5 text-xs font-bold text-blue-600" />
-                                                        </div>
-                                                        <div className="flex flex-col items-center">
-                                                            <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">P.U HT</label>
-                                                            <input type="number" min="0" value={item.PuHT || 0} onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
-                                                                className="w-24 text-right border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700" />
-                                                        </div>
-                                                        <div className="flex flex-col items-end min-w-[80px]">
-                                                            <label className="text-[8px] font-bold text-slate-400 uppercase mb-1">Total HT</label>
-                                                            <span className="text-xs font-black text-slate-700">{(item.MntHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</span>
-                                                        </div>
-                                                        <div className="flex gap-1 ml-2">
-                                                            <button type="button" onClick={() => toggleItemExpanded(item.tempId)} className={`p-2 rounded-lg ${expandedItems[item.tempId] ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}>
-                                                                <ChevronDownIcon className={`h-4 w-4 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
-                                                            </button>
-                                                            <button type="button" onClick={() => removeItem(item.tempId)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg">
-                                                                <TrashIcon className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            ) : (
 
-                                                {/* Simplified Expandable */}
-                                                <AnimatePresence>
-                                                    {expandedItems[item.tempId] && (
-                                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50/30 rounded-lg mt-3">
-                                                            <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                                <div>
-                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">TVA (%)</label>
-                                                                    <input type="number" value={item.Tva || 19} onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Remise (%)</label>
-                                                                    <input type="number" value={item.Remise || 0} onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" />
-                                                                </div>
-                                                                <div className="md:col-span-2">
-                                                                    <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Observation</label>
-                                                                    <input type="text" value={item.Observation || ''} onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)} className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-semibold" maxLength="255" />
-                                                                </div>
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
+            /* NEW DEVIS — step-by-step form */
+            <form id="devis-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-6 pt-6 space-y-6">
+
+                {/* STEP 1 — Client */}
+                <AnimatePresence mode="wait">
+                    {currentStep === 1 && (
+                        <motion.div key="step1" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
+
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
+                                        <UserGroupIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Sélection du client</h2>
+                                        <p className="text-[11px] text-slate-500">Recherchez et sélectionnez un client</p>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 space-y-4">
+                                    <div className="relative" ref={clientDropdownRef}>
+                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
+                                        <div className="relative">
+                                            <UserGroupIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={clientSearch}
+                                                onChange={(e) => {
+                                                    setClientSearch(e.target.value);
+                                                    setShowClientDropdown(true);
+                                                    if (formData.CodTiers && !clients.some(c => c.Raisoc === e.target.value || c.CodTiers === e.target.value)) {
+                                                        setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
+                                                    }
+                                                }}
+                                                onFocus={() => setShowClientDropdown(true)}
+                                                placeholder={loadingClients ? 'Chargement des clients...' : 'Nom, code ou email du client...'}
+                                                className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 ${formData.CodTiers ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800 focus:border-emerald-400' : 'border-slate-200 bg-white text-slate-700 focus:border-blue-400'}`}
+                                                autoComplete="off"
+                                            />
+                                            {clientSearch && (
+                                                <button type="button" onClick={() => { setClientSearch(''); setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); setShowClientDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {showClientDropdown && filteredClients.length > 0 && (
+                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                                                {filteredClients.slice(0, 50).map(client => (
+                                                    <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
+                                                        className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}>
+                                                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                            <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}{client.Ville ? ` · ${client.Ville}` : ''}</p>
+                                                        </div>
+                                                        {formData.CodTiers === client.CodTiers && <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                                                    </button>
+                                                ))}
                                             </div>
-                                        ))}
+                                        )}
+                                        {showClientDropdown && clientSearch && filteredClients.length === 0 && (
+                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-center">
+                                                <p className="text-sm text-slate-400">Aucun client trouvé pour « {clientSearch} »</p>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Clean Totals Row */}
-                                    {items.length > 0 && (
-                                        <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">{items.length} Article(s)</span>
-                                            <div className="flex gap-8">
-                                                <div className="text-right">
-                                                    <p className="text-[8px] font-bold text-slate-400 uppercase">Total HT</p>
-                                                    <p className="text-sm font-black text-slate-600">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</p>
+                                    {formData.CodTiers && (
+                                        <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                            <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                                <BuildingOfficeIcon className="h-5 w-5 text-emerald-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-emerald-800">{formData.LibTiers}</p>
+                                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                                    {formData.CodTiers && <span className="text-[10px] font-mono bg-white text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>}
+                                                    {formData.Ville && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1"><MapPinIcon className="h-3 w-3" />{formData.Ville}</span>}
+                                                    {formData.Classe && <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">{formData.Classe}</span>}
+                                                    {formData.Tel && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>}
+                                                    {clientCin && <span className="text-[10px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{clientCin}</span>}
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-[8px] font-bold text-blue-500 uppercase">Net TTC</p>
-                                                    <p className="text-sm font-black text-blue-600">{(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</p>
-                                                </div>
+                                                {formData.Adresse && <p className="text-[11px] text-slate-400 mt-1">{formData.Adresse}</p>}
+                                            </div>
+                                            <CheckCircleIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                                        </div>
+                                    )}
+
+                                    {formData.CodTiers && (
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Projet associé <span className="normal-case font-normal text-slate-400">(optionnel)</span></label>
+                                            <select
+                                                value={selectedProjectId}
+                                                onChange={(e) => setSelectedProjectId(e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
+                                                disabled={loadingProjects}
+                                            >
+                                                <option value="">Sans projet lié</option>
+                                                {projects.map((project) => (
+                                                    <option key={project.ID_Projet} value={project.ID_Projet}>
+                                                        {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
+                                                        {project.CodDev ? ` | Devis ${project.CodDev}` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {loadingProjects && <p className="text-[11px] text-blue-500 mt-1 animate-pulse">Chargement des projets...</p>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Commercial */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-50/60 to-purple-50/30 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-violet-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-200/50">
+                                        <UserIcon className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Commercial assigné</h2>
+                                        <p className="text-[11px] text-slate-500">Représentant commercial du devis</p>
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    {isAdmin || isAgent ? (
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Choisir un commercial</label>
+                                            <div className="relative">
+                                                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                <select
+                                                    name="CodRepres"
+                                                    value={formData.CodRepres || ''}
+                                                    onChange={(e) => {
+                                                        const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value);
+                                                        setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' }));
+                                                    }}
+                                                    className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
+                                                    disabled={loadingCommercials}
+                                                >
+                                                    <option value="">-- Sélectionner un commercial --</option>
+                                                    {commercials.map(comm => (
+                                                        <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                                            <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                                <UserIcon className="h-4 w-4 text-violet-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
+                                                <p className="text-[10px] text-slate-400">Commercial assigné</p>
                                             </div>
                                         </div>
                                     )}
                                 </div>
+                            </div>
 
-                                {/* Navigation */}
-                                <div className="flex justify-between pt-4">
-                                    <button type="button" onClick={() => setCurrentStep(1)} className="py-3 px-8 rounded-xl font-bold uppercase text-[10px] bg-white text-slate-500 border border-slate-200 hover:bg-slate-50">
-                                        Retour Client
-                                    </button>
-                                    <button type="button" onClick={() => setCurrentStep(4)} className="py-3 px-10 rounded-xl font-bold uppercase text-[10px] bg-blue-600 text-white shadow-md hover:bg-blue-700">
-                                        Valider le Devis
-                                    </button>
+                            {/* Navigation */}
+                            <div className="flex justify-end pt-2">
+                                <button type="button" onClick={() => { if (!formData.CodTiers) { toast.error('Veuillez sélectionner un client'); return; } setCurrentStep(3); }}
+                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
+                                    Articles
+                                    <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* STEP 2 — Articles */}
+                <AnimatePresence mode="wait">
+                    {currentStep === 3 && (
+                        <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
+
+                            {formData.CodTiers && (
+                                <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-800 truncate">{formData.LibTiers}</p>
+                                        <p className="text-[10px] text-slate-400 font-mono">{formData.CodTiers}{formData.Ville ? ` · ${formData.Ville}` : ''}</p>
+                                    </div>
+                                    <button type="button" onClick={() => setCurrentStep(1)} className="text-[10px] text-blue-600 hover:underline font-semibold">Modifier</button>
                                 </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                            )}
 
-                    {/* Step 4: Final Validation */}
-                    <AnimatePresence mode="wait">
-                        {currentStep === 4 && (
-                            <motion.div
-                                key="step4"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="max-w-xl mx-auto space-y-6"
-                            >
-                                <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xl shadow-slate-200/50 p-10 space-y-10">
-                                    <div className="text-center space-y-3">
-                                        <div className="h-16 w-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-100 shadow-sm">
-                                            <CalculatorIcon className="h-8 w-8" />
-                                        </div>
-                                        <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Récapitulatif Financier</h2>
-                                        <p className="text-sm text-slate-500 font-medium">Vérification finale des montants de la proposition</p>
+                            <ArticlesTable />
+
+                            <div className="flex justify-between pt-2">
+                                <button type="button" onClick={() => setCurrentStep(1)}
+                                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                    <ArrowLeftIcon className="h-4 w-4" /> Client
+                                </button>
+                                <button type="button" onClick={() => setCurrentStep(4)}
+                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
+                                    Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* STEP 3 — Recap & Confirmation */}
+                <AnimatePresence mode="wait">
+                    {currentStep === 4 && (
+                        <motion.div key="step4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="max-w-lg mx-auto space-y-4">
+
+                            <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden">
+                                <div className="px-6 py-5 border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/40 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
+                                        <CalculatorIcon className="h-5 w-5 text-white" />
                                     </div>
-
-                                    <div className="bg-slate-50/50 rounded-2xl p-6 space-y-4 border border-slate-100">
-                                        <div className="flex justify-between items-center py-2 border-b border-slate-100/50">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Base Hors Taxe</span>
-                                            <span className="text-sm font-bold text-slate-700">{(formData.TotHT || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px] text-slate-400">TND</span></span>
-                                        </div>
-                                        <div className="flex justify-between items-center py-2 border-b border-slate-100/50">
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total TVA</span>
-                                            <span className="text-sm font-bold text-slate-700">{(formData.TotTva || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })} <span className="text-[10px] text-slate-400">TND</span></span>
-                                        </div>
-                                        <div className="flex justify-between items-center pt-6 pb-2">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Net à Payer</span>
-                                                <span className="text-xs text-slate-400 font-medium italic">Toutes taxes comprises</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-3xl font-black text-indigo-600 tracking-tighter">{(formData.TotTTC || 0).toLocaleString(undefined, { minimumFractionDigits: 3 })}</span>
-                                                <span className="ml-1.5 text-xs font-bold text-indigo-400">TND</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <button
-                                            type="submit"
-                                            disabled={saving}
-                                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
-                                        >
-                                            {saving ? (
-                                                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            ) : (
-                                                <>
-                                                    <CheckIcon className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                                                    Confirmer l'Enregistrement
-                                                </>
-                                            )}
-                                        </button>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setCurrentStep(3)} 
-                                            className="w-full py-3 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                                        >
-                                            <ArrowLeftIcon className="h-4 w-4" />
-                                            Modifier les articles
-                                        </button>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-800">Récapitulatif financier</h2>
+                                        <p className="text-[11px] text-slate-500">Vérification finale avant enregistrement</p>
                                     </div>
                                 </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+
+                                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                                    <div>
+                                        <p className="text-xs text-slate-400">Client</p>
+                                        <p className="text-sm font-bold text-slate-800">{formData.LibTiers || '—'}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-slate-400">Articles</p>
+                                        <p className="text-sm font-bold text-slate-800">{items.length}</p>
+                                    </div>
+                                </div>
+
+                                <div className="px-6 py-5 space-y-3">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-500">Base HT</span>
+                                        <span className="font-semibold text-slate-700">{fmt(formData.TotHT)} TND</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-500">TVA</span>
+                                        <span className="font-semibold text-slate-700">{fmt(formData.TotTva)} TND</span>
+                                    </div>
+                                    {formData.TotRem > 0 && (
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-rose-500">Remise globale</span>
+                                            <span className="font-semibold text-rose-600">- {fmt(formData.TotRem)} TND</span>
+                                        </div>
+                                    )}
+                                    <div className="border-t border-dashed border-emerald-100 pt-3 flex justify-between items-center">
+                                        <div>
+                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Net TTC</p>
+                                            <p className="text-[11px] text-slate-400">Toutes taxes comprises</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-2xl font-black text-emerald-600">{fmt(formData.TotTTC)}</span>
+                                            <span className="ml-1 text-sm font-bold text-emerald-400">TND</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="px-6 pb-6 space-y-3">
+                                    <button type="submit" disabled={saving}
+                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-200/50 transition-all disabled:opacity-60">
+                                        {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                                        Créer le devis
+                                    </button>
+                                    <button type="button" onClick={() => setCurrentStep(3)}
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all">
+                                        <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
             </form>
+            )}
         </div>
     );
 };

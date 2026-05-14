@@ -45,6 +45,34 @@ import predictionService from '../sales/predictionService';
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const PRIORITY_COLORS = { 'Haute': '#ef4444', 'Moyenne': '#f59e0b', 'Basse': '#10b981' };
 const STATUS_COLORS = { 'Ouvert': '#3b82f6', 'En cours': '#f59e0b', 'Résolu': '#10b981', 'Fermé': '#64748b' };
+
+/* Mapping nom affiché ↔ clé API Flask (MAJUSCULES_UNDERSCORE) */
+const GOUVERNORATS = [
+  { name: 'Tunis',       key: 'TUNIS'      },
+  { name: 'Sfax',        key: 'SFAX'       },
+  { name: 'Sousse',      key: 'SOUSSE'     },
+  { name: 'Nabeul',      key: 'NABEUL'     },
+  { name: 'Ben Arous',   key: 'BEN_AROUS'  },
+  { name: 'Ariana',      key: 'ARIANA'     },
+  { name: 'Bizerte',     key: 'BIZERTE'    },
+  { name: 'Monastir',    key: 'MONASTIR'   },
+  { name: 'Manouba',     key: 'MANOUBA'    },
+  { name: 'Gabès',       key: 'GABES'      },
+  { name: 'Gafsa',       key: 'GAFSA'      },
+  { name: 'Kairouan',    key: 'KAIROUAN'   },
+  { name: 'Mahdia',      key: 'MAHDIA'     },
+  { name: 'Médenine',    key: 'MEDENINE'   },
+  { name: 'Béja',        key: 'BEJA'       },
+  { name: 'Jendouba',    key: 'JENDOUBA'   },
+  { name: 'Kef',         key: 'LE_KEF'     },
+  { name: 'Kasserine',   key: 'KASSERINE'  },
+  { name: 'Sidi Bouzid', key: 'SIDI_BOUZID'},
+  { name: 'Siliana',     key: 'SILIANA'    },
+  { name: 'Zaghouan',    key: 'ZAGHOUAN'   },
+  { name: 'Kébili',      key: 'KEBILI'     },
+  { name: 'Tozeur',      key: 'TOZEUR'     },
+  { name: 'Tataouine',   key: 'TATAOUINE'  },
+];
 const isExpectedAuthFailure = (error) => error?.response?.status === 401 || error?.isSessionExpired === true;
 const isForbidden = (error) => error?.response?.status === 403;
 const getCollection = (payload) => (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []);
@@ -97,6 +125,11 @@ const Dashboard = () => {
     const target = Number(moduleCode);
     return allPermissions.some((p) => Number(p.moduleCode) === target && p.isActive === true);
   };
+
+  // Sélecteur trimestre ML
+  const [mlTrimestre, setMlTrimestre] = useState(3);
+  const [mlYear, setMlYear]           = useState(new Date().getFullYear());
+  const [mlLoading, setMlLoading]     = useState(false);
 
   // State pour les donn├⌐es
   const [stats, setStats] = useState([]);
@@ -510,11 +543,13 @@ const Dashboard = () => {
           } catch (e) { console.warn('Could not fetch recommendations'); }
         }
 
-        // Fetch ML Regional Predictions
+        // Fetch ML Regional Predictions — tous les 24 gouvernorats (clés API)
         try {
-          const mlData = await predictionService.predictAllRegions(3, 2026);
-          setRegionalPredictions(mlData.predictions || []);
-          setIsMLAvailable(true);
+          const govKeys = GOUVERNORATS.map(g => g.key);
+          const mlData = await predictionService.predictBatch(govKeys, 3, new Date().getFullYear());
+          const results = mlData?.results || mlData?.predictions || [];
+          setRegionalPredictions(results);
+          setIsMLAvailable(results.length > 0);
         } catch (mlError) {
           console.warn('ML Service not available for dashboard:', mlError.message);
           setIsMLAvailable(false);
@@ -533,1060 +568,846 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [allPermissions]);
 
-  const getIconStyle = (color) => {
-    const styles = {
-      blue: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
-      emerald: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
-      amber: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
-      purple: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)'
-    };
-    return styles[color] || styles.blue;
+  /* Recharger les prédictions ML quand trimestre/année change */
+  const fetchMlPredictions = async (t, y) => {
+    setMlLoading(true);
+    try {
+      const govKeys = GOUVERNORATS.map(g => g.key);
+      const mlData  = await predictionService.predictBatch(govKeys, t, y);
+      const results = mlData?.results || mlData?.predictions || [];
+      setRegionalPredictions(results);
+      setIsMLAvailable(results.length > 0);
+    } catch {
+      setIsMLAvailable(false);
+    } finally {
+      setMlLoading(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="animate-fade-in space-y-8 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="card-luxury p-6 animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="h-4 bg-slate-200 rounded mb-4 w-2/3"></div>
-              <div className="h-8 bg-slate-200 rounded mb-4 w-1/2"></div>
-              <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-            </div>
-          ))}
+      <div className="space-y-6 pb-12 animate-pulse">
+        <div className="h-40 bg-slate-100 rounded-3xl" />
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl" />)}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <div key={i} className="h-64 bg-slate-100 rounded-2xl" />)}
         </div>
       </div>
     );
   }
 
-  // Get current date and time
-  const currentDate = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  const currentDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Enhanced Chart Card Header Component - Unified Color Scheme
-  const ChartCardHeader = ({ title, subtitle, icon: Icon, colorClass = 'blue' }) => {
-    const colorStyles = {
-      blue: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      emerald: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      purple: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      amber: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      rose: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      cyan: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-      indigo: { bg: 'from-slate-50/80 via-slate-50/40', text: 'text-slate-800', icon: 'bg-slate-100', iconColor: 'text-slate-700', accent: 'border-slate-200/50' },
-    };
-    const colors = colorStyles[colorClass] || colorStyles.blue;
+  const ICON_PALETTE = {
+    blue:    { bg: 'bg-blue-50',    text: 'text-blue-500',    border: 'border-blue-100',    bar: 'bg-blue-500' },
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', border: 'border-emerald-100', bar: 'bg-emerald-500' },
+    amber:   { bg: 'bg-amber-50',   text: 'text-amber-500',   border: 'border-amber-100',   bar: 'bg-amber-500' },
+    purple:  { bg: 'bg-violet-50',  text: 'text-violet-500',  border: 'border-violet-100',  bar: 'bg-violet-500' },
+    rose:    { bg: 'bg-rose-50',    text: 'text-rose-500',    border: 'border-rose-100',    bar: 'bg-rose-500' },
+    cyan:    { bg: 'bg-cyan-50',    text: 'text-cyan-500',    border: 'border-cyan-100',    bar: 'bg-cyan-500' },
+    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-500',  border: 'border-indigo-100',  bar: 'bg-indigo-500' },
+    sky:     { bg: 'bg-sky-50',     text: 'text-sky-500',     border: 'border-sky-100',     bar: 'bg-sky-500' },
+    teal:    { bg: 'bg-teal-50',    text: 'text-teal-500',    border: 'border-teal-100',    bar: 'bg-teal-500' },
+  };
+
+  const CardHeader = ({ title, subtitle, icon: Icon, color = 'blue' }) => {
+    const p = ICON_PALETTE[color] || ICON_PALETTE.blue;
     return (
-      <div className={`p-6 lg:p-8 border-b border-slate-200/40 bg-gradient-to-r ${colors.bg} to-transparent relative overflow-hidden`}>
-        <div className="absolute inset-0 bg-gradient-to-r from-white/40 to-transparent pointer-events-none"></div>
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex-1 pr-4">
-            <h2 className={`text-lg font-bold ${colors.text} tracking-tight mb-1`}>{title}</h2>
-            {subtitle && <p className="text-sm text-slate-600/90 font-medium">{subtitle}</p>}
-          </div>
-          <div className={`p-3 rounded-xl ${colors.icon} border ${colors.accent} shadow-md hover:shadow-lg transition-all flex-shrink-0`}>
-            <Icon className={`h-6 w-6 ${colors.iconColor}`} />
-          </div>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-none ${p.bg} border ${p.border}`}>
+          <Icon className={`h-4 w-4 ${p.text}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-slate-800 truncate">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-400 mt-0.5 truncate">{subtitle}</p>}
         </div>
       </div>
     );
   };
 
+  const kpiCards = [
+    { label: 'Clients',        value: tiersStats?.total || 0,             sub: `Base active`,                           icon: UserGroupIcon,       color: 'emerald' },
+    { label: 'Devis',          value: devisStats?.total || 0,             sub: `${(devisStats?.totalAmount/1000||0).toFixed(1)}k TND`, icon: DocumentTextIcon,    color: 'sky' },
+    { label: 'Projets actifs', value: projectStats?.activeCount || 0,     sub: `${projectStats?.total||0} total`,       icon: BriefcaseIcon,       color: 'indigo' },
+    { label: 'Objectifs',      value: `${objectifStats?.achievementRate||0}%`, sub: `${objectifStats?.achievedCount||0}/${objectifStats?.total||0} atteints`, icon: ArrowTrendingUpIcon, color: 'purple' },
+    { label: 'SAV ouvert',     value: reclamationStats?.openCount || 0,   sub: `Taux résol. ${resolutionRate}%`,        icon: ClockIcon,           color: 'rose' },
+    { label: 'Utilisateurs',   value: userStats?.total || 0,              sub: `${userStats?.activeCount||0} actifs`,   icon: UsersIcon,           color: 'amber' },
+    { label: 'Livraisons',     value: stats.find(s=>s.name==='Livraisons')?.value || 0, sub: 'Total',           icon: TruckIcon,           color: 'teal' },
+    { label: 'Factures',       value: stats.find(s=>s.name==='Factures')?.value || 0, sub: 'Total',            icon: CurrencyDollarIcon,  color: 'cyan' },
+  ];
+
   return (
-    <div className="animate-fade-in space-y-8 pb-12">
+    <div className="space-y-5 pb-12">
 
-      {/* Professional Welcome Banner - Premium Design */}
-      <div className="card-luxury p-0 overflow-hidden group hover:shadow-2xl transition-all duration-300 border border-slate-200/40">
-        <div className="relative p-8 lg:p-12 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 backdrop-blur-xl overflow-hidden shadow-lg border-b border-white/10">
-          {/* Enhanced Decorative Background Elements */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/15 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
-          <div className="absolute top-1/2 right-1/4 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl"></div>
-
-          {/* Gradient Line Animation */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-            <div className="text-white flex-1">
-              <div className="flex items-center gap-3 mb-4 opacity-90">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <SparklesIcon className="h-6 w-6 text-white animate-pulse" />
-                </div>
-                <div className="flex flex-col gap-0">
-                  <p className="text-white/70 text-xs font-bold uppercase tracking-widest">Bienvenue Retour</p>
-                  <p className="text-white/80 text-xs font-semibold">{currentDate}</p>
-                </div>
-              </div>
-              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
-                Bonjour, {(user?.FullName || 'Utilisateur').split(' ')[0]} ≡ƒæï
-              </h1>
-              <div className="space-y-3">
-                <p className="text-white/90 text-base max-w-xl leading-relaxed font-medium">
-                  Voici un aper├ºu de votre tableau de bord en temps r├⌐el avec tous vos KPI importants.
-                </p>
-                <div className="flex flex-wrap gap-4 pt-2">
-                  <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
-                    <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
-                    <span className="text-white/90 text-sm font-semibold">{reclamationStats?.openCount || 0} réclamations urgentes</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20">
-                    <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse"></div>
-                    <span className="text-white/90 text-sm font-semibold">{projectStats?.activeCount || 0} Projets actifs</span>
-                  </div>
-                </div>
-              </div>
+      {/* Header */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <SparklesIcon className="h-4 w-4 text-indigo-400" />
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{currentDate}</p>
             </div>
-            <div className="flex flex-col gap-3 justify-start lg:justify-end">
-              <button
-                onClick={() => navigate('/reclamations')}
-                className="group/btn px-7 py-3 bg-white text-blue-600 rounded-xl text-sm font-bold uppercase tracking-wider shadow-2xl hover:shadow-3xl hover:-translate-y-1.5 transition-all flex items-center gap-2 border-2 border-white/20 hover:border-white/50 hover:bg-blue-50"
-              >
-                <DocumentTextIcon className="h-5 w-5 group-hover/btn:scale-110 transition-transform" />
-                Voir réclamations
-              </button>
-              <button
-                onClick={() => navigate('/projets')}
-                className="group/btn2 px-6 py-3 border-2 border-white/40 text-white rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-white/10 transition-all backdrop-blur-sm hover:border-white/60 hover:shadow-lg"
-              >
-                <BriefcaseIcon className="h-5 w-5 inline mr-2 group-hover/btn2:scale-110 transition-transform" />
-                Voir Projets
-              </button>
-            </div>
+            <h1 className="text-3xl font-black text-slate-800">
+              Bonjour,{' '}
+              <span className="bg-gradient-to-r from-indigo-500 to-sky-500 bg-clip-text text-transparent">
+                {(user?.FullName || 'Utilisateur').split(' ')[0]}
+              </span>
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">Vue d'ensemble de votre activité en temps réel</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
+              {reclamationStats?.openCount || 0} SAV ouverts
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              {projectStats?.activeCount || 0} projets actifs
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {objectifStats?.achievedCount || 0}/{objectifStats?.total || 0} objectifs
+            </span>
+            <button onClick={() => navigate('/reclamations')}
+              className="h-8 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl transition-all shadow-sm">
+              Voir SAV
+            </button>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards - Professional Design with Enhanced Animations */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <div
-            key={index}
-            className="group cursor-pointer"
-            style={{
-              animation: `slideUp 0.5s ease-out ${index * 0.08}s both`,
-            }}
-          >
-            <style>{`
-              @keyframes slideUp {
-                from {
-                  opacity: 0;
-                  transform: translateY(20px);
-                }
-                to {
-                  opacity: 1;
-                  transform: translateY(0);
-                }
-              }
-            `}</style>
-            <div className={`card-luxury p-0 overflow-hidden h-full transition-all duration-300 hover:-translate-y-3 hover:shadow-2xl border border-slate-200/40 bg-white flex flex-col`}>
-
-              <div className="p-6 lg:p-7 flex flex-col h-full bg-gradient-to-br from-white/60 to-slate-50/40">
-                {/* Header Section */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest letter-spacing-1 mb-2.5">{stat.name}</p>
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-4xl font-extrabold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent group-hover:from-slate-700 group-hover:to-slate-600 transition-all">{stat.value}</span>
-                      {stat.unit && <span className="text-sm font-semibold text-slate-500">{stat.unit}</span>}
-                    </div>
-                  </div>
-                  <div
-                    className="p-4 rounded-2xl shadow-md group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 flex-shrink-0 border border-slate-200/50"
-                    style={{ background: getIconStyle(stat.color) }}
-                  >
-                    <stat.icon className="h-7 w-7 text-white" />
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-slate-200/50 to-transparent mt-2"></div>
-
-                {/* Footer Section */}
-                <div className="mt-auto pt-5 border-t border-slate-200/50">
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-bold flex items-center gap-1.5 ${stat.trendUp ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {stat.trendUp ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
-                        {stat.trend}
-                      </span>
-                      <span className="text-xs font-medium text-slate-600 bg-slate-100/60 px-3 py-1.5 rounded-lg border border-slate-200/50 font-semibold">{stat.description}</span>
-                    </div>
-                  </div>
-                </div>
+      {/* KPI Grid — 8 cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+        {kpiCards.map((kpi, i) => {
+          const p = ICON_PALETTE[kpi.color] || ICON_PALETTE.blue;
+          return (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-2">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-none ${p.bg} border ${p.border}`}>
+                <kpi.icon className={`h-4 w-4 ${p.text}`} />
               </div>
+              <p className="text-2xl font-black text-slate-800 leading-none">{kpi.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{kpi.label}</p>
+              <p className="text-[10px] text-slate-300">{kpi.sub}</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      {/* Row 1 — SAV donut · Projects bars · Objectifs gauge */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
 
-        {/* réclamations Status Chart - Professional Enhanced Design */}
-        <div className="xl:col-span-4 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-          <ChartCardHeader
-            title="réclamations par Statut"
-            subtitle={`Total: ${reclamationStats?.total} | Taux de Résolution: ${resolutionRate}%`}
-            icon={DocumentTextIcon}
-            colorClass="blue"
-          />
-
-          <div className="p-6 lg:p-8 flex justify-center">
-            <div className="w-64 h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+        {/* SAV by status */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="SAV par Statut" subtitle={`Total: ${reclamationStats?.total || 0} · Résolution: ${resolutionRate}%`} icon={DocumentTextIcon} color="rose" />
+          <div className="p-5 flex justify-center">
+            <ResponsiveContainer width={200} height={200}>
+              <PieChart>
+                <Pie data={chartData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={3}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={Object.values(STATUS_COLORS)[i % 4]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-
-          {/* D├⌐tail des statuts */}
-          <div className="px-6 pb-6 space-y-3">
+          <div className="px-5 pb-5 space-y-2">
             {Object.entries(reclamationStats?.byStatus || {}).map(([status, count]) => (
               <div key={status} className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">{status}</span>
-                <span className="text-sm font-bold text-slate-800">{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Projets & Objectifs */}
-        <div className="xl:col-span-8 space-y-6">
-
-
-          {/* Projects Status */}
-          <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-            <ChartCardHeader
-              title="Projets en cours"
-              subtitle={`${projectStats?.activeCount} actifs sur ${projectStats?.total} total`}
-              icon={BriefcaseIcon}
-              colorClass="emerald"
-            />
-
-            <div className="p-6 lg:p-8">
-              <div className="space-y-4">
-                {Object.entries(projectStats?.byStatus || {}).map(([status, count]) => (
-                  <div key={status} className="group/item">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircleIcon className="h-5 w-5 text-slate-600" />
-                        <span className="text-sm font-semibold text-slate-700">{status}</span>
-                      </div>
-                      <span className="px-3 py-1 rounded-lg bg-slate-100/60 text-slate-700 text-sm font-bold border border-slate-200/50">{count}</span>
-                    </div>
-                    <div className="w-full bg-gradient-to-r from-slate-100 to-slate-50 rounded-lg h-3 overflow-hidden shadow-sm border border-slate-100/50">
-                      <div
-                        className="bg-gradient-to-r from-slate-400 to-slate-500 h-3 rounded-lg transition-all duration-500 group-hover/item:shadow-lg"
-                        style={{ width: `${(count / (projectStats?.total || 1)) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Objectifs Achievement */}
-          <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-slate-200/40 bg-white">
-            <ChartCardHeader
-              title="Taux de R├⌐alisation Objectifs"
-              subtitle={`${objectifStats?.achievementRate}% d'objectifs atteints`}
-              icon={ArrowTrendingUpIcon}
-              colorClass="purple"
-            />
-
-            <div className="p-6 lg:p-8">
-              <div className="space-y-4">
-                {Object.entries(objectifStats?.byStatus || {}).map(([status, count]) => (
-                  <div key={status} className="group/item">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircleIcon className="h-5 w-5 text-slate-600" />
-                        <span className="text-sm font-semibold text-slate-700">{status}</span>
-                      </div>
-                      <span className="px-3 py-1 rounded-lg bg-slate-100/60 text-slate-700 text-sm font-bold border border-slate-200/50">{count}</span>
-                    </div>
-                    <div className="w-full bg-gradient-to-r from-slate-100 to-slate-50 rounded-lg h-3 overflow-hidden shadow-sm border border-slate-100/50">
-                      <div
-                        className="bg-gradient-to-r from-slate-400 to-slate-500 h-3 rounded-lg transition-all duration-500 group-hover/item:shadow-lg"
-                        style={{ width: `${(count / (objectifStats?.total || 1)) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Devis & Utilisateurs */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-
-        {/* Devis Stats */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
-          <ChartCardHeader
-            title="Devis"
-            subtitle={`Montant total: ${(devisStats?.totalAmount / 1000).toFixed(1)}k TND`}
-            icon={DocumentTextIcon}
-            colorClass="amber"
-          />
-
-          <div className="p-6 lg:p-8 space-y-3">
-            {Object.entries(devisStats?.byStatus || {}).map(([status, count]) => (
-              <div key={status} className="group/devis flex items-center justify-between p-4 bg-gradient-to-r from-slate-50/70 to-transparent rounded-lg border border-slate-200/50 hover:shadow-md hover:bg-slate-50 transition-all cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-slate-400 shadow-sm"></div>
-                  <span className="text-sm font-semibold text-slate-700">{status}</span>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLORS[status] || '#94a3b8' }} />
+                  <span className="text-xs text-slate-600">{status}</span>
                 </div>
-                <span className="text-lg font-bold text-slate-700 group-hover/devis:scale-110 transition-transform px-3 py-1 rounded-lg bg-white/50 border border-slate-200/50">{count}</span>
+                <span className="text-xs font-bold text-slate-800">{count}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Users Stats */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
-          <ChartCardHeader
-            title="Utilisateurs"
-            subtitle={`${userStats?.activeCount} actifs sur ${userStats?.total} total`}
-            icon={UsersIcon}
-            colorClass="cyan"
-          />
-
-          <div className="p-6 lg:p-8 space-y-3">
-            {Object.entries(userStats?.byRole || {}).map(([role, count]) => (
-              <div key={role} className="group/user flex items-center justify-between p-4 bg-gradient-to-r from-slate-50/70 to-transparent rounded-lg border border-slate-200/50 hover:shadow-md hover:bg-slate-50 transition-all cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-slate-400 shadow-sm"></div>
-                  <span className="text-sm font-semibold text-slate-700">{role}</span>
-                </div>
-                <span className="text-lg font-bold text-slate-700 group-hover/user:scale-110 transition-transform px-3 py-1 rounded-lg bg-white/50 border border-slate-200/50">{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* NOUVELLES STATISTIQUES */}
-
-      {/* réclamations - Par Priorit├⌐ & Tendance Mensuelle */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-
-        {/* réclamations par Priorit├⌐ */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-          <ChartCardHeader
-            title="réclamations par Priorit├⌐"
-            subtitle={`Taux de Résolution: ${resolutionRate}%`}
-            icon={ChartBarIcon}
-            colorClass="rose"
-          />
-
-          <div className="p-6 lg:p-8">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={priorityChartData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
-                  <XAxis type="number" min="0" />
-                  <YAxis dataKey="name" type="category" width={80} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                    {priorityChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div className="px-6 pb-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50 hover:shadow-md transition-all">
-              <p className="text-2xl font-bold text-slate-800">{reclamationStats?.byPriority?.['Haute'] || 0}</p>
-              <p className="text-xs text-slate-500 mt-1 font-semibold">Haute</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50 hover:shadow-md transition-all">
-              <p className="text-2xl font-bold text-slate-800">{reclamationStats?.byPriority?.['Moyenne'] || 0}</p>
-              <p className="text-xs text-slate-500 mt-1 font-semibold">Moyenne</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50 hover:shadow-md transition-all">
-              <p className="text-2xl font-bold text-slate-800">{reclamationStats?.byPriority?.['Basse'] || 0}</p>
-              <p className="text-xs text-slate-500 mt-1 font-semibold">Basse</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tendance Mensuelle */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
-          <ChartCardHeader
-            title="Tendance Mensuelle"
-            subtitle="├ëvolution des réclamations sur 6 mois"
-            icon={ClockIcon}
-            colorClass="blue"
-          />
-
-          <div className="p-6 lg:p-8">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyTrendData}>
-                  <defs>
-                    <linearGradient id="colorOuvertes" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorResolues" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  />
-                  <Legend />
-                  <Area type="monotone" dataKey="ouvertes" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorOuvertes)" name="Ouvertes" />
-                  <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorResolues)" name="Résolues" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Performance Techniciens & Types de réclamations */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-
-        {/* Performance des Techniciens */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
-          <ChartCardHeader
-            title="Performance Techniciens"
-            subtitle="Top 5 techniciens par volume de réclamations"
-            icon={UsersIcon}
-            colorClass="purple"
-          />
-
-          <div className="p-6 lg:p-8">
-            {technicianStats.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={technicianStats}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="total" fill="#8b5cf6" name="Total" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="resolved" fill="#10b981" name="Résolus" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>Aucune donn├⌐e de technicien disponible</p>
-              </div>
-            )}
-          </div>
-
-          {/* Performance KPIs */}
-          <div className="px-6 pb-6">
-            <div className="grid grid-cols-2 gap-4">
-              {technicianStats.slice(0, 4).map((tech, idx) => (
-                <div key={idx} className="p-4 bg-gradient-to-br from-slate-50 to-slate-50/50 rounded-xl border border-slate-200/50 hover:shadow-md transition-all">
-                  <p className="text-sm font-semibold text-slate-700 mb-2">{tech.name}</p>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-lg font-bold text-slate-800">{tech.total}</span>
-                    <span className="text-xs font-bold text-slate-600">{tech.rate}%</span>
+        {/* Projects progress */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Projets" subtitle={`${projectStats?.activeCount || 0} actifs / ${projectStats?.total || 0} total`} icon={BriefcaseIcon} color="indigo" />
+          <div className="p-5 space-y-4">
+            {Object.entries(projectStats?.byStatus || {}).map(([status, count]) => {
+              const total = projectStats?.total || 1;
+              const pct = Math.round((count / total) * 100);
+              const colorMap = { 'Actif': 'bg-indigo-400', 'Complété': 'bg-emerald-400', 'En attente': 'bg-amber-400', 'Suspendu': 'bg-rose-400' };
+              return (
+                <div key={status}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs text-slate-600 font-medium">{status}</span>
+                    <span className="text-xs font-bold text-slate-700">{count} <span className="text-slate-400 font-normal">({pct}%)</span></span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-2 rounded-full transition-all ${colorMap[status] || 'bg-slate-400'}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Types de réclamations */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-          <ChartCardHeader
-            title="Types de réclamations"
-            subtitle="R├⌐partition par cat├⌐gorie"
-            icon={DocumentTextIcon}
-            colorClass="cyan"
-          />
-
-          <div className="p-6 lg:p-8 flex justify-center">
-            <div className="w-full h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={typeReclamationData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {typeReclamationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* D├⌐tail des types */}
-          <div className="px-6 pb-6 space-y-3">
-            {typeReclamationData.map((type, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-lg hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                  <span className="text-sm font-medium text-slate-700">{type.name}</span>
-                </div>
-                <span className="text-sm font-bold text-slate-800">{type.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ======= STATISTIQUES COMMERCIAUX ======= */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-
-        {/* Performance des Commerciaux */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-          <ChartCardHeader
-            title="Performance Commerciaux"
-            subtitle="Top 5 commerciaux par chiffre d'affaires"
-            icon={ArrowTrendingUpIcon}
-            colorClass="amber"
-          />
-
-          <div className="p-6 lg:p-8">
-            {commercialStats.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={commercialDevisData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="devis" fill="#f59e0b" name="Devis cr├⌐├⌐s" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="valid├⌐s" fill="#10b981" name="Devis valid├⌐s" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>Aucune donn├⌐e de commercial disponible</p>
-              </div>
-            )}
-          </div>
-
-          {/* Commercial KPIs */}
-          <div className="px-6 pb-6">
-            <div className="grid grid-cols-2 gap-4">
-              {commercialStats.slice(0, 4).map((comm, idx) => (
-                <div key={idx} className="p-4 bg-gradient-to-br from-slate-50 to-slate-50/50 rounded-xl border border-slate-200/50 hover:shadow-md transition-all">
-                  <p className="text-sm font-semibold text-slate-700 mb-1">{comm.name}</p>
-                  <p className="text-lg font-bold text-slate-800">{comm.conversionRate}%</p>
-                  <p className="text-xs text-slate-500 mt-2">{(comm.totalAmount / 1000).toFixed(1)}k TND</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Tendance Mensuelle Devis */}
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/40 bg-white">
-          <ChartCardHeader
-            title="Tendance Devis Mensuelle"
-            subtitle="├ëvolution des devis sur 6 mois"
-            icon={ClockIcon}
-            colorClass="emerald"
-          />
-
-          <div className="p-6 lg:p-8">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyDevisData}>
-                  <defs>
-                    <linearGradient id="colorDevis" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorValid├⌐s" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  />
-                  <Legend />
-                  <Area type="monotone" dataKey="devis" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDevis)" name="Devis cr├⌐├⌐s" />
-                  <Area type="monotone" dataKey="valid├⌐s" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorValid├⌐s)" name="Valid├⌐s" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Monthly Stats Summary */}
-          <div className="px-6 pb-6 grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50">
-              <p className="text-2xl font-bold text-slate-800">{devisStats?.total || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">Total Devis</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50">
-              <p className="text-2xl font-bold text-slate-800">{devisStats?.validatedCount || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">Valid├⌐s</p>
-            </div>
-            <div className="text-center p-4 bg-slate-50/70 rounded-xl border border-slate-200/50">
-              <p className="text-2xl font-bold text-slate-800">{devisStats?.pendingCount || 0}</p>
-              <p className="text-xs text-slate-500 mt-1">En attente</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Classement Commercial - Tableau d├⌐taill├⌐ */}
-      <div className="card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
-        <div className="p-6 lg:p-8 border-b border-slate-100/30 bg-gradient-to-r from-indigo-50/50 to-transparent flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-indigo-100 to-indigo-50/50 border border-indigo-200/50 shadow-sm">
-              <ArrowTrendingUpIcon className="h-5 w-5 text-indigo-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">Classement des Commerciaux</h2>
-              <p className="text-sm text-slate-500 mt-0.5">Performance d├⌐taill├⌐e par commercial</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Rang</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Commercial</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Devis</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Valid├⌐s</th>
-                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Taux Conv.</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">CA Total</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">CA Valid├⌐</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {commercialStats.map((comm, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-slate-700' : idx === 1 ? 'bg-slate-500' : idx === 2 ? 'bg-slate-400' : 'bg-slate-300'
-                      }`}>
-                      {idx + 1}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-semibold text-slate-800">{comm.fullName}</p>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-sm font-bold text-slate-800">{comm.total}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="text-sm font-bold text-emerald-600">{comm.validated}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-16 bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${comm.conversionRate}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-bold text-blue-600">{comm.conversionRate}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="text-sm font-semibold text-slate-800">{(comm.totalAmount / 1000).toFixed(1)}k</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="text-sm font-bold text-emerald-600">{(comm.validatedAmount / 1000).toFixed(1)}k</span>
-                  </td>
-                </tr>
-              ))}
-              {commercialStats.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-slate-500">
-                    Aucune donn├⌐e de commercial disponible
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ======= ANALYSE AVANC├ëE - PRODUITS & OBJECTIFS ======= */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
-        {/* Rendement Produits */}
-        <div className="xl:col-span-7 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
-          <ChartCardHeader
-            title="Rendement des Produits"
-            subtitle="Top 10 produits par chiffre d'affaires HT"
-            icon={ChartBarIcon}
-            colorClass="blue"
-          />
-          <div className="p-6 lg:p-8">
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={productYield} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(0,0,0,0.05)" />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="LibArt" type="category" width={150} tick={{ fontSize: 10 }} />
-                  <Tooltip 
-                    formatter={(value) => [`${value.toLocaleString()} TND`, 'CA HT']}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                  />
-                  <Bar dataKey="totalHT" fill="url(#colorHT)" radius={[0, 4, 4, 0]}>
-                    <defs>
-                      <linearGradient id="colorHT" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
-                        <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
-                      </linearGradient>
-                    </defs>
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Satisfaction Client Global */}
-        <div className="xl:col-span-5 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30">
-          <ChartCardHeader
-            title="Satisfaction Client"
-            subtitle="Index de satisfaction global (Basé sur IA)"
-            icon={CheckCircleIcon}
-            colorClass="emerald"
-          />
-          <div className="p-10 flex flex-col items-center justify-center h-full min-h-[320px]">
-            <div className="relative w-48 h-48 flex items-center justify-center">
-              {/* Circular Progress Background */}
-              <svg className="w-full h-full transform -rotate-90">
-                <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-                <circle 
-                  cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="transparent" 
-                  strokeDasharray={552.9}
-                  strokeDashoffset={552.9 - (552.9 * (globalSatisfaction?.score || 8.5)) / 10}
-                  className="text-emerald-500 transition-all duration-1000 ease-out"
-                />
+        {/* Objectifs gauge */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Objectifs" subtitle="Taux d'atteinte global" icon={ArrowTrendingUpIcon} color="purple" />
+          <div className="p-5 flex flex-col items-center gap-4">
+            <div className="relative h-40 w-40">
+              <svg className="w-full h-full -rotate-90">
+                <circle cx="80" cy="80" r="68" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
+                <circle cx="80" cy="80" r="68" stroke="#8b5cf6" strokeWidth="10" fill="transparent"
+                  strokeDasharray={427}
+                  strokeDashoffset={427 - (427 * Number(objectifStats?.achievementRate || 0)) / 100}
+                  className="transition-all duration-1000" />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-5xl font-black text-slate-800">{globalSatisfaction?.score || '8.5'}</span>
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">sur 10</span>
+                <span className="text-3xl font-black text-slate-800">{objectifStats?.achievementRate || 0}%</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">atteints</span>
               </div>
             </div>
-            <div className="mt-8 text-center">
-              <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${
-                (globalSatisfaction?.score || 8.5) > 7 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-                {globalSatisfaction?.label || 'Excellente'}
-              </span>
-              <p className="text-sm text-slate-500 mt-4 font-medium">
-                Basé sur {globalSatisfaction?.resolvedClaims || 0} réclamations Résolues
-              </p>
+            <div className="w-full space-y-2">
+              {Object.entries(objectifStats?.byStatus || {}).map(([status, count]) => (
+                <div key={status} className="flex justify-between">
+                  <span className="text-xs text-slate-500">{status}</span>
+                  <span className="text-xs font-bold text-slate-700">{count}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Pr├⌐diction des Objectifs & Recommandations IA */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
-        {/* Pr├⌐dictions Commerciaux */}
-        <div className="xl:col-span-8 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30 bg-white">
-          <ChartCardHeader
-            title="Estimation d'Atteinte des Objectifs"
-            subtitle="Analyse prédictive basée sur le rythme actuel"
-            icon={SparklesIcon}
-            colorClass="purple"
-          />
-          <div className="p-6 lg:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {goalPredictions.length > 0 ? goalPredictions.map((pred, idx) => (
-                <div key={idx} className="p-5 rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/50 hover:shadow-md transition-all">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{pred.commercial}</p>
-                      <h4 className="text-lg font-bold text-slate-800 mt-1">Objectif: {pred.target.toLocaleString()} DT</h4>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                      pred.willReach ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                    }`}>
-                      {pred.willReach ? 'En bonne voie' : '├Ç risque'}
-                    </div>
+      {/* Row 2 — Monthly trends */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+        {/* SAV monthly */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Tendance SAV Mensuelle" subtitle="6 derniers mois" icon={ChartBarIcon} color="blue" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={monthlyTrendData}>
+                <defs>
+                  <linearGradient id="gSAVOuv" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gSAVRes" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Area type="monotone" dataKey="ouvertes" stroke="#3b82f6" strokeWidth={2} fill="url(#gSAVOuv)" name="Ouvertes" />
+                <Area type="monotone" dataKey="resolues" stroke="#10b981" strokeWidth={2} fill="url(#gSAVRes)" name="Résolues" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Devis monthly */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Tendance Devis Mensuelle" subtitle="6 derniers mois" icon={CurrencyDollarIcon} color="sky" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={monthlyDevisData}>
+                <defs>
+                  <linearGradient id="gDevis" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gDevisVal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Area type="monotone" dataKey="devis" stroke="#0ea5e9" strokeWidth={2} fill="url(#gDevis)" name="Devis" />
+                <Area type="monotone" dataKey="valides" stroke="#8b5cf6" strokeWidth={2} fill="url(#gDevisVal)" name="Validés" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3 — SAV priority · Techniciens · Types */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+        {/* SAV by priority */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="SAV par Priorité" subtitle="Distribution actuelle" icon={ChartBarIcon} color="rose" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={priorityChartData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={55} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Bar dataKey="value" radius={[0, 6, 6, 0]} name="Nombre">
+                  {priorityChartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Techniciens */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Top Techniciens" subtitle="Réclamations assignées" icon={UsersIcon} color="teal" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={technicianStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Bar dataKey="total" fill="#14b8a6" radius={[4, 4, 0, 0]} name="Total" />
+                <Bar dataKey="resolved" fill="#99f6e4" radius={[4, 4, 0, 0]} name="Résolues" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Types SAV */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Types de SAV" subtitle="Répartition par catégorie" icon={ChartBarIcon} color="amber" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={typeReclamationData} cx="50%" cy="50%" outerRadius={70} dataKey="value" paddingAngle={2}>
+                  {typeReclamationData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4 — Commercial performance */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+        {/* Bar chart */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Performance Commerciaux" subtitle="Devis par commercial" icon={ChartBarIcon} color="sky" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={commercialDevisData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Bar dataKey="devis" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Total devis" />
+                <Bar dataKey="valides" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Validés" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Ranking table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Classement Commerciaux" subtitle="Par montant total" icon={ArrowTrendingUpIcon} color="purple" />
+          <div className="p-5 space-y-3">
+            {commercialStats.map((c, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black flex-none ${i === 0 ? 'bg-amber-100 text-amber-600' : i === 1 ? 'bg-slate-100 text-slate-600' : 'bg-orange-50 text-orange-600'}`}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-700 truncate">{c.fullName}</p>
+                  <p className="text-[10px] text-slate-400">{c.total} devis · {c.conversionRate}% conversion</p>
+                </div>
+                <span className="text-xs font-black text-slate-800 tabular-nums">{(c.totalAmount / 1000).toFixed(1)}k</span>
+              </div>
+            ))}
+            {commercialStats.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Aucune donnée disponible</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 5 — Devis detail · Users · Products */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+        {/* Devis status */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Statut Devis" subtitle={`${devisStats?.total || 0} devis total`} icon={DocumentTextIcon} color="sky" />
+          <div className="p-5 space-y-3">
+            {Object.entries(devisStats?.byStatus || {}).map(([status, count]) => {
+              const total = devisStats?.total || 1;
+              const pct = Math.round((count / total) * 100);
+              const colorMap = { 'En attente': 'bg-amber-400', 'Validé': 'bg-emerald-400', 'Transformé': 'bg-indigo-400' };
+              return (
+                <div key={status}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs text-slate-600">{status}</span>
+                    <span className="text-xs font-bold text-slate-700">{count} ({pct}%)</span>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5">
-                        <span>Probabilit├⌐ de succès</span>
-                        <span>{pred.probability}%</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-1000 ${
-                            pred.probability > 70 ? 'bg-emerald-500' : pred.probability > 40 ? 'bg-amber-500' : 'bg-rose-500'
-                          }`}
-                          style={{ width: `${pred.probability}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 py-3 border-t border-slate-100">
-                      <div className="flex-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">R├⌐alis├⌐</p>
-                        <p className="text-sm font-bold text-slate-700">{pred.actual.toLocaleString()} DT</p>
-                      </div>
-                      <div className="flex-1 text-right">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Temps restant</p>
-                        <p className="text-sm font-bold text-slate-700">{pred.daysRemaining} jours</p>
-                      </div>
-                    </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-2 rounded-full transition-all ${colorMap[status] || 'bg-slate-400'}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-              )) : (
-                <div className="col-span-2 py-10 text-center text-slate-400 font-medium">
-                  Aucun objectif actif avec données de prédiction
-                </div>
-              )}
+              );
+            })}
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs text-slate-400">Montant total</p>
+              <p className="text-lg font-black text-slate-800">{((devisStats?.totalAmount || 0) / 1000).toFixed(1)}k TND</p>
             </div>
           </div>
         </div>
 
-        {/* Recommandations IA */}
-        <div className="xl:col-span-4 card-luxury p-0 overflow-hidden group hover:shadow-lg transition-all duration-300 border border-slate-200/30 bg-gradient-to-br from-indigo-600 to-blue-700 text-white">
-          <div className="p-6 lg:p-8 border-b border-white/10 bg-white/5 backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white tracking-tight">Conseils IA</h2>
-                <p className="text-xs text-white/70 font-medium mt-1">Comment atteindre votre objectif</p>
+        {/* Users by role */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Utilisateurs par Rôle" subtitle={`${userStats?.activeCount || 0} actifs sur ${userStats?.total || 0}`} icon={UsersIcon} color="amber" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={Object.entries(userStats?.byRole || {}).map(([name, value]) => ({ name, value }))}
+                  cx="50%" cy="50%" outerRadius={65} dataKey="value" paddingAngle={2}>
+                  {Object.keys(userStats?.byRole || {}).map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Top products */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Rendement Produits" subtitle="Performance relative" icon={ChartBarIcon} color="emerald" />
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={productYield.slice(0, 5)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={70} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Bar dataKey="yield" fill="#10b981" radius={[0, 6, 6, 0]} name="Rendement" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 6 — Satisfaction · Goal predictions · IA */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+        {/* Global satisfaction */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Satisfaction Client" subtitle="Score global" icon={SparklesIcon} color="emerald" />
+          <div className="p-5 flex flex-col items-center gap-3">
+            <div className="relative h-36 w-36">
+              <svg className="w-full h-full -rotate-90">
+                <circle cx="72" cy="72" r="62" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
+                <circle cx="72" cy="72" r="62" stroke="#10b981" strokeWidth="10" fill="transparent"
+                  strokeDasharray={389.6}
+                  strokeDashoffset={389.6 - (389.6 * (globalSatisfaction?.score || 8.5)) / 10}
+                  className="transition-all duration-1000" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-slate-800">{globalSatisfaction?.score || '8.5'}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">/ 10</span>
               </div>
-              <SparklesIcon className="h-6 w-6 text-amber-300 animate-pulse" />
+            </div>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${(globalSatisfaction?.score || 8.5) > 7 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+              {globalSatisfaction?.label || 'Excellente'}
+            </span>
+            <p className="text-xs text-slate-400 text-center">Basé sur {globalSatisfaction?.resolvedClaims || 0} réclamations résolues</p>
+          </div>
+        </div>
+
+        {/* Goal predictions */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader title="Prédiction Objectifs" subtitle="Analyse prédictive" icon={ArrowTrendingUpIcon} color="purple" />
+          <div className="p-5 space-y-3 overflow-y-auto max-h-64">
+            {goalPredictions.length > 0 ? goalPredictions.slice(0, 4).map((pred, i) => (
+              <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                <div className="flex justify-between items-start mb-1">
+                  <p className="text-xs font-bold text-slate-700 truncate flex-1">{pred.commercial}</p>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${pred.willReach ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {pred.willReach ? '✓ Atteindra' : '✗ À risque'}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className={`h-1.5 rounded-full ${pred.willReach ? 'bg-emerald-400' : 'bg-rose-400'}`}
+                    style={{ width: `${Math.min(100, Math.round((pred.currentProgress / pred.target) * 100) || 0)}%` }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">{Math.round((pred.currentProgress / pred.target) * 100) || 0}% — {pred.target.toLocaleString()} DT</p>
+              </div>
+            )) : (
+              <p className="text-xs text-slate-400 text-center py-8">Aucune prédiction disponible</p>
+            )}
+          </div>
+        </div>
+
+        {/* IA recommendations */}
+        <div className="bg-indigo-950 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-indigo-900/60 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-indigo-800 border border-indigo-700 flex items-center justify-center flex-none">
+              <SparklesIcon className="h-4 w-4 text-indigo-300" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Recommandations IA</h3>
+              <p className="text-xs text-indigo-400">Insights intelligents</p>
             </div>
           </div>
-          
-          <div className="p-6 lg:p-8 space-y-6">
-            {recommendations.length > 0 ? (
-              <>
-                <p className="text-sm font-medium text-white/90 leading-relaxed">
-                  Pour combler votre ├⌐cart de <span className="font-bold text-amber-300">{(recommendations[0]?.qtyToSell * recommendations[0]?.avgPrice || 0).toLocaleString()} DT</span>, nous vous sugg├⌐rons :
-                </p>
-                <div className="space-y-4">
-                  {recommendations.map((rec, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/15 transition-all">
-                      <p className="text-xs font-bold text-white/70 uppercase tracking-widest mb-1">{rec.CodArt}</p>
-                      <p className="text-sm font-bold mb-3">{rec.LibArt}</p>
-                      <div className="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                        <span className="text-[10px] font-bold uppercase text-white/60">Vendre</span>
-                        <span className="text-sm font-black text-amber-300">{rec.qtyToSell} unit├⌐s</span>
-                      </div>
+          <div className="p-5 space-y-3">
+            {recommendations.length > 0 ? recommendations.slice(0, 4).map((rec, i) => (
+              <div key={i} className="flex gap-2">
+                <span className="mt-0.5 h-4 w-4 rounded-full bg-indigo-800 text-indigo-300 flex items-center justify-center text-[9px] font-bold flex-none">{i + 1}</span>
+                <p className="text-xs text-indigo-200 leading-relaxed">{rec.message || rec}</p>
+              </div>
+            )) : (
+              <div className="space-y-2">
+                {[
+                  `Taux de résolution SAV: ${resolutionRate}%`,
+                  `${projectStats?.activeCount || 0} projets actifs en cours`,
+                  `${objectifStats?.achievementRate || 0}% des objectifs atteints`
+                ].map((msg, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="mt-0.5 h-4 w-4 rounded-full bg-indigo-800 text-indigo-300 flex items-center justify-center text-[9px] font-bold flex-none">{i + 1}</span>
+                    <p className="text-xs text-indigo-200">{msg}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Prévisions des Ventes ── */}
+      {(() => {
+        /* régression linéaire sur monthlyDevisData pour prédire 3 mois */
+        const hist = monthlyDevisData || [];
+        const n = hist.length;
+        const xM = (n - 1) / 2;
+        const yMd = n ? hist.reduce((s, d) => s + (d.devis || 0), 0) / n : 0;
+        const yMm = n ? hist.reduce((s, d) => s + (d.montant || 0), 0) / n : 0;
+        let nd = 0, nm = 0, den = 0;
+        hist.forEach((d, i) => {
+          nd  += (i - xM) * ((d.devis   || 0) - yMd);
+          nm  += (i - xM) * ((d.montant || 0) - yMm);
+          den += (i - xM) ** 2;
+        });
+        const sd = den ? nd / den : 0, id = yMd - sd * xM;
+        const sm = den ? nm / den : 0, im = yMm - sm * xM;
+        const mnames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+        const now = new Date();
+        const future = [1, 2, 3].map(i => {
+          const dt = new Date(now.getFullYear(), now.getMonth() + i, 1);
+          return {
+            name: mnames[dt.getMonth()],
+            prevDevis:   Math.max(0, Math.round(id + sd * (n + i - 1))),
+            prevMontant: Math.max(0, Math.round(im + sm * (n + i - 1))),
+          };
+        });
+        /* données combinées historique + prévision */
+        const combined = [
+          ...hist.map(d => ({ name: d.name, actuel: d.devis, montant: d.montant })),
+          ...future.map(f => ({ name: f.name + ' ★', prevDevis: f.prevDevis, prevMontant: f.prevMontant }))
+        ];
+        /* raccordement : dernier point historique = premier point prévision */
+        if (n > 0 && future.length > 0) combined[n - 1].prevDevis = hist[n - 1].devis;
+
+        const growth = sd > 0 ? 'hausse' : sd < 0 ? 'baisse' : 'stable';
+        const growthColor = sd > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                          : sd < 0 ? 'text-rose-600 bg-rose-50 border-rose-200'
+                          : 'text-slate-600 bg-slate-100 border-slate-200';
+        const nextMonthDevis   = future[0]?.prevDevis || 0;
+        const nextMonthMontant = future[0]?.prevMontant || 0;
+
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* en-tête */}
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center">
+                  <SparklesIcon className="h-4 w-4 text-violet-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Prévisions des Ventes</h3>
+                  <p className="text-xs text-slate-400">Projection — 3 prochains mois (★)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${growthColor}`}>
+                  Tendance : {growth}
+                </span>
+                {isMLAvailable && (
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">ML actif</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-4">
+              {/* graphique principal */}
+              <div className="xl:col-span-3 p-5">
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={combined}>
+                    <defs>
+                      <linearGradient id="gActuel" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#0ea5e9" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gPrev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                      formatter={(val, name) => [val, name === 'actuel' ? 'Réel' : 'Prévu']}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }}
+                      formatter={v => v === 'actuel' ? 'Devis réels' : 'Devis prévus ★'} />
+                    <Area type="monotone" dataKey="actuel"    stroke="#0ea5e9" strokeWidth={2} fill="url(#gActuel)" dot={false} connectNulls={false} />
+                    <Area type="monotone" dataKey="prevDevis" stroke="#8b5cf6" strokeWidth={2} fill="url(#gPrev)"   dot={false} strokeDasharray="5 3" connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* métriques prévues */}
+              <div className="xl:col-span-1 border-t xl:border-t-0 xl:border-l border-slate-100 p-5 flex flex-col gap-4 justify-center">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mois prochain</p>
+                <div>
+                  <p className="text-3xl font-black text-slate-800">{nextMonthDevis}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">devis prévus</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-violet-600">{nextMonthMontant}k</p>
+                  <p className="text-xs text-slate-400 mt-0.5">TND estimé</p>
+                </div>
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  {future.map((f, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                      <span className="text-[11px] text-slate-500">{mnames[(now.getMonth() + i + 1) % 12]}</span>
+                      <span className="text-[11px] font-bold text-violet-600">{f.prevDevis} devis</span>
                     </div>
                   ))}
                 </div>
-              </>
-            ) : (
-              <div className="py-10 text-center text-white/60">
-                <p className="text-sm">F├⌐licitations ! Vous avez atteint votre objectif ou aucun objectif n'est d├⌐fini.</p>
+                {isMLAvailable && regionalPredictions.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Top régions ML</p>
+                    {regionalPredictions.slice(0, 3).map((r, i) => (
+                      <div key={i} className="flex justify-between text-[11px] py-0.5">
+                        <span className="text-slate-500">{r.region}</span>
+                        <span className="font-bold text-emerald-600">{r.prediction}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* PRÉDICTIONS RÉGIONALES IA (NOUVEAU) */}
-      {isMLAvailable && regionalPredictions.length > 0 && (
-        <div className="card-luxury p-0 overflow-hidden group hover:shadow-xl transition-all duration-300 border border-slate-200/30 bg-white">
-          <ChartCardHeader
-            title="Prédictions de Ventes par Gouvernorat (IA)"
-            subtitle="Analyse prédictive basée sur le modèle Machine Learning (XGBoost/LSTM)"
-            icon={SparklesIcon}
-            colorClass="cyan"
-          />
-          <div className="p-6 lg:p-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {regionalPredictions.map((pred, i) => (
-                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:shadow-md transition-all border-l-4" 
-                     style={{ borderLeftColor: pred.prediction === 'HAUSSE' ? '#10b981' : '#ef4444' }}>
-                  <div className="flex justify-between items-start">
-                    <span className="text-sm font-bold text-slate-700">{pred.region}</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
-                      pred.prediction === 'HAUSSE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {pred.prediction === 'HAUSSE' ? '📈' : '📉'}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-end justify-between">
-                    <div>
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">Confiance</p>
-                      <p className="text-lg font-black text-slate-800">{Math.round(pred.confiance)}%</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-500 uppercase font-bold">Action</p>
-                      <p className={`text-xs font-bold ${
-                        pred.recommandation === 'AUGMENTER' ? 'text-green-600' : 'text-amber-600'
-                      }`}>{pred.recommandation}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <DocumentTextIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{reclamationStats?.total || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">réclamations</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">{reclamationStats?.openCount} ouvertes</p>
-          </div>
-        </div>
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <ClockIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{reclamationStats?.openCount || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">En Attente</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">Priorit├⌐ haute</p>
-          </div>
-        </div>
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <CheckCircleIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{resolutionRate}%</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Résolution</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">Taux mensuel</p>
-          </div>
-        </div>
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <BriefcaseIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{projectStats?.total || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Projets</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">{projectStats?.activeCount} actifs</p>
-          </div>
-        </div>
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <UserGroupIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{tiersStats?.total || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Clients</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">Base active</p>
-          </div>
-        </div>
-        <div className="card-luxury p-6 text-center group hover:-translate-y-2 hover:shadow-xl transition-all cursor-pointer border-l-4 border-slate-400 bg-gradient-to-br from-slate-50/50 to-white/40 rounded-lg">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm border border-slate-200/50">
-            <DocumentTextIcon className="h-6 w-6 text-slate-700" />
-          </div>
-          <p className="text-2xl font-extrabold text-slate-800 group-hover:text-slate-900 transition-colors">{messagesStats?.unread || 0}</p>
-          <p className="text-xs text-slate-600 mt-2 font-semibold uppercase tracking-wide">Messages</p>
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-            <p className="text-xs text-slate-500 font-medium">Non lus</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activities - Enhanced Professional Design */}
-      <div className="card-luxury p-0 overflow-hidden group hover:shadow-xl transition-all duration-300 border border-slate-200/30">
-        <div className="px-6 py-5 border-b border-slate-200/40 bg-gradient-to-r from-slate-50/60 to-transparent flex items-center justify-between">
+      {/* ── 24 Gouvernorats — Prédictions ML ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50/50 border border-blue-200/50 group-hover:scale-110 transition-all duration-300 shadow-md hover:shadow-lg">
-              <DocumentTextIcon className="h-6 w-6 text-blue-600" />
+            <div className="h-9 w-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center flex-none">
+              <SparklesIcon className="h-4 w-4 text-violet-500" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Activit├⌐s R├⌐centes</h3>
-              <p className="text-sm text-slate-600/80 font-medium mt-0.5">Derni├¿res mises ├á jour du syst├¿me</p>
+              <h3 className="text-sm font-bold text-slate-800">Recommandations Commerciaux par Gouvernorat</h3>
+              <p className="text-xs text-slate-400">Tunisie · 24 gouvernorats · faut-il augmenter ou réduire les commerciaux ?</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/activities')}
-            className="text-xs font-bold text-blue-600 uppercase tracking-wider hover:bg-blue-50 px-4 py-2 rounded-lg transition-all hover:translate-x-1"
-          >
-            Voir tout ΓåÆ
-          </button>
+
+          {/* Sélecteur trimestre + année */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden text-[11px] font-bold">
+              {[1,2,3,4].map(t => (
+                <button key={t}
+                  onClick={() => { setMlTrimestre(t); fetchMlPredictions(t, mlYear); }}
+                  className={`px-3 py-1.5 transition-all ${mlTrimestre === t ? 'bg-violet-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  T{t}
+                </button>
+              ))}
+            </div>
+            <select
+              value={mlYear}
+              onChange={e => { const y = Number(e.target.value); setMlYear(y); fetchMlPredictions(mlTrimestre, y); }}
+              className="h-8 px-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl text-slate-600 focus:outline-none focus:border-violet-400">
+              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            {mlLoading && <span className="text-[10px] text-slate-400 animate-pulse">Chargement…</span>}
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">↑ Augmenter</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200">→ Maintenir</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-rose-50 text-rose-500 border border-rose-200">↓ Réduire</span>
+            </div>
+            {isMLAvailable
+              ? <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">ML actif</span>
+              : <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-400 border border-slate-200">ML hors ligne</span>
+            }
+          </div>
         </div>
-        <div className="divide-y divide-slate-200/40">
-          {recentActivities.length > 0 ? (
-            recentActivities.map((activity, idx) => (
-              <div
-                key={activity.id}
-                className="p-5 px-6 hover:bg-gradient-to-r hover:from-blue-50/70 hover:to-transparent transition-all cursor-pointer group/item"
-                style={{ animationDelay: `${idx * 50}ms` }}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover/item:scale-110 group-hover/item:shadow-md bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 border border-blue-200/50">
-                    <DocumentTextIcon className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate group-hover/item:text-blue-600 transition-colors">{activity.title}</p>
-                    <p className="text-xs text-slate-500 truncate mt-1">{activity.client}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="inline-block px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full group-hover/item:bg-blue-100 transition-colors">
-                      {activity.time}
-                    </div>
-                  </div>
+
+        {/* Compteurs recommandations commerciaux */}
+        {isMLAvailable && (() => {
+          const getReco = r => (r.recommandation || '').toUpperCase();
+          const augmenter = (regionalPredictions || []).filter(r => getReco(r) === 'AUGMENTER').length;
+          const maintenir = (regionalPredictions || []).filter(r => getReco(r) === 'MAINTENIR').length;
+          const reduire   = (regionalPredictions || []).filter(r => getReco(r) === 'RÉDUIRE' || getReco(r) === 'REDUIRE').length;
+          return (
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3">
+                <span className="text-4xl font-black text-emerald-600">{augmenter}</span>
+                <div>
+                  <p className="text-sm font-black text-emerald-700">↑ Augmenter</p>
+                  <p className="text-[11px] text-emerald-500">commerciaux à déployer</p>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="p-8 text-center">
-              <p className="text-slate-400 text-sm">Aucune activit├⌐ r├⌐cente</p>
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
+                <span className="text-4xl font-black text-amber-600">{maintenir}</span>
+                <div>
+                  <p className="text-sm font-black text-amber-700">→ Maintenir</p>
+                  <p className="text-[11px] text-amber-500">effectif stable</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl px-5 py-3">
+                <span className="text-4xl font-black text-rose-600">{reduire}</span>
+                <div>
+                  <p className="text-sm font-black text-rose-700">↓ Réduire</p>
+                  <p className="text-[11px] text-rose-500">commerciaux à retirer</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
+          {GOUVERNORATS.map((g) => {
+            const r         = (regionalPredictions || []).find(x => x.region === g.key);
+            const prob      = r != null ? Math.round(r.probabilite_hausse ?? 0) : null;
+            const reco      = (r?.recommandation || '').toUpperCase().replace('É','E');
+            const confiance = r != null ? Math.round(r.confiance ?? 0) : null;
+            const hasData   = !!r;
+
+            const styles = {
+              AUGMENTER: {
+                card:  'bg-white border-slate-200',
+                badge: 'bg-emerald-100 text-emerald-700',
+                text:  'text-emerald-700',
+                bar:   'bg-emerald-400',
+                icon:  '↑',
+                label: 'Augmenter',
+                sub:   'Renforcer les commerciaux',
+              },
+              MAINTENIR: {
+                card:  'bg-white border-slate-200',
+                badge: 'bg-amber-100 text-amber-700',
+                text:  'text-amber-700',
+                bar:   'bg-amber-400',
+                icon:  '→',
+                label: 'Maintenir',
+                sub:   'Effectif stable',
+              },
+              REDUIRE: {
+                card:  'bg-white border-slate-200',
+                badge: 'bg-rose-100 text-rose-600',
+                text:  'text-rose-600',
+                bar:   'bg-rose-400',
+                icon:  '↓',
+                label: 'Réduire',
+                sub:   'Alléger les commerciaux',
+              },
+              DEFAULT: {
+                card:  'bg-white border-slate-200',
+                badge: 'bg-slate-100 text-slate-400',
+                text:  'text-slate-300',
+                bar:   'bg-slate-200',
+                icon:  '—',
+                label: '—',
+                sub:   '',
+              },
+            };
+            const s = styles[reco] || styles.DEFAULT;
+            const radius = 26, circ = 2 * Math.PI * radius;
+            const offset = hasData ? circ - (circ * (prob / 100)) : circ;
+
+            return (
+              <div key={g.name}
+                className={`rounded-2xl border overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${s.card}`}>
+
+                <div className="p-4 flex flex-col gap-3">
+
+                  {/* nom + badge */}
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="text-xs font-black text-slate-800 leading-tight">{g.name}</p>
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full whitespace-nowrap flex-none ${s.badge}`}>
+                      {s.icon} {s.label}
+                    </span>
+                  </div>
+
+                  {/* jauge SVG circulaire + probabilité */}
+                  <div className="flex items-center gap-3">
+                    <svg width="60" height="60" className="flex-none -rotate-90">
+                      <circle cx="30" cy="30" r={radius} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="5" />
+                      <circle cx="30" cy="30" r={radius} fill="none"
+                        stroke={!hasData ? '#cbd5e1' : reco === 'AUGMENTER' ? '#10b981' : reco === 'MAINTENIR' ? '#f59e0b' : '#f43f5e'}
+                        strokeWidth="5"
+                        strokeDasharray={circ}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                      />
+                      <text x="30" y="30" textAnchor="middle" dominantBaseline="central"
+                        className="rotate-90" style={{ transform: 'rotate(90deg)', transformOrigin: '30px 30px', fontSize: 11, fontWeight: 900, fill: !hasData ? '#94a3b8' : reco === 'AUGMENTER' ? '#059669' : reco === 'MAINTENIR' ? '#d97706' : '#e11d48' }}>
+                        {hasData ? `${prob}%` : '—'}
+                      </text>
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[11px] font-bold leading-tight ${s.text}`}>{s.sub}</p>
+                      {hasData
+                        ? <p className="text-[10px] text-slate-400 mt-1">Confiance <span className="font-bold text-slate-600">{confiance}%</span></p>
+                        : <p className="text-[10px] text-slate-300 mt-1">en attente ML</p>
+                      }
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Recent activities */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <CardHeader title="Activités Récentes" subtitle="Dernières interactions" icon={ClockIcon} color="blue" />
+        <div className="divide-y divide-slate-50">
+          {recentActivities.length > 0 ? recentActivities.map((activity, i) => (
+            <div key={i} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
+              <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center flex-none">
+                <DocumentTextIcon className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-700 truncate">{activity.title}</p>
+                <p className="text-[10px] text-slate-400 truncate">{activity.client}</p>
+              </div>
+              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{activity.time}</span>
+            </div>
+          )) : (
+            <div className="px-5 py-8 text-center">
+              <p className="text-xs text-slate-400">Aucune activité récente</p>
             </div>
           )}
         </div>
@@ -1597,4 +1418,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

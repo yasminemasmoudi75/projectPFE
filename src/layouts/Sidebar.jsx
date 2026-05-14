@@ -20,7 +20,8 @@ import {
   TruckIcon,
   BanknotesIcon,
   ArrowPathIcon,
-  ShieldCheckIcon,
+  ClipboardDocumentListIcon,
+  KeyIcon,
   ChevronDownIcon,
   MagnifyingGlassIcon,
   ArrowRightOnRectangleIcon,
@@ -34,7 +35,8 @@ import { MODULE_CODES } from '../utils/constants';
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD, color: 'sky' },
   { type: 'section', name: 'Administration' },
-  { name: 'Admin', href: '/admin', icon: ShieldCheckIcon, moduleCode: null, color: 'violet' },
+  { name: 'Rôles & Permissions', href: '/admin/permissions', icon: KeyIcon, moduleCode: null, color: 'violet', adminOnly: true },
+  { name: 'Journal Connexions', href: '/admin/journal', icon: ClipboardDocumentListIcon, moduleCode: null, color: 'indigo', adminOnly: true },
   { type: 'section', name: 'CRM & Ventes' },
   { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS, color: 'indigo' },
   { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES, color: 'cyan' },
@@ -173,9 +175,9 @@ const SidebarContent = () => {
     }
 
     // 3. Module specific hardcoded rules
+    if (item.adminOnly && role !== 'admin') return false;
     if (item.name === 'SAV' && (role === 'commercial' || role === 'commerciale')) return false;
     if (item.name === 'Utilisateurs' && role !== 'admin') return false;
-    if (item.name === 'Admin' && role !== 'admin') return false;
 
     // 4. Public modules (no moduleCode)
     if (item.moduleCode == null) return true;

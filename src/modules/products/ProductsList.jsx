@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import {
     PlusIcon,
     MagnifyingGlassIcon,
@@ -46,7 +46,7 @@ const stockBadge = (product) => {
     return              { key: 'ok',      ...STOCK_CFG.ok      };
 };
 
-const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 transition-all';
+const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all';
 
 const ProductsList = () => {
     const navigate = useNavigate();
@@ -179,8 +179,8 @@ const ProductsList = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <div className="h-7 w-7 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center">
-                            <CubeIcon className="h-4 w-4 text-violet-500" />
+                        <div className="h-7 w-7 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
+                            <CubeIcon className="h-4 w-4 text-indigo-500" />
                         </div>
                         <h1 className="text-xl font-bold text-slate-800">Catalogue Produits</h1>
                         {refreshing && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
@@ -199,7 +199,7 @@ const ProductsList = () => {
                         <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
                             {[{ id: 'table', icon: ListBulletIcon, label: 'Liste' }, { id: 'grid', icon: Squares2X2Icon, label: 'Grille' }].map(v => (
                                 <button key={v.id} onClick={() => setViewMode(v.id)}
-                                    className={clsx('inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all', viewMode === v.id ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                                    className={clsx('inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all', viewMode === v.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
                                     <v.icon className="h-3.5 w-3.5" /> {v.label}
                                 </button>
                             ))}
@@ -221,7 +221,7 @@ const ProductsList = () => {
 
                     {!isClient && canCreate && (
                         <button onClick={() => navigate('/products/new')}
-                            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all shadow-sm">
+                            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-sm">
                             <PlusIcon className="h-4 w-4" /> Nouveau produit
                         </button>
                     )}
@@ -232,7 +232,7 @@ const ProductsList = () => {
             {!isClient && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                        { label: 'Total produits',   value: products.length,                                    icon: CubeIcon,           iconCls: 'text-violet-500',  iconBg: 'bg-violet-50 border-violet-200'   },
+                        { label: 'Total produits',   value: products.length,                                    icon: CubeIcon,           iconCls: 'text-indigo-500',  iconBg: 'bg-indigo-50 border-indigo-200'   },
                         { label: 'Valeur stock',      value: filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k TND' : '0 TND', icon: CurrencyDollarIcon, iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
                         { label: 'Santé stock',       value: stockHealthPct + '%',                               icon: ShieldCheckIcon,    iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200'         },
                         { label: 'En rupture',        value: ruptureCount,                                       icon: ArchiveBoxIcon,     iconCls: 'text-rose-500',    iconBg: 'bg-rose-50 border-rose-200'       },
@@ -260,7 +260,7 @@ const ProductsList = () => {
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input type="text" placeholder="Référence, désignation, marque…"
                             value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 transition-all" />
+                            className="w-full h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
                     </div>
 
                     {/* Stock pills */}
@@ -282,7 +282,7 @@ const ProductsList = () => {
                                                 ? s.id === 'ok'      ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
                                                 : s.id === 'low'     ? 'bg-amber-50 text-amber-600 border-amber-300'
                                                 : s.id === 'rupture' ? 'bg-rose-50 text-rose-600 border-rose-300'
-                                                : 'bg-violet-600 text-white border-violet-600'
+                                                : 'bg-indigo-600 text-white border-indigo-600'
                                                 : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                         )}>
                                         {stockFilterMeta?.[s.id]?.label || s.label}
@@ -297,10 +297,10 @@ const ProductsList = () => {
                     {!isClient && (
                         <button type="button" onClick={() => setShowFilters(!showFilters)}
                             className={clsx('inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border text-xs font-semibold transition-all flex-none',
-                                showFilters ? 'bg-violet-50 border-violet-200 text-violet-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
+                                showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
                             <FunnelIcon className="h-3.5 w-3.5" /> Filtres
                             {activeAdvancedCount > 0 && (
-                                <span className="h-4 w-4 bg-violet-600 text-white text-[9px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>
+                                <span className="h-4 w-4 bg-indigo-600 text-white text-[9px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>
                             )}
                         </button>
                     )}
@@ -387,7 +387,7 @@ const ProductsList = () => {
                                         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                                         transition={{ delay: i * 0.04 }}
                                         onClick={() => navigate(`/products/${product.IDArt}`)}
-                                        className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-violet-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
+                                        className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
                                         {/* Image */}
                                         <div className="aspect-[4/3] bg-slate-50 overflow-hidden border-b border-slate-100">
                                             {product.urlimg ? (
@@ -400,7 +400,7 @@ const ProductsList = () => {
                                         </div>
                                         {/* Info */}
                                         <div className="p-3.5">
-                                            <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-1">{product.CodArt}</p>
+                                            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">{product.CodArt}</p>
                                             <h4 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">{product.LibArt}</h4>
                                             <div className="mt-3 flex items-center justify-between gap-2">
                                                 <span className="text-sm font-bold text-slate-800 tabular-nums">{formatCurrency(product.PrixVente || 0)}</span>
@@ -450,14 +450,14 @@ const ProductsList = () => {
                                                 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.2, delay: idx * 0.03 }}
                                                 onClick={() => navigate(`/products/${product.IDArt}`)}
-                                                className="group hover:bg-violet-50/40 transition-colors cursor-pointer">
+                                                className="group hover:bg-indigo-50/40 transition-colors cursor-pointer">
                                                 <td className="px-5 py-3.5">
                                                     <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-bold">
                                                         {startIndex + idx + 1}
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-3.5">
-                                                    <span className="text-xs font-bold text-slate-600 font-mono group-hover:text-violet-600 transition-colors">{product.CodArt}</span>
+                                                    <span className="text-xs font-bold text-slate-600 font-mono group-hover:text-indigo-600 transition-colors">{product.CodArt}</span>
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-3">
@@ -468,7 +468,7 @@ const ProductsList = () => {
                                                             }
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-semibold text-slate-700 group-hover:text-violet-600 transition-colors line-clamp-1">{product.LibArt}</p>
+                                                            <p className="text-sm font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors line-clamp-1">{product.LibArt}</p>
                                                             {product.Collection && <p className="text-[10px] text-slate-400">{product.Collection}</p>}
                                                         </div>
                                                     </div>
@@ -498,7 +498,7 @@ const ProductsList = () => {
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button type="button" onClick={e => { e.stopPropagation(); navigate(`/products/${product.IDArt}`); }}
-                                                            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all">
+                                                            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all">
                                                             <EyeIcon className="h-3.5 w-3.5" />
                                                         </button>
                                                         {!isClient && canEdit && (
@@ -540,7 +540,7 @@ const ProductsList = () => {
                                 return (
                                     <button key={page} type="button" onClick={() => setCurrentPage(page)}
                                         className={clsx('h-7 w-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
-                                            currentPage === page ? 'bg-violet-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                                            currentPage === page ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
                                         {page}
                                     </button>
                                 );

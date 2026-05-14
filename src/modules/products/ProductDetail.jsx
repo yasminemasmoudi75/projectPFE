@@ -26,24 +26,24 @@ const fmtDate = (v) => {
 
 /* ── stock ── */
 const getStock = (qte, minStk) => {
-    if (qte <= 0)      return { label: 'Rupture',       Icon: XCircleIcon,            cls: 'text-red-500 bg-red-50 border-red-200',           dot: 'bg-red-400',     bar: 'from-red-400 to-red-500',         pct: 0 };
-    if (qte <= minStk) return { label: 'Stock faible',  Icon: ExclamationTriangleIcon, cls: 'text-amber-600 bg-amber-50 border-amber-200',      dot: 'bg-amber-400',   bar: 'from-amber-400 to-orange-400',    pct: Math.min(55, Math.round((qte / Math.max(minStk, 1)) * 55)) };
-    return                    { label: 'En stock',       Icon: CheckCircleIcon,         cls: 'text-emerald-600 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-400', bar: 'from-emerald-400 to-teal-400',    pct: 100 };
+    if (qte <= 0)      return { label: 'Rupture',       Icon: XCircleIcon,            cls: 'text-red-500 bg-red-50 border-red-200',           dot: 'bg-red-400',     bar: 'from-red-300 to-red-400',           pct: 0 };
+    if (qte <= minStk) return { label: 'Stock faible',  Icon: ExclamationTriangleIcon, cls: 'text-amber-600 bg-amber-50 border-amber-200',      dot: 'bg-amber-400',   bar: 'from-amber-300 to-orange-300',      pct: Math.min(55, Math.round((qte / Math.max(minStk, 1)) * 55)) };
+    return                    { label: 'En stock',       Icon: CheckCircleIcon,         cls: 'text-emerald-600 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-400', bar: 'from-emerald-300 to-teal-300',      pct: 100 };
 };
 
 /* ── PriceCard ── */
 const PriceCard = ({ icon: Icon, label, value, sub, primary }) => (
-    <div className={`rounded-2xl border p-5 flex flex-col gap-1.5 ${primary
-        ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-200'
-        : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm transition-all'}`}>
+    <div className={`rounded-2xl border p-5 flex flex-col gap-1.5 transition-all ${primary
+        ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+        : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'}`}>
         <div className="flex items-center justify-between mb-1">
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{label}</span>
-            <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${primary ? 'bg-white/15' : 'bg-slate-50 border border-slate-200'}`}>
-                <Icon className={`h-3.5 w-3.5 ${primary ? 'text-white' : 'text-slate-400'}`} />
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${primary ? 'text-indigo-500' : 'text-slate-400'}`}>{label}</span>
+            <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${primary ? 'bg-indigo-100 border border-indigo-200' : 'bg-slate-50 border border-slate-200'}`}>
+                <Icon className={`h-3.5 w-3.5 ${primary ? 'text-indigo-500' : 'text-slate-400'}`} />
             </span>
         </div>
-        <p className={`text-xl font-black tabular-nums leading-none ${primary ? 'text-white' : 'text-slate-800'}`}>{value}</p>
-        {sub && <p className={`text-[11px] font-medium mt-0.5 ${primary ? 'text-blue-200' : 'text-slate-400'}`}>{sub}</p>}
+        <p className={`text-xl font-black tabular-nums leading-none ${primary ? 'text-indigo-700' : 'text-slate-800'}`}>{value}</p>
+        {sub && <p className={`text-[11px] font-medium mt-0.5 ${primary ? 'text-indigo-400' : 'text-slate-400'}`}>{sub}</p>}
     </div>
 );
 
@@ -51,7 +51,7 @@ const PriceCard = ({ icon: Icon, label, value, sub, primary }) => (
 const InfoRow = ({ label, value, mono, accent }) => (
     <div className="flex items-center justify-between gap-8 py-3 px-4 odd:bg-slate-50/50 rounded-xl">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex-none">{label}</span>
-        <span className={`text-xs font-semibold text-right ${mono ? 'font-mono' : ''} ${accent ? 'text-blue-600' : 'text-slate-700'}`}>
+        <span className={`text-xs font-semibold text-right ${mono ? 'font-mono' : ''} ${accent ? 'text-indigo-600' : 'text-slate-700'}`}>
             {value || '—'}
         </span>
     </div>
@@ -60,13 +60,13 @@ const InfoRow = ({ label, value, mono, accent }) => (
 /* ── Card ── */
 const Card = ({ icon: Icon, title, accent, children }) => (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className={`flex items-center gap-2.5 px-4 py-3 border-b ${accent ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
+        <div className={`flex items-center gap-2.5 px-4 py-3 border-b ${accent ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
             {Icon && (
-                <span className={`h-6 w-6 rounded-lg flex items-center justify-center ${accent ? 'bg-blue-100' : 'bg-slate-100'}`}>
-                    <Icon className={`h-3.5 w-3.5 ${accent ? 'text-blue-600' : 'text-slate-500'}`} />
+                <span className={`h-6 w-6 rounded-lg flex items-center justify-center ${accent ? 'bg-indigo-100 border border-indigo-200' : 'bg-slate-100 border border-slate-200'}`}>
+                    <Icon className={`h-3.5 w-3.5 ${accent ? 'text-indigo-500' : 'text-slate-400'}`} />
                 </span>
             )}
-            <span className={`text-[11px] font-bold uppercase tracking-widest ${accent ? 'text-blue-700' : 'text-slate-500'}`}>{title}</span>
+            <span className={`text-[11px] font-bold uppercase tracking-widest ${accent ? 'text-indigo-600' : 'text-slate-500'}`}>{title}</span>
         </div>
         <div className="p-2">{children}</div>
     </div>
@@ -74,7 +74,7 @@ const Card = ({ icon: Icon, title, accent, children }) => (
 
 /* ── Tag ── */
 const Tag = ({ label, color = 'slate' }) => {
-    const c = { blue: 'bg-blue-50 text-blue-700 border-blue-200', slate: 'bg-slate-100 text-slate-600 border-slate-200', sky: 'bg-sky-50 text-sky-700 border-sky-200' };
+    const c = { indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200', slate: 'bg-slate-100 text-slate-600 border-slate-200', sky: 'bg-sky-50 text-sky-700 border-sky-200' };
     return <span className={`inline-flex items-center h-6 px-3 rounded-full text-[11px] font-semibold border ${c[color]}`}>{label}</span>;
 };
 
@@ -128,27 +128,27 @@ const ProductDetail = () => {
             {/* ── Nav bar ── */}
             <div className="flex items-center justify-between">
                 <button onClick={() => navigate('/products')}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
                     <ArrowLeftIcon className="h-4 w-4" /> Produits
                 </button>
                 {!isClient && (
                     <button onClick={() => navigate(`/products/edit/${id}`)}
-                        className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors shadow-md shadow-blue-200 active:scale-95">
+                        className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-indigo-100 active:scale-95">
                         <PencilSquareIcon className="h-4 w-4" /> Modifier
                     </button>
                 )}
             </div>
 
             {/* ══════════════ HERO ══════════════ */}
-            <div className="rounded-3xl overflow-hidden border border-slate-200 shadow-md">
-                {/* Blue gradient header */}
-                <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-8 pt-8 pb-0 flex gap-8 items-end">
-                    {/* decorative circle */}
-                    <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-                    <div className="absolute bottom-0 left-32 w-40 h-40 rounded-full bg-white/5 translate-y-1/2 pointer-events-none" />
+            <div className="rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                {/* Light gradient header */}
+                <div className="relative bg-gradient-to-br from-indigo-50 via-blue-50/60 to-white px-8 pt-8 pb-0 flex gap-8 items-end border-b border-slate-100">
+                    {/* decorative circles */}
+                    <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-indigo-100/40 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                    <div className="absolute bottom-0 left-32 w-40 h-40 rounded-full bg-blue-100/30 translate-y-1/2 pointer-events-none" />
 
                     {/* Image card floating up from the bottom */}
-                    <div className="relative flex-none w-44 h-44 rounded-2xl bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center translate-y-6 z-10">
+                    <div className="relative flex-none w-44 h-44 rounded-2xl bg-white border-2 border-indigo-100 shadow-md overflow-hidden flex items-center justify-center translate-y-6 z-10">
                         {product.urlimg && !imgErr ? (
                             <motion.img initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.4 }}
@@ -167,11 +167,19 @@ const ProductDetail = () => {
                     <div className="pb-8 flex-1 min-w-0 space-y-3">
                         {/* chips row */}
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 h-6 px-3 rounded-lg bg-white/20 text-white text-[10px] font-bold font-mono">
+                            <span className="inline-flex items-center gap-1.5 h-6 px-3 rounded-lg bg-indigo-100 text-indigo-600 text-[10px] font-bold font-mono border border-indigo-200">
                                 <HashtagIcon className="h-3 w-3 opacity-70" />{product.CodArt}
                             </span>
-                            {product.Collection && <span className="inline-flex items-center h-6 px-3 rounded-full bg-white/15 text-white text-[10px] font-semibold">{product.Collection}</span>}
-                            {product.Marque     && <span className="inline-flex items-center h-6 px-3 rounded-full bg-white/10 text-blue-100 text-[10px] font-semibold">{product.Marque}</span>}
+                            {product.Collection && (
+                                <span className="inline-flex items-center h-6 px-3 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold border border-blue-200">
+                                    {product.Collection}
+                                </span>
+                            )}
+                            {product.Marque && (
+                                <span className="inline-flex items-center h-6 px-3 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold border border-slate-200">
+                                    {product.Marque}
+                                </span>
+                            )}
                             {!isClient && (
                                 <span className={`inline-flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] font-bold border ${stock.cls} ml-auto`}>
                                     <span className={`h-1.5 w-1.5 rounded-full ${stock.dot} animate-pulse`} />
@@ -179,16 +187,16 @@ const ProductDetail = () => {
                                 </span>
                             )}
                         </div>
-                        <h1 className="text-3xl font-black text-white leading-tight">{product.LibArt || '—'}</h1>
+                        <h1 className="text-3xl font-black text-slate-800 leading-tight">{product.LibArt || '—'}</h1>
                         {product.Description && (
-                            <p className="text-sm text-blue-100 leading-relaxed line-clamp-2 max-w-xl">{product.Description}</p>
+                            <p className="text-sm text-slate-500 leading-relaxed line-clamp-2 max-w-xl">{product.Description}</p>
                         )}
                         {/* meta tags */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                            {product.LibFam  && <span className="inline-flex items-center gap-1 text-[11px] text-blue-200"><CubeIcon className="h-3.5 w-3.5" />{product.LibFam}</span>}
-                            {product.LibFour && <span className="inline-flex items-center gap-1 text-[11px] text-blue-200"><BuildingStorefrontIcon className="h-3.5 w-3.5" />{product.LibFour}</span>}
-                            {product.Unite   && <span className="inline-flex items-center gap-1 text-[11px] text-blue-200"><ScaleIcon className="h-3.5 w-3.5" />{product.Unite}</span>}
-                            {!isClient && qte > 0 && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white"><ArchiveBoxIcon className="h-3.5 w-3.5" />{fmtInt(qte)} en stock</span>}
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
+                            {product.LibFam  && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><CubeIcon className="h-3.5 w-3.5 text-indigo-400" />{product.LibFam}</span>}
+                            {product.LibFour && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><BuildingStorefrontIcon className="h-3.5 w-3.5 text-indigo-400" />{product.LibFour}</span>}
+                            {product.Unite   && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><ScaleIcon className="h-3.5 w-3.5 text-indigo-400" />{product.Unite}</span>}
+                            {!isClient && qte > 0 && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600"><ArchiveBoxIcon className="h-3.5 w-3.5" />{fmtInt(qte)} en stock</span>}
                         </div>
                     </div>
                 </div>
@@ -225,7 +233,7 @@ const ProductDetail = () => {
                             <p className="text-xs text-slate-400 mt-0.5">{product.Unite || 'unités'} disponibles</p>
                         </div>
                     </div>
-                    <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${stock.pct}%` }}
                             transition={{ duration: 1.3, ease: [0.34, 1.4, 0.64, 1] }}
                             className={`h-full rounded-full bg-gradient-to-r ${stock.bar}`} />
@@ -239,14 +247,14 @@ const ProductDetail = () => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`relative inline-flex items-center gap-2 h-10 px-5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
                             activeTab === t.id
-                                ? 'text-blue-600 border-blue-600'
+                                ? 'text-indigo-600 border-indigo-500'
                                 : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
                         }`}>
                         <t.icon className="h-4 w-4" />
                         {t.label}
                         {t.count !== undefined && (
                             <span className={`inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold ${
-                                activeTab === t.id ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                activeTab === t.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
                             }`}>{t.count}</span>
                         )}
                     </button>
@@ -300,7 +308,7 @@ const ProductDetail = () => {
                         {product.Description && (
                             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Description</p>
-                                <p className="text-sm text-slate-600 leading-relaxed border-l-4 border-blue-200 pl-4">{product.Description}</p>
+                                <p className="text-sm text-slate-600 leading-relaxed border-l-4 border-indigo-200 pl-4">{product.Description}</p>
                             </div>
                         )}
                     </motion.div>
@@ -335,7 +343,7 @@ const ProductDetail = () => {
                                             {variants.map((row, idx) => {
                                                 const qty = num(row.Qte);
                                                 const qBadge = qty === 0
-                                                    ? 'bg-red-50 text-red-600 border-red-200'
+                                                    ? 'bg-red-50 text-red-500 border-red-200'
                                                     : qty <= 5
                                                         ? 'bg-amber-50 text-amber-600 border-amber-200'
                                                         : 'bg-emerald-50 text-emerald-600 border-emerald-200';
@@ -343,9 +351,9 @@ const ProductDetail = () => {
                                                     <motion.tr key={row.ID || `${row.CodArtD}-${row.CodColor}-${row.CodTaille}`}
                                                         initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                                                         transition={{ delay: idx * 0.035, duration: 0.18 }}
-                                                        className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors group">
+                                                        className="border-b border-slate-50 hover:bg-indigo-50/30 transition-colors group">
                                                         <td className="px-5 py-4">
-                                                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-bold group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
                                                                 {idx + 1}
                                                             </span>
                                                         </td>

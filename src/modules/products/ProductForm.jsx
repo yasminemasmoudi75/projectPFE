@@ -71,7 +71,6 @@ const ProductForm = () => {
         if (isEdit) {
             const fetchProduct = async () => {
                 try {
-                    // Load variants
                     const varRes = await axios.get(`/products/${id}/variants`);
                     const varData = varRes?.data || varRes || [];
                     if (Array.isArray(varData) && varData.length > 0) {
@@ -103,7 +102,6 @@ const ProductForm = () => {
                         urlimg: product.urlimg || '',
                         imgArt: product.imgArt || ''
                     });
-                    // Set preview for existing image
                     if (product.urlimg) {
                         setPreviewUrl(getImageUrl(product.urlimg));
                     }
@@ -131,7 +129,6 @@ const ProductForm = () => {
                 setFormData(prev => ({ ...prev, [name]: normalizedValue }));
                 return;
             }
-
             setFormData(prev => ({ ...prev, [name]: value }));
         }
     };
@@ -155,7 +152,6 @@ const ProductForm = () => {
         if (isVariantCodeField(field)) {
             return String(value || '').replace(/-/g, '');
         }
-
         return value;
     };
 
@@ -239,7 +235,6 @@ const ProductForm = () => {
                 savedId = res?.data?.data?.IDArt || id;
                 toast.success('Produit créé avec succès');
             }
-            // Save variants if any
             if (variants.length > 0 && savedId) {
                 try {
                     await axios.post(`/products/${savedId}/variants`, {
@@ -264,308 +259,300 @@ const ProductForm = () => {
 
     if (loading) return <LoadingSpinner />;
 
+    const fieldCls = 'w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-300';
+    const labelCls = 'block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5';
+    const prixTTC = formData.PrixVente > 0
+        ? (Number(formData.PrixVente) * (1 + Number(formData.Tva) / 100)).toFixed(3)
+        : null;
+    const montantTVA = formData.PrixVente > 0
+        ? (Number(formData.PrixVente) * Number(formData.Tva) / 100).toFixed(3)
+        : null;
+    const isLowStock = Number(formData.Qte) > 0 && Number(formData.MinStk) > 0 && Number(formData.Qte) <= Number(formData.MinStk);
+    const stockPct = Number(formData.MinStk) > 0
+        ? Math.min(100, Math.round((Number(formData.Qte) / Number(formData.MinStk)) * 100))
+        : null;
+    const filledRequired = [formData.CodArt, formData.LibArt].filter(Boolean).length;
+
     return (
-        <div className="animate-fade-in min-h-screen bg-white pb-16">
-            <div className="max-w-6xl mx-auto px-4 py-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-all font-semibold text-sm mb-6"
-                    >
-                        <ArrowLeftIcon className="h-4 w-4" />
-                        Retour
-                    </button>
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-900 leading-tight">
-                            {isEdit ? 'Modifier Article' : 'Ajouter un Article'}
-                        </h1>
-                        <p className="text-slate-500 font-medium mt-2 text-sm">
-                            {isEdit ? `${formData.LibArt || 'Produit'}` : 'Remplissez les informations du produit'}
-                        </p>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-slate-50/70 pb-16">
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Identification Section */}
-                <div className="card-luxury overflow-hidden">
-                    <div className="bg-slate-50 px-8 py-6 flex items-center gap-3 border-b border-slate-100">
-                        <div className="p-2.5 bg-blue-100 rounded-xl">
-                            <TagIcon className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                            <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider">Identification</h2>
-                            <p className="text-slate-500 text-xs mt-0.5">Code et désignation du produit</p>
-                        </div>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Code Article</label>
-                            <input
-                                type="text"
-                                name="CodArt"
-                                value={formData.CodArt}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 placeholder:text-slate-400"
-                                placeholder="ex: MED-001"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Désignation</label>
-                            <input
-                                type="text"
-                                name="LibArt"
-                                value={formData.LibArt}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 placeholder:text-slate-400"
-                                placeholder="ex: Paracétamol 500mg"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Collection / Famille</label>
-                            <div className="relative">
-                                <select
-                                    name="Collection"
-                                    value={formData.Collection}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 appearance-none"
-                                >
-                                    <option value="">Sélectionner une famille</option>
-                                    {collections.map((col, index) => (
-                                        <option
-                                            key={col.Collection ?? col.ID ?? `collection-${index}`}
-                                            value={col.Collection || ''}
-                                        >
-                                            {col.Collection}
-                                        </option>
-                                    ))}
-                                    {!collections.length && <option value="Divers">Divers</option>}
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Marque</label>
-                            <input
-                                type="text"
-                                name="Marque"
-                                value={formData.Marque}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 placeholder:text-slate-400"
-                                placeholder="ex: Sanicure, BioPharm..."
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Tarification */}
-                    <div className="card-luxury overflow-hidden">
-                        <div className="bg-slate-50 px-8 py-6 flex items-center gap-3 border-b border-slate-100">
-                            <div className="p-2.5 bg-emerald-100 rounded-xl">
-                                <CurrencyDollarIcon className="h-6 w-6 text-emerald-600" />
-                            </div>
-                            <div>
-                                <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider">Tarification</h2>
-                                <p className="text-slate-500 text-xs mt-0.5">Prix achat et vente HT</p>
-                            </div>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Prix Achat</label>
-                                    <input
-                                        type="number" min="0"
-                                        name="PrixAchat"
-                                        value={formData.PrixAchat}
-                                        onChange={handleChange}
-                                        onKeyDown={preventNegativeInput}
-                                        onPaste={preventNegativePaste}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all font-semibold text-slate-800"
-                                        placeholder="0.000"
-                                        step="0.001"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Prix Vente</label>
-                                    <input
-                                        type="number" min="0"
-                                        name="PrixVente"
-                                        value={formData.PrixVente}
-                                        onChange={handleChange}
-                                        onKeyDown={preventNegativeInput}
-                                        onPaste={preventNegativePaste}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all font-semibold text-slate-800"
-                                        placeholder="0.000"
-                                        step="0.001"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">TVA Applicable</label>
-                                <select
-                                    name="Tva"
-                                    value={formData.Tva}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all font-semibold text-slate-800"
-                                >
-                                    <option value="19">19% (Standard)</option>
-                                    <option value="7">7% (Réduit)</option>
-                                    <option value="0">0% (Exonéré)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Stock */}
-                    <div className="card-luxury overflow-hidden">
-                        <div className="bg-slate-50 px-8 py-6 flex items-center gap-3 border-b border-slate-100">
-                            <div className="p-2.5 bg-amber-100 rounded-xl">
-                                <ArchiveBoxIcon className="h-6 w-6 text-amber-600" />
-                            </div>
-                            <div>
-                                <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider">Stock</h2>
-                                <p className="text-slate-500 text-xs mt-0.5">Quantités et unités de mesure</p>
-                            </div>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Quantité</label>
-                                    <input
-                                        type="number" min="0"
-                                        name="Qte"
-                                        value={formData.Qte}
-                                        onChange={handleChange}
-                                        onKeyDown={preventNegativeInput}
-                                        onPaste={preventNegativePaste}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all font-semibold text-slate-800"
-                                        placeholder="0"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Stock Minimum</label>
-                                    <input
-                                        type="number" min="0"
-                                        name="MinStk"
-                                        value={formData.MinStk}
-                                        onChange={handleChange}
-                                        onKeyDown={preventNegativeInput}
-                                        onPaste={preventNegativePaste}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all font-semibold text-slate-800"
-                                        placeholder="0"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Unité de Mesure</label>
-                                <select
-                                    name="Unite"
-                                    value={formData.Unite}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-amber-100 focus:border-amber-400 outline-none transition-all font-semibold text-slate-800"
-                                >
-                                    <option value="UNI">Unité</option>
-                                    <option value="KG">Kilogramme</option>
-                                    <option value="L">Litre</option>
-                                    <option value="M">Mètre</option>
-                                    <option value="BOX">Boîte</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Variantes Premium */}
-                    <div className="card-luxury overflow-hidden md:col-span-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowDetails(!showDetails)}
-                            className="w-full px-8 py-6 bg-slate-50 flex items-center justify-between hover:bg-blue-50 transition-all border-b border-slate-100"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="p-2.5 bg-blue-100 rounded-xl">
-                                    <SparklesIcon className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <div className="text-left">
-                                    <h2 className="font-black text-slate-800 uppercase tracking-widest text-sm">Variantes Détail</h2>
-                                    <p className="text-slate-500 text-xs mt-1">Couleur, taille et quantité</p>
-                                </div>
-                                {variants.length > 0 && (
-                                    <span className="ml-auto bg-blue-100 text-blue-700 text-xs font-black px-3 py-1.5 rounded-full">
-                                        {variants.length} ligne{variants.length > 1 ? 's' : ''}
-                                    </span>
-                                )}
-                            </div>
-                            <ChevronDownIcon className={`h-5 w-5 text-slate-500 transition-transform duration-300 ${showDetails ? 'rotate-180' : ''}`} />
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
+                <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate(-1)}
+                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all group">
+                            <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                         </button>
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center">
+                                <TagIcon className="h-5 w-5 text-indigo-500" />
+                            </div>
+                            <div>
+                                <h1 className="text-sm font-bold text-slate-800 leading-tight">
+                                    {isEdit ? (formData.LibArt || 'Modifier Article') : 'Nouvel Article'}
+                                </h1>
+                                <p className="text-[11px] text-slate-400">{isEdit ? formData.CodArt : 'Nouveau produit'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => navigate(-1)}
+                            className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                            Annuler
+                        </button>
+                        <button type="submit" form="product-form" disabled={saving}
+                            className="flex items-center gap-2 px-5 h-9 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl shadow-sm shadow-indigo-100 transition-all disabled:opacity-60">
+                            {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                            {isEdit ? 'Sauvegarder' : 'Enregistrer'}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                        {showDetails && (
-                            <div className="p-8 space-y-6 bg-white">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-3">Catégorie / Famille</label>
-                                        <input
-                                            type="text"
-                                            name="LibFam"
-                                            value={formData.LibFam}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800"
-                                            placeholder="ex: Médicaments"
-                                        />
+            {/* Page title bar */}
+            <div className="bg-white border-b border-slate-100">
+                <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center">
+                            <TagIcon className="h-7 w-7 text-indigo-500" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Catalogue</span>
+                                <span className="text-slate-300 text-xs">/</span>
+                                <span className="text-[11px] text-slate-400">{isEdit ? 'Modifier' : 'Nouveau'}</span>
+                            </div>
+                            <h2 className="text-xl font-black text-slate-800">
+                                {isEdit ? (formData.LibArt || 'Modifier Article') : 'Nouvel Article'}
+                            </h2>
+                        </div>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-2">
+                        {filledRequired >= 2 ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-bold rounded-xl">
+                                <CheckIcon className="h-3.5 w-3.5" /> Pret a enregistrer
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-xs font-semibold rounded-xl">
+                                {filledRequired}/2 champs requis
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <form id="product-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto px-6 pt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+                    {/* ── Left column ── */}
+                    <div className="lg:col-span-2 space-y-5">
+
+                        {/* 01 · Identification */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">01</span>
+                                    <div className="h-9 w-9 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center">
+                                        <TagIcon className="h-5 w-5 text-indigo-500" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-3">Fournisseur</label>
-                                        <input
-                                            type="text"
-                                            name="LibFour"
-                                            value={formData.LibFour}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800"
-                                            placeholder="ex: Pharma Distribution"
-                                        />
+                                        <h2 className="text-sm font-bold text-slate-700">Identification</h2>
+                                        <p className="text-[11px] text-slate-400">Code et designation du produit</p>
                                     </div>
                                 </div>
+                                <span className="text-[11px] font-bold text-rose-400 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">Requis</span>
+                            </div>
+                            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label className={labelCls}>Code Article <span className="text-rose-400 normal-case">*</span></label>
+                                    <input type="text" name="CodArt" value={formData.CodArt} onChange={handleChange} required
+                                        className={fieldCls} placeholder="ex: MED-001" />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Designation <span className="text-rose-400 normal-case">*</span></label>
+                                    <input type="text" name="LibArt" value={formData.LibArt} onChange={handleChange} required
+                                        className={fieldCls} placeholder="ex: Paracetamol 500mg" />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Collection / Famille</label>
+                                    <select name="Collection" value={formData.Collection} onChange={handleChange} className={fieldCls}>
+                                        <option value="">Selectionner une famille</option>
+                                        {collections.map((col, index) => (
+                                            <option key={col.Collection ?? col.ID ?? `collection-${index}`} value={col.Collection || ''}>
+                                                {col.Collection}
+                                            </option>
+                                        ))}
+                                        {!collections.length && <option value="Divers">Divers</option>}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Marque</label>
+                                    <input type="text" name="Marque" value={formData.Marque} onChange={handleChange}
+                                        className={fieldCls} placeholder="ex: BioPharm" />
+                                </div>
+                            </div>
+                        </div>
 
-                                <div className="border-t-2 border-slate-100 pt-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-black text-slate-700 text-sm uppercase tracking-wider">Lignes de détail (TabStockD)</h3>
-                                        <button
-                                            type="button"
-                                            onClick={() => setVariants(prev => [...prev, emptyVariant()])}
-                                            className="btn-soft-primary flex items-center gap-2 text-xs"
-                                        >
-                                            <PlusIcon className="h-4 w-4 stroke-[3]" />
-                                            Ajouter ligne
+                        {/* 02 · Description */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">02</span>
+                                <div className="h-9 w-9 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center">
+                                    <InformationCircleIcon className="h-5 w-5 text-amber-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-700">Description</h2>
+                                    <p className="text-[11px] text-slate-400">Categorie, fournisseur et details</p>
+                                </div>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className={labelCls}>Categorie / Famille</label>
+                                        <input type="text" name="LibFam" value={formData.LibFam} onChange={handleChange}
+                                            className={fieldCls} placeholder="ex: Medicaments" />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Fournisseur</label>
+                                        <input type="text" name="LibFour" value={formData.LibFour} onChange={handleChange}
+                                            className={fieldCls} placeholder="ex: Pharma Distribution" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Description detaillee</label>
+                                    <textarea name="Description" value={formData.Description} onChange={handleChange} rows={3}
+                                        className={`${fieldCls} resize-none`}
+                                        placeholder="Caracteristiques principales, utilisation, composition..." />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 03 · Image */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">03</span>
+                                <div className="h-9 w-9 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center">
+                                    <PhotoIcon className="h-5 w-5 text-slate-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-700">Image du produit</h2>
+                                    <p className="text-[11px] text-slate-400">Photo ou URL de l'article</p>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <label className="relative block cursor-pointer group">
+                                        <div className={`border-2 border-dashed rounded-2xl transition-all min-h-[190px] flex items-center justify-center
+                                            ${(previewUrl || formData.urlimg) ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/20'}`}>
+                                            {(previewUrl || formData.urlimg) ? (
+                                                <div className="flex flex-col items-center gap-3 p-5 w-full">
+                                                    <img src={previewUrl || getImageUrl(formData.urlimg)} alt="Preview"
+                                                        className="max-h-36 max-w-full object-contain rounded-xl shadow-sm" />
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold
+                                                        ${previewUrl ? 'bg-indigo-100 text-indigo-600 border border-indigo-200' : 'bg-slate-100 text-slate-500'}`}>
+                                                        <CheckIcon className="h-3.5 w-3.5" />
+                                                        {previewUrl ? 'Fichier selectionne' : 'Cliquer pour changer'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-3 p-6 text-center">
+                                                    <div className="h-16 w-16 rounded-2xl bg-slate-100 group-hover:bg-indigo-50 border border-slate-200 group-hover:border-indigo-200 flex items-center justify-center transition-all">
+                                                        <PhotoIcon className="h-8 w-8 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-500 group-hover:text-indigo-500 transition-colors">Cliquer pour uploader</p>
+                                                        <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 MB</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input type="file" name="image" onChange={handleChange}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" />
+                                    </label>
+
+                                    <div className="flex flex-col justify-center space-y-3">
+                                        <div>
+                                            <label className={labelCls}>Ou entrer une URL</label>
+                                            <input type="text" name="urlimg" value={formData.urlimg} onChange={handleChange}
+                                                className={fieldCls} placeholder="https://example.com/img.jpg" disabled={!!selectedFile} />
+                                        </div>
+                                        {selectedFile ? (
+                                            <div className="flex items-center gap-2.5 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                                <CheckIcon className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                                                <p className="text-xs text-indigo-700 font-semibold">Fichier local actif — URL ignoree</p>
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Format recommande</p>
+                                                <p className="text-xs text-slate-400 leading-relaxed">JPG ou PNG · min 400×400 px<br/>Taille max 5 MB</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 04 · Variantes */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <button type="button" onClick={() => setShowDetails(!showDetails)}
+                                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50/70 transition-all">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">04</span>
+                                    <div className="h-9 w-9 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-center">
+                                        <SparklesIcon className="h-5 w-5 text-violet-500" />
+                                    </div>
+                                    <div className="text-left">
+                                        <h2 className="text-sm font-bold text-slate-700">Variantes</h2>
+                                        <p className="text-[11px] text-slate-400">Couleur, taille et quantite par variante</p>
+                                    </div>
+                                    {variants.length > 0 && (
+                                        <span className="px-2.5 py-0.5 bg-violet-100 text-violet-600 text-[11px] font-bold rounded-full">
+                                            {variants.length}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${showDetails ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                                    <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
+                                </div>
+                            </button>
+
+                            {showDetails && (
+                                <div className="border-t border-slate-100 p-6 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{variants.length} variante{variants.length !== 1 ? 's' : ''}</p>
+                                        <button type="button" onClick={() => setVariants(prev => [...prev, emptyVariant()])}
+                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-violet-100">
+                                            <PlusIcon className="h-3.5 w-3.5" /> Ajouter
                                         </button>
                                     </div>
 
                                     {variants.length === 0 ? (
-                                        <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
-                                            <p className="text-sm font-black text-slate-600">Aucune variante</p>
+                                        <div className="py-12 flex flex-col items-center gap-3 border-2 border-dashed border-slate-100 rounded-2xl">
+                                            <div className="h-12 w-12 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center">
+                                                <SparklesIcon className="h-6 w-6 text-violet-300" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-sm font-semibold text-slate-400">Aucune variante</p>
+                                                <p className="text-xs text-slate-300 mt-0.5">Cliquez sur Ajouter pour commencer</p>
+                                            </div>
                                         </div>
                                     ) : (
-                                        <div className="overflow-hidden rounded-xl border border-slate-200">
-                                            <table className="w-full">
-                                                <thead className="bg-slate-100 border-b border-slate-200">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Code Détail</th>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Couleur</th>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Désignation</th>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Taille</th>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Code</th>
-                                                        <th className="px-4 py-3 text-left font-black text-slate-600 text-xs uppercase">Qté</th>
-                                                        <th className="px-4 py-3 text-center font-black text-slate-600 text-xs uppercase">Action</th>
+                                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                                        {['Code Detail', 'Couleur', 'Designation', 'Taille', 'Code Taille', 'Qte', ''].map(h => (
+                                                            <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
+                                                        ))}
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-slate-100 bg-white">
+                                                <tbody className="divide-y divide-slate-100">
                                                     {variants.map((v, i) => (
-                                                        <tr key={i} className="hover:bg-blue-50/50 transition-colors">
+                                                        <tr key={i} className="hover:bg-violet-50/30 transition-colors">
                                                             {['CodArtD', 'CodColor', 'DesColor', 'Taille', 'CodTaille'].map(field => (
-                                                                <td key={field} className="px-4 py-3">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={v[field]}
+                                                                <td key={field} className="px-3 py-2">
+                                                                    <input type="text" value={v[field]}
                                                                         onKeyDown={isVariantCodeField(field) ? preventMinusTextInput : undefined}
                                                                         onPaste={isVariantCodeField(field) ? preventMinusTextPaste : undefined}
                                                                         onChange={e => {
@@ -573,33 +560,24 @@ const ProductForm = () => {
                                                                             updated[i] = { ...updated[i], [field]: sanitizeVariantTextValue(field, e.target.value) };
                                                                             setVariants(updated);
                                                                         }}
-                                                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none font-semibold text-slate-700 text-sm"
-                                                                        placeholder={field}
-                                                                    />
+                                                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:border-violet-300 focus:ring-1 focus:ring-violet-100 focus:outline-none transition-all"
+                                                                        placeholder="—" />
                                                                 </td>
                                                             ))}
-                                                            <td className="px-4 py-3">
-                                                                <input
-                                                                    type="number"
-                                                                    value={v.Qte}
-                                                                    min="0"
-                                                                    onKeyDown={preventNegativeInput}
-                                                                    onPaste={preventNegativePaste}
+                                                            <td className="px-3 py-2">
+                                                                <input type="number" value={v.Qte} min="0"
+                                                                    onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
                                                                     onChange={e => {
                                                                         const updated = [...variants];
                                                                         updated[i] = { ...updated[i], Qte: e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)) };
                                                                         setVariants(updated);
                                                                     }}
-                                                                    className="w-16 px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none font-black text-slate-700 text-sm"
-                                                                />
+                                                                    className="w-16 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-violet-600 text-center focus:border-violet-300 focus:outline-none" />
                                                             </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setVariants(variants.filter((_, idx) => idx !== i))}
-                                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all transform hover:scale-110"
-                                                                >
-                                                                    <TrashIcon className="h-5 w-5" />
+                                                            <td className="px-3 py-2 text-center">
+                                                                <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))}
+                                                                    className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all">
+                                                                    <TrashIcon className="h-4 w-4" />
                                                                 </button>
                                                             </td>
                                                         </tr>
@@ -609,131 +587,199 @@ const ProductForm = () => {
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="card-luxury overflow-hidden">
-                    <div className="bg-slate-50 px-8 py-6 flex items-center gap-4 border-b border-slate-100">
-                        <div className="p-2.5 bg-blue-100 rounded-xl">
-                            <InformationCircleIcon className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                            <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider">Contenu</h2>
-                            <p className="text-slate-500 text-xs mt-0.5">Description et image du produit</p>
+                            )}
                         </div>
                     </div>
-                    <div className="p-8 space-y-8">
-                        <div>
-                            <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-4">Description Détaillée</label>
-                            <textarea
-                                name="Description"
-                                value={formData.Description}
-                                onChange={handleChange}
-                                rows="4"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 placeholder:text-slate-400 resize-none"
-                                placeholder="Décrivez les caractéristiques principales du produit..."
-                            />
-                        </div>
 
-                        <div className="border-t-2 border-slate-100 pt-8">
-                            <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-4">Image du Produit</label>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-300 group cursor-pointer relative overflow-hidden">
-                                    {(previewUrl || formData.urlimg) ? (
-                                        <div className="flex flex-col items-center justify-center gap-4">
-                                            <img
-                                                src={previewUrl || getImageUrl(formData.urlimg)}
-                                                alt="Preview"
-                                                className="max-h-56 max-w-56 object-contain rounded-xl border border-slate-200 bg-slate-50 shadow-lg group-hover:shadow-xl transition-shadow"
-                                            />
-                                            {previewUrl && (
-                                                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">
-                                                    <CheckIcon className="h-4 w-4" />
-                                                    Nouveau fichier sélectionné
-                                                </span>
+                    {/* ── Right sidebar ── */}
+                    <div className="lg:col-span-1">
+                        <div className="lg:sticky lg:top-24 space-y-4">
+
+                            {/* Live product preview */}
+                            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 border-b border-slate-100">
+                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-4">Apercu en direct</p>
+                                    <div className="flex items-start gap-3.5">
+                                        <div className="h-16 w-16 rounded-xl bg-white border border-indigo-100 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
+                                            {(previewUrl || formData.urlimg) ? (
+                                                <img src={previewUrl || getImageUrl(formData.urlimg)} alt="" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <TagIcon className="h-7 w-7 text-slate-300" />
                                             )}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center gap-3 py-8">
-                                            <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
-                                                <PhotoIcon className="h-8 w-8 text-blue-600" />
-                                            </div>
-                                            <h3 className="text-sm font-bold text-slate-700">Télécharger une image</h3>
-                                            <p className="text-xs text-slate-500">Cliquez ou drag & drop</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-slate-800 text-sm leading-snug truncate">
+                                                {formData.LibArt || <span className="text-slate-400 font-normal italic text-xs">Nom du produit</span>}
+                                            </p>
+                                            <p className="text-indigo-400 text-xs mt-0.5">
+                                                {formData.CodArt || <span className="text-slate-300 italic">Code article</span>}
+                                            </p>
+                                            {prixTTC ? (
+                                                <p className="text-indigo-600 font-black text-lg mt-2 leading-none">
+                                                    {prixTTC} <span className="text-xs font-semibold text-indigo-400">TND TTC</span>
+                                                </p>
+                                            ) : (
+                                                <p className="text-slate-300 text-sm mt-2 italic text-xs">Prix non defini</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {(formData.Collection || formData.Marque) && (
+                                        <div className="flex flex-wrap gap-1.5 mt-3.5">
+                                            {formData.Collection && (
+                                                <span className="text-[11px] font-semibold bg-indigo-100 text-indigo-600 px-2.5 py-0.5 rounded-full">{formData.Collection}</span>
+                                            )}
+                                            {formData.Marque && (
+                                                <span className="text-[11px] font-semibold bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full">{formData.Marque}</span>
+                                            )}
                                         </div>
                                     )}
-                                    <input
-                                        type="file"
-                                        name="image"
-                                        onChange={handleChange}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        accept="image/*"
-                                    />
                                 </div>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-600 uppercase tracking-wider mb-3">Ou entrer une URL</label>
-                                        <input
-                                            type="text"
-                                            name="urlimg"
-                                            value={formData.urlimg}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all font-semibold text-slate-800 placeholder:text-slate-400"
-                                            placeholder="https://example.com/image.jpg"
-                                            disabled={!!selectedFile}
-                                        />
+                                {formData.Qte !== '' && formData.Qte !== undefined && (
+                                    <div className={`px-5 py-2.5 flex items-center justify-between text-xs font-bold border-t ${isLowStock ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                                        <span className={isLowStock ? 'text-rose-400' : 'text-slate-400'}>Stock</span>
+                                        <span className={isLowStock ? 'text-rose-600' : 'text-slate-600'}>{formData.Qte} {formData.Unite || 'UNI'}</span>
                                     </div>
-                                    {selectedFile && (
-                                        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-                                            <p className="text-xs text-amber-800 font-semibold">ℹ️ L'image uploadée sera utilisée en priorité</p>
+                                )}
+                            </div>
+
+                            {/* Tarification */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center">
+                                        <CurrencyDollarIcon className="h-5 w-5 text-emerald-500" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-700">Tarification</h2>
+                                        <p className="text-[11px] text-slate-400">Prix hors taxe</p>
+                                    </div>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    <div>
+                                        <label className={labelCls}>Prix Achat</label>
+                                        <div className="relative">
+                                            <input type="number" min="0" name="PrixAchat" value={formData.PrixAchat} onChange={handleChange}
+                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
+                                                className={`${fieldCls} pr-12`} placeholder="0.000" step="0.001" />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">TND</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Prix Vente HT</label>
+                                        <div className="relative">
+                                            <input type="number" min="0" name="PrixVente" value={formData.PrixVente} onChange={handleChange}
+                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
+                                                className={`${fieldCls} pr-12 font-bold text-emerald-600`} placeholder="0.000" step="0.001" />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">TND</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>TVA</label>
+                                        <select name="Tva" value={formData.Tva} onChange={handleChange} className={fieldCls}>
+                                            <option value="19">19% — Standard</option>
+                                            <option value="7">7% — Reduit</option>
+                                            <option value="0">0% — Exonere</option>
+                                        </select>
+                                    </div>
+
+                                    {prixTTC && (
+                                        <div className="rounded-xl overflow-hidden border border-emerald-200">
+                                            <div className="px-4 py-3 flex items-center justify-between bg-emerald-50 border-b border-emerald-100">
+                                                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Prix TTC</p>
+                                                <p className="text-xl font-black text-emerald-700">
+                                                    {prixTTC} <span className="text-sm font-semibold text-emerald-500">TND</span>
+                                                </p>
+                                            </div>
+                                            <div className="px-4 py-2.5 flex justify-between text-xs text-slate-500 bg-white">
+                                                <span>HT : <b className="text-slate-700">{Number(formData.PrixVente).toFixed(3)}</b></span>
+                                                <span className="text-slate-300">+</span>
+                                                <span>TVA {formData.Tva}% : <b className="text-emerald-600">{montantTVA}</b></span>
+                                            </div>
                                         </div>
                                     )}
-                                    <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 space-y-2">
-                                        <p className="text-xs font-bold text-blue-900">Format recommandé:</p>
-                                        <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                                            <li>JPG ou PNG</li>
-                                            <li>Minimum 400x400px</li>
-                                            <li>Maximum 5MB</li>
-                                        </ul>
-                                    </div>
                                 </div>
                             </div>
+
+                            {/* Stock */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                                    <div className="h-9 w-9 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center">
+                                        <ArchiveBoxIcon className="h-5 w-5 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-700">Stock</h2>
+                                        <p className="text-[11px] text-slate-400">Quantites et seuils</p>
+                                    </div>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    <div>
+                                        <label className={labelCls}>Quantite en stock</label>
+                                        <div className="relative">
+                                            <input type="number" min="0" name="Qte" value={formData.Qte} onChange={handleChange}
+                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
+                                                className={`${fieldCls} pr-12 font-bold ${isLowStock ? 'text-rose-500 border-rose-200 focus:border-rose-300 focus:ring-rose-50' : 'text-amber-600'}`}
+                                                placeholder="0" />
+                                            {formData.Unite && (
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">{formData.Unite}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {stockPct !== null && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between">
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Niveau stock</p>
+                                                <p className={`text-[11px] font-bold ${isLowStock ? 'text-rose-400' : 'text-emerald-500'}`}>{stockPct}%</p>
+                                            </div>
+                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-500 ${stockPct <= 50 ? 'bg-rose-300' : stockPct <= 80 ? 'bg-amber-300' : 'bg-emerald-400'}`}
+                                                    style={{ width: `${stockPct}%` }} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className={labelCls}>Stock Minimum</label>
+                                        <input type="number" min="0" name="MinStk" value={formData.MinStk} onChange={handleChange}
+                                            onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
+                                            className={fieldCls} placeholder="0" />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Unite de Mesure</label>
+                                        <select name="Unite" value={formData.Unite} onChange={handleChange} className={fieldCls}>
+                                            <option value="UNI">Unite</option>
+                                            <option value="KG">Kilogramme</option>
+                                            <option value="L">Litre</option>
+                                            <option value="M">Metre</option>
+                                            <option value="BOX">Boite</option>
+                                        </select>
+                                    </div>
+
+                                    {isLowStock && (
+                                        <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border border-rose-100 rounded-xl">
+                                            <div className="h-8 w-8 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
+                                                <ArchiveBoxIcon className="h-4 w-4 text-rose-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-rose-600">Stock critique</p>
+                                                <p className="text-[11px] text-rose-400 mt-0.5">En dessous du seuil minimum</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="px-5 pb-5">
+                                    <button type="submit" form="product-form" disabled={saving}
+                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl shadow-sm shadow-indigo-100 transition-all disabled:opacity-60">
+                                        {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
+                                        {isEdit ? 'Sauvegarder les modifications' : 'Enregistrer le produit'}
+                                    </button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
-
-                {/* Footer Buttons */}
-                <div className="flex items-center justify-between gap-4 pt-4 border-t-2 border-slate-100 sticky bottom-0 bg-white px-4 py-6 rounded-t-2xl shadow-xl">
-                    <button
-                        type="button"
-                        onClick={() => navigate(-1)}
-                        className="px-6 py-3 rounded-xl font-black text-slate-700 bg-white border-2 border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-all shadow-md"
-                    >
-                        Annuler
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        className="btn-soft-primary px-8 py-3 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {saving ? (
-                            <>
-                                <span className="w-5 h-5 border-3 border-white/40 border-t-white rounded-full animate-spin" />
-                                <span>Traitement...</span>
-                            </>
-                        ) : (
-                            <>
-                                <CheckIcon className="h-5 w-5 stroke-[3]" />
-                                <span>{isEdit ? 'Mettre à jour' : 'Enregistrer'}</span>
-                            </>
-                        )}
-                    </button>
-                </div>
             </form>
-            </div>
         </div>
     );
 };

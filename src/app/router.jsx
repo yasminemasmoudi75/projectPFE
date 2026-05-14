@@ -53,10 +53,10 @@ const NotFound = lazy(() => import('../components/feedback/NotFound'));
 const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
 
 
-// Admin modules
-const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboardPro'));
-const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
 
+// Admin modules
+const JournalConnexions = lazy(() => import('../modules/admin/JournalConnexions'));
+const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
 
 // Wrapper pour Suspense
 const SuspenseWrapper = ({ children }) => (
@@ -506,49 +506,20 @@ const routes = [
         ),
       },
       {
-        path: 'admin',
-        children: [
-          {
-            index: true,
-            element: (
-              <SuspenseWrapper>
-                <AdminDashboard />
-              </SuspenseWrapper>
-            ),
-          },
-          {
-            path: 'permissions',
-            element: (
-              <SuspenseWrapper>
-                <PermissionManager />
-              </SuspenseWrapper>
-            ),
-          },
-          {
-            path: 'roles',
-            element: (
-              <SuspenseWrapper>
-                <AdminDashboard />
-              </SuspenseWrapper>
-            ),
-          },
-          {
-            path: 'stats',
-            element: (
-              <SuspenseWrapper>
-                <AdminDashboard />
-              </SuspenseWrapper>
-            ),
-          },
-          {
-            path: 'settings',
-            element: (
-              <SuspenseWrapper>
-                <AdminDashboard />
-              </SuspenseWrapper>
-            ),
-          },
-        ],
+        path: 'admin/permissions',
+        element: (
+          <SuspenseWrapper>
+            <PermissionManager />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'admin/journal',
+        element: (
+          <SuspenseWrapper>
+            <JournalConnexions />
+          </SuspenseWrapper>
+        ),
       },
       {
         path: 'users',
