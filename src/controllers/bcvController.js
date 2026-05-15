@@ -1,5 +1,5 @@
 const { BcvMaster, BcvDetail, Tiers, TabSociete, BlvMaster, BlvDetail, FavMaster, FavDetail, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
-const { Op, TableHints } = require('sequelize');
+const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const PDFService = require('../services/pdfService');
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
@@ -19,6 +19,9 @@ const isAdminUser = (user = {}) => {
 const isAgentUser = (user = {}) => {
   return normalizeRole(user?.UserRole) === 'agent';
 };
+
+const isCommercialRole = (role) => ['commercial', 'commerciale'].includes(normalizeRole(role));
+const resolveCommercialCodRepresValue = (user = {}) => String(user?.UserID || user?.id || '').trim();
 
 /**
  * Helper function to parse dates for SQL Server through Sequelize
@@ -265,11 +268,31 @@ exports.getAllBcv = async (req, res, next) => {
 exports.getBcvById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const filterHelper = require('../utils/filterHelper');
 
-        // Sécurité mandataire pour les BCV (Module 5)
-        const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user);
-        const where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        let where;
+        if (isAdminUser(req.user)) {
+            // Admin can view any record by GUID
+            where = { Guid: id };
+        } else if (isCommercialRole(req.user?.UserRole)) {
+            const userId = resolveCommercialCodRepresValue(req.user);
+            const clientRows = await sequelize.query(
+                `SELECT CodTiers FROM TabTiers WHERE CONVERT(VARCHAR, codRepresTiers) = :userId`,
+                { replacements: { userId }, type: QueryTypes.SELECT }
+            );
+            const clientCodes = clientRows.map(r => r.CodTiers).filter(Boolean);
+            const accessConditions = [];
+            if (userId) accessConditions.push({ CodRepres: userId });
+            if (clientCodes.length > 0) accessConditions.push({ CodTiers: { [Op.in]: clientCodes } });
+            if (accessConditions.length === 0) {
+                return res.status(403).json({ status: 'error', message: 'Accès refusé' });
+            }
+            const accessWhere = accessConditions.length === 1 ? accessConditions[0] : { [Op.or]: accessConditions };
+            where = { [Op.and]: [{ Guid: id }, accessWhere] };
+        } else {
+            const filterHelper = require('../utils/filterHelper');
+            const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user);
+            where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        }
 
 
 
@@ -344,9 +367,14 @@ exports.transferBcv = async (req, res, next) => {
         }
 
         // 1. Chercher le BCV dans TabBcvm (avec filtre de sécurité mandataire)
-        const filterHelper = require('../utils/filterHelper');
-        const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user, t);
-        const sourceWhere = { [Op.and]: [{ Guid: id }, securityWhere] };
+        let sourceWhere;
+        if (isAdminUser(req.user)) {
+            sourceWhere = { Guid: id };
+        } else {
+            const filterHelper = require('../utils/filterHelper');
+            const securityWhere = await filterHelper.applyTableDrivenFilters('5', {}, req.user, t);
+            sourceWhere = { [Op.and]: [{ Guid: id }, securityWhere] };
+        }
         const sourceData = await BcvMaster.findOne({
             where: sourceWhere,
             include: [
@@ -825,6 +853,51 @@ exports.updateBcv = async (req, res, next) => {
 /**
  * Récupérer les bons de commande de l'utilisateur connecté (Client Portal)
  */
+
+/**
+ * POST /api/bcv/:id/request-transfer
+ * Commercial demande la transformation BCV → BLV ou FAV — l'admin doit approuver.
+ */
+exports.requestTransfer = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { targetType } = req.body; // 'BL' ou 'FAC'
+        if (!targetType || !['BL', 'FAC'].includes(targetType)) {
+            return res.status(400).json({ status: 'error', message: 'targetType requis: BL ou FAC' });
+        }
+
+        const { notifyTransformRequest } = require('../utils/notificationUtils');
+        const { Op } = require('sequelize');
+
+        const bcv = await BcvMaster.findOne({
+            where: { [Op.or]: [{ Guid: id }, { Nf: isNaN(id) ? null : parseInt(id) }] },
+            include: [{ model: Tiers, as: 'client', attributes: ['CodTiers', 'Raisoc', 'Email'] }]
+        });
+
+        if (!bcv) return res.status(404).json({ status: 'error', message: 'Bon de commande introuvable' });
+        if (bcv.bTransf || bcv.bLivr) return res.status(400).json({ status: 'error', message: 'BCV déjà transformé' });
+
+        const requestedByName = req.user?.FullName || req.user?.LoginName || `Utilisateur ${req.user?.UserID}`;
+
+        await notifyTransformRequest({
+            sourceType: 'BCV',
+            sourceNf: bcv.Nf,
+            sourceGuid: bcv.Guid,
+            targetType,
+            codTiers: bcv.CodTiers,
+            libTiers: bcv.LibTiers || bcv.client?.Raisoc,
+            totalTTC: bcv.TotTTC,
+            requestedByUserId: req.user?.UserID,
+            requestedByName
+        });
+
+        res.json({ status: 'success', message: `Demande de transformation vers ${targetType === 'FAC' ? 'Facture' : 'Bon de Livraison'} envoyée à l'administrateur` });
+    } catch (err) {
+        console.error('❌ requestTransfer:', err);
+        next(err);
+    }
+};
+
 exports.getMyBcv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');

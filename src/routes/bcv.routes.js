@@ -27,7 +27,9 @@ router.delete('/:id', checkPermission(MODULES.BCV, 'delete'), bcvController.dele
 // GET /api/bcv/:id/pdf   — générer le PDF du bon de commande
 router.get('/:id/pdf', checkPermission(MODULES.BCV, 'read'), bcvController.generateBcvPDF);
 
-// POST /api/bcv/:id/transfer — transférer vers BL ou Facture
+// POST /api/bcv/:id/transfer — transférer vers BL ou Facture (admin uniquement)
 router.post('/:id/transfer', bcvController.transferBcv);
+// POST /api/bcv/:id/request-transfer — commercial demande la transformation
+router.post('/:id/request-transfer', checkPermission(MODULES.BCV, 'read'), bcvController.requestTransfer);
 
 module.exports = router;

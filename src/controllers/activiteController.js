@@ -273,7 +273,8 @@ exports.createActivite = async (req, res, next) => {
       Description,
       Date_Activite,
       Statut,
-      Valide
+      Valide,
+      participants // array of UserIDs for meeting invitees
     } = req.body;
 
     // Validation
@@ -332,6 +333,73 @@ exports.createActivite = async (req, res, next) => {
     });
 
     const createdActivite = await loadActiviteById(newActivite.Guid);
+
+    // Create activity copies for meeting participants and notify them
+    const participantIds = Array.isArray(participants)
+      ? [...new Set(participants.map(Number).filter((id) => Number.isInteger(id) && id > 0 && id !== assignedUser.UserID))]
+      : [];
+
+    if (participantIds.length > 0) {
+      const { createNotifications } = require('../utils/notificationUtils');
+      const organizerName = assignedUser?.FullName || assignedUser?.LoginName || 'Organisateur';
+
+      // Resolve all participants first to get their names
+      const resolvedParticipants = (await Promise.all(
+        participantIds.map((id) => resolveUserReference(id).catch(() => null))
+      )).filter(Boolean);
+
+      const participantNames = resolvedParticipants.map((p) => p.FullName || p.LoginName || `#${p.UserID}`);
+
+      // Update the organizer's activity description to list who's invited
+      if (participantNames.length > 0) {
+        const organizerDesc = [
+          Description || '',
+          `Participants : ${participantNames.join(', ')}`
+        ].filter(Boolean).join(' — ');
+        await newActivite.update({ Description: organizerDesc });
+      }
+
+      await Promise.all(resolvedParticipants.map(async (participant) => {
+        try {
+          // Use resolveSecUserId with fallback to UserID directly
+          const secParticipantId = (await resolveSecUserId(participant.UserID)) ?? participant.UserID;
+          if (!secParticipantId) return;
+
+          const participantDesc = [
+            `Réunion avec ${organizerName}`,
+            Description || ''
+          ].filter(Boolean).join(' — ');
+
+          await Activite.create({
+            User: secParticipantId,
+            Destinataire: participant.FullName || participant.LoginName || null,
+            CodTiers: tier?.CodTiers || null,
+            Nf: projectNf,
+            CodProj: projet?.Code_Pro || null,
+            Categ: normalizedStatus,
+            Type_Activite,
+            Description: participantDesc,
+            Date_Activite: sanitizedDate,
+            Valide: 0
+          });
+
+          await createNotifications(
+            [participant.UserID],
+            `Réunion planifiée — ${sanitizedDate ? new Date(sanitizedDate).toLocaleString('fr-FR') : ''}`,
+            JSON.stringify({
+              _type: 'MEETING_INVITE',
+              type: Type_Activite,
+              date: sanitizedDate,
+              organizer: organizerName,
+              description: Description || ''
+            }),
+            'MEETING_INVITE'
+          );
+        } catch (pErr) {
+          console.warn(`⚠️ [createActivite] Participant ${participant.UserID} skipped:`, pErr.message);
+        }
+      }));
+    }
 
     res.status(201).json({
       status: 'success',

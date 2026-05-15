@@ -1,5 +1,5 @@
 const { FavMaster, FavDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
-const { Op, TableHints } = require('sequelize');
+const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
@@ -13,6 +13,7 @@ const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 const isCommercialUser = (user = {}) => {
     return ['commercial', 'commerciale'].includes(normalizeRole(user?.UserRole));
 };
+const isAdminUser = (user = {}) => ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole));
 
 const buildFavSecurityWhere = async (guid, user, transaction) => {
     const filterHelper = require('../utils/filterHelper');
@@ -149,11 +150,30 @@ exports.getAllFav = async (req, res, next) => {
 exports.getFavById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const filterHelper = require('../utils/filterHelper');
 
-        // Sécurité mandataire pour les factures (Module 7)
-        const securityWhere = await filterHelper.applyTableDrivenFilters('7', {}, req.user);
-        const where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        let where;
+        if (isAdminUser(req.user)) {
+            where = { Guid: id };
+        } else if (isCommercialUser(req.user)) {
+            const userId = String(req.user?.UserID || req.user?.id || '').trim();
+            const clientRows = await sequelize.query(
+                `SELECT CodTiers FROM TabTiers WHERE CONVERT(VARCHAR, codRepresTiers) = :userId`,
+                { replacements: { userId }, type: QueryTypes.SELECT }
+            );
+            const clientCodes = clientRows.map(r => r.CodTiers).filter(Boolean);
+            const accessConditions = [];
+            if (userId) accessConditions.push({ CodRepres: userId });
+            if (clientCodes.length > 0) accessConditions.push({ CodTiers: { [Op.in]: clientCodes } });
+            if (accessConditions.length === 0) {
+                return res.status(403).json({ status: 'error', message: 'Accès refusé' });
+            }
+            const accessWhere = accessConditions.length === 1 ? accessConditions[0] : { [Op.or]: accessConditions };
+            where = { [Op.and]: [{ Guid: id }, accessWhere] };
+        } else {
+            const filterHelper = require('../utils/filterHelper');
+            const securityWhere = await filterHelper.applyTableDrivenFilters('7', {}, req.user);
+            where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        }
 
 
         const fav = await FavMaster.findOne({

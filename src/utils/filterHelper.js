@@ -123,10 +123,10 @@ const getRepresentativeScope = async (user = {}, normalizedRole = '') => {
       console.log(`🔍 [filterHelper] No USER_ID found for commercial, returning own identifiers`);
       return ownIdentifiers;
     }
-    
+
     // Convert userId to varchar string since codRepresTiers is a varchar column with mixed data
     const userIdStr = String(userId);
-    
+
     const clientRows = await sequelize.query(`
       SELECT CodTiers
       FROM TabTiers
@@ -135,14 +135,13 @@ const getRepresentativeScope = async (user = {}, normalizedRole = '') => {
       replacements: { userIdStr },
       type: QueryTypes.SELECT
     });
-    
+
     const clientCodes = clientRows.map(row => row.CodTiers).filter(Boolean);
     console.log(`🔍 [filterHelper] Commercial ${userId} clients:`, clientCodes);
-    
-    if (clientCodes.length > 0) {
-      return clientCodes;  // Return client codes for filtering
-    }
-    return ownIdentifiers;  // Fallback to own identifiers
+
+    // Return client codes if found; otherwise return empty array
+    // (modules 4/5/6/7 will also check CodRepres = userId as a fallback)
+    return clientCodes;
   }
 
   if (normalizedRole !== 'agent') {
@@ -399,27 +398,39 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
   // ═══════════════════════════════════════════════════════════════════════════
   const representatives = await getRepresentativeScope(user, normalizedRole);
   console.log(`🔍 [filterHelper] buildModuleScopeFilter representatives for ${normalizedRole}:`, representatives);
-  if (!representatives.length) {
-    console.log(`   - No representatives found, returning empty result`);
-    return { [Op.and]: [sequelize.literal('1 = 0')] };
-  }
 
-  // Devis/BCV/BLV/FAV: scope through client portfolio
-  // Note: getRepresentativeScope already returns the list of CodTiers appropriate for this user/role
-  // For Commercial: returns their client codes
-  // For Agent: returns their region commercials' client codes
+  // Devis/BCV/BLV/FAV: scope through client portfolio + direct assignment
+  // Handled BEFORE the early-return so commercial CodRepres fallback always applies,
+  // even when the commercial has no clients yet assigned in TabTiers.
   if (['4', '5', '6', '7'].includes(moduleKey)) {
-    // Representatives are already the CodTiers we need - use them directly
-    if (representatives.length === 0) {
-      console.log(`   🔍 [filterHelper] Module ${moduleKey}: No client codes found, blocking all access`);
+    const userId = user?.UserID || user?.id || user?.USER_ID;
+    const conditions = [];
+
+    if (representatives.length > 0) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: Filtering by ${representatives.length} client codes:`, representatives);
+      conditions.push({ CodTiers: { [Op.in]: representatives } });
+    }
+
+    // For commercial: always include documents directly assigned via CodRepres,
+    // even when the client portfolio (TabTiers codRepresTiers) is empty.
+    if (normalizedRole === 'commercial' && userId) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: Adding CodRepres fallback for commercial ${userId}`);
+      conditions.push({ CodRepres: String(userId) });
+    }
+
+    if (conditions.length === 0) {
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: No conditions found, blocking all access`);
       return { [Op.and]: [sequelize.literal('1 = 0')] };
     }
 
-    console.log(`   🔍 [filterHelper] Module ${moduleKey}: Filtering by ${representatives.length} client codes:`, representatives);
-    const filterResult = { CodTiers: { [Op.in]: representatives } };
-    console.log(`   🔍 [filterHelper] Module ${moduleKey} filter object keys:`, Object.keys(filterResult));
-    console.log(`   🔍 [filterHelper] Module ${moduleKey} filter object symbols:`, Object.getOwnPropertySymbols(filterResult['CodTiers']));
+    const filterResult = conditions.length === 1 ? conditions[0] : { [Op.or]: conditions };
+    console.log(`   🔍 [filterHelper] Module ${moduleKey} filter result:`, JSON.stringify(filterResult, (k, v) => typeof v === 'symbol' ? v.toString() : v));
     return filterResult;
+  }
+
+  if (!representatives.length) {
+    console.log(`   - No representatives found, returning empty result`);
+    return { [Op.and]: [sequelize.literal('1 = 0')] };
   }
 
   // Activites (TabActivite): scope through user assignment (User column)

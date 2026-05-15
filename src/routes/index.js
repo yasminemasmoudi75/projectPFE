@@ -31,7 +31,6 @@ const banquesRoutes = require('./banques.routes'); // ✅ Référentiel banques
 const iaRoutes = require('./ia.routes'); // ✅ Routes IA
 const notificationsRoutes = require('./notifications.routes'); // ✅ Nouvelles notifications système
 const statsRoutes = require('./stats.routes'); // ✅ Statistiques avancées dashboard
-
 // Utiliser les routes
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);

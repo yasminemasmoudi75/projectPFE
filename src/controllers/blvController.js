@@ -1,5 +1,5 @@
 const { BlvMaster, BlvDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
-const { Op, TableHints } = require('sequelize');
+const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
 const { randomUUID } = require('crypto');
@@ -11,6 +11,7 @@ const { randomUUID } = require('crypto');
 // ⚠️ Helpers nécessaires ici (sinon ReferenceError au runtime)
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 const isCommercialRole = (role) => ['commercial', 'commerciale'].includes(normalizeRole(role));
+const isAdminUser = (user = {}) => ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole));
 const resolveCommercialCodRepresValue = (user = {}) => String(user?.id || user?.UserID || '').trim();
 const buildCommercialCodRepresFilter = (user = {}) => {
     const codRepres = resolveCommercialCodRepresValue(user);
@@ -141,12 +142,30 @@ exports.getAllBlv = async (req, res, next) => {
 exports.getBlvById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const filterHelper = require('../utils/filterHelper');
 
-        // Pour la récupération par ID, on applique aussi les filtres de sécurité mandataires
-        // cela garantit qu'un agent ne peut pas accéder au BL d'une autre région en changeant l'ID dans l'URL
-        const securityWhere = await filterHelper.applyTableDrivenFilters('6', {}, req.user);
-        const where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        let where;
+        if (isAdminUser(req.user)) {
+            where = { Guid: id };
+        } else if (isCommercialRole(req.user?.UserRole)) {
+            const userId = resolveCommercialCodRepresValue(req.user);
+            const clientRows = await sequelize.query(
+                `SELECT CodTiers FROM TabTiers WHERE CONVERT(VARCHAR, codRepresTiers) = :userId`,
+                { replacements: { userId }, type: QueryTypes.SELECT }
+            );
+            const clientCodes = clientRows.map(r => r.CodTiers).filter(Boolean);
+            const accessConditions = [];
+            if (userId) accessConditions.push({ CodRepres: userId });
+            if (clientCodes.length > 0) accessConditions.push({ CodTiers: { [Op.in]: clientCodes } });
+            if (accessConditions.length === 0) {
+                return res.status(403).json({ status: 'error', message: 'Accès refusé' });
+            }
+            const accessWhere = accessConditions.length === 1 ? accessConditions[0] : { [Op.or]: accessConditions };
+            where = { [Op.and]: [{ Guid: id }, accessWhere] };
+        } else {
+            const filterHelper = require('../utils/filterHelper');
+            const securityWhere = await filterHelper.applyTableDrivenFilters('6', {}, req.user);
+            where = { [Op.and]: [{ Guid: id }, securityWhere] };
+        }
 
         const blv = await BlvMaster.findOne({
             where,

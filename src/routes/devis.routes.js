@@ -17,6 +17,7 @@ router.post('/', checkPermission(MODULES.DEVIS, 'create'), devisController.creat
 router.put('/:id', checkPermission(MODULES.DEVIS, 'update'), devisController.updateDevis);
 router.patch('/:id/validate', checkPermission(MODULES.DEVIS, 'update'), devisController.validateDevis);
 router.patch('/:id/convert', checkPermission(MODULES.DEVIS, 'update'), devisController.convertDevis);
+router.post('/:id/request-convert', checkPermission(MODULES.DEVIS, 'read'), devisController.requestConvert);
 router.delete('/:id', checkPermission(MODULES.DEVIS, 'delete'), devisController.deleteDevis);
 
 module.exports = router;

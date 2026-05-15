@@ -132,4 +132,66 @@ const notifyDocumentCreated = async (type, numero, tiers, createdByUserId) => {
   }
 };
 
-module.exports = { notifyAdmins, notifyObjectifAchieved, createNotifications, notifyDocumentCreated };
+/**
+ * Envoie une demande de transformation aux admins.
+ * Le message contient un JSON exploitable pour l'approbation.
+ */
+const notifyTransformRequest = async ({ sourceType, sourceNf, sourceGuid, targetType, codTiers, libTiers, totalTTC, requestedByUserId, requestedByName }) => {
+  try {
+    const adminIds = await getActiveAdminIds();
+    if (!adminIds.length) return;
+
+    const targetLabel = targetType === 'FAC' ? 'Facture' : 'Bon de Livraison';
+    const sourceLabel = sourceType === 'DEV' ? 'Devis' : 'Bon de Commande';
+
+    const title = `Demande de transformation ${sourceLabel} → ${targetLabel}`;
+    const message = JSON.stringify({
+      _type: 'TRANSFORM_REQUEST',
+      sourceType,
+      sourceNf,
+      sourceGuid,
+      targetType,
+      codTiers,
+      libTiers,
+      totalTTC,
+      requestedByUserId,
+      requestedByName
+    });
+
+    await createNotifications(adminIds, title, message, 'TRANSFORM_REQUEST');
+  } catch (err) {
+    console.error('❌ [NOTIFY] notifyTransformRequest:', err.message);
+  }
+};
+
+/**
+ * Notifie le commercial que sa demande de transformation a été traitée.
+ */
+const notifyTransformDecision = async ({ recipientId, sourceType, sourceNf, targetType, decision, docGuid }) => {
+  try {
+    const targetLabel = targetType === 'FAC' ? 'Facture' : targetType === 'BL' ? 'Bon de Livraison' : 'BCV';
+    const sourceLabel = sourceType === 'DEV' ? 'Devis' : 'Bon de Commande';
+    const approved = decision === 'APPROVED';
+
+    const title = approved
+      ? `Transformation approuvée — ${sourceLabel} n°${sourceNf}`
+      : `Transformation refusée — ${sourceLabel} n°${sourceNf}`;
+
+    let msg, type;
+    if (approved && docGuid) {
+      msg = JSON.stringify({ _type: 'TRANSFORM_DECISION', approved: true, docGuid, targetType, sourceType, sourceNf });
+      type = 'TRANSFORM_DECISION';
+    } else {
+      msg = approved
+        ? `Votre demande de transformation du ${sourceLabel} n°${sourceNf} vers ${targetLabel} a été approuvée et effectuée.`
+        : `Votre demande de transformation du ${sourceLabel} n°${sourceNf} vers ${targetLabel} a été refusée par l'administrateur.`;
+      type = approved ? 'SUCCESS' : 'WARNING';
+    }
+
+    await createNotifications([recipientId], title, msg, type);
+  } catch (err) {
+    console.error('❌ [NOTIFY] notifyTransformDecision:', err.message);
+  }
+};
+
+module.exports = { notifyAdmins, notifyObjectifAchieved, createNotifications, notifyDocumentCreated, notifyTransformRequest, notifyTransformDecision };

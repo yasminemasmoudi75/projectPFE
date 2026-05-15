@@ -320,9 +320,13 @@ const isFiltreRepresEnabledForCommercialDevis = async (transaction) => {
   return value === 1 || value === true || value === '1';
 };
 
-const buildDevisSecurityWhere = async (guid, user, transaction) => {
+const buildDevisSecurityWhere = async (guid, user, transaction, bypassForAdmin = false) => {
   const filterHelper = require('../utils/filterHelper');
-  const securityWhere = await filterHelper.applyTableDrivenFilters('4', {}, user, transaction);
+  const normalizedRole = String(user?.UserRole || '').toLowerCase();
+  // Admin approving on behalf of a commercial — see all records
+  const isAdmin = ['admin', 'administrateur'].includes(normalizedRole);
+  const queryParams = (bypassForAdmin && isAdmin) ? { includeAll: 'true' } : {};
+  const securityWhere = await filterHelper.applyTableDrivenFilters('4', queryParams, user, transaction);
   return { [Op.and]: [{ Guid: guid }, securityWhere] };
 };
 
@@ -822,7 +826,7 @@ exports.convertDevis = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const devisWhere = await buildDevisSecurityWhere(id, req.user, t);
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, t, true);
     const devis = await DevisMaster.findOne({
       where: devisWhere,
       include: [
@@ -942,35 +946,46 @@ exports.convertDevis = async (req, res, next) => {
       await mouvementService.enregistrerTransformation('DEV', data.Nf, 'BCV', nextNf, montants, userId);
       console.log(`✅ Mouvement enregistré: Transformation DEV #${data.Nf} → BCV #${nextNf} par utilisateur ${userId}`);
 
-      // 🔔 NOTIFICATION SITE & EMAIL CLIENT
-      const { notifyDocumentCreated } = require('../utils/notificationUtils');
+      // 🔔 NOTIFICATIONS
+      const { notifyDocumentCreated, createNotifications } = require('../utils/notificationUtils');
       const emailService = require('../utils/emailService');
+      const { User } = require('../models');
 
-      // Notif site
+      // Notif admins
       await notifyDocumentCreated('BCV', nextNf, tiers, userId);
 
-      // Email client
-      if (tiers?.Email) {
-        await emailService.sendDocumentNotification(tiers.Email, tiers.Raisoc, {
-          type: 'BCV',
-          numero: `BC-${nextNf}`,
-          montant: data.TotTTC,
-          id: newGuid
-        });
+      // Notif commercial (chercher par CodRepres du devis)
+      if (data.CodRepres) {
+        const commercial = await User.findOne({ where: { UserID: data.CodRepres } });
+        if (commercial?.UserID) {
+          await createNotifications(
+            [commercial.UserID],
+            `Nouveau Bon de Commande BC#${nextNf}`,
+            JSON.stringify({
+              _type: 'BCV_CREATED',
+              bcvGuid: newGuid,
+              bcvNf: nextNf,
+              codTiers: data.CodTiers,
+              libTiers: data.LibTiers,
+              totalTTC: data.TotTTC
+            }),
+            'BCV_CREATED'
+          );
+        }
       }
-    } catch (mouvementError) {
-      console.error('⚠️ Erreur notifications transformation (non bloquant):', mouvementError.message);
+    } catch (notifErr) {
+      console.warn('⚠️ [convertDevis] Erreur notification/mouvement (non bloquant):', notifErr.message);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 'success',
-      message: 'Devis converti en bon de commande avec succès',
+      message: 'Devis converti en bon de commande',
       data: { Guid: newGuid, Nf: nextNf }
     });
   } catch (error) {
-    if (t && !t.finished) await t.rollback();
-    console.error('❌ Error convertDevis:', error);
+    await t.rollback();
     next(error);
+
   }
 };
 
@@ -1018,6 +1033,45 @@ exports.generateDevisPDF = async (req, res, next) => {
 /**
  * Récupérer les devis de l'utilisateur connecté (Client Portal)
  */
+/**
+ * POST /api/devis/:id/request-convert
+ * Commercial demande la conversion d'un devis en BCV — l'admin doit approuver.
+ */
+exports.requestConvert = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { notifyTransformRequest } = require('../utils/notificationUtils');
+
+    const devis = await DevisMaster.findOne({
+      where: { [Op.or]: [{ Guid: id }, { Nf: isNaN(id) ? null : parseInt(id) }] },
+      include: [{ model: Tiers, as: 'tiers', attributes: ['CodTiers', 'Raisoc', 'Email'] }]
+    });
+
+    if (!devis) return res.status(404).json({ status: 'error', message: 'Devis introuvable' });
+    if (devis.bTransf) return res.status(400).json({ status: 'error', message: 'Devis déjà transformé' });
+    if (!devis.Valid) return res.status(400).json({ status: 'error', message: 'Le devis doit être validé avant transformation' });
+
+    const requestedByName = req.user?.FullName || req.user?.LoginName || `Utilisateur ${req.user?.UserID}`;
+
+    await notifyTransformRequest({
+      sourceType: 'DEV',
+      sourceNf: devis.Nf,
+      sourceGuid: devis.Guid,
+      targetType: 'BCV',
+      codTiers: devis.CodTiers,
+      libTiers: devis.LibTiers || devis.tiers?.Raisoc,
+      totalTTC: devis.TotTTC,
+      requestedByUserId: req.user?.UserID,
+      requestedByName
+    });
+
+    res.json({ status: 'success', message: 'Demande de transformation envoyée à l\'administrateur' });
+  } catch (err) {
+    console.error('❌ requestConvert:', err);
+    next(err);
+  }
+};
+
 exports.getMyDevis = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');

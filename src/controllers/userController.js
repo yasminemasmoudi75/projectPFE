@@ -460,6 +460,47 @@ exports.deleteUser = async (req, res, next) => {
  * - Si FiltreRepres activé pour l'agent: commerciaux de sa région uniquement
  * - Sinon: tous les commerciaux
  */
+/**
+ * Récupère tous les membres internes (toutes rôles sauf client) — pour le filtre calendrier admin
+ */
+exports.getCalendarMembers = async (req, res, next) => {
+  try {
+    const rows = await sequelize.query(`
+      SELECT
+        u.USER_ID  AS UserID,
+        u.USER_NAME AS LoginName,
+        u.REAL_NAME AS FullName,
+        u.PhotoProfil AS PhotoProfil,
+        u.Gouvernorat AS Gouvernorat,
+        u.GUID AS GUID,
+        p.PROF_DESCRIPTION AS Role
+      FROM UCS_USERS u
+      INNER JOIN UCS_USERINFO ui ON ui.USER_ID = u.USER_ID AND ui.APP_ID = 1
+      INNER JOIN UCS_PROFILES p ON p.PROF_ID = ui.PROF_ID
+      WHERE LOWER(p.PROF_DESCRIPTION) NOT IN ('client')
+        AND ui.USER_ACTIVE = '1'
+      ORDER BY p.PROF_DESCRIPTION ASC, u.REAL_NAME ASC
+    `, { type: QueryTypes.SELECT });
+
+    res.status(200).json({
+      status: 'success',
+      data: (rows || []).map((row) => ({
+        value: String(row.UserID),
+        userId: row.UserID,
+        login: row.LoginName,
+        fullName: row.FullName,
+        PhotoProfil: row.PhotoProfil,
+        gouvernorat: row.Gouvernorat,
+        guid: row.GUID,
+        role: row.Role,
+        label: row.FullName || row.LoginName || `Utilisateur ${row.UserID}`
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getAssignableCommercials = async (req, res, next) => {
   try {
     const requesterId = req.user?.UserID || req.user?.id;

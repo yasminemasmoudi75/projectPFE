@@ -13,6 +13,7 @@ router.get('/', checkPermission(MODULES.USERS, 'read'), userController.getAllUse
 router.get('/commercials/assignable', checkPermission(MODULES.CLIENTS, 'read'), userController.getAssignableCommercials);
 router.get('/commercials/devis-filter', checkPermission(MODULES.DEVIS, 'read'), userController.getAssignableCommercials);
 router.get('/commercials/activites-filter', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), userController.getAssignableCommercials);
+router.get('/members/calendar-filter', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), userController.getCalendarMembers);
 router.get('/commercials/objectifs-filter', checkPermission(MODULES.OBJECTIFS, 'read'), userController.getAssignableCommercials);
 router.get('/commercials/projets-filter', checkPermission(MODULES.PROJETS, 'read'), userController.getAssignableCommercials);
 router.get('/:id', checkPermission(MODULES.USERS, 'read'), userController.getUserById);     // Récupérer un utilisateur par ID

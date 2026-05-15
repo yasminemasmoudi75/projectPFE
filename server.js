@@ -11,6 +11,9 @@ const path = require('path');
 const { initializeGmailAuth } = require('./src/services/gmailAuthService');
 const { startGmailSyncJob } = require('./src/services/gmailSyncJob');
 
+// Import du service de rappels d'activités
+const { startActivityReminderJob } = require('./src/services/activityReminderJob');
+
 // ═══════════════════════════════════════════════════════════════════════
 // Lancer automatiquement le service ML (Flask) au démarrage
 // ═══════════════════════════════════════════════════════════════════════
@@ -119,6 +122,15 @@ app.locals.models = models;
     } catch (gmailError) {
       console.warn('⚠️ Erreur lors de l\'initialisation Gmail:', gmailError.message);
       console.log('⚠️ Le serveur peut continuer sans Gmail, mais les emails ne seront pas synchronisés\n');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RAPPELS D'ACTIVITÉS (cron toutes les 5 minutes)
+    // ═══════════════════════════════════════════════════════════════════════
+    try {
+      startActivityReminderJob();
+    } catch (reminderErr) {
+      console.warn('⚠️ Erreur démarrage ActivityReminderJob:', reminderErr.message);
     }
 
     // Démarrer le serveur Express
