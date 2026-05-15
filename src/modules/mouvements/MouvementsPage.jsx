@@ -49,47 +49,36 @@ const MouvementsPage = () => {
       // Ajouter timestamp pour forcer le navigateur à ne pas utiliser le cache
       params.append('_t', Date.now());
 
+      // axios interceptor returns response.data directly, so `response` IS the body
       const response = await axios.get(`/mouvements?${params.toString()}`);
-      
-      console.log('📊 Response.data:', response.data);
-      
+
       let mouvementsData = [];
       let paginationData = { total: 0, page: 1, limit: 50, totalPages: 1 };
-      
-      // Gérer deux formats de réponse
-      if (Array.isArray(response.data)) {
-        // Format: array directement
+
+      if (response?.status === 'success') {
         mouvementsData = response.data || [];
-        console.log('✅ Format: Array directement, length:', mouvementsData.length);
-      } else if (response.data?.status === 'success') {
-        // Format: {status, pagination, data}
-        mouvementsData = response.data.data || [];
         paginationData = {
-          total: response.data.pagination?.total || 0,
-          page: response.data.pagination?.page || 1,
-          limit: response.data.pagination?.limit || 50,
-          totalPages: response.data.pagination?.totalPages || 1
+          total: response.pagination?.total || 0,
+          page: response.pagination?.page || 1,
+          limit: response.pagination?.limit || 50,
+          totalPages: response.pagination?.totalPages || 1
         };
-        console.log('✅ Format: Object avec status, length:', mouvementsData.length);
+      } else if (Array.isArray(response)) {
+        mouvementsData = response;
       }
-      
-      console.log('📋 Mouvements avant filtrage:', mouvementsData.length);
       
       // Appliquer les filtres côté client
       if (filters.action) {
         const flagValue = parseInt(filters.action);
         mouvementsData = mouvementsData.filter(m => m.Flags === flagValue);
-        console.log('🔍 Après filtrage action:', mouvementsData.length);
       }
-      
+
       if (filters.libTiers) {
-        mouvementsData = mouvementsData.filter(m => 
+        mouvementsData = mouvementsData.filter(m =>
           m.LibTiers && m.LibTiers.toLowerCase().includes(filters.libTiers.toLowerCase())
         );
-        console.log('🔍 Après filtrage libTiers:', mouvementsData.length);
       }
-      
-      console.log('✅ Final affichage:', mouvementsData.length, 'mouvements');
+
       setMouvements(mouvementsData);
       setPagination(prev => ({
         ...prev,

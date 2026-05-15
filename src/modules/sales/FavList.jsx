@@ -96,7 +96,7 @@ const FavList = () => {
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    search: '', status: 'all', minAmount: '', maxAmount: '',
+    search: '', minAmount: '', maxAmount: '',
     minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
@@ -132,7 +132,7 @@ const FavList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
+    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -140,11 +140,6 @@ const FavList = () => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
       if (!(`${item.Prfx}${item.Nf}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
-    }
-    if (filters.status !== 'all') {
-      if (filters.status === 'draft' && (item.Valid || item.IsConverted)) return false;
-      if (filters.status === 'valid' && (!item.Valid || item.IsConverted)) return false;
-      if (filters.status === 'converted' && !item.IsConverted) return false;
     }
     const amount = item.TotTTC || 0;
     if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
@@ -154,15 +149,18 @@ const FavList = () => {
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
     
     // Filter by selected commercial; default to 'mine'
-    if (filters.commercial === 'all') {
-      // Show everything
-    } else {
-      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
-      if (String(item.CodRepres) !== String(targetId)) return false;
+    // Commercial users: backend already scopes correctly (CodTiers + CodRepres), skip frontend re-filter.
+    if (!isCommercialUser) {
+      if (filters.commercial === 'all') {
+        // Show everything
+      } else {
+        const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+        if (String(item.CodRepres) !== String(targetId)) return false;
+      }
     }
-    
+
     return true;
-  }), [fav, filters, adminId, isAdminUser]);
+  }), [fav, filters, adminId, isAdminUser, isCommercialUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredFav.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -181,17 +179,16 @@ const FavList = () => {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const refreshData = () => {
     if (!isModuleActive) return;
-    const params = { 
-      page: 1, 
-      limit: 1000,
-      status: filters.status === 'all' ? '' : filters.status,
-    };
+    const params = { page: 1, limit: 1000 };
     
-    if (filters.commercial && filters.commercial !== 'all') {
-      params.selectedCommercial = filters.commercial;
-    }
-    if (filters.commercial === 'all') {
-      params.includeAll = true;
+    // Only admins/agents use selectedCommercial; commercial users are scoped server-side.
+    if (!isCommercialUser) {
+      if (filters.commercial && filters.commercial !== 'all') {
+        params.selectedCommercial = filters.commercial === 'mine' ? adminId : filters.commercial;
+      }
+      if (filters.commercial === 'all') {
+        params.includeAll = true;
+      }
     }
 
     isClient
@@ -218,7 +215,7 @@ const FavList = () => {
 
   useEffect(() => {
     refreshData();
-  }, [filters.status, filters.commercial]);
+  }, [filters.commercial, isModuleActive]);
 
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;
@@ -232,13 +229,6 @@ const FavList = () => {
 
   if (loading) return <LoadingSpinner />;
 
-  // ── Status buttons config ──────────────────────────────────────────────────
-  const STATUS_BTNS = [
-    { id: 'all', label: 'Tous', active: 'bg-slate-800 text-white border-slate-700' },
-    { id: 'draft', label: 'Brouillon', active: 'bg-amber-50 text-amber-700 border-amber-300' },
-    { id: 'valid', label: 'Validés', active: 'bg-blue-50 text-blue-700 border-blue-300' },
-    { id: 'converted', label: 'Transformés', active: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
-  ];
 
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible" className="space-y-6 pb-12">
@@ -318,24 +308,6 @@ const FavList = () => {
               onChange={(e) => handleFilterChange('search', e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
-          </div>
-
-          {/* Status segmented control */}
-          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
-            {STATUS_BTNS.map((btn) => (
-              <button
-                key={btn.id}
-                onClick={() => handleFilterChange('status', btn.id)}
-                className={clsx(
-                  'px-4 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all duration-150 border',
-                  filters.status === btn.id
-                    ? btn.active + ' shadow-sm'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                )}
-              >
-                {btn.label}
-              </button>
-            ))}
           </div>
 
           {/* Advanced filters toggle */}
@@ -436,12 +408,12 @@ const FavList = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
-                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
+                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', ''].map((h, i) => (
                   <th
                     key={i}
                     className={clsx(
                       'px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left',
-                      i === 7 && 'text-right'
+                      i === 6 && 'text-right'
                     )}
                   >
                     {h}
@@ -453,7 +425,7 @@ const FavList = () => {
               <AnimatePresence mode="popLayout">
                 {paginatedFav.length === 0 ? (
                   <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <td colSpan={8} className="py-24 text-center">
+                    <td colSpan={7} className="py-24 text-center">
                       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-4">
                         <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center">
                           <DocumentTextIcon className="h-8 w-8 text-slate-300" />
@@ -542,14 +514,6 @@ const FavList = () => {
                         {/* Montant */}
                         <td className="px-5 py-3.5">
                           <span className="text-sm font-bold text-slate-900 tabular-nums">{formatCurrency(item.TotTTC)}</span>
-                        </td>
-
-                        {/* Statut */}
-                        <td className="px-5 py-3.5">
-                          <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border', cfg.badge)}>
-                            <span className={clsx('h-1.5 w-1.5 rounded-full', cfg.dot)} />
-                            {cfg.label}
-                          </span>
                         </td>
 
                         {/* Actions */}

@@ -150,11 +150,14 @@ const BcvList = () => {
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
     
     // Filter by selected commercial; default to 'mine'
-    if (filters.commercial === 'all') {
-      // Show everything
-    } else {
-      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
-      if (String(item.CodRepres) !== String(targetId)) return false;
+    // Commercial users: backend already scopes correctly (CodTiers + CodRepres), skip frontend re-filter.
+    if (!isCommercialUser) {
+      if (filters.commercial === 'all') {
+        // Show everything
+      } else {
+        const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+        if (String(item.CodRepres) !== String(targetId)) return false;
+      }
     }
     
     return true;
@@ -183,13 +186,14 @@ const BcvList = () => {
         status: filters.status === 'all' ? '' : filters.status,
       };
       
-      // Include selectedCommercial (could be an ID or 'mine')
-      if (filters.commercial && filters.commercial !== 'all') {
-        params.selectedCommercial = filters.commercial;
-      }
-      // Explicitly request all records when 'all' is selected
-      if (filters.commercial === 'all') {
-        params.includeAll = true;
+      // Only admins/agents use selectedCommercial; commercial users are scoped server-side.
+      if (!isCommercialUser) {
+        if (filters.commercial && filters.commercial !== 'all') {
+          params.selectedCommercial = filters.commercial === 'mine' ? adminId : filters.commercial;
+        }
+        if (filters.commercial === 'all') {
+          params.includeAll = true;
+        }
       }
       
       isClient
@@ -216,7 +220,7 @@ const BcvList = () => {
 
   useEffect(() => {
     refreshData();
-  }, [filters.status, filters.commercial]);
+  }, [filters.status, filters.commercial, isModuleActive]);
 
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;

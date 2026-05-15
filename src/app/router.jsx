@@ -55,6 +55,7 @@ const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
 
 
 // Admin modules
+const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboard'));
 const JournalConnexions = lazy(() => import('../modules/admin/JournalConnexions'));
 const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
 
@@ -502,6 +503,14 @@ const routes = [
         element: (
           <SuspenseWrapper>
             <IAPredictions />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: 'admin',
+        element: (
+          <SuspenseWrapper>
+            <AdminDashboard />
           </SuspenseWrapper>
         ),
       },

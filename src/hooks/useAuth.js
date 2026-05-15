@@ -25,9 +25,9 @@ const useAuth = () => {
     isAuthenticated,
     loading,
     logout: handleLogout,
-    isAdmin: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.ADMIN),
-    isCommercial: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.COMMERCIAL),
-    isAgent: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.AGENT),
+    isAdmin: ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole)),
+    isCommercial: ['commercial', 'commerciale'].includes(normalizeRole(user?.UserRole)),
+    isAgent: ['agent'].includes(normalizeRole(user?.UserRole)),
     isTechnicien: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.TECHNICIEN),
     isClient: normalizeRole(user?.UserRole) === normalizeRole(USER_ROLES.CLIENT),
   };

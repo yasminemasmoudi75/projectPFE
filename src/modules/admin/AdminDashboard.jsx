@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../app/axios';
 import useAuth from '../../hooks/useAuth';
@@ -16,7 +16,11 @@ import {
   EyeIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ClockIcon
+  ClockIcon,
+  ArrowPathIcon,
+  XCircleIcon,
+  TruckIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -32,11 +36,20 @@ const AdminDashboard = () => {
     recentLogins: []
   });
   const [loading, setLoading] = useState(true);
+  const [pendingTransforms, setPendingTransforms] = useState([]);
+  const [processingTransform, setProcessingTransform] = useState(null);
   const [systemHealth, setSystemHealth] = useState({
     status: 'healthy',
     lastBackup: '2024-01-15 03:00',
     uptime: '99.9%'
   });
+
+  const fetchPendingTransforms = useCallback(async () => {
+    try {
+      const res = await axios.get('/notifications/pending-transforms');
+      setPendingTransforms(res.data?.data || []);
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -45,7 +58,59 @@ const AdminDashboard = () => {
       return;
     }
     fetchAdminData();
-  }, [isAdmin, navigate]);
+    fetchPendingTransforms();
+    const interval = setInterval(fetchPendingTransforms, 30000);
+    return () => clearInterval(interval);
+  }, [isAdmin, navigate, fetchPendingTransforms]);
+
+  const handleApproveTransform = async (item) => {
+    const { payload, id: notifId } = item;
+    if (!payload) return;
+    setProcessingTransform(notifId);
+    try {
+      if (payload.sourceType === 'DEV') {
+        await axios.patch(`/devis/${payload.sourceGuid}/convert`);
+      } else {
+        await axios.post(`/bcv/${payload.sourceGuid}/transfer`, { targetType: payload.targetType });
+      }
+      await axios.patch(`/notifications/${notifId}/read`);
+      await axios.post('/notifications/notify-decision', {
+        recipientId: payload.requestedByUserId,
+        sourceType: payload.sourceType,
+        sourceNf: payload.sourceNf,
+        targetType: payload.targetType,
+        decision: 'APPROVED'
+      });
+      setPendingTransforms(cur => cur.filter(t => t.id !== notifId));
+      toast.success('Transformation approuvée et effectuée');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'approbation');
+    } finally {
+      setProcessingTransform(null);
+    }
+  };
+
+  const handleRefuseTransform = async (item) => {
+    const { payload, id: notifId } = item;
+    if (!payload) return;
+    setProcessingTransform(notifId);
+    try {
+      await axios.patch(`/notifications/${notifId}/read`);
+      await axios.post('/notifications/notify-decision', {
+        recipientId: payload.requestedByUserId,
+        sourceType: payload.sourceType,
+        sourceNf: payload.sourceNf,
+        targetType: payload.targetType,
+        decision: 'REJECTED'
+      });
+      setPendingTransforms(cur => cur.filter(t => t.id !== notifId));
+      toast('Demande refusée', { icon: '✖️' });
+    } catch (_) {
+      toast.error('Erreur lors du refus');
+    } finally {
+      setProcessingTransform(null);
+    }
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -204,6 +269,77 @@ const AdminDashboard = () => {
           Tous les services fonctionnent normalement
         </div>
       </div>
+
+      {/* Demandes de transformation en attente */}
+      {pendingTransforms.length > 0 && (
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-9 w-9 rounded-xl bg-amber-100 flex items-center justify-center">
+              <ArrowPathIcon className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Demandes de transformation</h3>
+              <p className="text-xs text-slate-500">{pendingTransforms.length} demande(s) en attente d'approbation</p>
+            </div>
+            <span className="ml-auto h-6 min-w-6 px-2 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">
+              {pendingTransforms.length}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {pendingTransforms.map((item) => {
+              const p = item.payload;
+              if (!p) return null;
+              const targetLabel = p.targetType === 'FAC' ? 'Facture' : 'Bon de Livraison';
+              const sourceLabel = p.sourceType === 'DEV' ? 'Devis' : 'BC';
+              const TargetIcon = p.targetType === 'FAC' ? BanknotesIcon : TruckIcon;
+              return (
+                <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
+                  <button
+                    type="button"
+                    className="flex-1 min-w-0 text-left group"
+                    onClick={() => navigate(p.sourceType === 'DEV' ? `/devis/${p.sourceGuid}` : `/bcv/${p.sourceGuid}`)}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <TargetIcon className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-amber-700 group-hover:underline transition-colors">
+                        {sourceLabel} n°{p.sourceNf} → {targetLabel}
+                      </span>
+                      <ArrowPathIcon className="h-3.5 w-3.5 text-amber-400 group-hover:text-amber-600 transition-colors" />
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Client : <span className="font-medium">{p.libTiers}</span>
+                      {' · '}
+                      Montant : <span className="font-medium">{Number(p.totalTTC || 0).toFixed(3)} TND</span>
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Demandé par {p.requestedByName} · {new Date(item.createdAt).toLocaleString('fr-FR')}
+                    </p>
+                  </button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleApproveTransform(item)}
+                      disabled={processingTransform === item.id}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                    >
+                      <CheckCircleIcon className="h-4 w-4" />
+                      Approuver
+                    </button>
+                    <button
+                      onClick={() => handleRefuseTransform(item)}
+                      disabled={processingTransform === item.id}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 disabled:opacity-60 transition-colors"
+                    >
+                      <XCircleIcon className="h-4 w-4" />
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

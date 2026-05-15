@@ -35,6 +35,7 @@ import { MODULE_CODES } from '../utils/constants';
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD, color: 'sky' },
   { type: 'section', name: 'Administration' },
+  { name: 'Tableau de bord Admin', href: '/admin', icon: ChartBarIcon, moduleCode: null, color: 'purple', adminOnly: true },
   { name: 'Rôles & Permissions', href: '/admin/permissions', icon: KeyIcon, moduleCode: null, color: 'violet', adminOnly: true },
   { name: 'Journal Connexions', href: '/admin/journal', icon: ClipboardDocumentListIcon, moduleCode: null, color: 'indigo', adminOnly: true },
   { type: 'section', name: 'CRM & Ventes' },
@@ -46,7 +47,7 @@ const menuItems = [
   { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS, color: 'orange' },
   { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES, color: 'green' },
   { name: 'Paiements', href: '/reglements', icon: BanknotesIcon, moduleCode: MODULE_CODES.REGLEMENT, color: 'emerald' },
-  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: MODULE_CODES.TOURNEE, color: 'teal' },
+  { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: null, color: 'teal', adminOnly: true },
   { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet' },
   { type: 'section', name: 'Operations' },
   { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES, color: 'rose' },

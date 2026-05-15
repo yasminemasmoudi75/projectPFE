@@ -5,21 +5,25 @@ import {
   ArrowLeftIcon,
   PrinterIcon,
   CheckCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { fetchDevisById, validateDevis, convertDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import toast from 'react-hot-toast';
 import api from '@app/axios';
+import useAuth from '../../hooks/useAuth';
 
 const DevisDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentDevis: devis, loading, error } = useSelector((state) => state.devis);
+  const { isAdmin, isCommercial } = useAuth();
   const [isConverting, setIsConverting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -53,6 +57,19 @@ const DevisDetail = () => {
       toast.error(message);
     } finally {
       setIsConverting(false);
+    }
+  };
+
+  const handleRequestConvert = async () => {
+    if (isRequesting) return;
+    try {
+      setIsRequesting(true);
+      await api.post(`/devis/${id}/request-convert`);
+      toast.success('Demande envoyée à l\'administrateur');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de la demande');
+    } finally {
+      setIsRequesting(false);
     }
   };
 
@@ -105,14 +122,25 @@ const DevisDetail = () => {
             </button>
           )}
           {!(devis.IsConverted || devis.bTransf) && devis.Valid && (
-            <button
-              onClick={handleConvert}
-              disabled={isConverting}
-              className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-bold text-xs"
-            >
-              <ArrowPathIcon className="h-4 w-4 inline mr-2" />
-              {isConverting ? 'Conversion...' : 'Convertir en BC'}
-            </button>
+            (isAdmin || isCommercial) ? (
+              <button
+                onClick={handleConvert}
+                disabled={isConverting}
+                className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-bold text-xs"
+              >
+                <ArrowPathIcon className="h-4 w-4 inline mr-2" />
+                {isConverting ? 'Conversion...' : 'Convertir en BC'}
+              </button>
+            ) : (
+              <button
+                onClick={handleRequestConvert}
+                disabled={isRequesting}
+                className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-bold text-xs"
+              >
+                <PaperAirplaneIcon className="h-4 w-4 inline mr-2" />
+                {isRequesting ? 'Envoi...' : 'Demander conversion BC'}
+              </button>
+            )
           )}
           <button
             onClick={handleDownloadPDF}

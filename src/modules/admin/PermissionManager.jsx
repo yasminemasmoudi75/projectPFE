@@ -355,13 +355,11 @@ const PermissionManager = () => {
                       </div>
                       
                       {perm.isActive && (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-slate-100">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-4 border-t border-slate-100">
                           {[
                             { key: 'canAdd', label: 'Créer', icon: '➕' },
                             { key: 'canEdit', label: 'Modifier', icon: '✏️' },
-                            { key: 'canDelete', label: 'Supprimer', icon: '🗑️' },
-                            { key: 'canValid', label: 'Valider', icon: '✓' },
-                            { key: 'canExport', label: 'Exporter', icon: '📤' }
+                            { key: 'canDelete', label: 'Supprimer', icon: '🗑️' }
                           ].map(({ key, label, icon }) => (
                             <button
                               key={key}

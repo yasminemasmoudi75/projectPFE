@@ -7,21 +7,26 @@ import {
   TruckIcon,
   BanknotesIcon,
   CheckCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 import { fetchBcvById, clearCurrentBcv } from './bcvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import api from '@app/axios';
 import toast from 'react-hot-toast';
+import useAuth from '../../hooks/useAuth';
 
 const BcvDetail = () => {
     const { id } = useParams();
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { currentBcv: bcv, loading, error } = useSelector((s) => s.bcv);
+    const { isAdmin, isCommercial } = useAuth();
     const [showDriverForm, setShowDriverForm] = useState(false);
     const [isTransferring, setIsTransferring] = useState(false);
+    const [isRequesting, setIsRequesting] = useState(false);
+    const [pendingRequestTarget, setPendingRequestTarget] = useState(null);
     const [chauffeur, setChauffeur] = useState({
         nom: '',
         tel: ''
@@ -89,6 +94,22 @@ const BcvDetail = () => {
             toast.error(err.response?.data?.message || 'Erreur lors du transfert');
         } finally {
             setIsTransferring(false);
+        }
+    };
+
+    const handleRequestTransfer = async (targetType) => {
+        if (isRequesting) return;
+        if (alreadyTransferred) { toast.error('Ce bon de commande a déjà été transféré'); return; }
+        try {
+            setIsRequesting(true);
+            setPendingRequestTarget(targetType);
+            await api.post(`/bcv/${id}/request-transfer`, { targetType });
+            toast.success(`Demande vers ${targetType === 'FAC' ? 'Facture' : 'Bon de Livraison'} envoyée à l'administrateur`);
+        } catch (err) {
+            toast.error(err?.response?.data?.message || 'Erreur lors de la demande');
+        } finally {
+            setIsRequesting(false);
+            setPendingRequestTarget(null);
         }
     };
 
@@ -204,7 +225,7 @@ const BcvDetail = () => {
                     Retour à la liste
                 </button>
                 <div className="flex gap-2 flex-wrap">
-                    {!alreadyTransferred && (
+                    {!alreadyTransferred && isAdmin && (
                         <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                             <button
                                 onClick={() => handleTransfer('BL')}
@@ -223,6 +244,28 @@ const BcvDetail = () => {
                             >
                                 <BanknotesIcon className="h-4 w-4 mr-2 text-emerald-500" />
                                 Facturer
+                            </button>
+                        </div>
+                    )}
+                    {!alreadyTransferred && isCommercial && bcv?.CodDev && (
+                        <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                            <button
+                                onClick={() => handleRequestTransfer('BL')}
+                                disabled={isRequesting}
+                                className="inline-flex items-center px-4 py-2 text-amber-700 hover:bg-amber-50 border-r border-slate-100 transition-all font-bold text-xs"
+                                title="Demander transformation en Bon de Livraison"
+                            >
+                                <PaperAirplaneIcon className="h-4 w-4 mr-2 text-amber-500" />
+                                {isRequesting && pendingRequestTarget === 'BL' ? 'Envoi...' : 'Demander BL'}
+                            </button>
+                            <button
+                                onClick={() => handleRequestTransfer('FAC')}
+                                disabled={isRequesting}
+                                className="inline-flex items-center px-4 py-2 text-amber-700 hover:bg-amber-50 transition-all font-bold text-xs"
+                                title="Demander transformation en Facture"
+                            >
+                                <PaperAirplaneIcon className="h-4 w-4 mr-2 text-amber-500" />
+                                {isRequesting && pendingRequestTarget === 'FAC' ? 'Envoi...' : 'Demander Facture'}
                             </button>
                         </div>
                     )}

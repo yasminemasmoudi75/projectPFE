@@ -59,8 +59,7 @@ const JournalConnexions = () => {
             if (dateTo)       params.dateTo   = dateTo;
             if (actionFilter && actionFilter !== 'ALL') params.action = actionFilter;
 
-            const res  = await axios.get('/auth/logs', { params });
-            const data = res?.data ?? res;
+            const data = await axios.get('/auth/logs', { params });
 
             setLogs(data.data || []);
             setStats(data.stats || {});

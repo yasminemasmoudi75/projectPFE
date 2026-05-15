@@ -78,6 +78,8 @@ const ActiviteForm = () => {
   const [tiers, setTiers] = useState([]);
   const [commercials, setCommercials] = useState([]);
   const [commercialsLoading, setCommercialsLoading] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [selectedTierSnapshot, setSelectedTierSnapshot] = useState(null);
   const [allProjets, setAllProjets] = useState([]); // Tous les projets
   const [filteredProjets, setFilteredProjets] = useState([]); // Projets filtrés par client
@@ -207,6 +209,28 @@ const ActiviteForm = () => {
     fetchCommercials();
   }, [isAdminUser, user?.UserID, user?.UserRole]);
 
+  // Fetch all internal staff (for meeting participants picker)
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await axios.get('/users/members/calendar-filter');
+        const rawData = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        setMembers(
+          rawData
+            .map((m) => ({
+              userId: String(m.userId || m.UserID || m.value || ''),
+              label: m.fullName || m.FullName || m.label || m.login || '',
+              role: m.role || m.Role || ''
+            }))
+            .filter((m) => m.userId && String(m.userId) !== String(user?.UserID))
+        );
+      } catch {
+        // non-blocking
+      }
+    };
+    fetchMembers();
+  }, [user?.UserID]);
+
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       try {
@@ -294,8 +318,17 @@ const ActiviteForm = () => {
   
   const isReadOnly = useMemo(() => isEdit && (Number(formData.Valide) === 1 || formData.Statut === 'Terminé'), [isEdit, formData.Valide, formData.Statut]);
 
+  const toggleParticipant = (userId) => {
+    setSelectedParticipants((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'Type_Activite' && value !== 'Réunion') {
+      setSelectedParticipants([]);
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -379,7 +412,8 @@ const ActiviteForm = () => {
       const payload = {
         ...formData,
         ID_Projet: formData.ID_Projet || selectedProjet?.ID_Projet || '',
-        Nf: selectedProjet?.nf ?? null
+        Nf: selectedProjet?.nf ?? null,
+        participants: selectedParticipants.map(Number)
       };
 
       if (isEdit) {
@@ -637,6 +671,68 @@ const ActiviteForm = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Participants — visible for Réunion on new activities */}
+              {!isEdit && formData.Type_Activite === 'Réunion' && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-slate-500 uppercase tracking-wider">
+                      Inviter des participants
+                    </label>
+                    {selectedParticipants.length > 0 && (
+                      <span className="text-[11px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+                        {selectedParticipants.length} sélectionné(s)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Selected chips */}
+                  {selectedParticipants.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {selectedParticipants.map((uid) => {
+                        const m = members.find((x) => x.userId === uid);
+                        if (!m) return null;
+                        return (
+                          <span key={uid} className="inline-flex items-center gap-1 px-2 py-1 bg-sky-100 text-sky-700 rounded-lg text-[11px] font-semibold">
+                            {m.label}
+                            <button type="button" onClick={() => toggleParticipant(uid)} className="hover:text-sky-900 ml-0.5">×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+                    {members.length === 0 ? (
+                      <p className="text-xs text-slate-400 px-3 py-3 text-center">Aucun membre disponible</p>
+                    ) : (
+                      members.map((m) => {
+                        const selected = selectedParticipants.includes(m.userId);
+                        return (
+                          <button
+                            key={m.userId}
+                            type="button"
+                            onClick={() => toggleParticipant(m.userId)}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors border-b border-slate-100 last:border-0 ${
+                              selected ? 'bg-sky-50 text-sky-700' : 'bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                              selected ? 'bg-sky-500 border-sky-500' : 'border-slate-300'
+                            }`}>
+                              {selected && <CheckIcon className="h-3 w-3 text-white" />}
+                            </span>
+                            <span className="flex-1 text-left truncate">{m.label}</span>
+                            {m.role && (
+                              <span className="text-[10px] text-slate-400 shrink-0 capitalize">{m.role}</span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
 
               {selectedProjetData && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">

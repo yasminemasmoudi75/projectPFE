@@ -13,8 +13,8 @@ const authService = {
   /**
    * Déconnexion utilisateur
    */
-  logout: async () => {
-    return await axios.post('/auth/logout');
+  logout: async (userId) => {
+    return await axios.post('/auth/logout', userId ? { UserID: userId } : {});
   },
 
   /**

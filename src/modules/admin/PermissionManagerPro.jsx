@@ -14,8 +14,6 @@ const PERMS = [
   { key: 'canAdd',    label: 'Créer'     },
   { key: 'canEdit',   label: 'Modifier'  },
   { key: 'canDelete', label: 'Supprimer' },
-  { key: 'canValid',  label: 'Valider'   },
-  { key: 'canExport', label: 'Exporter'  },
 ];
 
 const PALETTE = [

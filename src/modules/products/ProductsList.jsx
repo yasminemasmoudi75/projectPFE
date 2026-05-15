@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     PlusIcon,
     MagnifyingGlassIcon,
@@ -15,8 +15,6 @@ import {
     CurrencyDollarIcon,
     ArrowDownTrayIcon,
     PrinterIcon,
-    ChevronLeftIcon,
-    ChevronRightIcon,
     ShieldCheckIcon,
     CubeIcon,
 } from '@heroicons/react/24/outline';
@@ -54,8 +52,11 @@ const ProductsList = () => {
     const { canCreate, canEdit } = usePermission(MODULE_CODES.STOCK);
 
     const [bootstrapping, setBootstrapping] = useState(true);
-    const [refreshing, setRefreshing]       = useState(false);
+    const [loadingMore, setLoadingMore]     = useState(false);
     const [products, setProducts]           = useState([]);
+    const [page, setPage]                   = useState(1);
+    const [totalPages, setTotalPages]       = useState(1);
+    const [totalCount, setTotalCount]       = useState(0);
     const [stockFilterMeta, setStockFilterMeta] = useState({
         all:     { id: 'all',     label: 'Tous',    count: 0, visible: true },
         ok:      { id: 'ok',      label: 'Dispo',   count: 0, visible: true },
@@ -66,69 +67,98 @@ const ProductsList = () => {
     const [viewMode, setViewMode]       = useState(isClient ? 'grid' : 'table');
     const [filters, setFilters]         = useState({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
     const [showFilters, setShowFilters] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
-    const firstFetchDone = useRef(false);
+    const LIMIT = 20;
 
-    useEffect(() => {
-        const t = setTimeout(() => fetchProducts(searchTerm), 500);
-        return () => clearTimeout(t);
-    }, [searchTerm]);
-
-    useEffect(() => { setCurrentPage(1); }, [filters, searchTerm]);
-
-    useEffect(() => {
-        if (isClient) { setViewMode('grid'); setShowFilters(false); }
-    }, [isClient]);
-
-    const fetchProducts = async (search = '') => {
-        if (!firstFetchDone.current) setBootstrapping(true);
-        else setRefreshing(true);
+    const fetchProducts = useCallback(async (search = '', pageNum = 1) => {
+        if (pageNum === 1) setBootstrapping(true);
+        else setLoadingMore(true);
         try {
-            const apiData = await axios.get('/products', { params: { search, sort: 'recent' } }) || {};
+            const apiData = await axios.get('/products', { params: { search, sort: 'recent', limit: LIMIT, page: pageNum } }) || {};
             const productData = apiData?.data || [];
             setProducts(Array.isArray(productData) ? productData : []);
+            setTotalPages(apiData?.pagination?.pages || Math.ceil((apiData?.pagination?.total || 0) / LIMIT) || 1);
+            setTotalCount(apiData?.pagination?.total || 0);
             if (apiData?.meta?.stockFilters) {
                 setStockFilterMeta(apiData.meta.stockFilters);
                 const selected = apiData.meta.stockFilters?.[filters.stockStatus];
                 if (selected?.visible === false) setFilters(p => ({ ...p, stockStatus: 'all' }));
             }
-            firstFetchDone.current = true;
         } catch {}
-        finally { setBootstrapping(false); setRefreshing(false); }
+        finally { setBootstrapping(false); setLoadingMore(false); }
+    }, [filters.stockStatus]);
+
+    // Reset to page 1 on search change
+    useEffect(() => {
+        setPage(1);
+        const t = setTimeout(() => fetchProducts(searchTerm, 1), 500);
+        return () => clearTimeout(t);
+    }, [searchTerm]);
+
+    // Fetch when page changes
+    useEffect(() => {
+        if (page === 1) return;
+        fetchProducts(searchTerm, page);
+    }, [page]);
+
+    const goToPage = (p) => {
+        const clamped = Math.max(1, Math.min(totalPages, p));
+        setPage(clamped);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    useEffect(() => {
+        if (isClient) { setViewMode('grid'); setShowFilters(false); }
+    }, [isClient]);
 
     const handleFilterChange = (key, value) => setFilters(p => ({ ...p, [key]: value }));
     const resetFilters = () => setFilters({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
 
-    const exportToCSV = () => {
-        const headers = isClient ? ['Code', 'Libelle', 'Marque', 'Prix'] : ['Code', 'Libelle', 'Marque', 'Prix', 'Stock'];
-        const rows = filteredProducts.map(p => isClient
-            ? [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0]
-            : [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0, p.Qte || 0]
-        );
-        const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `produits_${new Date().toISOString().split('T')[0]}.csv`;
-        link.click();
-        toast.success('Export CSV réussi');
+    const exportToCSV = async () => {
+        const toastId = toast.loading('Chargement de tous les produits…');
+        try {
+            const apiData = await axios.get('/products', { params: { search: searchTerm, sort: 'recent', limit: 10000, page: 1 } }) || {};
+            const allProducts = applyFilters(Array.isArray(apiData?.data) ? apiData.data : []);
+            toast.dismiss(toastId);
+            const headers = isClient ? ['Code', 'Libelle', 'Marque', 'Prix'] : ['Code', 'Libelle', 'Marque', 'Prix', 'Stock'];
+            const rows = allProducts.map(p => isClient
+                ? [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0]
+                : [p.CodArt || '', p.LibArt || '', p.Marque || '', p.PrixVente || 0, p.Qte || 0]
+            );
+            const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `produits_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            toast.success(`Export CSV réussi · ${allProducts.length} produits`);
+        } catch {
+            toast.dismiss(toastId);
+            toast.error('Erreur lors de l\'export CSV');
+        }
     };
 
-    const exportToPDF = () => {
-        const printWindow = window.open('', '_blank');
-        const html = `<html><head><title>Produits</title>
-          <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #e2e8f0;padding:10px;text-align:left}th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}tr:nth-child(even){background:#f8fafc}</style>
-          </head><body>
-          <h2 style="color:#1e293b;margin-bottom:4px">Liste des Produits</h2>
-          <p style="color:#94a3b8;font-size:12px;margin-bottom:20px">Exporté le ${new Date().toLocaleDateString('fr-FR')} · ${filteredProducts.length} produits</p>
-          <table><thead><tr><th>Code</th><th>Désignation</th><th>Marque</th><th>Prix</th>${isClient ? '' : '<th>Stock</th>'}</tr></thead>
-          <tbody>${filteredProducts.map(p => `<tr><td>${p.CodArt || '-'}</td><td>${p.LibArt || '-'}</td><td>${p.Marque || '-'}</td><td>${(p.PrixVente || 0).toFixed(2)} TND</td>${isClient ? '' : `<td>${p.Qte || 0}</td>`}</tr>`).join('')}</tbody>
-          </table></body></html>`;
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.print();
+    const exportToPDF = async () => {
+        const toastId = toast.loading('Chargement de tous les produits…');
+        try {
+            const apiData = await axios.get('/products', { params: { search: searchTerm, sort: 'recent', limit: 10000, page: 1 } }) || {};
+            const allProducts = applyFilters(Array.isArray(apiData?.data) ? apiData.data : []);
+            toast.dismiss(toastId);
+            const printWindow = window.open('', '_blank');
+            const html = `<html><head><title>Produits</title>
+              <style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #e2e8f0;padding:10px;text-align:left}th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}tr:nth-child(even){background:#f8fafc}</style>
+              </head><body>
+              <h2 style="color:#1e293b;margin-bottom:4px">Liste des Produits</h2>
+              <p style="color:#94a3b8;font-size:12px;margin-bottom:20px">Exporté le ${new Date().toLocaleDateString('fr-FR')} · ${allProducts.length} produits</p>
+              <table><thead><tr><th>Code</th><th>Désignation</th><th>Marque</th><th>Prix</th>${isClient ? '' : '<th>Stock</th>'}</tr></thead>
+              <tbody>${allProducts.map(p => `<tr><td>${p.CodArt || '-'}</td><td>${p.LibArt || '-'}</td><td>${p.Marque || '-'}</td><td>${(p.PrixVente || 0).toFixed(2)} TND</td>${isClient ? '' : `<td>${p.Qte || 0}</td>`}</tr>`).join('')}</tbody>
+              </table></body></html>`;
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.print();
+        } catch {
+            toast.dismiss(toastId);
+            toast.error('Erreur lors de l\'export PDF');
+        }
     };
 
     const handleDelete = async (id) => {
@@ -141,7 +171,7 @@ const ProductsList = () => {
         } catch { toast.error('Erreur lors de la suppression'); }
     };
 
-    const filteredProducts = useMemo(() => products.filter(p => {
+    const applyFilters = useCallback((list) => list.filter(p => {
         const q = Number(p.Qte) || 0;
         const price = Number(p.PrixVente) || 0;
         const s = searchTerm.toLowerCase();
@@ -154,7 +184,9 @@ const ProductsList = () => {
         else if (filters.stockStatus === 'low') matchStock = q > 0 && q <= 5;
         else if (filters.stockStatus === 'rupture') matchStock = q === 0;
         return matchSearch && matchColl && matchBrand && matchPrice && matchStock;
-    }), [products, searchTerm, filters]);
+    }), [searchTerm, filters]);
+
+    const filteredProducts = useMemo(() => applyFilters(products), [applyFilters, products]);
 
     const activeAdvancedCount = [filters.collection, filters.priceMin, filters.priceMax, filters.marque].filter(Boolean).length;
     const filteredValueTTC    = useMemo(() => filteredProducts.reduce((a, p) => a + (Number(p.PrixVente) || 0) * (Number(p.Qte) || 0), 0), [filteredProducts]);
@@ -164,10 +196,7 @@ const ProductsList = () => {
     const uniqueCollections = useMemo(() => [...new Set(products.map(p => p.Collection).filter(Boolean))], [products]);
     const uniqueMarques     = useMemo(() => [...new Set(products.map(p => p.Marque).filter(Boolean))], [products]);
 
-    const totalItems     = filteredProducts.length;
-    const totalPages     = Math.ceil(totalItems / itemsPerPage) || 1;
-    const startIndex     = (currentPage - 1) * itemsPerPage;
-    const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    const totalItems = filteredProducts.length;
 
     if (bootstrapping && products.length === 0) return <LoadingSpinner />;
 
@@ -183,16 +212,16 @@ const ProductsList = () => {
                             <CubeIcon className="h-4 w-4 text-indigo-500" />
                         </div>
                         <h1 className="text-xl font-bold text-slate-800">Catalogue Produits</h1>
-                        {refreshing && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
+                        {loadingMore && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
                     </div>
                     <p className="text-xs text-slate-400 font-medium pl-9">Références, prix et stocks</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => fetchProducts(searchTerm)} disabled={refreshing}
+                    <button onClick={() => { setPage(1); setHasMore(true); fetchProducts(searchTerm, 1); }} disabled={loadingMore}
                         className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
                         title="Actualiser">
-                        <ArrowPathIcon className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
+                        <ArrowPathIcon className={clsx('h-4 w-4', loadingMore && 'animate-spin')} />
                     </button>
 
                     {!isClient && (
@@ -232,7 +261,7 @@ const ProductsList = () => {
             {!isClient && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                        { label: 'Total produits',   value: products.length,                                    icon: CubeIcon,           iconCls: 'text-indigo-500',  iconBg: 'bg-indigo-50 border-indigo-200'   },
+                        { label: 'Total produits',   value: totalCount,                                         icon: CubeIcon,           iconCls: 'text-indigo-500',  iconBg: 'bg-indigo-50 border-indigo-200'   },
                         { label: 'Valeur stock',      value: filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k TND' : '0 TND', icon: CurrencyDollarIcon, iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
                         { label: 'Santé stock',       value: stockHealthPct + '%',                               icon: ShieldCheckIcon,    iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200'         },
                         { label: 'En rupture',        value: ruptureCount,                                       icon: ArchiveBoxIcon,     iconCls: 'text-rose-500',    iconBg: 'bg-rose-50 border-rose-200'       },
@@ -357,8 +386,7 @@ const ProductsList = () => {
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Catalogue</span>
                     </div>
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-semibold">
-                        {totalItems} article{totalItems !== 1 ? 's' : ''}
-                        {totalPages > 1 && <span className="text-slate-400">· p.{currentPage}/{totalPages}</span>}
+                        {totalCount} article{totalCount !== 1 ? 's' : ''}
                     </span>
                 </div>
 
@@ -379,7 +407,7 @@ const ProductsList = () => {
                     /* ── Grid view ── */
                     <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                         <AnimatePresence mode="popLayout">
-                            {paginatedProducts.map((product, i) => {
+                            {filteredProducts.map((product, i) => {
                                 const badge = stockBadge(product);
                                 const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
                                 return (
@@ -442,7 +470,7 @@ const ProductsList = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 <AnimatePresence>
-                                    {paginatedProducts.map((product, idx) => {
+                                    {filteredProducts.map((product, idx) => {
                                         const badge = stockBadge(product);
                                         const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
                                         return (
@@ -453,7 +481,7 @@ const ProductsList = () => {
                                                 className="group hover:bg-indigo-50/40 transition-colors cursor-pointer">
                                                 <td className="px-5 py-3.5">
                                                     <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-bold">
-                                                        {startIndex + idx + 1}
+                                                        {idx + 1}
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-3.5">
@@ -524,35 +552,41 @@ const ProductsList = () => {
                     </div>
                 )}
 
-                {/* ── Pagination ── */}
-                {totalPages > 1 && (
-                    <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between">
-                        <span className="text-xs text-slate-400">
-                            {startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} sur {totalItems}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 disabled:opacity-40 transition-all">
-                                <ChevronLeftIcon className="h-3.5 w-3.5" />
-                            </button>
-                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                const page = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
-                                return (
-                                    <button key={page} type="button" onClick={() => setCurrentPage(page)}
-                                        className={clsx('h-7 w-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
-                                            currentPage === page ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
-                                        {page}
-                                    </button>
-                                );
-                            })}
-                            <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 disabled:opacity-40 transition-all">
-                                <ChevronRightIcon className="h-3.5 w-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* ── Pagination ── */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-2">
+                    <p className="text-xs text-slate-400">
+                        Page {page} / {totalPages} · {totalCount} produits
+                    </p>
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => goToPage(page - 1)} disabled={page <= 1}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition-all text-xs font-bold">
+                            ‹
+                        </button>
+                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                            let p;
+                            if (totalPages <= 7) p = i + 1;
+                            else if (page <= 4) p = i + 1;
+                            else if (page >= totalPages - 3) p = totalPages - 6 + i;
+                            else p = page - 3 + i;
+                            if (p < 1 || p > totalPages) return null;
+                            return (
+                                <button key={p} onClick={() => goToPage(p)}
+                                    className={clsx('h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
+                                        p === page ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                                    {p}
+                                </button>
+                            );
+                        })}
+                        <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition-all text-xs font-bold">
+                            ›
+                        </button>
+                    </div>
+                </div>
+            )}
         </motion.div>
     );
 };

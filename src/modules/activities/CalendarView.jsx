@@ -40,6 +40,7 @@ const CalendarView = () => {
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [refreshTick, setRefreshTick] = useState(0);
     const [viewMode, setViewMode] = useState('month'); // 'month' or 'list'
     const [events, setEvents] = useState([]);
     const [commerciaux, setCommerciaux] = useState([]);
@@ -133,27 +134,41 @@ const CalendarView = () => {
         }
     }, [user]);
 
-    // Fetch commercials for Admin and Agent
+    // Auto-refresh toutes les 60 secondes
+    useEffect(() => {
+        const interval = setInterval(() => setRefreshTick((t) => t + 1), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Fetch members for the user selector (admin sees all non-client staff; agent sees commercials only)
     useEffect(() => {
         const fetchCommerciaux = async () => {
             const normalizedRole = String(user?.UserRole || '').trim().toLowerCase();
             const isCommercial = ['commercial', 'commerciale'].includes(normalizedRole);
             const isClient = normalizedRole === 'client';
-            
-            if (!isCommercial && !isClient) {
-                try {
+            const isAdminRole = ['admin', 'administrateur'].includes(normalizedRole);
+
+            if (isCommercial || isClient) return;
+
+            try {
+                let rawData = [];
+                if (isAdminRole) {
+                    const response = await axios.get('/users/members/calendar-filter');
+                    rawData = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
+                } else {
                     const response = await axios.get('/users/commercials/activites-filter', {
                         params: { moduleCode: String(MODULE_CODES.CALENDRIER), includeAll: isFilterRepresEnabled ? 'false' : 'true' }
                     });
-                    const rawData = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
-                    const mapped = rawData.map(c => ({
-                        UserID: c.userId || c.UserID,
-                        FullName: c.fullName || c.FullName || c.label || c.login || c.LoginName
-                    }));
-                    setCommerciaux(mapped);
-                } catch (error) {
-                    console.error('Error fetching commercials:', error);
+                    rawData = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
                 }
+                const mapped = rawData.map(c => ({
+                    UserID: c.userId || c.UserID,
+                    FullName: c.fullName || c.FullName || c.label || c.login || c.LoginName,
+                    Role: c.role || c.Role || ''
+                }));
+                setCommerciaux(mapped);
+            } catch (error) {
+                console.error('Error fetching members:', error);
             }
         };
         fetchCommerciaux();
@@ -176,23 +191,55 @@ const CalendarView = () => {
                     params
                 });
 
-                const fetchedEvents = (Array.isArray(response) ? response : response?.data || []).map(activite => ({
-                    id: activite.ID_Activite,
-                    title: activite.Type_Activite + ' - ' + (activite.tiers?.Raisoc || 'Client inconnu'),
-                    date: activite.Date_Activite ? new Date(activite.Date_Activite).toISOString().split('T')[0] : '',
-                    time: activite.Date_Activite ? new Date(activite.Date_Activite).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-                    type: activite.Type_Activite,
-                    priority: 'Moyenne',
-                    company: activite.tiers?.Raisoc || 'N/A',
-                    clientId: activite.IDTiers,
-                    project: activite.projet?.Nom_Projet || 'N/A',
-                    desc: activite.Description || '',
-                    status: activite.Statut,
-                    valide: Number(activite.Valide || 0),
-                    originalData: activite
-                }));
+                const fetchedEvents = (Array.isArray(response) ? response : response?.data || []).map(activite => {
+                    const isMeetingInvite = activite.Type_Activite === 'Réunion' && String(activite.Description || '').startsWith('Réunion avec ');
+                    const clientName = activite.tiers?.Raisoc;
+                    let title;
+                    if (activite.Type_Activite === 'Réunion') {
+                        if (isMeetingInvite) {
+                            // "Réunion avec Jean Dupont"
+                            title = String(activite.Description || '').split(' — ')[0];
+                        } else {
+                            title = clientName ? `Réunion — ${clientName}` : 'Réunion';
+                        }
+                    } else {
+                        title = activite.Type_Activite + (clientName ? ` — ${clientName}` : '');
+                    }
+                    return {
+                        id: activite.ID_Activite,
+                        title,
+                        date: activite.Date_Activite ? new Date(activite.Date_Activite).toISOString().split('T')[0] : '',
+                        time: activite.Date_Activite ? new Date(activite.Date_Activite).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+                        type: activite.Type_Activite,
+                        priority: 'Moyenne',
+                        company: clientName || null,
+                        clientId: activite.IDTiers,
+                        project: activite.projet?.Nom_Projet || null,
+                        desc: activite.Description || '',
+                        status: activite.Statut,
+                        valide: Number(activite.Valide || 0),
+                        isMeetingInvite,
+                        originalData: activite
+                    };
+                });
 
-                setEvents(fetchedEvents);
+                // When viewing all users (no userId filter), deduplicate: if the same
+                // Réunion already has an organizer copy, hide the invitation copy.
+                let eventsToSet = fetchedEvents;
+                if (!selectedUserId) {
+                    eventsToSet = fetchedEvents.filter((event) => {
+                        if (!event.isMeetingInvite) return true;
+                        return !fetchedEvents.some(
+                            (other) =>
+                                !other.isMeetingInvite &&
+                                other.type === 'Réunion' &&
+                                other.date === event.date &&
+                                other.time === event.time
+                        );
+                    });
+                }
+
+                setEvents(eventsToSet);
             } catch (error) {
                 console.error('Error fetching activities:', error);
                 toast.error('Erreur lors du chargement des activités');
@@ -202,7 +249,7 @@ const CalendarView = () => {
         };
 
         fetchUserActivities();
-    }, [user, selectedUserId]);
+    }, [user, selectedUserId, refreshTick]);
 
     const handleMonthChange = (e) => {
         const newMonth = parseInt(e.target.value);
@@ -298,23 +345,16 @@ const CalendarView = () => {
         if (event.status === 'Reporté') {
             return 'bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,rgba(0,0,0,0.05)_5px,rgba(0,0,0,0.05)_10px)] border-gray-400 text-gray-500 opacity-80';
         }
-
+        if (event.isMeetingInvite) {
+            return 'bg-violet-50 text-violet-700 border-violet-500 ring-1 ring-violet-300';
+        }
         switch (event.type) {
-            case 'Appel':
-                return 'bg-blue-50 text-blue-700 border-blue-500';
-            case 'Email':
-                return 'bg-amber-50 text-amber-700 border-amber-500';
-            case 'Visite':
-                return 'bg-purple-50 text-purple-700 border-purple-500';
-            case 'Réunion':
-                return 'bg-indigo-50 text-indigo-700 border-indigo-500';
-            case 'Note':
-                return 'bg-emerald-50 text-emerald-700 border-emerald-500';
-            default:
-                if (event.priority === 'Haute') {
-                    return 'bg-red-50 text-red-700 border-red-500';
-                }
-                return 'bg-slate-50 text-slate-700 border-slate-300';
+            case 'Appel':   return 'bg-blue-50 text-blue-700 border-blue-500';
+            case 'Email':   return 'bg-amber-50 text-amber-700 border-amber-500';
+            case 'Visite':  return 'bg-purple-50 text-purple-700 border-purple-500';
+            case 'Réunion': return 'bg-indigo-50 text-indigo-700 border-indigo-500';
+            case 'Note':    return 'bg-emerald-50 text-emerald-700 border-emerald-500';
+            default:        return 'bg-slate-50 text-slate-700 border-slate-300';
         }
     };
 
@@ -360,7 +400,7 @@ const CalendarView = () => {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                    {/* Commercial Selector */}
+                    {/* Member Selector (admin: all staff; agent: commercials only) */}
                     {!['commercial', 'commerciale', 'client'].includes(String(user?.UserRole || '').trim().toLowerCase()) && (
                         <div className="relative">
                             <select
@@ -368,11 +408,15 @@ const CalendarView = () => {
                                 onChange={(e) => setSelectedUserId(e.target.value)}
                                 className="pl-3 pr-8 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-white text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             >
-                                <option value="">Tous les commerciaux</option>
+                                <option value="">
+                                    {['admin', 'administrateur'].includes(String(user?.UserRole || '').trim().toLowerCase())
+                                        ? 'Tous les membres'
+                                        : 'Tous les commerciaux'}
+                                </option>
                                 <option value={user?.UserID || user?.id}>Mes activités</option>
                                 {commerciaux.map(c => (
                                     <option key={c.UserID} value={c.UserID}>
-                                        {c.FullName}
+                                        {c.FullName}{c.Role ? ` (${c.Role})` : ''}
                                     </option>
                                 ))}
                             </select>
@@ -472,7 +516,11 @@ const CalendarView = () => {
                                                             onClick={() => setSelectedEvent(event)}
                                                             className={`w-full text-left p-2 rounded-xl text-[10px] font-black shadow-sm border-l-4 transition-transform hover:scale-[1.02] ${getEventStyle(event)}`}
                                                         >
-                                                            <div className="truncate">{event.title} {event.status === 'Reporté' && '(REPORTÉ)'}</div>
+                                                            <div className="truncate flex items-center gap-1">
+                                                                {event.isMeetingInvite && <span className="text-[8px] bg-violet-200 text-violet-700 rounded px-1 shrink-0">INVITÉ</span>}
+                                                                {event.title}
+                                                                {event.status === 'Reporté' && ' (REPORTÉ)'}
+                                                            </div>
                                                             <div className="text-[9px] opacity-60 mt-0.5">{event.time}</div>
                                                         </button>
                                                     ))}
@@ -508,6 +556,10 @@ const CalendarView = () => {
                                 <div className="flex items-center gap-2">
                                     <span className="w-3 h-3 rounded-full bg-gray-400 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.5)_2px,rgba(255,255,255,0.5)_4px)]"></span>
                                     <span className="text-[10px] font-bold text-gray-500">Reporté</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="w-3 h-3 rounded-full bg-violet-500 ring-1 ring-violet-300"></span>
+                                    <span className="text-[10px] font-bold text-gray-500">Réunion (invité)</span>
                                 </div>
                             </div>
                         </div>
@@ -579,39 +631,78 @@ const CalendarView = () => {
                                 <button onClick={() => setSelectedEvent(null)} className="text-slate-300 hover:text-red-500 transition-colors"><AdjustmentsHorizontalIcon className="h-6 w-6" /></button>
                             </div>
 
-                            <h2 className="text-2xl font-black text-blue-900 leading-tight mb-2">{selectedEvent.title}</h2>
-                            <p className="text-xs font-bold text-slate-400 mb-8 italic">"{selectedEvent.desc || 'Pas de description'}"</p>
+                            <div className="flex items-center gap-2 mb-2">
+                                <h2 className="text-2xl font-black text-blue-900 leading-tight">{selectedEvent.title}</h2>
+                                {selectedEvent.isMeetingInvite && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-100 text-violet-700 shrink-0">INVITÉ</span>
+                                )}
+                            </div>
+                            {selectedEvent.desc && (
+                                <p className="text-xs font-bold text-slate-400 mb-6 italic">"{selectedEvent.desc}"</p>
+                            )}
 
-                            <div className="space-y-6 mb-8">
-                                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-4 group">
-                                    <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform">
-                                        <BuildingOfficeIcon className="h-6 w-6" />
+                            <div className="space-y-4 mb-8">
+                                {/* Meeting: organizer or participants info from description */}
+                                {selectedEvent.type === 'Réunion' && selectedEvent.isMeetingInvite && (
+                                    <div className="p-4 bg-violet-50 rounded-2xl border border-violet-100 flex items-start gap-3">
+                                        <div className="h-10 w-10 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600 shadow-sm shrink-0">
+                                            <UserIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-0.5">ORGANISÉ PAR</p>
+                                            <p className="text-sm font-black text-violet-900">
+                                                {String(selectedEvent.desc || '').replace('Réunion avec ', '').split(' — ')[0]}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">CLIENT</p>
-                                        <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.company}</p>
+                                )}
+                                {selectedEvent.type === 'Réunion' && !selectedEvent.isMeetingInvite && selectedEvent.desc?.includes('Participants :') && (
+                                    <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-start gap-3">
+                                        <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                                            <UserIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">PARTICIPANTS</p>
+                                            <p className="text-sm font-black text-indigo-900 whitespace-pre-line">
+                                                {String(selectedEvent.desc || '').split('Participants :')[1]?.trim() || '—'}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-4 group">
-                                    <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform">
-                                        <BriefcaseIcon className="h-6 w-6" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">PROJET</p>
-                                        <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.project}</p>
-                                    </div>
-                                </div>
+                                )}
 
-                                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-4 group">
-                                    <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform">
-                                        <CalendarIcon className="h-6 w-6" />
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
+                                    <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
+                                        <CalendarIcon className="h-5 w-5" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">DATE & HEURE</p>
-                                        <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.date} à {selectedEvent.time}</p>
+                                        <p className="text-sm font-black text-blue-900">{selectedEvent.date} à {selectedEvent.time}</p>
                                     </div>
                                 </div>
+
+                                {selectedEvent.company && (
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
+                                        <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
+                                            <BuildingOfficeIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">CLIENT</p>
+                                            <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.company}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedEvent.project && (
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
+                                        <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
+                                            <BriefcaseIcon className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">PROJET</p>
+                                            <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.project}</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 mt-8">
