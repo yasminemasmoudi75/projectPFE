@@ -14,7 +14,6 @@ import {
   ChevronDownIcon,
   CalendarIcon,
   CurrencyDollarIcon,
-  CheckCircleIcon,
   UserIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
@@ -29,6 +28,7 @@ import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 import axios from '../../app/axios';
 import DocumentReglementHistoryModal from '../reglements/DocumentReglementHistoryModal';
+import toast from 'react-hot-toast';
 
 // ─── Animation Variants ───────────────────────────────────────────────────────
 const pageVariants = {
@@ -91,6 +91,8 @@ const FavList = () => {
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
   const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
   const isAgentUser = normalizedUserRole === 'agent';
+  const isClientUser = normalizedUserRole === 'client';
+  const isTechnicienUser = ['technicien', 'technicien sav'].includes(normalizedUserRole);
   const adminId = currentUser?.UserID?.toString();
   const currentUserId = String(currentUser?.UserID || currentUser?.id || currentUser?.USER_ID || '');
 
@@ -149,8 +151,8 @@ const FavList = () => {
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
     
     // Filter by selected commercial; default to 'mine'
-    // Commercial users: backend already scopes correctly (CodTiers + CodRepres), skip frontend re-filter.
-    if (!isCommercialUser) {
+    // Commercial and client users: backend already scopes correctly, skip frontend re-filter.
+    if (!isCommercialUser && !isClientUser) {
       if (filters.commercial === 'all') {
         // Show everything
       } else {
@@ -160,7 +162,7 @@ const FavList = () => {
     }
 
     return true;
-  }), [fav, filters, adminId, isAdminUser, isCommercialUser]);
+  }), [fav, filters, adminId, isAdminUser, isCommercialUser, isClientUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredFav.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -178,7 +180,7 @@ const FavList = () => {
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const refreshData = () => {
-    if (!isModuleActive) return;
+    if (!isModuleActive && !isClient) return;
     const params = { page: 1, limit: 1000 };
     
     // Only admins/agents use selectedCommercial; commercial users are scoped server-side.
@@ -358,7 +360,7 @@ const FavList = () => {
                       />
                     </div>
                   ))}
-                  {!isCommercialUser && (
+                  {!isCommercialUser && !isClientUser && !isTechnicienUser && (
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Commercial</label>
                       <select
@@ -604,7 +606,7 @@ const FavList = () => {
         )}
       </motion.div>
 
-      {/* ── Modal ── */}
+      {/* ── Modal règlements ── */}
       <DocumentReglementHistoryModal
         isOpen={Boolean(historyTarget)}
         onClose={() => setHistoryTarget(null)}
@@ -612,6 +614,7 @@ const FavList = () => {
         documentType={historyTarget?.type}
         documentLabel={historyTarget?.label}
       />
+
     </motion.div>
   );
 };

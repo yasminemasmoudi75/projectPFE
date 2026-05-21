@@ -119,6 +119,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('week');
 
+  const normalizedRole = String(user?.UserRole || '').trim().toLowerCase();
+  const isClientDash = normalizedRole === 'client';
+  const isTechnicienDash = ['technicien', 'technicien sav'].includes(normalizedRole);
+
   // Helper: V├⌐rifier si un module est actif
   const hasModuleAccess = (moduleCode) => {
     if (!moduleCode) return true; // Pas de v├⌐rification si pas de code
@@ -600,6 +604,101 @@ const Dashboard = () => {
 
   const currentDate = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  // ── Client portal ────────────────────────────────────────────────────────────
+  if (isClientDash) {
+    const open = reclamationStats?.openCount || 0;
+    const inProgress = (reclamationStats?.inProgressCount || 0);
+    const resolved = (reclamationStats?.resolvedCount || 0);
+    return (
+      <div className="space-y-6 pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Bienvenue, {user?.FullName || user?.LoginName}</h1>
+          <p className="text-sm text-slate-500 mt-1 capitalize">{currentDate}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Mes devis', value: devisStats?.total || 0, color: 'bg-blue-50 border-blue-100 text-blue-600', action: () => navigate('/devis') },
+            { label: 'Mes commandes', value: 0, color: 'bg-emerald-50 border-emerald-100 text-emerald-600', action: () => navigate('/bcv') },
+            { label: 'Mes réclamations', value: (open + inProgress + resolved), color: 'bg-rose-50 border-rose-100 text-rose-600', action: () => navigate('/claims') },
+          ].map((card) => (
+            <button key={card.label} onClick={card.action} className={`rounded-2xl border p-5 text-left hover:shadow-md transition-shadow ${card.color}`}>
+              <p className="text-3xl font-bold">{card.value}</p>
+              <p className="text-sm font-semibold mt-1">{card.label}</p>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Réclamations ouvertes', value: open, sub: 'En attente de traitement' },
+            { label: 'En cours', value: inProgress, sub: 'Traitement en cours' },
+            { label: 'Résolues', value: resolved, sub: 'Traitement terminé' },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <p className="text-2xl font-bold text-slate-800">{s.value}</p>
+              <p className="text-sm font-semibold text-slate-700 mt-0.5">{s.label}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{s.sub}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-3 flex-wrap">
+          <button onClick={() => navigate('/claims/new')} className="px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700 transition-colors">Nouvelle réclamation</button>
+          <button onClick={() => navigate('/devis')} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">Voir mes devis</button>
+          <button onClick={() => navigate('/messages')} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-300 transition-colors">Messages</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Technicien portal ────────────────────────────────────────────────────────
+  if (isTechnicienDash) {
+    const open = reclamationStats?.openCount || 0;
+    const inProgress = reclamationStats?.inProgressCount || 0;
+    const activities = recentActivities?.slice(0, 5) || [];
+    return (
+      <div className="space-y-6 pb-12">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Tableau de bord technicien</h1>
+          <p className="text-sm text-slate-500 mt-1 capitalize">{currentDate}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Réclamations assignées', value: open + inProgress, color: 'bg-amber-50 border-amber-100 text-amber-700', action: () => navigate('/claims') },
+            { label: 'En cours', value: inProgress, color: 'bg-blue-50 border-blue-100 text-blue-700', action: () => navigate('/claims') },
+            { label: 'Activités', value: activities.length, color: 'bg-emerald-50 border-emerald-100 text-emerald-700', action: () => navigate('/calendar') },
+          ].map((card) => (
+            <button key={card.label} onClick={card.action} className={`rounded-2xl border p-5 text-left hover:shadow-md transition-shadow ${card.color}`}>
+              <p className="text-3xl font-bold">{card.value}</p>
+              <p className="text-sm font-semibold mt-1">{card.label}</p>
+            </button>
+          ))}
+        </div>
+        {activities.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-800">Prochaines activités</h3>
+            </div>
+            <ul className="divide-y divide-slate-100">
+              {activities.map((a, i) => (
+                <li key={i} className="px-5 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{a.Type_Activite || a.Categ || 'Activité'}</p>
+                    <p className="text-xs text-slate-400">{a.Description || ''}</p>
+                  </div>
+                  <span className="text-xs text-slate-400">{a.Date_Activite ? new Date(a.Date_Activite).toLocaleDateString('fr-FR') : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex gap-3 flex-wrap">
+          <button onClick={() => navigate('/claims')} className="px-4 py-2 bg-amber-600 text-white rounded-xl text-sm font-semibold hover:bg-amber-700 transition-colors">Mes réclamations</button>
+          <button onClick={() => navigate('/calendar')} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">Calendrier</button>
+          <button onClick={() => navigate('/messages')} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-300 transition-colors">Messages</button>
+        </div>
+      </div>
+    );
+  }
+
   const ICON_PALETTE = {
     blue:    { bg: 'bg-blue-50',    text: 'text-blue-500',    border: 'border-blue-100',    bar: 'bg-blue-500' },
     emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', border: 'border-emerald-100', bar: 'bg-emerald-500' },
@@ -1011,7 +1110,9 @@ const Dashboard = () => {
             <div className="relative h-36 w-36">
               <svg className="w-full h-full -rotate-90">
                 <circle cx="72" cy="72" r="62" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
-                <circle cx="72" cy="72" r="62" stroke="#10b981" strokeWidth="10" fill="transparent"
+                <circle cx="72" cy="72" r="62"
+                  stroke={(globalSatisfaction?.score || 8.5) >= 8 ? '#10b981' : (globalSatisfaction?.score || 8.5) >= 6 ? '#f59e0b' : '#ef4444'}
+                  strokeWidth="10" fill="transparent"
                   strokeDasharray={389.6}
                   strokeDashoffset={389.6 - (389.6 * (globalSatisfaction?.score || 8.5)) / 10}
                   className="transition-all duration-1000" />
@@ -1021,10 +1122,31 @@ const Dashboard = () => {
                 <span className="text-[10px] font-bold text-slate-400 uppercase">/ 10</span>
               </div>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${(globalSatisfaction?.score || 8.5) > 7 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+              (globalSatisfaction?.score || 8.5) >= 8 ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+              : (globalSatisfaction?.score || 8.5) >= 6 ? 'bg-amber-50 text-amber-600 border-amber-200'
+              : 'bg-rose-50 text-rose-600 border-rose-200'
+            }`}>
               {globalSatisfaction?.label || 'Excellente'}
             </span>
-            <p className="text-xs text-slate-400 text-center">Basé sur {globalSatisfaction?.resolvedClaims || 0} réclamations résolues</p>
+            <div className="w-full grid grid-cols-3 gap-2 mt-1">
+              <div className="flex flex-col items-center p-2 rounded-xl bg-emerald-50">
+                <span className="text-sm font-black text-emerald-700">{globalSatisfaction?.resolvedClaims ?? 0}</span>
+                <span className="text-[9px] text-emerald-500 font-semibold uppercase mt-0.5">Résolues</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-xl bg-amber-50">
+                <span className="text-sm font-black text-amber-700">{globalSatisfaction?.inProgressClaims ?? 0}</span>
+                <span className="text-[9px] text-amber-500 font-semibold uppercase mt-0.5">En cours</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-xl bg-slate-50">
+                <span className="text-sm font-black text-slate-700">{globalSatisfaction?.openClaims ?? 0}</span>
+                <span className="text-[9px] text-slate-400 font-semibold uppercase mt-0.5">Ouvertes</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 text-center">
+              Taux de résolution : <span className="font-bold text-slate-600">{globalSatisfaction?.resolutionRate ?? 100}%</span>
+              {' · '}{globalSatisfaction?.totalClaims ?? 0} réclamations au total
+            </p>
           </div>
         </div>
 

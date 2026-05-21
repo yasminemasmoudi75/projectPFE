@@ -30,7 +30,7 @@ const ProjetDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const { canCreate, canEdit } = usePermission(MODULE_CODES.PROJETS);
+  const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.PROJETS);
   const { currentProjet: projet, loading } = useSelector((state) => state.projets);
 
   const [activitesProjet, setActivitesProjet] = useState([]);
@@ -177,13 +177,15 @@ const ProjetDetail = () => {
                 Modifier
               </button>
             )}
-            <button
-              onClick={handleDelete}
-              className="px-6 py-2.5 bg-white text-rose-600 border border-rose-200 rounded-xl hover:bg-rose-50 hover:border-rose-300 transition-all flex items-center gap-2 font-medium"
-            >
-              <TrashIcon className="h-4 w-4" />
-              Supprimer
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="px-6 py-2.5 bg-white text-rose-600 border border-rose-200 rounded-xl hover:bg-rose-50 hover:border-rose-300 transition-all flex items-center gap-2 font-medium"
+              >
+                <TrashIcon className="h-4 w-4" />
+                Supprimer
+              </button>
+            )}
           </div>
         </div>
 

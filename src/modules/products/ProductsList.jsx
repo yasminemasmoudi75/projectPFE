@@ -49,7 +49,7 @@ const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded
 const ProductsList = () => {
     const navigate = useNavigate();
     const { isClient } = useAuth();
-    const { canCreate, canEdit } = usePermission(MODULE_CODES.STOCK);
+    const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.STOCK);
 
     const [bootstrapping, setBootstrapping] = useState(true);
     const [loadingMore, setLoadingMore]     = useState(false);
@@ -83,7 +83,9 @@ const ProductsList = () => {
                 const selected = apiData.meta.stockFilters?.[filters.stockStatus];
                 if (selected?.visible === false) setFilters(p => ({ ...p, stockStatus: 'all' }));
             }
-        } catch {}
+        } catch (err) {
+            console.error('[ProductsList] fetchProducts error:', err?.response?.status, err?.response?.data || err?.message);
+        }
         finally { setBootstrapping(false); setLoadingMore(false); }
     }, [filters.stockStatus]);
 
@@ -162,7 +164,7 @@ const ProductsList = () => {
     };
 
     const handleDelete = async (id) => {
-        if (isClient) return;
+        if (isClient || !canDelete) return;
         if (!window.confirm('Supprimer ce produit ?')) return;
         try {
             await axios.delete(`/products/${id}`);
@@ -218,7 +220,7 @@ const ProductsList = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => { setPage(1); setHasMore(true); fetchProducts(searchTerm, 1); }} disabled={loadingMore}
+                    <button onClick={() => { setPage(1); fetchProducts(searchTerm, 1); }} disabled={loadingMore}
                         className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
                         title="Actualiser">
                         <ArrowPathIcon className={clsx('h-4 w-4', loadingMore && 'animate-spin')} />
@@ -535,7 +537,7 @@ const ProductsList = () => {
                                                                 <PencilSquareIcon className="h-3.5 w-3.5" />
                                                             </button>
                                                         )}
-                                                        {!isClient && (
+                                                        {!isClient && canDelete && (
                                                             <button type="button" onClick={e => { e.stopPropagation(); handleDelete(product.IDArt); }}
                                                                 className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all">
                                                                 <TrashIcon className="h-3.5 w-3.5" />

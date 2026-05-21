@@ -67,6 +67,12 @@ export const convertDevis = createAsyncThunk('devis/convertDevis', async (id) =>
   return response.data;
 });
 
+// Récupérer les devis du client connecté uniquement
+export const fetchMyDevis = createAsyncThunk('devis/fetchMyDevis', async (params = {}) => {
+  const response = await axios.get('/devis/my-quotations', { params });
+  return response;
+});
+
 // Slice
 const devisSlice = createSlice({
   name: 'devis',
@@ -91,6 +97,20 @@ const devisSlice = createSlice({
         state.pagination = action.payload?.pagination || initialState.pagination;
       })
       .addCase(fetchDevis.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+
+      // Fetch My Devis (client)
+      .addCase(fetchMyDevis.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchMyDevis.fulfilled, (state, action) => {
+        state.loading = false;
+        state.devis = action.payload?.data || [];
+        state.pagination = action.payload?.pagination || initialState.pagination;
+      })
+      .addCase(fetchMyDevis.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })

@@ -24,6 +24,7 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
 import toast from 'react-hot-toast';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 import { getWhatsAppLink, getPhoneLink } from '../../utils/format';
 
@@ -89,6 +90,7 @@ const ClientSatisfactionBadge = ({ codTiers }) => {
 const ClientsList = () => {
     const navigate = useNavigate();
     const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.CLIENTS);
+    const { isCommercial } = useAuth();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [clients, setClients] = useState([]);
@@ -112,7 +114,8 @@ const ClientsList = () => {
     const fetchClients = async (showRefresh = false) => {
         if (showRefresh) setRefreshing(true);
         try {
-            const response = await axios.get('/tiers?sort=recent&limit=10000');
+            const url = isCommercial ? '/tiers?sort=recent' : '/tiers?sort=recent&selectedCommercial=all';
+            const response = await axios.get(url);
             const payload = response?.data ?? response;
             const list = payload?.data ?? payload;
 
@@ -153,21 +156,23 @@ const ClientsList = () => {
         fetchTiersGouvernorats();
         fetchTiersClasses();
 
-        // Fetch commercials filtered by filtrerepres
-        const fetchCommerciaux = async () => {
-            try {
-                const response = await axios.get('/users/commercials/assignable');
-                const data = response.data;
-                const rawList = Array.isArray(data) ? data : data.data || [];
-                setCommercialsList(rawList.map(c => ({
-                    value: String(c.userId || c.value || c.UserID),
-                    label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
-                })));
-            } catch (error) {
-                console.error('Error fetching commercials:', error);
-            }
-        };
-        fetchCommerciaux();
+        // Fetch commercials list only for admin/agent roles
+        if (!isCommercial) {
+            const fetchCommerciaux = async () => {
+                try {
+                    const response = await axios.get('/users/commercials/assignable');
+                    const data = response.data;
+                    const rawList = Array.isArray(data) ? data : data.data || [];
+                    setCommercialsList(rawList.map(c => ({
+                        value: String(c.userId || c.value || c.UserID),
+                        label: c.fullName || c.label || c.login || `Commercial ${c.userId}`
+                    })));
+                } catch (error) {
+                    console.error('Error fetching commercials:', error);
+                }
+            };
+            fetchCommerciaux();
+        }
     }, []);
 
     const filteredClients = useMemo(() => {
@@ -198,7 +203,10 @@ const ClientsList = () => {
             const matchesCommercial = !filters.commercial ||
                 (filters.commercial === '__UNASSIGNED__'
                     ? !c.codRepresTiers
-                    : String(c.codRepresTiers || '') === filters.commercial);
+                    : (
+                        String(c.commercialObj?.UserID ?? '') === filters.commercial ||
+                        String(c.codRepresTiers || '').trim() === String(filters.commercial).trim()
+                    ));
 
             const matchesEmail = !filters.email ||
                 (c.Email || '').toLowerCase().includes(filters.email.toLowerCase());
@@ -349,7 +357,10 @@ const ClientsList = () => {
     const uniqueCommercials = useMemo(() => {
         const base = commercialsList.length > 0
             ? commercialsList
-            : [...new Set(clients.map(c => c.codRepresTiers).filter(Boolean))].sort().map(code => ({ value: code, label: code }));
+            : [...new Set(clients.map(c => {
+                if (c.commercialObj?.UserID != null) return String(c.commercialObj.UserID);
+                return c.codRepresTiers ? String(c.codRepresTiers).trim() : null;
+              }).filter(Boolean))].sort().map(code => ({ value: code, label: code }));
 
         return [
             ...base,
@@ -572,20 +583,22 @@ const ClientsList = () => {
                                 </select>
                             </div>
 
-                            {/* Commercial Representative Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Commercial</label>
-                                <select
-                                    value={filters.commercial}
-                                    onChange={(e) => handleFilterChange('commercial', e.target.value)}
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                                >
-                                    <option value="">Tous les commerciaux</option>
-                                    {uniqueCommercials.map(c => (
-                                        <option key={c.value} value={c.value}>{c.label}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {/* Commercial Representative Filter - hidden for commercial users (backend already scopes their data) */}
+                            {!isCommercial && (
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs text-slate-500 uppercase tracking-wider">Commercial</label>
+                                    <select
+                                        value={filters.commercial}
+                                        onChange={(e) => handleFilterChange('commercial', e.target.value)}
+                                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                    >
+                                        <option value="">Tous les commerciaux</option>
+                                        {uniqueCommercials.map(c => (
+                                            <option key={c.value} value={c.value}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
 
 

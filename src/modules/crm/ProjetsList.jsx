@@ -307,7 +307,7 @@ const ProjetsList = () => {
   const [showFilters, setShowFilters]           = useState(false);
   const [viewMode, setViewMode]                 = useState('grid'); // 'grid' | 'list'
 
-  useEffect(() => { dispatch(fetchProjets({ page: 1, limit: 50 })); }, [dispatch]);
+  useEffect(() => { dispatch(fetchProjets({})); }, [dispatch]);
 
   useEffect(() => {
     axios.get('/users/commercials/projets-filter').then(r => {
@@ -327,7 +327,7 @@ const ProjetsList = () => {
     const clientName = (p.client?.Raisoc || '').toLowerCase();
     const matchSearch  = !s || (p.Nom_Projet || '').toLowerCase().includes(s) || clientName.includes(s) || String(p.ID_Projet || '').includes(s);
     const matchType    = typeFilter === 'All' || (p.Phase || '').toLowerCase() === typeFilter.toLowerCase();
-    const matchComm    = !selectedCommercial || String(p.client?.codRepresTiers || '') === selectedCommercial;
+    const matchComm    = !selectedCommercial || String(p.client?.codRepresTiers || '').trim() === String(selectedCommercial).trim();
     const d = p.Date_Creation ? new Date(p.Date_Creation) : null;
     return matchSearch && matchType && matchComm
       && (!dateFrom || (d && d >= new Date(dateFrom)))
@@ -402,7 +402,7 @@ const ProjetsList = () => {
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => dispatch(fetchProjets({ page: 1, limit: 50 }))}
+              onClick={() => dispatch(fetchProjets({}))}
               className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors shadow-sm"
               title="Rafraîchir"
             >

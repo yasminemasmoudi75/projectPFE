@@ -12,7 +12,15 @@ const menuSections = [
     ]
   },
   {
+    label: 'Mes Documents',
+    clientOnly: true,
+    items: [
+      { name: 'Devis & Commandes & BL & Factures', href: '/mes-documents', icon: 'devis', moduleCode: null },
+    ]
+  },
+  {
     label: 'Ventes',
+    noClient: true,
     items: [
       { name: 'Devis', href: '/devis', icon: 'devis', moduleCode: MODULE_CODES.DEVIS },
       { name: 'Bons de Commande', href: '/bcv', icon: 'bcv', moduleCode: MODULE_CODES.COMMANDES },
@@ -22,6 +30,7 @@ const menuSections = [
   },
   {
     label: 'CRM',
+    noClient: true,
     items: [
       { name: 'Clients', href: '/clients', icon: 'clients', moduleCode: MODULE_CODES.CLIENTS },
     ]
@@ -130,6 +139,8 @@ const SidebarNew = () => {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto -mx-3 px-3">
         {menuSections.map((section, idx) => {
+          if (section.clientOnly && role !== 'client') return null;
+          if (section.noClient && role === 'client') return null;
           const visibleItems = section.items.filter(hasAccess);
           if (visibleItems.length === 0) return null;
 

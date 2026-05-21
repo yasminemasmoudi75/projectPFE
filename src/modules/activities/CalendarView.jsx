@@ -35,7 +35,7 @@ import toast from 'react-hot-toast';
 
 const CalendarView = () => {
     const navigate = useNavigate();
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, isTechnicien } = useAuth();
     const { canCreate, canEdit, canDelete, isFilterRepresEnabled } = usePermission(MODULE_CODES.CALENDRIER);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -148,7 +148,8 @@ const CalendarView = () => {
             const isClient = normalizedRole === 'client';
             const isAdminRole = ['admin', 'administrateur'].includes(normalizedRole);
 
-            if (isCommercial || isClient) return;
+            // Technicien sees only their own activities — no member selector
+            if (isCommercial || isClient || isTechnicien) return;
 
             try {
                 let rawData = [];
@@ -400,8 +401,8 @@ const CalendarView = () => {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                    {/* Member Selector (admin: all staff; agent: commercials only) */}
-                    {!['commercial', 'commerciale', 'client'].includes(String(user?.UserRole || '').trim().toLowerCase()) && (
+                    {/* Member Selector (admin: all staff; agent: commercials; technicien: hidden — own activities only) */}
+                    {!isTechnicien && !['commercial', 'commerciale', 'client'].includes(String(user?.UserRole || '').trim().toLowerCase()) && (
                         <div className="relative">
                             <select
                                 value={selectedUserId || ''}

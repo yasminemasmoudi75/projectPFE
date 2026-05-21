@@ -18,6 +18,20 @@ import { useSelector, useDispatch } from 'react-redux';
 import { createObjectif, updateObjectif } from './objectifSlice';
 import axios from '../../app/axios';
 
+// Indicateurs métier avec leur valeur nf pour le calcul backend
+const INDICATOR_TYPES = [
+    { label: "Chiffre d'affaires",    nf: null, unit: 'TND', desc: 'Somme des règlements encaissés' },
+    { label: 'Visites Privées',        nf: 1,    unit: '',    desc: 'Visites chez des sociétés privées' },
+    { label: 'Visites Étatiques',      nf: 2,    unit: '',    desc: 'Visites chez des organismes étatiques' },
+    { label: 'Toutes les Visites',     nf: 13,   unit: '',    desc: 'Total des visites effectuées' },
+    { label: 'Total Projets',          nf: 10,   unit: '',    desc: 'Tous les projets créés' },
+    { label: 'Contacts Étatiques',     nf: 6,    unit: '',    desc: 'Contacts dans des organismes étatiques du portefeuille' },
+    { label: 'Contacts Privés',        nf: 7,    unit: '',    desc: 'Contacts dans des sociétés privées du portefeuille' },
+    { label: 'Total Contacts',         nf: 8,    unit: '',    desc: 'Total des contacts du portefeuille' },
+    { label: 'Sociétés Étatiques',     nf: 9,    unit: '',    desc: 'Sociétés étatiques dans le portefeuille' },
+    { label: 'Tâches / Appels',        nf: 0,    unit: '',    desc: 'Tâches et appels effectués' },
+];
+
 const hasErpCommercialMapping = (candidate) => (
     candidate?.UserID !== undefined
     && candidate?.UserID !== null
@@ -77,20 +91,28 @@ const ObjectifForm = () => {
     const [conflictError, setConflictError] = useState(null);
     const currentISOWeek = getCurrentISOWeek();
 
-    const [formData, setFormData] = useState({
-        ID_Utilisateur: location.state?.objectif?.ID_Utilisateur || location.state?.selectedUserId || user?.UserID || '',
-        Mois: location.state?.objectif?.Mois || location.state?.selectedMonth || new Date().getMonth() + 1,
-        Annee: location.state?.objectif?.Annee || location.state?.selectedYear || new Date().getFullYear(),
-        Numsem: location.state?.objectif?.Numsem || extractWeekNumber(location.state?.objectif?.Semaine) || location.state?.selectedWeek || currentISOWeek,
-        Semaine: location.state?.objectif?.Semaine || '',
-        DateDebut: location.state?.objectif?.DateDebut || '',
-        DateFin: location.state?.objectif?.DateFin || '',
-        TypeObjectif: location.state?.objectif?.TypeObjectif || "Chiffre d'affaires",
-        TypeObjectifCustom: location.state?.objectif?.TypeObjectifCustom || '',
-        TypePeriode: location.state?.objectif?.TypePeriode || location.state?.typePeriode || 'Mensuel',
-        MontantCible: location.state?.objectif?.MontantCible || '',
-        Libelle_Indicateur: location.state?.objectif?.Libelle_Indicateur || '',
-        Statut: location.state?.objectif?.Statut || 'En cours'
+    const [formData, setFormData] = useState(() => {
+        const existingNf = location.state?.objectif?.nf;
+        const existingTypeObj = location.state?.objectif?.TypeObjectif || "Chiffre d'affaires";
+        // Retrouver nf depuis le label si non fourni directement
+        const resolvedNf = existingNf !== undefined && existingNf !== null
+            ? existingNf
+            : (INDICATOR_TYPES.find(t => t.label === existingTypeObj)?.nf ?? null);
+        return {
+            ID_Utilisateur: location.state?.objectif?.ID_Utilisateur || location.state?.selectedUserId || user?.UserID || '',
+            Mois: location.state?.objectif?.Mois || location.state?.selectedMonth || new Date().getMonth() + 1,
+            Annee: location.state?.objectif?.Annee || location.state?.selectedYear || new Date().getFullYear(),
+            Numsem: location.state?.objectif?.Numsem || extractWeekNumber(location.state?.objectif?.Semaine) || location.state?.selectedWeek || currentISOWeek,
+            Semaine: location.state?.objectif?.Semaine || '',
+            DateDebut: location.state?.objectif?.DateDebut || '',
+            DateFin: location.state?.objectif?.DateFin || '',
+            TypeObjectif: existingTypeObj,
+            nf: resolvedNf,
+            TypePeriode: location.state?.objectif?.TypePeriode || location.state?.typePeriode || 'Mensuel',
+            MontantCible: location.state?.objectif?.MontantCible || '',
+            Libelle_Indicateur: location.state?.objectif?.Libelle_Indicateur || '',
+            Statut: location.state?.objectif?.Statut || 'En cours'
+        };
     });
 
     /**
@@ -518,25 +540,56 @@ const ObjectifForm = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-1.5">
                                     <label className="block text-sm font-semibold text-slate-700">Type d'Indicateur</label>
-                                    <select name="TypeObjectif" value={formData.TypeObjectif} onChange={handleChange} className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all" required>
+                                    <select
+                                        name="TypeObjectif"
+                                        value={formData.TypeObjectif}
+                                        onChange={(e) => {
+                                            const selected = INDICATOR_TYPES.find(t => t.label === e.target.value);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                TypeObjectif: e.target.value,
+                                                nf: selected ? selected.nf : null
+                                            }));
+                                        }}
+                                        className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all"
+                                        required
+                                    >
                                         <option value="">--- Sélectionner un indicateur ---</option>
-                                        {prevObjectives.map(obj => <option key={obj} value={obj}>{obj}</option>)}
-                                        <option value="Autre">Autre (Saisie personnalisée)...</option>
+                                        {INDICATOR_TYPES.map(t => (
+                                            <option key={t.label} value={t.label}>{t.label}</option>
+                                        ))}
                                     </select>
-                                    {formData.TypeObjectif === 'Autre' && (
-                                        <div className="mt-3 animate-in fade-in slide-in-from-top-2">
-                                            <input type="text" name="TypeObjectifCustom" value={formData.TypeObjectifCustom} onChange={handleChange} placeholder="Nom de l'indicateur personnalisé" className="w-full h-11 px-4 text-sm rounded-xl border-amber-200 bg-amber-50/30 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all" required />
-                                        </div>
+                                    {formData.TypeObjectif && (
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            {INDICATOR_TYPES.find(t => t.label === formData.TypeObjectif)?.desc || ''}
+                                            {formData.nf !== null && formData.nf !== undefined
+                                                ? ` · Calcul : comptage (nf=${formData.nf})`
+                                                : ' · Calcul : montant financier (TabReg)'}
+                                        </p>
                                     )}
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="block text-sm font-semibold text-slate-700">Valeur Cible (TND)</label>
+                                    <label className="block text-sm font-semibold text-slate-700">
+                                        {formData.nf !== null && formData.nf !== undefined
+                                            ? 'Valeur Cible (nombre)'
+                                            : 'Valeur Cible (TND)'}
+                                    </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <ChartBarIcon className="h-4 w-4 text-slate-400" />
                                         </div>
-                                        <input type="number" step="0.01" name="MontantCible" value={formData.MontantCible} onChange={handleChange} placeholder="0.00" className="w-full h-11 pl-10 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-mono" required />
+                                        <input
+                                            type="number"
+                                            step={formData.nf !== null && formData.nf !== undefined ? '1' : '0.01'}
+                                            min="0"
+                                            name="MontantCible"
+                                            value={formData.MontantCible}
+                                            onChange={handleChange}
+                                            placeholder={formData.nf !== null && formData.nf !== undefined ? '0' : '0.00'}
+                                            className="w-full h-11 pl-10 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-mono"
+                                            required
+                                        />
                                     </div>
                                 </div>
 

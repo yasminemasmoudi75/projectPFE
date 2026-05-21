@@ -207,8 +207,8 @@ const AdminDashboard = () => {
   const quickActions = [
     { label: 'Nouvel utilisateur', icon: UserGroupIcon, action: () => navigate('/users/new'), color: 'blue' },
     { label: 'Modifier permissions', icon: LockClosedIcon, action: () => navigate('/admin/permissions'), color: 'purple' },
-    { label: 'Voir logs', icon: EyeIcon, action: () => navigate('/admin/logs'), color: 'slate' },
-    { label: 'Backup DB', icon: CheckCircleIcon, action: () => toast.success('Backup démarré'), color: 'emerald' }
+    { label: 'Paramètres Stock', icon: CheckCircleIcon, action: () => navigate('/admin/stock-config'), color: 'orange' },
+    { label: 'Voir logs', icon: EyeIcon, action: () => navigate('/admin/journal'), color: 'slate' },
   ];
 
   if (loading) {

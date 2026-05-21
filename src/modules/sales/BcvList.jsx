@@ -89,6 +89,8 @@ const BcvList = () => {
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
   const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
   const isAgentUser = normalizedUserRole === 'agent';
+  const isClientUser = normalizedUserRole === 'client';
+  const isTechnicienUser = ['technicien', 'technicien sav'].includes(normalizedUserRole);
   const canShowEditAction = isCommercialUser || isAdminUser || canEdit;
 
   // ── Filters ────────────────────────────────────────────────────────────────
@@ -150,8 +152,8 @@ const BcvList = () => {
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
     
     // Filter by selected commercial; default to 'mine'
-    // Commercial users: backend already scopes correctly (CodTiers + CodRepres), skip frontend re-filter.
-    if (!isCommercialUser) {
+    // Commercial and client users: backend already scopes correctly, skip frontend re-filter.
+    if (!isCommercialUser && !isClientUser) {
       if (filters.commercial === 'all') {
         // Show everything
       } else {
@@ -161,7 +163,7 @@ const BcvList = () => {
     }
     
     return true;
-  }), [bcv, filters, adminId, isAdminUser]);
+  }), [bcv, filters, adminId, isAdminUser, isCommercialUser, isClientUser]);
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const totalCA = filteredBcv.reduce((s, i) => s + (i.TotTTC || 0), 0);
@@ -179,7 +181,7 @@ const BcvList = () => {
 
   // ── Data fetching ──────────────────────────────────────────────────────────
     const refreshData = () => {
-      if (!isModuleActive) return;
+      if (!isModuleActive && !isClient) return;
       const params = { 
         page: 1, 
         limit: 1000,
@@ -388,7 +390,7 @@ const BcvList = () => {
                       />
                     </div>
                   ))}
-                  {!isCommercialUser && (
+                  {!isCommercialUser && !isClientUser && !isTechnicienUser && (
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Commercial</label>
                       <select

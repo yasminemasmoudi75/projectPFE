@@ -23,13 +23,7 @@ export const fetchBlv = createAsyncThunk('blv/fetchBlv', async (params = {}) => 
 
 // Récupérer les bons de livraison de l'utilisateur (client sees only their deliveries)
 export const fetchMyBlv = createAsyncThunk('blv/fetchMyBlv', async (params = {}) => {
-    const response = await axios.get('/blv/my-deliveries', { 
-        params: { 
-            page: 1, 
-            limit: 1000, 
-            ...params 
-        } 
-    });
+    const response = await axios.get('/blv/my-deliveries', { params });
     return response;
 });
 
@@ -57,6 +51,16 @@ export const updateBlv = createAsyncThunk('blv/updateBlv', async ({ id, master, 
 export const deleteBlv = createAsyncThunk('blv/deleteBlv', async (id) => {
     const response = await axios.delete(`/blv/${id}`);
     return response;
+});
+
+// Valider un BLV : vérification stock + décrémentation (PATCH /blv/:id/validate)
+export const validateBlv = createAsyncThunk('blv/validateBlv', async (id, { rejectWithValue }) => {
+    try {
+        const response = await axios.patch(`/blv/${id}/validate`);
+        return response;
+    } catch (err) {
+        return rejectWithValue(err?.response?.data || err?.data || { message: err.message });
+    }
 });
 
 const blvSlice = createSlice({
@@ -101,7 +105,19 @@ const blvSlice = createSlice({
                 state.loading = false;
                 state.blvList = state.blvList.filter(b => b.Guid !== action.meta.arg);
             })
-            .addCase(deleteBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
+            .addCase(deleteBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(validateBlv.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(validateBlv.fulfilled, (state, action) => {
+                state.loading = false;
+                const updated = action.payload?.data;
+                if (updated) {
+                    state.blvList = state.blvList.map(b =>
+                        b.Guid === updated.Guid ? { ...b, ...updated } : b,
+                    );
+                }
+            })
+            .addCase(validateBlv.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
     },
 });
 

@@ -23,16 +23,24 @@ import usePermission from '../../hooks/usePermission';
 /* ─── helpers ──────────────────────────────────────────────── */
 const ICON_MAP = { BanknotesIcon, UsersIcon, CalendarIcon, BriefcaseIcon, ChartBarIcon, FlagIcon };
 
-const getGoalIcon = (type) => {
-    switch (type) {
-        case "Chiffre d'affaires": return { icon: BanknotesIcon, unit: 'TND' };
-        case 'Nouveaux Clients':   return { icon: UsersIcon,     unit: 'Clients' };
-        case 'Nombre de Rendez-vous': return { icon: CalendarIcon, unit: 'RDV' };
-        case 'Validation Devis':   return { icon: DocumentTextIcon, unit: 'TND' };
-        case 'Volume de Ventes':   return { icon: ShoppingBagIcon, unit: 'Unités' };
-        case 'Marge Brute':        return { icon: ChartBarIcon,  unit: 'TND' };
-        default:                   return { icon: FlagIcon,      unit: 'Unité' };
+// Méta par nf : icône + unité + mode d'affichage (count vs TND)
+const NF_META = {
+    0:  { icon: CalendarIcon,  unit: 'appels',   isCount: true },
+    1:  { icon: UserGroupIcon, unit: 'visites',  isCount: true },
+    2:  { icon: UserGroupIcon, unit: 'visites',  isCount: true },
+    6:  { icon: UsersIcon,     unit: 'contacts', isCount: true },
+    7:  { icon: UsersIcon,     unit: 'contacts', isCount: true },
+    8:  { icon: UsersIcon,     unit: 'contacts', isCount: true },
+    9:  { icon: UsersIcon,     unit: 'sociétés', isCount: true },
+    10: { icon: BriefcaseIcon, unit: 'projets',  isCount: true },
+    13: { icon: CalendarIcon,  unit: 'visites',  isCount: true },
+};
+
+const getGoalMeta = (goal) => {
+    if (goal?.nf !== null && goal?.nf !== undefined && NF_META[goal.nf]) {
+        return NF_META[goal.nf];
     }
+    return { icon: BanknotesIcon, unit: 'TND', isCount: false };
 };
 
 const parseMoney = (v) => {
@@ -41,6 +49,8 @@ const parseMoney = (v) => {
     return Number.isFinite(n) ? n : 0;
 };
 const formatMoney = (v) => parseMoney(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatCount = (v) => Math.round(parseMoney(v)).toLocaleString('fr-FR');
+const formatValue = (v, isCount) => isCount ? formatCount(v) : formatMoney(v);
 const getObjectifRealised = (o) => { const d = parseMoney(o?.Montant_Realise_Actuel); return d > 0 ? d : parseMoney(o?.autVal); };
 const getObjectifTarget   = (o) => { const v = parseMoney(o?.MontantCible); return v > 0 ? v : parseMoney(o?.autObj); };
 const getProgress = (o) => { const t = getObjectifTarget(o); return t > 0 ? Math.min((getObjectifRealised(o)/t)*100,100) : 0; };
@@ -54,7 +64,7 @@ const progressLabel = (p) => p >= 100 ? { bg:'bg-emerald-50 text-emerald-700 bor
 /* ─── ObjectifCard ──────────────────────────────────────────── */
 const ObjectifCard = ({ goal, onEdit, onClose, isAdmin }) => {
     const progress = getProgress(goal);
-    const { icon: Icon, unit } = getGoalIcon(goal.TypeObjectif);
+    const { icon: Icon, unit, isCount } = getGoalMeta(goal);
     const pl = progressLabel(progress);
 
     return (
@@ -95,8 +105,8 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin }) => {
             {/* amounts */}
             <div className="mb-4">
                 <div className="flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-slate-800">{formatMoney(getObjectifRealised(goal))}</span>
-                    <span className="text-xs text-slate-400">/ {formatMoney(getObjectifTarget(goal))} {unit}</span>
+                    <span className="text-xl font-black text-slate-800">{formatValue(getObjectifRealised(goal), isCount)}</span>
+                    <span className="text-xs text-slate-400">/ {formatValue(getObjectifTarget(goal), isCount)} {unit}</span>
                 </div>
                 {(goal.DateDebut || goal.DateFin) && (
                     <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">

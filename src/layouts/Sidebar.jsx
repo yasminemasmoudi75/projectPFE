@@ -38,6 +38,7 @@ const menuItems = [
   { name: 'Tableau de bord Admin', href: '/admin', icon: ChartBarIcon, moduleCode: null, color: 'purple', adminOnly: true },
   { name: 'Rôles & Permissions', href: '/admin/permissions', icon: KeyIcon, moduleCode: null, color: 'violet', adminOnly: true },
   { name: 'Journal Connexions', href: '/admin/journal', icon: ClipboardDocumentListIcon, moduleCode: null, color: 'indigo', adminOnly: true },
+  { name: 'Paramètres Stock', href: '/admin/stock-config', icon: Cog6ToothIcon, moduleCode: null, color: 'orange', adminOnly: true },
   { type: 'section', name: 'CRM & Ventes' },
   { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS, color: 'indigo' },
   { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES, color: 'cyan' },
@@ -166,30 +167,26 @@ const SidebarContent = () => {
 
   const filtered = menuItems.filter(item => {
     if (item.type === 'section') return true;
-    
-    // 1. Admin restricted view (if any specific hardcoded rules exist)
-    // Removed the unconditional bypass to respect DB isActive flag for everyone.
 
-    // 2. Client restricted view
-    if (role === 'client') {
-      return ['Dashboard', 'Messages', 'Bons de Commande', 'Livraisons', 'Factures'].includes(item.name);
-    }
-
-    // 3. Module specific hardcoded rules
+    // 1. Admin-only items (admin panel, permissions page, journal, mouvements)
     if (item.adminOnly && role !== 'admin') return false;
-    if (item.name === 'SAV' && (role === 'commercial' || role === 'commerciale')) return false;
+
+    // 2. User management is security-restricted to admins regardless of DB
     if (item.name === 'Utilisateurs' && role !== 'admin') return false;
 
-    // 4. Public modules (no moduleCode)
+    // 3. Public modules without a DB module code (Dashboard, etc.)
     if (item.moduleCode == null) return true;
 
-    // 5. Database check (source of truth)
+    // 4. DB is the single source of truth for all roles (admin, commercial, technicien, client…)
     const p = allPermissions.find(p => Number(p.moduleCode) === Number(item.moduleCode));
-    
-    // Admin override: if module is NOT in permissions table yet, Admin can see it for dev
-    // But if it IS in table and isActive is false, respect it.
+
+    // Admin convenience: show module even if it has no DB row yet (dev/setup scenario)
     if (role === 'admin' && !p) return true;
-    
+
+    // Client convenience: always show their own document modules (devis/BCV/BLV/FAV)
+    const CLIENT_DOC_CODES = [4, 5, 6, 7];
+    if (role === 'client' && CLIENT_DOC_CODES.includes(Number(item.moduleCode))) return true;
+
     return p?.isActive === true || p?.isActive === 1;
   });
 

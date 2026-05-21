@@ -23,13 +23,7 @@ export const fetchFav = createAsyncThunk('fav/fetchFav', async (params = {}) => 
 
 // Récupérer les factures de l'utilisateur (client sees only their invoices)
 export const fetchMyFav = createAsyncThunk('fav/fetchMyFav', async (params = {}) => {
-    const response = await axios.get('/fav/my-invoices', { 
-        params: { 
-            page: 1, 
-            limit: 1000, 
-            ...params 
-        } 
-    });
+    const response = await axios.get('/fav/my-invoices', { params });
     return response;
 });
 
@@ -57,6 +51,16 @@ export const updateFav = createAsyncThunk('fav/updateFav', async ({ id, master, 
 export const deleteFav = createAsyncThunk('fav/deleteFav', async (id) => {
     const response = await axios.delete(`/fav/${id}`);
     return response;
+});
+
+// Valider une FAV : anti double-décrémentation (PATCH /fav/:id/validate)
+export const validateFav = createAsyncThunk('fav/validateFav', async (id, { rejectWithValue }) => {
+    try {
+        const response = await axios.patch(`/fav/${id}/validate`);
+        return response;
+    } catch (err) {
+        return rejectWithValue(err?.response?.data || err?.data || { message: err.message });
+    }
 });
 
 const favSlice = createSlice({
@@ -101,7 +105,19 @@ const favSlice = createSlice({
                 state.loading = false;
                 state.favList = state.favList.filter(f => f.Guid !== action.meta.arg);
             })
-            .addCase(deleteFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
+            .addCase(deleteFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; })
+
+            .addCase(validateFav.pending, (state) => { state.loading = true; state.error = null; })
+            .addCase(validateFav.fulfilled, (state, action) => {
+                state.loading = false;
+                const updated = action.payload?.data;
+                if (updated) {
+                    state.favList = state.favList.map(f =>
+                        f.Guid === updated.Guid ? { ...f, ...updated } : f,
+                    );
+                }
+            })
+            .addCase(validateFav.rejected, (state, action) => { state.loading = false; state.error = action.error.message; });
     },
 });
 

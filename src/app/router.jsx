@@ -4,6 +4,22 @@ import ProtectedRoute from '../auth/ProtectedRoute';
 import AuthLayout from '../layouts/AuthLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import LoadingSpinner from '../components/feedback/LoadingSpinner';
+import useAuth from '../hooks/useAuth';
+
+// Role-based route guards
+const AdminRoute = ({ children }) => {
+  const { isAdmin, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
+const NoClientRoute = ({ children }) => {
+  const { isClient, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+  if (isClient) return <Navigate to="/dashboard" replace />;
+  return children;
+};
 
 // Lazy loading des pages
 const Login = lazy(() => import('../auth/Login'));
@@ -49,6 +65,7 @@ const UserForm = lazy(() => import('../modules/users/UserForm'));
 const UserDetail = lazy(() => import('../modules/users/UserDetail'));
 const Profile = lazy(() => import('../modules/profile/Profile'));
 const MouvementsPage = lazy(() => import('../modules/mouvements/MouvementsPage'));
+const ClientDocuments = lazy(() => import('../modules/sales/ClientDocuments'));
 const NotFound = lazy(() => import('../components/feedback/NotFound'));
 const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
 
@@ -58,6 +75,7 @@ const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
 const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboard'));
 const JournalConnexions = lazy(() => import('../modules/admin/JournalConnexions'));
 const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
+const StockConfigPage = lazy(() => import('../modules/admin/StockConfigPage'));
 
 // Wrapper pour Suspense
 const SuspenseWrapper = ({ children }) => (
@@ -302,9 +320,11 @@ const routes = [
           {
             index: true,
             element: (
-              <SuspenseWrapper>
-                <ProjetsList />
-              </SuspenseWrapper>
+              <NoClientRoute>
+                <SuspenseWrapper>
+                  <ProjetsList />
+                </SuspenseWrapper>
+              </NoClientRoute>
             ),
           },
           {
@@ -501,70 +521,102 @@ const routes = [
       {
         path: 'ia',
         element: (
-          <SuspenseWrapper>
-            <IAPredictions />
-          </SuspenseWrapper>
+          <NoClientRoute>
+            <SuspenseWrapper>
+              <IAPredictions />
+            </SuspenseWrapper>
+          </NoClientRoute>
         ),
       },
       {
         path: 'admin',
         element: (
-          <SuspenseWrapper>
-            <AdminDashboard />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <AdminDashboard />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
       {
         path: 'admin/permissions',
         element: (
-          <SuspenseWrapper>
-            <PermissionManager />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <PermissionManager />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
       {
         path: 'admin/journal',
         element: (
-          <SuspenseWrapper>
-            <JournalConnexions />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <JournalConnexions />
+            </SuspenseWrapper>
+          </AdminRoute>
+        ),
+      },
+      {
+        path: 'admin/stock-config',
+        element: (
+          <AdminRoute>
+            <SuspenseWrapper>
+              <StockConfigPage />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
       {
         path: 'users',
         element: (
-          <SuspenseWrapper>
-            <UsersList />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <UsersList />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
-
-
       {
         path: 'users/new',
         element: (
-          <SuspenseWrapper>
-            <UserForm />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <UserForm />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
       {
         path: 'users/edit/:id',
         element: (
-          <SuspenseWrapper>
-            <UserForm />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <UserForm />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
       {
         path: 'users/:id',
         element: (
-          <SuspenseWrapper>
-            <UserDetail />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <UserDetail />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
 
+      {
+        path: 'mes-documents',
+        element: (
+          <SuspenseWrapper>
+            <ClientDocuments />
+          </SuspenseWrapper>
+        ),
+      },
       {
         path: 'profile',
         element: (
@@ -577,9 +629,11 @@ const routes = [
       {
         path: 'mouvements',
         element: (
-          <SuspenseWrapper>
-            <MouvementsPage />
-          </SuspenseWrapper>
+          <AdminRoute>
+            <SuspenseWrapper>
+              <MouvementsPage />
+            </SuspenseWrapper>
+          </AdminRoute>
         ),
       },
     ],

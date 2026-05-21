@@ -133,13 +133,9 @@ const ClaimForm = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const response = await axios.post('/reclamations', formData);
-      if (response?.status === 'success') {
-        toast.success('Réclamation enregistrée avec succès');
-        navigate('/claims');
-      } else {
-        toast.error('Création de la réclamation échouée');
-      }
+      await axios.post('/reclamations', formData);
+      toast.success('Réclamation enregistrée avec succès');
+      navigate('/claims');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors de la création de la réclamation');
     } finally {

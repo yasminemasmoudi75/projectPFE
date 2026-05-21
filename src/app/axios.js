@@ -200,8 +200,8 @@ export const setupAxiosInterceptors = (store) => {
         toast.error('Accès refusé. Vous n\'avez pas les permissions nécessaires.');
       }
 
-      // Erreur 404 - Ressource non trouvée
-      if (error.response?.status === 404) {
+      // Erreur 404 - Ressource non trouvée (skip toast if caller handles it silently)
+      if (error.response?.status === 404 && !originalRequest.silent404) {
         toast.error('Ressource non trouvée.');
       }
 

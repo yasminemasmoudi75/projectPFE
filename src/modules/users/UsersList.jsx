@@ -20,6 +20,37 @@ import {
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 
+// Normalise la valeur brute de UserRole en une étiquette cohérente.
+// Le backend peut retourner 'Commerciale', 'commercial', 'Agent', etc.
+const normalizeRoleDisplay = (role) => {
+  const r = String(role || '').trim().toLowerCase();
+  if (['admin', 'administrateur'].includes(r)) return 'Admin';
+  if (['commercial', 'commerciale'].includes(r)) return 'Commercial';
+  if (['agent'].includes(r)) return 'Agent';
+  if (['technicien', 'technicien sav'].includes(r)) return 'Technicien';
+  if (['client'].includes(r)) return 'Client';
+  if (!role || r === 'user' || r === 'utilisateur') return 'Non défini';
+  return String(role).trim();
+};
+
+const ROLE_BADGE = {
+  Admin:       'bg-violet-100 text-violet-700',
+  Commercial:  'bg-sky-100    text-sky-700',
+  Agent:       'bg-emerald-100 text-emerald-700',
+  Technicien:  'bg-amber-100  text-amber-700',
+  Client:      'bg-rose-100   text-rose-700',
+};
+
+const ROLE_DISPLAY_LABEL = {
+  Admin:      'Administrateur',
+  Commercial: 'Commercial',
+  Agent:      'Agent',
+  Technicien: 'Technicien',
+  Client:     'Client',
+};
+
+const KNOWN_ROLES = ['Admin', 'Agent', 'Commercial', 'Technicien', 'Client'];
+
 const UsersList = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -35,7 +66,7 @@ const UsersList = () => {
   const fetchUsers = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     try {
-      const response = await axios.get('/users');
+      const response = await axios.get('/users?limit=10000');
       const usersPayload = Array.isArray(response?.data)
         ? response.data
         : (Array.isArray(response) ? response : []);
@@ -45,7 +76,7 @@ const UsersList = () => {
         name: user.FullName || 'Utilisateur sans nom',
         login: user.LoginName || '',
         email: user.EmailPro || 'Non specifie',
-        role: user.UserRole || 'Role non defini',
+        role: normalizeRoleDisplay(user.UserRole),
         status: (user.IsActive === true || user.IsActive === 1 || String(user.IsActive) === 'true') ? 'Actif' : 'Inactif',
         dept: user.Departement || 'Non assigne'
       }));
@@ -114,7 +145,8 @@ const UsersList = () => {
     return {
       total: users.length,
       active: users.filter(u => u.status === 'Actif').length,
-      admins: users.filter(u => u.role === 'Administrateur' || u.role === 'Admin').length
+      agents: users.filter(u => u.role === 'Agent').length,
+      admins: users.filter(u => u.role === 'Admin').length,
     };
   }, [users]);
 
@@ -197,11 +229,14 @@ const UsersList = () => {
     printWindow.print();
   };
 
+  // Rôles présents dans les données + rôles connus non encore présents
   const uniqueRoles = useMemo(() => {
-    return [...new Set(users.map(u => u.role).filter(Boolean))].sort();
+    const fromData = new Set(users.map(u => u.role).filter(r => r && r !== 'Non défini'));
+    return [...new Set([...KNOWN_ROLES, ...fromData])].sort();
   }, [users]);
 
-  const hasActiveFilters = statusFilter || roleFilter;
+  const activeFilterCount = [statusFilter, roleFilter].filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   if (loading) return <LoadingSpinner />;
 
@@ -265,7 +300,7 @@ const UsersList = () => {
         {[
           { label: 'Total Utilisateurs', value: stats.total, sub: 'utilisateurs enregistrés', icon: UsersIcon, color: 'sky' },
           { label: 'Comptes Actifs', value: stats.active, sub: `${stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% actifs`, icon: CheckBadgeIcon, color: 'emerald' },
-          { label: 'Administrateurs', value: stats.admins, sub: 'accès complet', icon: ShieldCheckIcon, color: 'violet' },
+          { label: 'Agents', value: stats.agents, sub: `${stats.admins} admin(s)`, icon: ShieldCheckIcon, color: 'violet' },
         ].map((stat, i) => {
           const colorMap = {
             sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
@@ -317,7 +352,7 @@ const UsersList = () => {
                 }`}
             >
               <FunnelIcon className="h-4 w-4" />
-              Filtres {hasActiveFilters && <span className="bg-sky-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">2</span>}
+              Filtres {hasActiveFilters && <span className="bg-sky-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{activeFilterCount}</span>}
             </button>
           </div>
 
@@ -348,7 +383,7 @@ const UsersList = () => {
                 >
                   <option value="">Tous les rôles</option>
                   {uniqueRoles.map(role => (
-                    <option key={role} value={role}>{role}</option>
+                    <option key={role} value={role}>{ROLE_DISPLAY_LABEL[role] || role}</option>
                   ))}
                 </select>
               </div>
@@ -421,15 +456,8 @@ const UsersList = () => {
                     </td>
                     <td className="px-8 py-5">
                       <div className="space-y-1">
-                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${user.role === 'Administrateur' || user.role === 'Admin'
-                          ? 'bg-violet-100 text-violet-700'
-                          : user.role === 'Commercial'
-                            ? 'bg-sky-100 text-sky-700'
-                            : user.role === 'Technicien'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}>
-                          {user.role}
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${ROLE_BADGE[user.role] || 'bg-slate-100 text-slate-600'}`}>
+                          {ROLE_DISPLAY_LABEL[user.role] || user.role}
                         </span>
                         <p className="text-xs font-medium text-slate-500">{user.dept}</p>
                       </div>

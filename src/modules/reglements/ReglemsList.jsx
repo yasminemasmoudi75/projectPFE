@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import axios from '../../app/axios';
 import { formatDate, formatCurrency } from '../../utils/format';
 import { MODULE_CODES } from '../../utils/constants';
@@ -51,6 +52,7 @@ const CollectionRing = ({ rate = 0 }) => {
 
 /* ─── ReglemsList ────────────────────────────────────────────── */
 const ReglemsList = () => {
+  const { isClient } = useAuth();
   const { canCreate } = usePermission(MODULE_CODES.REGLEMENT);
   const [reglements, setReglements]   = useState([]);
   const [stats, setStats]             = useState(null);
@@ -100,6 +102,7 @@ const ReglemsList = () => {
   useEffect(() => { fetchStats(); }, []);
   useEffect(() => { loadReglements(); }, [filters]);
   useEffect(() => {
+    if (isClient) return;
     (async () => {
       try {
         const [cr, comr] = await Promise.all([
@@ -112,7 +115,7 @@ const ReglemsList = () => {
         setCommercials(Array.isArray(comd) ? comd : []);
       } catch { setClients([]); setCommercials([]); }
     })();
-  }, []);
+  }, [isClient]);
 
   const setFilter   = (k, v) => setFilters(f => ({ ...f, [k]: v, page: 1 }));
   const handlePage  = (p)    => setFilters(f => ({ ...f, page: p }));
@@ -312,18 +315,20 @@ const ReglemsList = () => {
                       className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 text-slate-600 transition-all" />
                   </div>
                 ))}
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block mb-1.5">Client</label>
-                  <select value={filters.codTiers} onChange={e => setFilter('codTiers', e.target.value)}
-                    className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 text-slate-600 transition-all">
-                    <option value="">Tous les clients</option>
-                    {clients.map(c => (
-                      <option key={c.CodTiers || c.id} value={c.CodTiers || c.id}>
-                        {c.CodTiers || c.id} — {c.LibelleComplet || c.Nom || c.LibTiers || c.Raisoc || c.CodTiers}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!isClient && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block mb-1.5">Client</label>
+                    <select value={filters.codTiers} onChange={e => setFilter('codTiers', e.target.value)}
+                      className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 text-slate-600 transition-all">
+                      <option value="">Tous les clients</option>
+                      {clients.map(c => (
+                        <option key={c.CodTiers || c.id} value={c.CodTiers || c.id}>
+                          {c.CodTiers || c.id} — {c.LibelleComplet || c.Nom || c.LibTiers || c.Raisoc || c.CodTiers}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest block mb-1.5">Du</label>
                   <input type="date" value={filters.dateFrom} onChange={e => setFilter('dateFrom', e.target.value)}

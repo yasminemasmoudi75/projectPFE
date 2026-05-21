@@ -23,13 +23,7 @@ export const fetchBcv = createAsyncThunk('bcv/fetchBcv', async (params = {}) => 
 
 // Récupérer les bons de commande de l'utilisateur (client sees only their orders)
 export const fetchMyBcv = createAsyncThunk('bcv/fetchMyBcv', async (params = {}) => {
-    const response = await axios.get('/bcv/my-orders', { 
-        params: { 
-            page: 1, 
-            limit: 1000, 
-            ...params 
-        } 
-    });
+    const response = await axios.get('/bcv/my-orders', { params });
     return response;
 });
 

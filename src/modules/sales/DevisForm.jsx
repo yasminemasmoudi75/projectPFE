@@ -60,6 +60,9 @@ const toNonNegativeNumber = (value, fallback = 0) => {
     return Math.max(0, parsed);
 };
 
+const normalizeSearchText = (value = '') =>
+    String(value).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 const calculateDetailAmounts = (item = {}) => {
     const qt = toNonNegativeNumber(item.Qt, 0);
     const puHT = toNonNegativeNumber(item.PuHT, 0);
@@ -152,90 +155,34 @@ const DevisForm = () => {
 
     const loadProductsList = async () => {
         try {
-            console.log('📦 Loading products...');
-            const response = await axiosInstance.get('/products', {
-                params: {
-                    limit: 100,
-                    page: 1
-                }
-            });
-
-            console.log('📡 Raw API Response:', response);
-
+            const response = await axiosInstance.get('/products', { params: { limit: 5000, page: 1 } });
             const payload = response?.data ?? response;
-            console.log('📦 Payload structure:', {
-                hasData: !!payload?.data,
-                hasPagination: !!payload?.pagination,
-                payloadType: Array.isArray(payload) ? 'Array' : typeof payload,
-                payloadKeys: Array.isArray(payload) ? 'N/A' : Object.keys(payload || {})
-            });
-
             let list = Array.isArray(payload) ? payload : payload?.data;
-
-            console.log('✅ Extracted list:', {
-                isArray: Array.isArray(list),
-                length: Array.isArray(list) ? list.length : 'N/A',
-                firstItem: Array.isArray(list) && list.length > 0 ? {
-                    IDArt: list[0].IDArt,
-                    CodArt: list[0].CodArt,
-                    LibArt: list[0].LibArt
-                } : 'N/A'
-            });
-
-            if (!Array.isArray(list)) {
-                console.warn('⚠️ Response data is not an array:', payload);
-                list = [];
-            }
+            if (!Array.isArray(list)) list = [];
 
             if (list.length === 0) {
-                console.warn('⚠️ No products returned from API');
-                toast.error('⚠️ Aucun produit trouvé. Vérifiez: 1) Articles en base (TabStock), 2) Permissions utilisateur, 3) Filtres');
-                // ✅ Réinitialiser explicitement pour éviter le cache d'une recherche précédente
+                toast.error('Aucun produit trouvé.');
                 setAllProductOptions([]);
                 setProductOptions([]);
                 setProductLookup({});
                 return;
             }
 
-            const normalizedProducts = list
-                .filter(p => p && (p.IDArt || p.Guid)) // Only include valid products
-                .map(normalizeProduct);
-
-            console.log(`✅ Successfully normalized ${normalizedProducts.length} products`);
-            if (list.length !== normalizedProducts.length) {
-                console.warn(`⚠️ ${list.length - normalizedProducts.length} products were filtered out (missing IDArt/Guid)`);
-            }
-
+            const normalizedProducts = list.filter(p => p && (p.IDArt || p.Guid)).map(normalizeProduct);
             setAllProductOptions(normalizedProducts);
             setProductOptions(normalizedProducts);
             setProductLookup((prev) => {
                 const nextLookup = { ...prev };
-                normalizedProducts.forEach((product) => {
-                    nextLookup[String(product.IDArt)] = product;
-                });
+                normalizedProducts.forEach((product) => { nextLookup[String(product.IDArt)] = product; });
                 return nextLookup;
             });
         } catch (error) {
-            console.error('❌ ERROR loading products:', error);
-            console.error('   Status:', error.response?.status);
-            console.error('   Error Data:', error.response?.data);
-            console.error('   Error Message:', error.message);
-            
-            // ✅ Afficher l'erreur détaillée à l'utilisateur
             let errorMsg = 'Erreur lors du chargement des produits';
-            if (error.response?.status === 403) {
-                errorMsg = '🔒 Permissions insuffisantes pour accéder aux articles';
-            } else if (error.response?.status === 401) {
-                errorMsg = '🔑 Session expirée - reconnexion requise';
-            } else if (error.response?.data?.message) {
-                errorMsg = error.response.data.message;
-            } else if (error.message) {
-                errorMsg = error.message;
-            }
-            
-            toast.error('❌ ' + errorMsg);
-            
-            // ✅ Réinitialiser explicitement
+            if (error.response?.status === 403) errorMsg = 'Permissions insuffisantes pour accéder aux articles';
+            else if (error.response?.status === 401) errorMsg = 'Session expirée - reconnexion requise';
+            else if (error.response?.data?.message) errorMsg = error.response.data.message;
+            else if (error.message) errorMsg = error.message;
+            toast.error(errorMsg);
             setAllProductOptions([]);
             setProductOptions([]);
             setProductLookup({});
@@ -331,7 +278,20 @@ const DevisForm = () => {
         createDetailItem()
     ]);
 
+    const [productDropdownOpen, setProductDropdownOpen] = useState({});
+    const productDropdownRefs = useRef({});
+
     const activeProductSearch = items.find(item => item.tempId === activeProductRowId)?.productSearch?.trim() || '';
+
+    const getFilteredProducts = (searchText) => {
+        const q = normalizeSearchText(searchText || '');
+        const all = allProductOptions.length > 0 ? allProductOptions : Object.values(productLookup);
+        if (!q) return all.slice(0, 80);
+        return all.filter(p =>
+            normalizeSearchText(p.CodArt || '').includes(q) ||
+            normalizeSearchText(getProductName(p)).includes(q)
+        ).slice(0, 60);
+    };
 
     useEffect(() => {
         if (!activeProductRowId) {
@@ -348,46 +308,21 @@ const DevisForm = () => {
         const timeoutId = setTimeout(async () => {
             setLoadingProducts(true);
             try {
-                console.log('🔍 Product search started:', { activeProductSearch, activeProductRowId });
-
                 const response = await axiosInstance.get('/products', {
-                    params: {
-                        search: activeProductSearch,
-                        limit: 50,
-                        page: 1
-                    }
+                    params: { search: activeProductSearch, limit: 100, page: 1 }
                 });
-
-                console.log('📦 Product API Response:', response.data);
-
                 const payload = response?.data ?? response;
                 let list = Array.isArray(payload) ? payload : payload?.data;
-
-                // Handle various response formats
-                if (!Array.isArray(list)) {
-                    console.warn('⚠️ Unexpected response format:', payload);
-                    list = [];
-                }
-
+                if (!Array.isArray(list)) list = [];
                 const normalizedProducts = list.map(normalizeProduct);
-                console.log(`✅ Found ${normalizedProducts.length} products`);
-
                 setProductOptions(normalizedProducts);
                 setProductLookup((prev) => {
                     const nextLookup = { ...prev };
-                    normalizedProducts.forEach((product) => {
-                        nextLookup[String(product.IDArt)] = product;
-                    });
+                    normalizedProducts.forEach((product) => { nextLookup[String(product.IDArt)] = product; });
                     return nextLookup;
                 });
             } catch (error) {
-                console.error('❌ Product search error:', error);
-                console.error('📍 Error details:', {
-                    message: error.message,
-                    status: error.response?.status,
-                    data: error.response?.data
-                });
-                toast.error('Erreur lors de la recherche des produits: ' + (error.response?.data?.message || error.message));
+                toast.error('Erreur recherche produits: ' + (error.response?.data?.message || error.message));
                 setProductOptions([]);
             } finally {
                 setLoadingProducts(false);
@@ -396,6 +331,27 @@ const DevisForm = () => {
 
         return () => clearTimeout(timeoutId);
     }, [activeProductRowId, activeProductSearch, allProductOptions]);
+
+    // Close product dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            setProductDropdownOpen(prev => {
+                if (!Object.values(prev).some(Boolean)) return prev;
+                const next = { ...prev };
+                let changed = false;
+                Object.keys(next).forEach(tempId => {
+                    const ref = productDropdownRefs.current[tempId];
+                    if (next[tempId] && ref && !ref.contains(e.target)) {
+                        next[tempId] = false;
+                        changed = true;
+                    }
+                });
+                return changed ? next : prev;
+            });
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Fetch initial products on mount
     useEffect(() => {
@@ -451,19 +407,29 @@ const DevisForm = () => {
     useEffect(() => {
         const fetchClients = async () => {
             try {
-                const response = await axiosInstance.get('/tiers', {
-                    params: {
-                        page: 1,
-                        limit: 10000,
-                        sort: 'recent'
-                    }
-                });
-                // axiosInstance interceptor returns response.data directly
-                if (response.data && Array.isArray(response.data)) {
-                    setClients(response.data);
-                } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-                    setClients(response.data.data);
+                const LIMIT = 1000;
+                let page = 1;
+                let hasNext = true;
+                const collected = [];
+
+                while (hasNext && page <= 500) {
+                    const response = await axiosInstance.get('/tiers', {
+                        params: {
+                            limit: LIMIT,
+                            page,
+                            selectedCommercial: 'all',
+                        }
+                    });
+                    const payload = response?.data ? response.data : response;
+                    const rows = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+                    collected.push(...rows);
+                    hasNext = payload?.pagination?.hasNext === true || rows.length === LIMIT;
+                    page += 1;
                 }
+
+                const unique = new Map();
+                collected.forEach(c => { if (c?.CodTiers) unique.set(c.CodTiers, c); });
+                setClients(Array.from(unique.values()));
             } catch (error) {
                 console.error('Error fetching clients:', error);
                 toast.error('Erreur lors du chargement des clients');
@@ -827,8 +793,9 @@ const DevisForm = () => {
     const fmt = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3 });
 
     /* Shared articles table used in both edit and new-devis modes */
-    const ArticlesTable = () => (
+    const articlesTableJsx = (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-teal-50/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
@@ -841,19 +808,11 @@ const DevisForm = () => {
                 </div>
                 <button type="button" onClick={addItem}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all">
-                    <PlusIcon className="h-4 w-4" /> Ajouter
+                    <PlusIcon className="h-4 w-4" /> Ajouter un article
                 </button>
             </div>
 
-            <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-2.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <div className="col-span-1">#</div>
-                <div className="col-span-4">Article</div>
-                <div className="col-span-2 text-center">Qté</div>
-                <div className="col-span-2 text-right">P.U HT</div>
-                <div className="col-span-2 text-right">Total HT</div>
-                <div className="col-span-1"></div>
-            </div>
-
+            {/* Article cards */}
             <div className="divide-y divide-slate-100">
                 {items.length === 0 && (
                     <div className="py-16 text-center">
@@ -862,79 +821,185 @@ const DevisForm = () => {
                     </div>
                 )}
                 {items.map((item, index) => (
-                    <div key={item.tempId} className="hover:bg-slate-50/40 transition-colors">
-                        <div className="px-6 py-3 grid grid-cols-12 gap-3 items-center">
-                            <div className="col-span-1">
-                                <span className="text-[11px] font-bold text-slate-300">{index + 1}</span>
-                            </div>
-                            <div className="col-span-4 space-y-1.5">
-                                <input
-                                    type="text"
-                                    value={item.productSearch ?? (item.LibArt ? getProductSearchLabel(item) : '')}
-                                    onFocus={() => setActiveProductRowId(item.tempId)}
-                                    onChange={(e) => handleProductSearchChange(item.tempId, e.target.value)}
-                                    placeholder="Rechercher..."
-                                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition-all"
-                                />
-                                <select
-                                    value={item.IDArt || ''}
-                                    onChange={(e) => handleProductSelect(item.tempId, e.target.value)}
-                                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-600 focus:border-blue-400 focus:outline-none"
-                                >
-                                    <option value="">{loadingProducts && activeProductRowId === item.tempId ? 'Chargement...' : '-- Selectionner --'}</option>
-                                    {item.IDArt && <option value={item.IDArt}>{item.CodArt} {item.LibArt}</option>}
-                                    {productOptions.map(p => <option key={p.IDArt} value={p.IDArt}>{p.CodArt} {getProductName(p)}</option>)}
-                                </select>
-                            </div>
-                            <div className="col-span-2">
-                                <input type="number" min="0" value={item.Qt || 0}
-                                    onChange={(e) => handleItemChange(item.tempId, 'Qt', parseFloat(e.target.value) || 0)}
-                                    className="w-full text-center px-2 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-blue-600 focus:border-blue-400 focus:outline-none" />
-                            </div>
-                            <div className="col-span-2">
-                                <input type="number" min="0" value={item.PuHT || 0}
-                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
-                                    className="w-full text-right px-2 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:border-blue-400 focus:outline-none" />
-                            </div>
-                            <div className="col-span-2 text-right">
-                                <span className="text-sm font-bold text-slate-700">{fmt(item.MntHT)}</span>
-                                <span className="block text-[10px] text-slate-400">TND</span>
-                            </div>
-                            <div className="col-span-1 flex items-center justify-end gap-1">
+                    <div key={item.tempId} className="px-5 py-4 hover:bg-slate-50/50 transition-colors">
+
+                        {/* Row header */}
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Article {index + 1}</span>
+                            <div className="flex items-center gap-1">
                                 <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
-                                    className={`p-1.5 rounded-lg transition-colors ${expandedItems[item.tempId] ? 'bg-blue-100 text-blue-600' : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'}`}>
-                                    <ChevronDownIcon className={`h-4 w-4 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors ${expandedItems[item.tempId] ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                                    <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
+                                    Options
                                 </button>
                                 <button type="button" onClick={() => removeItem(item.tempId)}
-                                    className="p-1.5 rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-colors">
-                                    <TrashIcon className="h-4 w-4" />
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors">
+                                    <TrashIcon className="h-3.5 w-3.5" />
+                                    Supprimer
                                 </button>
                             </div>
                         </div>
 
+                        {/* Recherche produit — pleine largeur */}
+                        <div
+                            className="relative mb-3"
+                            ref={el => productDropdownRefs.current[item.tempId] = el}
+                        >
+                            <div className="relative">
+                                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                <input
+                                    type="text"
+                                    value={item.productSearch ?? (item.CodArt ? `${item.CodArt} — ${item.LibArt}` : '')}
+                                    onFocus={() => {
+                                        setActiveProductRowId(item.tempId);
+                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                        if (!item.CodArt) setProductOptions(allProductOptions);
+                                    }}
+                                    onChange={(e) => {
+                                        handleProductSearchChange(item.tempId, e.target.value);
+                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                    }}
+                                    onPaste={() => {
+                                        setTimeout(() => setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true })), 10);
+                                    }}
+                                    placeholder="Taper ou coller le nom / code produit pour rechercher…"
+                                    className="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
+                                />
+                                {item.CodArt && (
+                                    <button type="button"
+                                        onClick={() => {
+                                            setItems(prev => prev.map(i => i.tempId === item.tempId ? { ...i, CodArt: '', LibArt: '', IDArt: null, productSearch: '', PuHT: 0, PuTTC: 0, Tva: 19 } : i));
+                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-all">
+                                        <XMarkIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Dropdown résultats */}
+                            {productDropdownOpen[item.tempId] && (
+                                <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden"
+                                    style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                            {getFilteredProducts(item.productSearch).length} produit{getFilteredProducts(item.productSearch).length !== 1 ? 's' : ''}
+                                        </span>
+                                        {item.productSearch && (
+                                            <span className="text-[10px] text-blue-500 font-medium">"{item.productSearch}"</span>
+                                        )}
+                                    </div>
+                                    {getFilteredProducts(item.productSearch).length === 0 ? (
+                                        <div className="px-4 py-6 text-sm text-slate-400 text-center">
+                                            Aucun produit trouvé pour "{item.productSearch}"
+                                        </div>
+                                    ) : (
+                                        getFilteredProducts(item.productSearch).map(p => (
+                                            <button
+                                                key={p.IDArt}
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    handleProductSelect(item.tempId, p.IDArt);
+                                                    setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
+                                                }}
+                                                className="w-full text-left px-4 py-3 hover:bg-blue-50 active:bg-blue-100 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between gap-4"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex-shrink-0">{p.CodArt}</span>
+                                                    <span className="text-sm font-semibold text-slate-800 truncate">{getProductName(p)}</span>
+                                                </div>
+                                                <span className="text-sm font-bold text-blue-600 flex-shrink-0">
+                                                    {(p.PrixVente || p.PuHT || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND
+                                                </span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Produit sélectionné — badge */}
+                        {item.CodArt && (
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold">
+                                    <CheckCircleIcon className="h-3.5 w-3.5" />
+                                    {item.CodArt} — {item.LibArt}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Qté + Prix + Total */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quantité</label>
+                                <div className="flex items-center gap-1.5">
+                                    <button type="button"
+                                        onClick={() => handleItemChange(item.tempId, 'Qt', Math.max(1, (parseFloat(item.Qt) || 1) - 1))}
+                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
+                                        −
+                                    </button>
+                                    <input
+                                        type="number" min="1"
+                                        value={item.Qt}
+                                        onFocus={e => e.target.select()}
+                                        onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                                        onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
+                                        className="w-full h-10 text-center border-2 border-slate-200 rounded-xl text-base font-black text-blue-600 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                                    />
+                                    <button type="button"
+                                        onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
+                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">P.U HT (TND)</label>
+                                <input type="number" min="0" step="0.001"
+                                    value={item.PuHT || 0}
+                                    onFocus={e => e.target.select()}
+                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
+                                    className="w-full h-10 text-right px-3 border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total HT</label>
+                                <div className="h-10 flex items-center justify-end px-3 bg-slate-50 border-2 border-slate-100 rounded-xl">
+                                    <span className="text-base font-black text-slate-800">{fmt(item.MntHT)}</span>
+                                    <span className="text-[10px] text-slate-400 ml-1">TND</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Options avancées */}
                         <AnimatePresence>
                             {expandedItems[item.tempId] && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                    <div className="px-6 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/60">
+                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3">
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">TVA (%)</label>
-                                            <input type="number" value={item.Tva || 19} onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
+                                            <input type="number" value={item.Tva || 19}
+                                                onFocus={e => e.target.select()}
+                                                onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
                                         </div>
                                         <div>
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remise (%)</label>
-                                            <input type="number" value={item.Remise || 0} onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
+                                            <input type="number" value={item.Remise || 0}
+                                                onFocus={e => e.target.select()}
+                                                onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
+                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
                                         </div>
                                         <div className="md:col-span-2">
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Observation</label>
-                                            <input type="text" value={item.Observation || ''} onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
-                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" maxLength="255" />
+                                            <input type="text" value={item.Observation || ''}
+                                                onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
+                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" maxLength="255" />
                                         </div>
-                                        <div className="text-[11px] text-slate-400 col-span-2 md:col-span-4 flex gap-4 pt-1">
-                                            <span>Remise : <strong>{fmt(item.MntRem)}</strong> TND</span>
-                                            <span>TVA : <strong>{fmt(item.MntTVA)}</strong> TND</span>
-                                            <span>TTC : <strong className="text-blue-600">{fmt(item.PuTTC)}</strong> TND/u</span>
+                                        <div className="text-[11px] text-slate-400 col-span-2 md:col-span-4 flex gap-4">
+                                            <span>Remise : <strong className="text-slate-600">{fmt(item.MntRem)}</strong> TND</span>
+                                            <span>TVA : <strong className="text-slate-600">{fmt(item.MntTVA)}</strong> TND</span>
+                                            <span>TTC/u : <strong className="text-blue-600">{fmt(item.PuTTC)}</strong> TND</span>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -1139,7 +1204,7 @@ const DevisForm = () => {
                             </div>
 
                             {/* Articles */}
-                            <ArticlesTable />
+                            {articlesTableJsx}
 
                             {/* Remarks */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1350,7 +1415,7 @@ const DevisForm = () => {
 
                                         {showClientDropdown && filteredClients.length > 0 && (
                                             <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
-                                                {filteredClients.slice(0, 50).map(client => (
+                                                {filteredClients.map(client => (
                                                     <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
                                                         className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}>
                                                         <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -1494,7 +1559,7 @@ const DevisForm = () => {
                                 </div>
                             )}
 
-                            <ArticlesTable />
+                            {articlesTableJsx}
 
                             <div className="flex justify-between pt-2">
                                 <button type="button" onClick={() => setCurrentStep(1)}

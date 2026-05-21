@@ -99,6 +99,7 @@ const ClaimDetail = () => {
   const [claim, setClaim]                 = useState(null);
   const [interventions, setInterventions] = useState([]);
   const [loading, setLoading]             = useState(true);
+  const [notFound, setNotFound]           = useState(false);
   const [activeTab, setActiveTab]         = useState('overview');
 
   useEffect(() => { fetchClaim(); }, [id]);
@@ -106,16 +107,23 @@ const ClaimDetail = () => {
   const fetchClaim = async () => {
     try {
       setLoading(true);
-      const res  = await api.get(`/reclamations/${id}`);
-      const data = res.data?.data || res.data;
+      setNotFound(false);
+      const res  = await api.get(`/reclamations/${id}`, { silent404: true });
+      const data = res?.data?.data ?? res?.data ?? res;
       setClaim(data);
       setInterventions(data?.interventions || []);
-    } catch {}
-    finally { setLoading(false); }
+    } catch (err) {
+      if (err?.response?.status === 404 || !err?.response) setNotFound(true);
+    } finally { setLoading(false); }
   };
 
   const handleStatusUpdate = async (newStatus) => {
-    try { await api.patch(`/reclamations/${id}`, { Statut: newStatus }); fetchClaim(); } catch {}
+    try {
+      await api.patch(`/reclamations/${id}/statut`, { statut: newStatus });
+      fetchClaim();
+    } catch (err) {
+      console.error('Erreur mise à jour statut:', err);
+    }
   };
 
   /* ── loading ── */
@@ -129,13 +137,14 @@ const ClaimDetail = () => {
     </div>
   );
 
-  /* ── not found ── */
-  if (!claim) return (
+  /* ── not found / error ── */
+  if (notFound || (!loading && !claim)) return (
     <div className="flex flex-col items-center justify-center py-32 gap-3">
       <div className="h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
-        <DocumentTextIcon className="h-8 w-8 text-slate-300" />
+        <ExclamationTriangleIcon className="h-8 w-8 text-slate-300" />
       </div>
       <p className="text-sm font-semibold text-slate-500">Réclamation introuvable</p>
+      <p className="text-xs text-slate-400">Cette réclamation n&apos;existe pas ou a été supprimée.</p>
       <button onClick={() => navigate('/claims')} className="text-xs text-sky-500 font-semibold hover:underline underline-offset-2">
         ← Retour à la liste
       </button>

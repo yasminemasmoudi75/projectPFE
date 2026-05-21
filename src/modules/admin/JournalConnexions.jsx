@@ -186,7 +186,7 @@ const JournalConnexions = () => {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-slate-100">
-                                        {['Date', 'Action', 'Utilisateur', 'Rôle', 'Adresse IP', 'Détails'].map(h => (
+                                        {['Date', 'Action', 'Utilisateur', 'Rôle', 'Détails'].map(h => (
                                             <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                                                 {h}
                                             </th>
@@ -223,9 +223,6 @@ const JournalConnexions = () => {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">{log.Role || '—'}</span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className="text-xs font-mono text-slate-500">{log.IPAddress || '—'}</span>
                                                 </td>
                                                 <td className="px-4 py-3 max-w-[200px]">
                                                     <span className="text-xs text-slate-400 truncate block">{log.Details || '—'}</span>

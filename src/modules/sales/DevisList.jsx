@@ -17,7 +17,7 @@ import {
   ArrowTrendingUpIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline';
-import { fetchDevis, deleteDevis } from './devisSlice';
+import { fetchDevis, fetchMyDevis, deleteDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -89,13 +89,15 @@ const DevisList = () => {
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
   const isAdminUser = ['admin', 'administrateur'].includes(normalizedUserRole);
   const isAgentUser = normalizedUserRole === 'agent';
+  const isClientUser = normalizedUserRole === 'client';
+  const isTechnicienUser = ['technicien', 'technicien sav'].includes(normalizedUserRole);
   const canShowEditAction = isCommercialUser || isAdminUser || canEdit;
   const canShowDeleteAction = isAdminUser || canDelete;
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: isClientUser ? 'all' : 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -150,12 +152,12 @@ const DevisList = () => {
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
-    // Filter by selected commercial; default to 'mine'
-    if (filters.commercial === 'all') {
-      // Show everything
-    } else {
-      const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
-      if (String(item.CodRepres) !== String(targetId)) return false;
+    // Clients voient uniquement leurs propres devis (déjà filtrés côté backend via fetchMyDevis)
+    if (!isClientUser) {
+      if (filters.commercial !== 'all') {
+        const targetId = (filters.commercial === 'mine' || !filters.commercial) ? adminId : filters.commercial;
+        if (String(item.CodRepres) !== String(targetId)) return false;
+      }
     }
     return true;
   }), [devis, filters, adminId]);
@@ -176,13 +178,15 @@ const DevisList = () => {
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 const refreshData = () => {
+    if (isClientUser) {
+      dispatch(fetchMyDevis());
+      return;
+    }
     const params = {
       page: 1,
       limit: 1000,
       status: filters.status === 'all' ? '' : filters.status,
-      // Include selectedCommercial (could be an ID or 'mine')
       ...(filters.commercial && filters.commercial !== 'all' ? { selectedCommercial: filters.commercial } : {}),
-      // Explicitly request all records when 'all' is selected
       ...(filters.commercial === 'all' ? { includeAll: true } : {}),
     };
     dispatch(fetchDevis(params));
@@ -389,7 +393,7 @@ const refreshData = () => {
                       />
                     </div>
                   ))}
-                  {!isCommercialUser && (
+                  {!isCommercialUser && !isClientUser && !isTechnicienUser && (
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Commercial</label>
                       <select

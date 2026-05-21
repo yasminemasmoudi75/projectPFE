@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Popover, Transition } from '@headlessui/react';
-import { BellIcon, CheckIcon, CheckCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { BellIcon, CheckIcon, CheckCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon, CalendarIcon, LifebuoyIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -21,7 +21,7 @@ const NotificationBell = () => {
 
   const normalizeNotification = (notification) => {
     let payload = null;
-    if (['TRANSFORM_REQUEST', 'BCV_CREATED', 'TRANSFORM_DECISION', 'ACTIVITY_REMINDER', 'ACTIVITY_OVERDUE', 'MEETING_INVITE'].includes(notification.Type)) {
+    if (['TRANSFORM_REQUEST', 'BCV_CREATED', 'TRANSFORM_DECISION', 'ACTIVITY_REMINDER', 'ACTIVITY_OVERDUE', 'MEETING_INVITE', 'CLAIM_CREATED', 'DOC_CREATED'].includes(notification.Type)) {
       try { payload = JSON.parse(notification.Message); } catch (_) {}
     }
     return {
@@ -472,6 +472,107 @@ const NotificationBell = () => {
                           </p>
                         </div>
                         <span className={clsx('mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0', notification.read ? 'bg-slate-200' : notification.type === 'ACTIVITY_OVERDUE' ? 'bg-rose-500' : 'bg-amber-500')} />
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(notification.id, e)}
+                      className="absolute top-2 right-2 h-5 w-5 flex items-center justify-center rounded text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                      title="Supprimer"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : notification.type === 'CLAIM_CREATED' && notification.payload ? (
+                  <div
+                    key={notification.id}
+                    className={clsx(
+                      'relative rounded-xl border p-3 mb-1 group',
+                      !notification.read ? 'bg-rose-50/60 border-rose-200' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={async () => {
+                        await handleMarkRead(notification.id);
+                        navigate(`/claims/${notification.payload.claimId}`);
+                      }}
+                    >
+                      <div className="flex items-start gap-3 pr-5">
+                        <div className="h-8 w-8 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                          <LifebuoyIcon className="h-4 w-4 text-rose-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-rose-800 group-hover:text-rose-600 transition-colors">
+                            {notification.title}
+                          </p>
+                          {notification.payload.libTiers && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Client : <span className="font-medium">{notification.payload.libTiers}</span>
+                            </p>
+                          )}
+                          {notification.payload.objet && (
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{notification.payload.objet}</p>
+                          )}
+                          <p className="mt-1 text-[11px] font-medium text-rose-500 flex items-center gap-1">
+                            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                            Voir la réclamation
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {notification.date ? new Date(notification.date).toLocaleString('fr-FR') : ''}
+                          </p>
+                        </div>
+                        <span className={clsx('mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0', notification.read ? 'bg-slate-200' : 'bg-rose-500')} />
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(notification.id, e)}
+                      className="absolute top-2 right-2 h-5 w-5 flex items-center justify-center rounded text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                      title="Supprimer"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : notification.type === 'DOC_CREATED' && notification.payload ? (
+                  <div
+                    key={notification.id}
+                    className={clsx(
+                      'relative rounded-xl border p-3 mb-1 group',
+                      !notification.read ? 'bg-sky-50/60 border-sky-200' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={async () => {
+                        await handleMarkRead(notification.id);
+                        navigate('/mes-documents');
+                      }}
+                    >
+                      <div className="flex items-start gap-3 pr-5">
+                        <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <DocumentTextIcon className="h-4 w-4 text-sky-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-sky-800 group-hover:text-sky-600 transition-colors">
+                            {notification.title}
+                          </p>
+                          {notification.payload.totalTTC != null && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Montant TTC : <span className="font-medium">{Number(notification.payload.totalTTC).toFixed(3)} TND</span>
+                            </p>
+                          )}
+                          <p className="mt-1 text-[11px] font-medium text-sky-500 flex items-center gap-1">
+                            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                            Voir mes documents
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {notification.date ? new Date(notification.date).toLocaleString('fr-FR') : ''}
+                          </p>
+                        </div>
+                        <span className={clsx('mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0', notification.read ? 'bg-slate-200' : 'bg-sky-500')} />
                       </div>
                     </button>
                     <button

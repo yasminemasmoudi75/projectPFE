@@ -157,14 +157,15 @@ const PermissionManagerPro = () => {
 
   /* tout cocher/décocher sur une ligne */
   const toggleRow = (code) => {
-    const cur  = perms[role][code];
-    const allOn = PERMS.every(p => cur[p.key]);
-    const next  = Object.fromEntries(PERMS.map(p => [p.key, !allOn]));
+    const cur    = perms[role][code];
+    const allOn  = PERMS.every(p => cur[p.key]);
+    const toggled = Object.fromEntries(PERMS.map(p => [p.key, !allOn]));
+    const next   = { ...cur, ...toggled }; // preserve canValid, canExport, etc.
     setPerms(prev => ({ ...prev, [role]: { ...prev[role], [code]: next } }));
     setPending(prev => {
       const idx = prev.findIndex(c => c.role === role && c.moduleCode === code);
       return idx >= 0
-        ? prev.map((c, i) => i === idx ? { ...c, ...next } : c)
+        ? prev.map((c, i) => i === idx ? { ...c, ...toggled } : c)
         : [...prev, { role, moduleCode: code, ...next }];
     });
     setHasChanges(true);

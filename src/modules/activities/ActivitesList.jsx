@@ -31,6 +31,7 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axios from '../../app/axios';
 import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 
 const extractArrayPayload = (payload) => {
@@ -45,6 +46,9 @@ const ActivitesList = () => {
   const { canCreate, isFilterRepresEnabled } = usePermission(MODULE_CODES.VISITES);
   const { activites, loading } = useSelector((state) => state.activites);
   const { user } = useSelector((state) => state.auth);
+  const { isClient, isTechnicien } = useAuth();
+
+  const skipFilteredData = isClient || isTechnicien;
 
   const [filterType, setFilterType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,10 +74,11 @@ const ActivitesList = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchActivites({ page: 1, limit: 50, filters: { valide: 1 } }));
+    dispatch(fetchActivites({ page: 1, limit: 10000, filters: { valide: 1 } }));
   }, [dispatch]);
 
   useEffect(() => {
+    if (skipFilteredData) return;
     const fetchTiers = async () => {
       try {
         const response = await axios.get('/tiers');
@@ -82,11 +87,11 @@ const ActivitesList = () => {
         console.error('Error fetching tiers for activities:', error);
       }
     };
-
     fetchTiers();
-  }, []);
+  }, [skipFilteredData]);
 
   useEffect(() => {
+    if (skipFilteredData) return;
     const fetchProjets = async () => {
       try {
         const response = await axios.get('/projets', { params: { page: 1, limit: 100 } });
@@ -95,44 +100,35 @@ const ActivitesList = () => {
         console.error('Error fetching projets for activities:', error);
       }
     };
-
     fetchProjets();
-  }, []);
+  }, [skipFilteredData]);
 
   useEffect(() => {
+    if (skipFilteredData) return;
     const fetchCommerciaux = async () => {
       try {
         const response = await axios.get('/users/commercials/activites-filter', {
           params: { moduleCode: String(MODULE_CODES.VISITES), includeAll: isFilterRepresEnabled ? 'false' : 'true' }
         });
         const rawData = extractArrayPayload(response);
-
-        // Map backend response shape to { UserID, FullName, LoginName }
         const mapped = rawData.map(c => ({
           UserID: c.userId || c.UserID,
           FullName: c.fullName || c.FullName || c.label,
           LoginName: c.login || c.LoginName
         }));
-
-        const sortedActifs = mapped
-          .sort((a, b) =>
-            (a.FullName || a.LoginName || '')
-              .toString()
-              .localeCompare(
-                (b.FullName || b.LoginName || '').toString(),
-                'fr',
-                { sensitivity: 'base' }
-              )
-          );
-
-        setCommerciaux(sortedActifs);
+        setCommerciaux(
+          mapped.sort((a, b) =>
+            (a.FullName || a.LoginName || '').toString().localeCompare(
+              (b.FullName || b.LoginName || '').toString(), 'fr', { sensitivity: 'base' }
+            )
+          )
+        );
       } catch (error) {
         console.error('Error fetching commercials for activities:', error);
       }
     };
-
     fetchCommerciaux();
-  }, [isFilterRepresEnabled]);
+  }, [skipFilteredData, isFilterRepresEnabled]);
 
   const getActivityIcon = (type) => {
     switch (type?.toLowerCase()) {
@@ -201,7 +197,8 @@ const ActivitesList = () => {
         (a.Type_Activite?.toLowerCase() || '').includes(searchTerm.toLowerCase());
       const matchesClient = !selectedTier || a.IDTiers === selectedTier;
       const matchesProjet = !selectedProjet || a.ID_Projet === selectedProjet;
-      const matchesCommercial = !selectedCommercial || String(a.utilisateur?.UserID) === selectedCommercial;
+      const matchesCommercial = !selectedCommercial ||
+        String(a.utilisateur?.UserID ?? a.User ?? '') === String(selectedCommercial);
       const activiteDate = a.Date_Activite ? new Date(a.Date_Activite) : null;
       const fromOk = !dateFrom || (activiteDate && activiteDate >= new Date(dateFrom));
       const toOk = !dateTo || (activiteDate && activiteDate <= new Date(dateTo));
@@ -230,7 +227,7 @@ const ActivitesList = () => {
   const refreshActivites = async () => {
     try {
       setRefreshing(true);
-      await dispatch(fetchActivites({ page: 1, limit: 50, filters: { valide: 1 } }));
+      await dispatch(fetchActivites({ page: 1, limit: 10000, filters: { valide: 1 } }));
     } finally {
       setRefreshing(false);
     }
@@ -322,44 +319,48 @@ const ActivitesList = () => {
 
           {/* Additional Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                Client
-              </label>
-              <select
-                value={selectedTier}
-                onChange={(e) => setSelectedTier(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-              >
-                <option value="">Tous les clients</option>
-                {tiers.map(t => (
-                  <option key={t.IDTiers} value={t.IDTiers}>
-                    {t.Raisoc || t.NomTiers || t.IDTiers}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!skipFilteredData && (
+              <div>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Client
+                </label>
+                <select
+                  value={selectedTier}
+                  onChange={(e) => setSelectedTier(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="">Tous les clients</option>
+                  {tiers.map(t => (
+                    <option key={t.IDTiers} value={t.IDTiers}>
+                      {t.Raisoc || t.NomTiers || t.IDTiers}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div>
-              <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                Projet
-              </label>
-              <select
-                value={selectedProjet}
-                onChange={(e) => setSelectedProjet(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-              >
-                <option value="">Tous les projets</option>
-                {filteredProjetsForFilters.map(p => (
-                  <option key={p.ID_Projet} value={p.ID_Projet}>
-                    {p.Nom_Projet || p.Code_Pro || p.ID_Projet}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!skipFilteredData && (
+              <div>
+                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
+                  Projet
+                </label>
+                <select
+                  value={selectedProjet}
+                  onChange={(e) => setSelectedProjet(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="">Tous les projets</option>
+                  {filteredProjetsForFilters.map(p => (
+                    <option key={p.ID_Projet} value={p.ID_Projet}>
+                      {p.Nom_Projet || p.Code_Pro || p.ID_Projet}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {/* Commercial filter - Hidden for commercial users, visible for admin/agents */}
-            {!['commercial', 'commerciale'].includes(String(user?.UserRole || '').toLowerCase()) && (
+            {/* Commercial filter — hidden for commercial and technicien users */}
+            {!skipFilteredData && !['commercial', 'commerciale'].includes(String(user?.UserRole || '').toLowerCase()) && (
               <div>
                 <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
                   Commercial

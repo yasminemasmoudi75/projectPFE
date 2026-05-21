@@ -39,17 +39,16 @@ const ClaimsList = () => {
   const [loading, setLoading]                   = useState(true);
   const [claims, setClaims]                     = useState([]);
   const [techniciens, setTechniciens]           = useState([]);
-  const [commercials, setCommercials]           = useState([]);
   const [assigningId, setAssigningId]           = useState(null);
   const [searchTerm, setSearchTerm]             = useState('');
   const [statusFilter, setStatusFilter]         = useState('all');
   const [priorityFilter, setPriorityFilter]     = useState('all');
   const [technicianFilter, setTechnicianFilter] = useState('all');
-  const [commercialFilter, setCommercialFilter] = useState('all');
   const [dateFilter, setDateFilter]             = useState('');
   const [sortMode, setSortMode]                 = useState('recent');
   const [deleteConfirm, setDeleteConfirm]       = useState(null);
   const [deletingId, setDeletingId]             = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [currentPage, setCurrentPage]           = useState(1);
   const [itemsPerPage, setItemsPerPage]         = useState(10);
   const [totalItems, setTotalItems]             = useState(0);
@@ -67,11 +66,14 @@ const ClaimsList = () => {
       if (statusFilter !== 'all')    params.append('Statut', statusFilter);
       if (priorityFilter !== 'all')  params.append('Priorite', priorityFilter);
       if (technicianFilter !== 'all') params.append('TechnicienID', technicianFilter);
-      if (commercialFilter !== 'all') params.append('CommercialID', commercialFilter);
+      
+      params.append('selectedCommercial', 'all');
+      params.append('includeAll', 'true');
+      
       if (dateFilter)                params.append('Date', dateFilter);
 
       const response = await axios.get(`/reclamations?${params.toString()}`);
-      const result = response?.data;
+      const payload = response?.data ?? response;
 
       const mapItem = (rec) => ({
         id: rec.ID, codTiers: rec.CodTiers, ticket: rec.NumTicket,
@@ -93,14 +95,16 @@ const ClaimsList = () => {
         );
       };
 
-      if (result?.data) {
-        const mapped = filterForTech((Array.isArray(result.data) ? result.data : []).map(mapItem));
+      if (payload?.data) {
+        const raw = Array.isArray(payload.data) ? payload.data : [];
+        const mapped = filterForTech(raw.map(mapItem));
         setClaims(mapped);
-        setTotalItems(result.pagination?.total || 0);
-        setTotalPages(result.pagination?.pages || 0);
-        setCurrentPage(result.pagination?.page || 1);
+        setTotalItems(payload.pagination?.total ?? mapped.length);
+        setTotalPages(payload.pagination?.pages ?? 0);
+        setCurrentPage(payload.pagination?.page ?? 1);
       } else {
-        const mapped = filterForTech((Array.isArray(result ?? []) ? result ?? [] : []).map(mapItem));
+        const raw = Array.isArray(payload) ? payload : [];
+        const mapped = filterForTech(raw.map(mapItem));
         setClaims(mapped);
         setTotalItems(mapped.length);
         setTotalPages(1);
@@ -111,7 +115,7 @@ const ClaimsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, commercialFilter, dateFilter, isTechnicien, user?.UserID]);
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, user?.UserID]);
 
   const fetchTechniciens = useCallback(async () => {
     try {
@@ -121,16 +125,6 @@ const ClaimsList = () => {
         .map(u => ({ id: u.UserID, name: u.FullName || u.LoginName || `Technicien ${u.UserID}` })));
     } catch { toast.error('Impossible de charger les techniciens'); }
   }, []);
-
-  const fetchCommercials = useCallback(async () => {
-    try {
-      const res = await axios.get('/users/commercials/devis-filter', {
-        params: { moduleCode: '31', includeAll: isFilterRepresEnabled ? 'false' : 'true' },
-      });
-      const raw = Array.isArray(res.data) ? res.data : res.data?.data || [];
-      setCommercials(raw.map(c => ({ id: c.userId || c.UserID, name: c.fullName || c.FullName || c.label || c.login || c.LoginName })));
-    } catch {}
-  }, [isFilterRepresEnabled]);
 
   const handleAssignTechnician = async (claimId, technicienID) => {
     if (!technicienID) return;
@@ -166,6 +160,25 @@ const ClaimsList = () => {
     } finally { setAssigningId(null); }
   };
 
+  const handleUpdateStatus = async (claimId, newStatus) => {
+    try {
+      setUpdatingStatusId(claimId);
+      const response = await axios.patch(`/reclamations/${claimId}/statut`, { statut: newStatus });
+      if (response?.status === 'success') {
+        setClaims(prev => prev.map(c =>
+          String(c.id) === String(claimId) ? { ...c, status: newStatus } : c
+        ));
+        toast.success(newStatus === 'Résolu' ? 'Réclamation marquée comme résolue' : `Statut mis à jour : ${newStatus}`);
+      } else {
+        toast.error('Mise à jour du statut échouée');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de la mise à jour du statut');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   const handleDeleteClaim = async (claimId) => {
     try {
       setDeletingId(claimId);
@@ -184,11 +197,11 @@ const ClaimsList = () => {
     fetchClaims();
     if (isAdmin) fetchTechniciens();
     const role = String(user?.UserRole || '').trim().toLowerCase();
-    if (!isClient && !['commercial', 'commerciale'].includes(role)) fetchCommercials();
+    
     let interval;
     if (isTechnicien) interval = setInterval(() => fetchClaims(currentPage, itemsPerPage), 5000);
     return () => { if (interval) clearInterval(interval); };
-  }, [fetchClaims, fetchTechniciens, fetchCommercials, isAdmin, isClient, isTechnicien, currentPage, itemsPerPage, user?.UserRole]);
+  }, [fetchClaims, fetchTechniciens, isAdmin, isClient, isTechnicien, currentPage, itemsPerPage, user?.UserRole]);
 
   const handleFilterChange = useCallback(() => {
     setCurrentPage(1); fetchClaims(1, itemsPerPage);
@@ -197,7 +210,7 @@ const ClaimsList = () => {
   useEffect(() => {
     const id = setTimeout(handleFilterChange, 300);
     return () => clearTimeout(id);
-  }, [searchTerm, statusFilter, priorityFilter, technicianFilter, commercialFilter, dateFilter, handleFilterChange]);
+  }, [searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, handleFilterChange]);
 
   const filteredClaims = useMemo(() => [...claims].sort((a, b) => {
     if (sortMode === 'priority') {
@@ -237,13 +250,13 @@ const ClaimsList = () => {
 
   const clearFilters = useCallback(() => {
     setSearchTerm(''); setStatusFilter('all'); setPriorityFilter('all');
-    setTechnicianFilter('all'); setCommercialFilter('all');
+    setTechnicianFilter('all');
     setDateFilter(''); setSortMode('recent'); setCurrentPage(1);
     fetchClaims(1, itemsPerPage);
   }, [fetchClaims, itemsPerPage]);
 
   const hasFilters = !!(searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' ||
-    technicianFilter !== 'all' || commercialFilter !== 'all' || dateFilter);
+    technicianFilter !== 'all' || dateFilter);
 
   const pageTitle = isAdmin ? 'Gestion des Réclamations' : isTechnicien ? 'Mes Réclamations' : 'Mes Tickets';
   const pageDesc  = isAdmin ? "Suivez et gérez l'ensemble de vos tickets avec efficacité."
@@ -354,13 +367,6 @@ const ClaimsList = () => {
                   <option value="priority">Par priorité</option>
                   <option value="status">Par statut</option>
                 </select>
-                {!['commercial', 'commerciale'].includes(String(user?.UserRole || '').trim().toLowerCase()) && (
-                  <select value={commercialFilter} onChange={e => setCommercialFilter(e.target.value)}
-                    className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all">
-                    <option value="all">Tous commerciaux</option>
-                    {commercials.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                )}
               </>
             )}
             {hasFilters && (
@@ -511,17 +517,47 @@ const ClaimsList = () => {
                       {/* Actions */}
                       {(isClient || isTechnicien || isAdmin) && (
                         <td className="px-4 py-4 text-center" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <button onClick={() => navigate(`/claims/${claim.id}`)}
                               className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-all shadow-sm"
                               title="Voir le détail">
                               <EyeIcon className="h-3.5 w-3.5" />
                             </button>
                             {isTechnicien && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
+                              <button
+                                onClick={() => handleUpdateStatus(claim.id, 'Résolu')}
+                                disabled={updatingStatusId === claim.id}
+                                className="h-7 px-2 inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all shadow-sm disabled:opacity-40 text-[10px] font-semibold"
+                                title="Marquer comme résolue">
+                                <CheckCircleIcon className="h-3.5 w-3.5 flex-none" />
+                                Résolu
+                              </button>
+                            )}
+                            {isTechnicien && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
                               <button onClick={() => navigate(`/claims/${claim.id}/intervention/new`)}
                                 className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm"
                                 title="Ajouter une intervention">
                                 <PlusIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {isAdmin && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
+                              <button
+                                onClick={() => handleUpdateStatus(claim.id, 'En cours')}
+                                disabled={updatingStatusId === claim.id || String(claim.status || '').toLowerCase() === 'en cours'}
+                                className="h-7 px-2 inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all shadow-sm disabled:opacity-40 text-[10px] font-semibold"
+                                title="Marquer comme affecté">
+                                <WrenchScrewdriverIcon className="h-3.5 w-3.5 flex-none" />
+                                Affecté
+                              </button>
+                            )}
+                            {isAdmin && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
+                              <button
+                                onClick={() => handleUpdateStatus(claim.id, 'Résolu')}
+                                disabled={updatingStatusId === claim.id}
+                                className="h-7 px-2 inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all shadow-sm disabled:opacity-40 text-[10px] font-semibold"
+                                title="Marquer comme résolue">
+                                <CheckCircleIcon className="h-3.5 w-3.5 flex-none" />
+                                Résolue
                               </button>
                             )}
                             {isAdmin && (
