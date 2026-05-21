@@ -131,6 +131,11 @@ const Objectif = sequelize.define('Objectif', {
       return this.get('Montant_Realise_Actuel');
     }
   },
+  nf: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'nf'
+  },
   CodTiers: {
     type: DataTypes.STRING(50),
     allowNull: true,

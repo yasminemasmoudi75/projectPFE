@@ -523,6 +523,62 @@ exports.transferBcv = async (req, res, next) => {
 
         await DetailModel.bulkCreate(sanitizedDetails, { transaction: t });
 
+        // ── Décrémentation automatique du stock à la transformation ──
+        {
+            const pathMod = require('path');
+            const fs = require('fs').promises;
+            const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
+            let config = { autoriserVenteHorsStock: false };
+            try {
+                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
+                config = { ...config, ...JSON.parse(raw) };
+            } catch { /* use defaults */ }
+
+            const stockUpdates = [];
+            const insuffisants = [];
+
+            for (const detail of sanitizedDetails) {
+                const codArt = detail.CodArt;
+                const qteDemandee = parseFloat(detail.Qt) || 0;
+                if (!codArt || qteDemandee <= 0) continue;
+
+                const [stockRow] = await sequelize.query(
+                    'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                    { replacements: { codArt }, type: QueryTypes.SELECT, transaction: t }
+                );
+                const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+
+                if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                    insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                } else {
+                    stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                }
+            }
+
+            if (insuffisants.length > 0) {
+                await t.rollback();
+                return res.status(409).json({
+                    status: 'error',
+                    code: 'STOCK_INSUFFISANT',
+                    message: 'Stock insuffisant pour cette transformation.',
+                    insuffisants,
+                });
+            }
+
+            for (const upd of stockUpdates) {
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                    { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction: t }
+                );
+            }
+
+            const tableName = targetType === 'BL' ? 'TabBlvm' : 'TabFavm';
+            await sequelize.query(
+                `UPDATE ${tableName} SET StockDecremente = 1 WHERE Guid = :guid`,
+                { replacements: { guid: newGuid }, transaction: t }
+            );
+        }
+
         // 5. Marquer le BC source comme transféré + livré si BL
         await BcvMaster.update(
             { bTransf: true, bLivr: targetType === 'BL' ? true : sourceData.bLivr },
@@ -556,7 +612,7 @@ exports.transferBcv = async (req, res, next) => {
           const tiers = sourceData.client;
 
           // Notif site
-          await notifyDocumentCreated(targetType === 'FAC' ? 'FAV' : 'BLV', nextNf, tiers, userId);
+          await notifyDocumentCreated(targetType === 'FAC' ? 'FAV' : 'BLV', nextNf, tiers, userId, { totalTTC: sourceData.TotTTC });
 
           // Email client
           if (tiers?.Email) {
@@ -709,7 +765,7 @@ exports.createBcv = async (req, res, next) => {
           console.log('📧 [DEBUG-MAIL] SMTP Config - SERVICE:', process.env.EMAIL_SERVICE);
 
           // Notif site
-          await notifyDocumentCreated('BCV', newBcv.Nf, selectedTier, userId);
+          await notifyDocumentCreated('BCV', newBcv.Nf, selectedTier, userId, { totalTTC: masterData.TotTTC });
 
           // Email client
           if (selectedTier.Email) {
@@ -901,14 +957,32 @@ exports.requestTransfer = async (req, res, next) => {
 exports.getMyBcv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
-        
-        // Système de filtrage centralisé (Module 5)
-        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '5',
-            req.query,
-            req.user
-        );
 
+        // Clients: filtrage direct par CodTiers sans passer par TabAWProfileAccess
+        const userRole = (req.user?.UserRole || '').toLowerCase().trim();
+        const isClient = ['client'].includes(userRole);
+
+        let where = {};
+        let limit = null;
+        let offset = 0;
+        let page = 1;
+
+        if (isClient) {
+            let codTiers = req.user.getDataValue('CodTiers');
+            if (!codTiers) {
+                const email = (req.user.EmailPro || '').toLowerCase().trim();
+                if (!email) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+                const rows = await sequelize.query(
+                    `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))`,
+                    { replacements: { email }, type: QueryTypes.SELECT }
+                );
+                codTiers = rows[0]?.CodTiers;
+            }
+            if (!codTiers) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+            where = { CodTiers: codTiers };
+        } else {
+            ({ where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination('5', req.query, req.user));
+        }
 
         const { count, rows } = await BcvMaster.findAndCountAll({
             where,
@@ -923,17 +997,11 @@ exports.getMyBcv = async (req, res, next) => {
                 ]
             }],
             order: [['DatUser', 'DESC']],
-            limit,
-            offset,
+            ...(limit !== null && { limit, offset }),
             tableHint: TableHints.NOLOCK
         });
 
-
-
-
-        res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
-        );
+        res.json(filterHelper.formatPaginatedResponse(rows, count, page, limit));
     } catch (error) {
         console.error('❌ Error getMyBcv:', error);
         next(error);

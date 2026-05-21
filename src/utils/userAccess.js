@@ -87,8 +87,14 @@ async function resolveUserAccess(userId, fallbackRole = 'User', options = {}) {
   const roleFromProfileId = getRoleFromProfileId(row?.PROF_ID);
   const rawRole = canFlag(row?.USER_IS_ADMIN)
     ? 'Admin'
-    : (row?.PROF_DESCRIPTION || roleFromProfileId || null);
+    : (row?.PROF_DESCRIPTION || roleFromProfileId || fallbackRole || null);
   const normalizedRole = normalizeRole(rawRole);
+
+  // USER_ACTIVE is only present when UCS_USERINFO exists (LEFT JOIN).
+  // When null, the user has no UCS_USERINFO row — treat as active rather
+  // than incorrectly hiding them as Inactif.
+  const hasUserInfo = row?.PROF_ID != null || row?.USER_IS_ADMIN != null || row?.USER_ACTIVE != null;
+  const isActive = hasUserInfo ? canFlag(row?.USER_ACTIVE) : true;
 
   return {
     found: Boolean(row),
@@ -97,7 +103,7 @@ async function resolveUserAccess(userId, fallbackRole = 'User', options = {}) {
     profileId: row?.PROF_ID ?? null,
     profileDescription: row?.PROF_DESCRIPTION || (roleFromProfileId ? getRoleLabel(roleFromProfileId) : null),
     isAdmin: canFlag(row?.USER_IS_ADMIN) || normalizedRole === 'admin',
-    isActive: row?.USER_ACTIVE == null ? false : canFlag(row.USER_ACTIVE)
+    isActive
   };
 }
 

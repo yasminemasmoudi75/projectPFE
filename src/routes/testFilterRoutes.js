@@ -6,9 +6,13 @@
 const express = require('express');
 const router = express.Router();
 const testFilterController = require('../controllers/testFilterController');
+const { protect, restrictTo } = require('../middleware/auth');
+
+// All test routes require authentication and admin role
+router.use(protect, restrictTo('admin', 'administrateur'));
 
 /**
- * 🧪 ROUTES DE TEST
+ * 🧪 ROUTES DE TEST (admin only)
  * Format: GET /api/test/...
  */
 

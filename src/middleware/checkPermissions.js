@@ -52,6 +52,15 @@ const checkPermission = (codMod, action) => {
         });
       }
 
+      // Les clients peuvent toujours lire leurs propres documents (modules 4/5/6/7)
+      // Le filtrage par CodTiers est géré dans filterHelper — aucune config TabAWProfileAccess requise.
+      const CLIENT_DOC_MODULES = [4, 5, 6, 7];
+      if (userRole === 'client' && action === 'read' && codMods.some(m => CLIENT_DOC_MODULES.includes(Number(m)))) {
+        req.grantedModule = codMods[0];
+        req.permissions = {};
+        return next();
+      }
+
       // ✨ MODIFICATION: Admin respecte AUSSI TabAWProfileAccess (pas de bypass)
       // Ancien code (supprimé):
       // if (access.isAdmin || userRole === 'admin') {

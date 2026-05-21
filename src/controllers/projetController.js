@@ -286,7 +286,8 @@ exports.createProjet = async (req, res, next) => {
       Date_Echeance: dateEcheance,
       Date_Cloture_Reelle: dateCloture,
       Note_Privee: Note_Privee || null,
-      Alerte_IA_Risque: Alerte_IA_Risque || false
+      Alerte_IA_Risque: Alerte_IA_Risque || false,
+      CodCom: String(req.user?.UserID || req.user?.id || '')
     });
 
     console.log('✅ Project created successfully with ID:', newProjet.ID_Projet);
@@ -320,33 +321,23 @@ exports.createProjet = async (req, res, next) => {
 exports.getProjets = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
-    
-    // Module 3 = Projets
-    const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-        '3',
-        req.query,
-        req.user
-    );
 
-    console.log('📋 [getProjets] where:', JSON.stringify(where, (key, value) => 
-      typeof value === 'symbol' ? value.toString() : value
-    , 2));
+    // Build security scope (ignores limit/offset — we return all matching projects)
+    const scopeWhere = await filterHelper.applyTableDrivenFilters('3', req.query, req.user);
 
-    const { count, rows } = await Projet.findAndCountAll({
-      where,
-      attributes: ['ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers', 'Date_Creation', 'CodDev', 'CodBc', 'nf'],
-      order: [['Date_Creation', 'DESC']],
-      limit,
-      offset,
-      subQuery: false,
-      tableHint: TableHints.NOLOCK
+    const rows = await Projet.findAll({
+      where: scopeWhere,
+      attributes: [
+        'ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers',
+        'Date_Creation', 'CodDev', 'CodBc', 'nf',
+        'Phase', 'Avancement', 'Budget_Alloue', 'Priorite',
+        'Date_Echeance', 'CodCom'
+      ],
+      include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers', 'codRepresTiers'] }],
+      order: [['Date_Creation', 'DESC']]
     });
 
-    console.log('✅ [getProjets] Found', count, 'projets');
-
-    res.json(
-      filterHelper.formatPaginatedResponse(rows, count, page, limit)
-    );
+    res.json(filterHelper.formatPaginatedResponse(rows, rows.length, 1, rows.length || 1));
   } catch (error) {
     console.error('❌ [PROJET LIST ERROR]:', error.message);
     console.error('❌ Stack:', error.stack);
@@ -372,8 +363,7 @@ exports.getProjectsByClient = async (req, res, next) => {
       where: { [Op.and]: [{ IDTiers: codTiers }, securityWhere] },
       include: [{ model: Tiers, as: 'client', attributes: ['IDTiers', 'Raisoc', 'CodTiers'] }],
       attributes: ['ID_Projet', 'Code_Pro', 'Nom_Projet', 'IDTiers', 'Date_Creation', 'CodDev', 'CodBc', 'nf'],
-      order: [['Date_Creation', 'DESC']],
-      tableHint: TableHints.NOLOCK
+      order: [['Date_Creation', 'DESC']]
     });
 
     res.json({ status: 'success', data: projets });

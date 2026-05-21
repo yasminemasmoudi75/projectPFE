@@ -1,0 +1,9 @@
+{
+  "autoriserVenteHorsStock": false,
+  "stockMinimumAlerte": 5,
+  "notificationsRupture": true,
+  "decrementationSur": {
+    "blv": true,
+    "factureDirecte": true
+  }
+}

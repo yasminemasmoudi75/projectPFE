@@ -5,6 +5,7 @@ const { User, Tiers, sequelize } = require('../models');
 const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const { resolveUserAccess } = require('../utils/userAccess');
+const { notifyAdmins, createNotifications } = require('../utils/notificationUtils');
 
 const MAX_LENGTHS = {
     CodTiers: 20,
@@ -26,6 +27,19 @@ const RECLAMATION_SCHEMA_CACHE_TTL_MS = 60 * 1000;
 let reclamationSchemaCache = {
     loadedAt: 0,
     columns: null,
+};
+
+const findClientUserIdByCodTiers = async (codTiers) => {
+    if (!codTiers) return null;
+    try {
+        const rows = await sequelize.query(
+            `SELECT TOP 1 u.USER_ID FROM UCS_USERS u
+             INNER JOIN TabTiers t ON LOWER(t.Email) = LOWER(u.USER_NAME)
+             WHERE t.CodTiers = :codTiers`,
+            { replacements: { codTiers }, type: QueryTypes.SELECT }
+        );
+        return rows[0]?.USER_ID ? Number(rows[0].USER_ID) : null;
+    } catch { return null; }
 };
 
 const getReclamationColumns = async () => {
@@ -205,10 +219,23 @@ exports.getAll = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
         const queryForPermissions = { ...req.query };
+        if (req.user && req.user.UserRole === 'admin') {
+            queryForPermissions.includeAll = 'true';
+            queryForPermissions.selectedCommercial = 'all';
+        }
+        // These fields are handled manually below; remove them so filterHelper
+        // does not add Op.like conditions that would AND with the manual filters
+        // and break the OR-based search logic.
         delete queryForPermissions.Date;
         delete queryForPermissions.DateFrom;
         delete queryForPermissions.DateTo;
         delete queryForPermissions.CommercialID;
+        delete queryForPermissions.Objet;
+        delete queryForPermissions.LibTiers;
+        delete queryForPermissions.NumTicket;
+        delete queryForPermissions.Statut;
+        delete queryForPermissions.Priorite;
+        delete queryForPermissions.TechnicienID;
         
         // Module 31 = Reclamations/SAV (aligned with TabAWProfileAccess CodMod)
         const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
@@ -307,7 +334,22 @@ exports.getAll = async (req, res, next) => {
 // ─── GET BY ID ─────────────────────────────────────────────────────────────────
 exports.getById = async (req, res, next) => {
     try {
-        const rec = await findReclamationByPkSafe(req.params.id);
+        const rawId = req.params.id;
+        let rec = await findReclamationByPkSafe(rawId);
+
+        // Fallback: try matching by exact NumTicket or by padded suffix (REC-YYYY-XXXX format)
+        if (!rec) {
+            const paddedSuffix = rawId.toString().padStart(4, '0');
+            rec = await findReclamationOneSafe({
+                where: {
+                    [Op.or]: [
+                        { NumTicket: rawId },
+                        { NumTicket: { [Op.like]: `%-${paddedSuffix}` } },
+                    ],
+                },
+            });
+        }
+
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
 
         const userId = req.user?.id || req.user?.UserID;
@@ -473,42 +515,69 @@ exports.create = async (req, res, next) => {
             }
         });
 
-        await sequelize.query(
+        const insertReplacements = {
+            CodTiers: payload.CodTiers ?? null,
+            LibTiers: payload.LibTiers ?? null,
+            Objet: payload.Objet ?? null,
+            Description: payload.Description ?? null,
+            TypeReclamation: payload.TypeReclamation ?? null,
+            Priorite: payload.Priorite ?? null,
+            Statut: payload.Statut ?? null,
+            NomTechnicien: payload.NomTechnicien ?? null,
+            TechnicienID: payload.TechnicienID ?? null,
+            CUser: payload.CUser ?? null,
+            Solution: payload.Solution ?? null,
+            NumTicket: payload.NumTicket ?? null,
+            DateResolution: null,
+            TicketAdresse: payload.TicketAdresse ?? null,
+            TicketVille: payload.TicketVille ?? null,
+            TicketPays: payload.TicketPays ?? null,
+            TicketCp: payload.TicketCp ?? null,
+            TicketAdresseMaps: payload.TicketAdresseMaps ?? null,
+            TicketLat: Number.isFinite(payload.TicketLat) ? payload.TicketLat : null,
+            TicketLong: Number.isFinite(payload.TicketLong) ? payload.TicketLong : null,
+        };
+
+        // Use OUTPUT INSERTED.ID to get the auto-generated PK immediately
+        const [insertedRows] = await sequelize.query(
             `
                 INSERT INTO TabReclamation (
                     ${insertColumns.join(',\n                    ')}
                 )
+                OUTPUT INSERTED.ID
                 VALUES (
                     ${insertValues.join(',\n                    ')}
                 )
             `,
-            {
-                replacements: {
-                    CodTiers: payload.CodTiers ?? null,
-                    LibTiers: payload.LibTiers ?? null,
-                    Objet: payload.Objet ?? null,
-                    Description: payload.Description ?? null,
-                    TypeReclamation: payload.TypeReclamation ?? null,
-                    Priorite: payload.Priorite ?? null,
-                    Statut: payload.Statut ?? null,
-                    NomTechnicien: payload.NomTechnicien ?? null,
-                    TechnicienID: payload.TechnicienID ?? null,
-                    CUser: payload.CUser ?? null,
-                    Solution: payload.Solution ?? null,
-                    NumTicket: payload.NumTicket ?? null,
-                    DateResolution: null,
-                    TicketAdresse: payload.TicketAdresse ?? null,
-                    TicketVille: payload.TicketVille ?? null,
-                    TicketPays: payload.TicketPays ?? null,
-                    TicketCp: payload.TicketCp ?? null,
-                    TicketAdresseMaps: payload.TicketAdresseMaps ?? null,
-                    TicketLat: Number.isFinite(payload.TicketLat) ? payload.TicketLat : null,
-                    TicketLong: Number.isFinite(payload.TicketLong) ? payload.TicketLong : null,
-                },
-            }
+            { replacements: insertReplacements, type: QueryTypes.SELECT }
         );
 
-        const rec = await findReclamationOneSafe({ where: { NumTicket: payload.NumTicket } });
+        const newId = insertedRows?.ID;
+        const rec = newId
+            ? await findReclamationByPkSafe(newId)
+            : await findReclamationOneSafe({ where: { NumTicket: payload.NumTicket } });
+
+        // Notify admins of new claim with link to claim detail (fire-and-forget)
+        if (rec?.ID) {
+            const { getActiveAdminIds } = require('../utils/notificationUtils');
+            getActiveAdminIds().then((adminIds) => {
+                if (adminIds.length) {
+                    createNotifications(
+                        adminIds,
+                        `Nouvelle réclamation — ${payload.NumTicket}`,
+                        JSON.stringify({
+                            _type: 'CLAIM_CREATED',
+                            claimId: rec.ID,
+                            numTicket: payload.NumTicket,
+                            libTiers: payload.LibTiers || payload.CodTiers || 'Inconnu',
+                            objet: payload.Objet || ''
+                        }),
+                        'CLAIM_CREATED'
+                    );
+                }
+            }).catch(() => {});
+        }
+
         res.status(201).json({ status: 'success', message: 'Réclamation créée', data: rec });
     } catch (err) {
         console.error('❌ create reclamation:', err);
@@ -578,6 +647,21 @@ exports.updateStatus = async (req, res, next) => {
         );
 
         const updated = await findReclamationByPkSafe(req.params.id);
+
+        // Notify client when claim is resolved or closed
+        if (shouldSetResolutionDate && updated?.CodTiers) {
+            findClientUserIdByCodTiers(updated.CodTiers).then((clientUserId) => {
+                if (clientUserId) {
+                    createNotifications(
+                        [clientUserId],
+                        `Réclamation ${statut} — ${updated.NumTicket || ''}`,
+                        `Votre réclamation "${updated.Objet || ''}" a été ${statut.toLowerCase()}.`,
+                        'SUCCESS'
+                    ).catch(() => {});
+                }
+            }).catch(() => {});
+        }
+
         res.json({ status: 'success', message: `Statut mis à jour : ${statut}`, data: updated });
     } catch (err) {
         console.error('❌ updateStatus reclamation:', err);
@@ -804,11 +888,19 @@ exports.assignTechnician = async (req, res, next) => {
             SavedSuccessfully: String(updated.TechnicienID) === String(secTechnicienId)
         });
 
+        // Notify technician of assignment (use UCS_USERS ID, not Sec_Users ID)
+        createNotifications(
+            [parsedTechnicienID],
+            `Nouvelle réclamation assignée — ${rec.NumTicket || ''}`,
+            `La réclamation "${rec.Objet || ''}" (client : ${rec.LibTiers || rec.CodTiers || ''}) vous a été assignée.`,
+            'INFO'
+        ).catch(() => {});
+
         console.log('✅ [AssignTechnician] Assignment SUCCESS! Sending response...');
         console.log('═══════════════════════════════════════════════════════════');
 
-        res.json({ 
-            status: 'success', 
+        res.json({
+            status: 'success',
             message: `Réclamation affectée à ${technician.FullName || technician.LoginName}`, 
             data: updated 
         });

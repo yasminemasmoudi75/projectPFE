@@ -106,27 +106,42 @@ const notifyObjectifAchieved = async ({ objectif, commercialUserId = null }) => 
   }
 };
 
-const notifyDocumentCreated = async (type, numero, tiers, createdByUserId) => {
+const notifyDocumentCreated = async (type, numero, tiers, createdByUserId, docExtra = {}) => {
   try {
-    const adminIds = await getActiveAdminIds();
-    const recipientIds = [...new Set([...adminIds])];
-    
-    // Si le créateur n'est pas un admin, on l'ajoute aussi à la liste (optionnel, selon besoin)
-    if (createdByUserId) {
-        recipientIds.push(Number(createdByUserId));
-    }
-
     const typeLabels = {
       'DEV': 'Devis',
       'BCV': 'Bon de Commande',
-      'FAV': 'Facture'
+      'FAV': 'Facture',
+      'BLV': 'Bon de Livraison'
     };
     const label = typeLabels[type] || type;
+    const libTiers = tiers?.Raisoc || tiers?.CodTiers || '';
+    const totalTTC = docExtra.totalTTC ?? null;
 
-    const title = `Nouveau ${label}`;
-    const message = `${label} n°${numero} créé pour le client ${tiers?.Raisoc || tiers?.CodTiers}.`;
+    // 1. Notifier les admins (texte simple)
+    const adminIds = await getActiveAdminIds();
+    if (adminIds.length > 0) {
+      const adminTitle = `Nouveau ${label}`;
+      const adminMessage = `${label} n°${numero} créé pour le client ${libTiers}.`;
+      await createNotifications(adminIds, adminTitle, adminMessage, 'INFO');
+    }
 
-    await createNotifications(recipientIds, title, message, 'INFO');
+    // 2. Notifier le client lié à ce Tiers (par son email)
+    const clientEmail = tiers?.Email || tiers?.email;
+    if (clientEmail) {
+      const clientUser = await User.findOne({ where: { EmailPro: clientEmail } });
+      if (clientUser?.UserID) {
+        const clientTitle = `Nouveau ${label} créé pour vous`;
+        const clientPayload = JSON.stringify({
+          docType: type,
+          numero,
+          libTiers,
+          totalTTC
+        });
+        await createNotifications([clientUser.UserID], clientTitle, clientPayload, 'DOC_CREATED');
+        console.log(`🔔 [NOTIFY] Client UserID ${clientUser.UserID} notifié pour ${type} n°${numero}`);
+      }
+    }
   } catch (error) {
     console.error(`❌ Erreur notification création ${type}:`, error.message);
   }
@@ -194,4 +209,4 @@ const notifyTransformDecision = async ({ recipientId, sourceType, sourceNf, targ
   }
 };
 
-module.exports = { notifyAdmins, notifyObjectifAchieved, createNotifications, notifyDocumentCreated, notifyTransformRequest, notifyTransformDecision };
+module.exports = { notifyAdmins, notifyObjectifAchieved, createNotifications, notifyDocumentCreated, notifyTransformRequest, notifyTransformDecision, getActiveAdminIds };

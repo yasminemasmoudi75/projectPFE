@@ -255,14 +255,28 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
 
     const clientCodes = clientRows.map(row => row.CodTiers).filter(Boolean);
     
+    // Projets: admin sees ALL by default; filter only when a specific commercial is chosen
+    // (not 'all', not 'mine', not absent — only an explicit numeric/string userId)
+    if (moduleKey === '3') {
+      const isSpecific = selectedCommercialId &&
+        selectedCommercialId !== 'all' &&
+        selectedCommercialId !== 'mine';
+      if (isSpecific && clientCodes.length > 0) {
+        console.log(`🔍 [filterHelper] Admin module 3 (Projets): filtering by commercial ${selectedCommercialId} → ${clientCodes.length} client codes`);
+        return { IDTiers: { [Op.in]: clientCodes } };
+      }
+      console.log(`🔍 [filterHelper] Admin module 3 (Projets): showing all`);
+      return {};
+    }
+
     const conditions = [];
-    
+
     if (isTiersModule) {
       conditions.push({ codRepresTiers: String(resolvedTargetId) });
     } else if (hasCodRepres) {
       conditions.push({ CodRepres: String(resolvedTargetId) });
     }
-    
+
     const isCodTiersModule = isTiersModule || hasCodRepres || ['31', '51'].includes(moduleKey);
 
     if (clientCodes.length > 0 && isCodTiersModule) {
@@ -271,7 +285,7 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
 
     if (conditions.length === 0) {
       console.log(`🔍 [filterHelper] No specific column-based filter for module ${moduleKey}, and no specific restrictions found.`);
-      return {}; 
+      return {};
     }
 
     return conditions.length === 1 ? conditions[0] : { [Op.or]: conditions };
@@ -281,6 +295,13 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
   // CLIENT role: always filter — show only their own data (no FiltreRepres needed)
   // ═══════════════════════════════════════════════════════════════════════════
   if (normalizedRole === 'client') {
+    const moduleKey = String(moduleCode);
+
+    // Products/Stock (TabStock) has no CodTiers column — clients see all products
+    if (moduleKey === '12') {
+      return {};
+    }
+
     const directCodTiers = user?.CodTiers || user?.codTiers || null;
     if (directCodTiers) {
       return { CodTiers: directCodTiers };
@@ -297,19 +318,6 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
     const codTiers = clientRow[0]?.CodTiers;
     if (!codTiers) return { [Op.and]: [sequelize.literal('1 = 0')] };
 
-    const moduleKey = String(moduleCode);
-    // Devis, BCV, BLV, Factures → filter by CodTiers
-    if (['4', '5', '6', '7'].includes(moduleKey)) {
-      return { CodTiers: codTiers };
-    }
-    // Tiers → show only own record
-    if (moduleKey === '11' || moduleKey === '30') {
-      return { CodTiers: codTiers };
-    }
-    // Reclamations/SAV → filter by CodTiers
-    if (moduleKey === '31' || moduleKey === '51') {
-      return { CodTiers: codTiers };
-    }
     return { CodTiers: codTiers };
   }
 
@@ -399,6 +407,28 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
   const representatives = await getRepresentativeScope(user, normalizedRole);
   console.log(`🔍 [filterHelper] buildModuleScopeFilter representatives for ${normalizedRole}:`, representatives);
 
+  // Projets: scope by client portfolio (IDTiers = CodTiers of commercial's clients)
+  if (moduleKey === '3') {
+    if (normalizedRole === 'commercial') {
+      if (representatives.length === 0) {
+        console.log(`   🔍 [filterHelper] Module 3 (Projets): commercial has no clients, blocking all`);
+        return { [Op.and]: [sequelize.literal('1 = 0')] };
+      }
+      console.log(`   🔍 [filterHelper] Module 3 (Projets): commercial filtering by ${representatives.length} client codes`);
+      return { IDTiers: { [Op.in]: representatives } };
+    }
+    if (normalizedRole === 'agent') {
+      // representatives contains CodTiers when agent has a region; otherwise ownIdentifiers (not valid)
+      const userRegion = user?.Gouvernorat ?? user?.gouvernorat ?? null;
+      if (userRegion && representatives.length > 0) {
+        console.log(`   🔍 [filterHelper] Module 3 (Projets): agent with region filtering by ${representatives.length} client codes`);
+        return { IDTiers: { [Op.in]: representatives } };
+      }
+      return {};
+    }
+    return {};
+  }
+
   // Devis/BCV/BLV/FAV: scope through client portfolio + direct assignment
   // Handled BEFORE the early-return so commercial CodRepres fallback always applies,
   // even when the commercial has no clients yet assigned in TabTiers.
@@ -456,7 +486,14 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
 
     if (normalizedRole === 'agent') {
       const userRegion = user?.Gouvernorat ?? user?.gouvernorat ?? null;
-      if (!userRegion) return { [Op.and]: [sequelize.literal('1 = 0')] };
+      const agentId = user?.UserID || user?.id || user?.USER_ID;
+
+      if (!userRegion) {
+        // No region configured: agent can only see their own activities
+        if (!agentId) return { [Op.and]: [sequelize.literal('1 = 0')] };
+        console.log(`   🔍 [filterHelper] Module ${moduleKey}: Agent has no region, own activities only (User: ${agentId})`);
+        return { User: Number(agentId) };
+      }
 
       const commercials = await sequelize.query(`
         SELECT u.USER_ID
@@ -483,7 +520,6 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
       });
 
       const commercialIds = commercials.map(row => row.USER_ID).filter(Boolean);
-      const agentId = user?.UserID || user?.id || user?.USER_ID;
       if (agentId) commercialIds.push(agentId); // Agent can see their own activities too
 
       if (commercialIds.length === 0) {
@@ -540,8 +576,10 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
 exports.applyTableDrivenFiltersWithPagination = async (moduleCode, queryParams, user) => {
   try {
     const page = parseInt(queryParams.page) || 1;
-    const limit = parseInt(queryParams.limit) || 20;
-    const offset = (page - 1) * limit;
+    const limit = queryParams.limit !== undefined && queryParams.limit !== ''
+      ? parseInt(queryParams.limit) || 20
+      : null;
+    const offset = limit !== null ? (page - 1) * limit : 0;
 
     // Construire les conditions WHERE basées sur les paramètres
     const where = {};
@@ -608,14 +646,15 @@ exports.applyTableDrivenFilters = async (moduleCode, queryParams, user) => {
  * @returns {object} { data, pagination: { total, page, limit, pages } }
  */
 exports.formatPaginatedResponse = (rows, count, page, limit) => {
+  const totalPages = limit ? Math.ceil(count / limit) : 1;
   return {
     data: rows,
     pagination: {
       total: count,
       page,
-      limit,
-      pages: Math.ceil(count / limit),
-      hasNext: page < Math.ceil(count / limit),
+      limit: limit ?? count,
+      pages: totalPages,
+      hasNext: limit ? page < totalPages : false,
       hasPrev: page > 1
     }
   };

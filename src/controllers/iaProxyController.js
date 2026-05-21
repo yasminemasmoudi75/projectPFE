@@ -61,28 +61,34 @@ exports.analyzeSatisfaction = async (req, res) => {
     let details = [];
     let hasInteraction = false;
 
-    // 2. ANALYSE DES RÉCLAMATIONS (Impact Négatif)
+    // 2. ANALYSE DES RÉCLAMATIONS
     const claims = await Reclamation.findAll({ where: { CodTiers: codTiers } });
     if (claims.length > 0) {
       hasInteraction = true;
-      let unresolved = claims.filter(c => !['résolu', 'fermé', 'clôturé'].includes(c.Statut?.toLowerCase())).length;
-      let resolved = claims.length - unresolved;
 
-      let penalty = (unresolved * 1.5) + (resolved * 0.5);
+      const resolved   = claims.filter(c => ['résolu', 'fermé'].includes(c.Statut?.toLowerCase())).length;
+      const inProgress = claims.filter(c => c.Statut?.toLowerCase() === 'en cours').length;
+      const open       = claims.filter(c => c.Statut?.toLowerCase() === 'ouvert').length;
 
-      // Sentiment des réclamations
+      // Pénalités : Ouvert = pleine pénalité, En cours = demi pénalité, Résolu = bonus
+      let impact = 0;
+      impact -= open       * 1.5;  // -1.5 par ticket non traité
+      impact -= inProgress * 0.7;  // -0.7 par ticket en cours de traitement
+      impact += resolved   * 0.3;  // +0.3 par ticket résolu (bonne réactivité)
+
+      // Sentiment des réclamations ouvertes uniquement
+      const openClaims = claims.filter(c => !['résolu', 'fermé'].includes(c.Statut?.toLowerCase()));
       let sentimentSum = 0;
-      claims.forEach(c => sentimentSum += calculateSentimentScore((c.Objet || '') + ' ' + (c.Description || '')));
+      openClaims.forEach(c => sentimentSum += calculateSentimentScore((c.Objet || '') + ' ' + (c.Description || '')));
+      if (sentimentSum < 0) impact -= Math.abs(sentimentSum) * 0.15;
 
-      if (sentimentSum < 0) penalty += Math.abs(sentimentSum) * 0.2; // Aggravation si mots colériques
-
-      penalty = Math.min(6, penalty); // Max 6 points de perte sur les tickets
-      score -= penalty;
+      impact = Math.max(-5, Math.min(1.5, impact)); // Clamp entre -5 et +1.5
+      score += impact;
 
       details.push({
         factor: 'Support & SAV',
-        impact: -parseFloat(penalty.toFixed(1)),
-        desc: `${unresolved} ticket(s) en cours et ${resolved} résolu(s).`
+        impact: parseFloat(impact.toFixed(1)),
+        desc: `${open} ouvert(s), ${inProgress} en cours, ${resolved} résolu(s).`
       });
     }
 

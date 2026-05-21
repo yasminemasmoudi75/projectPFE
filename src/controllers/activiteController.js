@@ -38,12 +38,26 @@ const buildCommercialActivityScope = (reqUser) => {
   if (!['commercial', 'commerciale'].includes(normalizedRole)) {
     return null;
   }
-  
   const userId = reqUser?.UserID;
   if (!userId) {
     return { [Op.and]: [sequelize.literal('1 = 0')] };
   }
-  
+  return { User: userId };
+};
+
+/**
+ * Build scope filter for technicien users' activities
+ * Techniciens should only see their own activities (User = their UserID)
+ */
+const buildTechnicienActivityScope = (reqUser) => {
+  const normalizedRole = String(reqUser?.UserRole || '').trim().toLowerCase();
+  if (!['technicien', 'technicien sav'].includes(normalizedRole)) {
+    return null;
+  }
+  const userId = reqUser?.UserID;
+  if (!userId) {
+    return { [Op.and]: [sequelize.literal('1 = 0')] };
+  }
   return { User: userId };
 };
 
@@ -194,22 +208,47 @@ const resolveUserReference = async (userReference) => {
   return user;
 };
 
-const resolveSecUserId = async (userReference) => {
-  const normalizedReference = normalizeReference(userReference);
+const resolveOrCreateSecUserId = async (user) => {
+  if (!user) return null;
 
-  if (!normalizedReference) {
-    return null;
+  const ucsUserId = user.UserID ?? user.UserID;
+  const loginName = String(user.EmailPro || user.LoginName || `user${ucsUserId}`)
+    .trim()
+    .slice(0, 100);
+  const fullName = String(user.FullName || user.LoginName || `User ${ucsUserId}`)
+    .trim()
+    .slice(0, 255);
+
+  // 1. Try by ID (same numeric ID in both tables)
+  if (ucsUserId != null) {
+    const byId = await sequelize.query(
+      'SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE UserID = :userId',
+      { replacements: { userId: ucsUserId }, type: QueryTypes.SELECT }
+    );
+    if (byId.length) return Number(byId[0].UserID);
   }
 
-  const rows = await sequelize.query(
-    'SELECT TOP 1 UserID FROM Sec_Users WHERE UserID = :userId',
-    {
-      replacements: { userId: normalizedReference },
-      type: QueryTypes.SELECT
-    }
+  // 2. Try by LoginName
+  if (loginName) {
+    const byLogin = await sequelize.query(
+      'SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE LOWER(LoginName) = LOWER(:loginName)',
+      { replacements: { loginName }, type: QueryTypes.SELECT }
+    );
+    if (byLogin.length) return Number(byLogin[0].UserID);
+  }
+
+  // 3. Insert new Sec_Users row (auto-increment ID)
+  const inserted = await sequelize.query(
+    `INSERT INTO dbo.Sec_Users (LoginName, FullName, Password, LastAccess, Enabled, CreatedDate, LastAccTime, CreatedTime, AccessCount)
+     VALUES (:loginName, :fullName, '', NULL, 1, GETDATE(), GETDATE(), GETDATE(), 0);
+     SELECT CAST(SCOPE_IDENTITY() AS INT) AS UserID;`,
+    { replacements: { loginName, fullName }, type: QueryTypes.SELECT }
   );
 
-  return rows[0]?.UserID ?? null;
+  const newId = Number(inserted?.[0]?.UserID);
+  if (Number.isFinite(newId) && newId > 0) return newId;
+
+  return null;
 };
 
 const buildInvalidReferenceError = (message) => {
@@ -315,7 +354,7 @@ exports.createActivite = async (req, res, next) => {
       throw buildInvalidReferenceError('Utilisateur introuvable pour l\'activité');
     }
 
-    const secUserId = await resolveSecUserId(assignedUser.UserID);
+    const secUserId = await resolveOrCreateSecUserId(assignedUser);
     const projectNf = await ensureProjectNf(projet);
     const normalizedStatus = normalizeActivityStatus(Statut) || 'Planifié';
 
@@ -361,8 +400,7 @@ exports.createActivite = async (req, res, next) => {
 
       await Promise.all(resolvedParticipants.map(async (participant) => {
         try {
-          // Use resolveSecUserId with fallback to UserID directly
-          const secParticipantId = (await resolveSecUserId(participant.UserID)) ?? participant.UserID;
+          const secParticipantId = await resolveOrCreateSecUserId(participant);
           if (!secParticipantId) return;
 
           const participantDesc = [
@@ -446,7 +484,15 @@ exports.getAllActivites = async (req, res, next) => {
       );
       finalWhere = hasWhere ? { [Op.and]: [where, commercialScope] } : commercialScope;
     }
-    
+
+    // ✅ Force technicien users to see only their own activities
+    const technicienScope = buildTechnicienActivityScope(req.user);
+    if (technicienScope) {
+      finalWhere = hasWhereConditions(finalWhere)
+        ? { [Op.and]: [finalWhere, technicienScope] }
+        : technicienScope;
+    }
+
     if (selectedCommercial && /^\d+$/.test(selectedCommercial)) {
       const commercialWhere = { User: Number(selectedCommercial) };
       const hasWhere = finalWhere && (
@@ -497,11 +543,8 @@ exports.getAllActivites = async (req, res, next) => {
       tableHint: TableHints.NOLOCK
     });
 
-
-
-
     res.json(
-      filterHelper.formatPaginatedResponse(rows, count, page, limit)
+      filterHelper.formatPaginatedResponse(rows.map(serializeActivite), count, page, limit)
     );
   } catch (error) {
     next(error);

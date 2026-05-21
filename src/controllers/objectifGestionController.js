@@ -121,7 +121,7 @@ class ObjectifGestionController {
             dateDebut: o.DateDebut,
             dateFin: o.DateFin,
             nombreReglement: o.NombreReglementsLies,
-            progression: o.Montant_Realise_Actuel / o.MontantCible * 100
+            progression: o.MontantCible > 0 ? Math.round((o.Montant_Realise_Actuel / o.MontantCible) * 100) : 0
           }))
         }
       });

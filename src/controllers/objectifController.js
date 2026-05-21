@@ -64,171 +64,513 @@ const buildWeeklyPeriod = ({ Semaine, Numsem, Annee, DateDebut, DateFin }) => {
     };
 };
 
+// Map TypeObjectif (string or integer) to nf indicator type (0-13, null = financial default)
+const getNfValue = (objectif) => {
+    if (objectif.nf !== undefined && objectif.nf !== null) {
+        const parsed = parseInt(objectif.nf, 10);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    const typeObj = objectif.TypeObjectif;
+    if (typeObj !== null && typeObj !== undefined && typeObj !== '') {
+        const trimmed = String(typeObj).trim();
+        const asInt = parseInt(trimmed, 10);
+        if (Number.isFinite(asInt) && String(asInt) === trimmed) return asInt;
+        const nfMap = {
+            'ACTIVITES': 0, 'ACTIVITE': 0, 'CALLS': 0,
+            'VISITES_PRIVEES': 1, 'VISITES PRIVEES': 1, 'VISITES_PRIV': 1,
+            'VISITES_ETATIQUES': 2, 'VISITES ETATIQUES': 2, 'VISITES_ETAT': 2,
+            'PROJETS_FISHER': 3, 'FISHER': 3,
+            'PROJETS_PRESI': 4, 'PRESI': 4,
+            'PROJETS_ZEISS': 5, 'ZEISS': 5,
+            'CONTACTS_ETATIQUES': 6, 'CONTACTS_ETAT': 6,
+            'CONTACTS_PRIVES': 7, 'CONTACTS_PRIV': 7,
+            'CONTACTS': 8, 'TOTAL_CONTACTS': 8,
+            'SOCIETES_ETATIQUES': 9, 'SOCIETES_ETAT': 9,
+            'PROJETS': 10, 'TOTAL_PROJETS': 10,
+        };
+        const upper = trimmed.toUpperCase();
+        if (upper in nfMap) return nfMap[upper];
+    }
+    return null; // financial default
+};
+
+const extractCount = (results) => {
+    const val = results?.[0]?.total ?? results?.[0]?.TOTAL ?? results?.[0]?.Total ?? 0;
+    return Number.isFinite(Number(val)) ? parseInt(val, 10) : 0;
+};
+
+const extractTotal = (results) => {
+    const val = results?.[0]?.total ?? results?.[0]?.TOTAL ?? results?.[0]?.Total ?? 0;
+    return Number.isFinite(Number(val)) ? parseFloat(val) : 0;
+};
+
+/**
+ * Batch version: fetches all objectives + computed realised values in ONE SQL query.
+ * Uses CASE WHEN correlated subqueries — same business logic as calculateRealisedForObjectif
+ * but without N+1 round-trips.
+ * @param {object} filters - { idCont, mois, annee, numsem }
+ * @returns {Promise<Array>} raw rows with valeurRealisee column
+ */
+const getObjectifsWithRealisedSQL = async ({ idCont, mois, annee, numsem } = {}) => {
+    const { sequelize } = require('../models');
+
+    const conditions = [];
+    const replacements = {};
+
+    if (idCont) {
+        conditions.push('O.IdCont = :idCont');
+        replacements.idCont = idCont;
+    }
+    if (mois) {
+        conditions.push('O.Mois = :mois');
+        replacements.mois = String(mois);
+    }
+    if (annee) {
+        conditions.push('O.Anne = :annee');
+        replacements.annee = String(annee);
+    }
+    if (numsem !== undefined && numsem !== null) {
+        conditions.push('O.Numsem = :numsem');
+        replacements.numsem = parseInt(numsem, 10);
+    }
+
+    const whereSQL = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // CommercialCode = USER_ID (en string) résolu depuis IdCont → UCS_USERS.GUID
+    // C'est l'identifiant commercial utilisé dans TabActivite.[User], TabTiers.codRepresTiers,
+    // TabTiersContactCrm.codRepres et tabProjet.CodCom
+    const sql = `
+        WITH ObjDates AS (
+            SELECT
+                O.IdObj             AS ID_Objectif,
+                O.IdCont,
+                O.TypeObj           AS TypeObjectif,
+                O.[type]            AS TypePeriode,
+                O.DateD             AS DateDebut,
+                O.DateF             AS DateFin,
+                O.Mois,
+                O.Anne              AS Annee,
+                O.Numsem,
+                O.autObj            AS MontantCible,
+                O.autVal            AS Montant_Realise_Actuel,
+                O.CodTiers,
+                O.StatutObjectif,
+                O.Discription       AS Libelle_Indicateur,
+                O.DateCreation,
+                O.DateArchivage,
+                O.NombreReglementsLies,
+                -- Identifiant commercial : USER_ID string (via IdCont→GUID→UCS_USERS)
+                U.USER_ID                       AS utilisateur_UserID,
+                U.REAL_NAME                     AS utilisateur_FullName,
+                U.USER_NAME                     AS utilisateur_EmailPro,
+                U.GUID                          AS utilisateur_GUID,
+                CAST(U.USER_ID AS NVARCHAR(50)) AS CommercialCode,
+                -- Type indicateur : colonne nf d'abord, sinon TypeObj converti en entier
+                COALESCE(
+                    TRY_CAST(O.nf AS INT),
+                    TRY_CAST(O.TypeObj AS INT)
+                ) AS nf_resolved,
+                -- Début de période : MAX(début calendaire, DATE de création objectif tronquée à minuit)
+                -- Mdate est souvent stocké sans heure → on compare date-à-date pour éviter d'exclure
+                -- les activités du jour même de création
+                CASE
+                    WHEN O.[type] = 'Mensuel' OR (O.[type] IS NULL AND O.Mois IS NOT NULL)
+                        THEN (
+                            CASE
+                                WHEN CAST(O.DateCreation AS date) > CAST(DATEFROMPARTS(
+                                    ISNULL(TRY_CAST(O.Anne AS INT), YEAR(GETDATE())),
+                                    ISNULL(TRY_CAST(O.Mois AS INT), MONTH(GETDATE())),
+                                    1
+                                ) AS date)
+                                THEN CAST(CAST(O.DateCreation AS date) AS datetime)
+                                ELSE CAST(DATEFROMPARTS(
+                                    ISNULL(TRY_CAST(O.Anne AS INT), YEAR(GETDATE())),
+                                    ISNULL(TRY_CAST(O.Mois AS INT), MONTH(GETDATE())),
+                                    1
+                                ) AS datetime)
+                            END
+                        )
+                    ELSE (
+                        CASE
+                            WHEN CAST(O.DateCreation AS date) > TRY_CAST(O.DateD AS date)
+                            THEN CAST(CAST(O.DateCreation AS date) AS datetime)
+                            ELSE TRY_CAST(O.DateD AS datetime)
+                        END
+                    )
+                END AS StartDate,
+                -- Fin de période
+                CASE
+                    WHEN O.[type] = 'Mensuel' OR (O.[type] IS NULL AND O.Mois IS NOT NULL)
+                        THEN CAST(EOMONTH(DATEFROMPARTS(
+                            ISNULL(TRY_CAST(O.Anne AS INT), YEAR(GETDATE())),
+                            ISNULL(TRY_CAST(O.Mois AS INT), MONTH(GETDATE())),
+                            1
+                        )) AS datetime)
+                    ELSE DATEADD(SECOND, 86399, TRY_CAST(O.DateF AS datetime))
+                END AS EndDate
+            FROM Objectif O WITH (NOLOCK)
+            -- Résolution commercial : IdCont (GUID) → USER_ID
+            LEFT JOIN UCS_USERS U WITH (NOLOCK)
+                ON REPLACE(REPLACE(ISNULL(CAST(O.IdCont AS NVARCHAR(50)), ''), '{', ''), '}', '')
+                 = REPLACE(REPLACE(ISNULL(U.GUID, ''), '{', ''), '}', '')
+            ${whereSQL}
+        )
+        SELECT
+            OD.*,
+            -- Valeur réalisée calculée par CASE WHEN selon le type d'indicateur (nf)
+            CASE
+                -- nf=0 : Tâches / Appels — toutes activités validées du commercial
+                WHEN OD.nf_resolved = 0 THEN (
+                    SELECT ISNULL(COUNT(Guid), 0)
+                    FROM TabActivite WITH (NOLOCK)
+                    WHERE TRY_CONVERT(datetime, Mdate) >= OD.StartDate
+                      AND TRY_CONVERT(datetime, Mdate) <= OD.EndDate
+                      AND CAST([User] AS NVARCHAR(50)) = OD.CommercialCode
+                      AND Valide = 1
+                )
+                -- nf=1 : Visites Privées — activités liées à une société Privée (Niveau != 7)
+                WHEN OD.nf_resolved = 1 THEN (
+                    SELECT ISNULL(COUNT(A.Guid), 0)
+                    FROM TabActivite A WITH (NOLOCK)
+                    INNER JOIN TabTiers T WITH (NOLOCK) ON A.CodTiers = T.CodTiers
+                    WHERE TRY_CONVERT(datetime, A.Mdate) >= OD.StartDate
+                      AND TRY_CONVERT(datetime, A.Mdate) <= OD.EndDate
+                      AND CAST(A.[User] AS NVARCHAR(50)) = OD.CommercialCode
+                      AND A.Valide = 1
+                      AND (T.Niveau IS NULL OR T.Niveau != 7)
+                )
+                -- nf=2 : Visites Étatiques — activités liées à une société Étatique (Niveau = 7)
+                WHEN OD.nf_resolved = 2 THEN (
+                    SELECT ISNULL(COUNT(A.Guid), 0)
+                    FROM TabActivite A WITH (NOLOCK)
+                    INNER JOIN TabTiers T WITH (NOLOCK) ON A.CodTiers = T.CodTiers
+                    WHERE TRY_CONVERT(datetime, A.Mdate) >= OD.StartDate
+                      AND TRY_CONVERT(datetime, A.Mdate) <= OD.EndDate
+                      AND CAST(A.[User] AS NVARCHAR(50)) = OD.CommercialCode
+                      AND A.Valide = 1
+                      AND T.Niveau = 7
+                )
+                -- nf=3 : Projets Fisher
+                WHEN OD.nf_resolved = 3 THEN (
+                    SELECT ISNULL(COUNT(idpojet), 0)
+                    FROM tabProjet WITH (NOLOCK)
+                    WHERE dateSave >= OD.StartDate AND dateSave <= OD.EndDate
+                      AND CAST(CodCom AS NVARCHAR(50)) = OD.CommercialCode
+                      AND (CodFor = 'FR4110053' OR Fornisseur LIKE '%Fisher%')
+                )
+                -- nf=4 : Projets Presi
+                WHEN OD.nf_resolved = 4 THEN (
+                    SELECT ISNULL(COUNT(idpojet), 0)
+                    FROM tabProjet WITH (NOLOCK)
+                    WHERE dateSave >= OD.StartDate AND dateSave <= OD.EndDate
+                      AND CAST(CodCom AS NVARCHAR(50)) = OD.CommercialCode
+                      AND CodFor = 'FR411023'
+                )
+                -- nf=5 : Projets Zeiss
+                WHEN OD.nf_resolved = 5 THEN (
+                    SELECT ISNULL(COUNT(idpojet), 0)
+                    FROM tabProjet WITH (NOLOCK)
+                    WHERE dateSave >= OD.StartDate AND dateSave <= OD.EndDate
+                      AND CAST(CodCom AS NVARCHAR(50)) = OD.CommercialCode
+                      AND CodFor = 'FR411032'
+                )
+                -- nf=6 : Contacts Étatiques — société à Niveau = 7
+                WHEN OD.nf_resolved = 6 THEN (
+                    SELECT ISNULL(COUNT(C.ID), 0)
+                    FROM TabTiersContact C WITH (NOLOCK)
+                    INNER JOIN TabTiers T WITH (NOLOCK) ON C.IDTiers = T.IDTiers
+                    WHERE T.codRepresTiers = OD.CommercialCode
+                      AND T.Niveau = 7
+                )
+                -- nf=7 : Contacts Privés — société à Niveau != 7
+                WHEN OD.nf_resolved = 7 THEN (
+                    SELECT ISNULL(COUNT(C.ID), 0)
+                    FROM TabTiersContact C WITH (NOLOCK)
+                    INNER JOIN TabTiers T WITH (NOLOCK) ON C.IDTiers = T.IDTiers
+                    WHERE T.codRepresTiers = OD.CommercialCode
+                      AND (T.Niveau IS NULL OR T.Niveau != 7)
+                )
+                -- nf=8 : Total Contacts
+                WHEN OD.nf_resolved = 8 THEN (
+                    SELECT ISNULL(COUNT(C.ID), 0)
+                    FROM TabTiersContact C WITH (NOLOCK)
+                    INNER JOIN TabTiers T WITH (NOLOCK) ON C.IDTiers = T.IDTiers
+                    WHERE T.codRepresTiers = OD.CommercialCode
+                )
+                -- nf=9 : Sociétés Étatiques — Niveau = 7
+                WHEN OD.nf_resolved = 9 THEN (
+                    SELECT ISNULL(COUNT(T.IDTiers), 0)
+                    FROM TabTiers T WITH (NOLOCK)
+                    WHERE T.codRepresTiers = OD.CommercialCode
+                      AND T.Niveau = 7
+                )
+                -- nf=10 : Total Projets
+                WHEN OD.nf_resolved = 10 THEN (
+                    SELECT ISNULL(COUNT(*), 0)
+                    FROM tabProjet WITH (NOLOCK)
+                    WHERE dateSave >= OD.StartDate AND dateSave <= OD.EndDate
+                      AND CAST(CodCom AS NVARCHAR(50)) = OD.CommercialCode
+                )
+                -- nf>=13 : Toutes les activités validées du commercial (sans filtre type)
+                WHEN OD.nf_resolved >= 13 THEN (
+                    SELECT ISNULL(COUNT(A.Guid), 0)
+                    FROM TabActivite A WITH (NOLOCK)
+                    WHERE TRY_CONVERT(datetime, A.Mdate) >= OD.StartDate
+                      AND TRY_CONVERT(datetime, A.Mdate) <= OD.EndDate
+                      AND CAST(A.[User] AS NVARCHAR(50)) = OD.CommercialCode
+                      AND A.Valide = 1
+                )
+                -- Défaut : indicateur financier — somme des règlements du commercial
+                ELSE (
+                    SELECT ISNULL(SUM(r.MntReg), 0)
+                    FROM TabReg r WITH (NOLOCK)
+                    LEFT JOIN TabTiers t WITH (NOLOCK) ON r.CodTiers = t.CodTiers
+                    WHERE t.codRepresTiers = OD.CommercialCode
+                      AND r.Payed = 1
+                      AND r.DatReg >= OD.StartDate AND r.DatReg <= OD.EndDate
+                )
+            END AS valeurRealisee
+        FROM ObjDates OD
+        ORDER BY OD.StartDate DESC, OD.ID_Objectif DESC
+    `;
+
+    return sequelize.query(sql, {
+        replacements,
+        type: sequelize.QueryTypes.SELECT
+    });
+};
+
 const calculateRealisedForObjectif = async (objectif) => {
     try {
-        if (!objectif || !objectif.IdCont) return 0;
+        if (!objectif) return 0;
 
         const { sequelize } = require('../models');
 
-        // Resolve commercial identifier: IdCont may be a GUID (User.GUID) or a numeric rep id
-        let commercialIdForQuery = objectif.IdCont;
-        try {
-            const { User } = require('../models');
-            if (isValidUUID(String(objectif.IdCont || ''))) {
-                const user = await User.findOne({ where: { GUID: String(objectif.IdCont).trim() } });
-                if (user && user.UserID) commercialIdForQuery = String(user.UserID);
-            }
-        } catch (e) {
-            // ignore resolution errors and fall back to raw IdCont
-        }
+        // Le commercial est identifié par IdCont (GUID) → USER_ID dans UCS_USERS
+        // CodTiers dans Objectif est NULL pour tous les objectifs du CRM, on utilise IdCont
+        const idCont = String(objectif.IdCont || objectif.getDataValue?.('IdCont') || '').trim();
+        if (!idCont) return 0;
 
+        const cleanGuid = idCont.replace(/^\{|\}$/g, '').trim();
+        const userRows = await sequelize.query(
+            `SELECT USER_ID FROM UCS_USERS WITH (NOLOCK)
+             WHERE REPLACE(REPLACE(ISNULL(GUID,''),'{',''),'}','') = :guid`,
+            { replacements: { guid: cleanGuid }, type: sequelize.QueryTypes.SELECT }
+        );
+        if (!userRows || userRows.length === 0) return 0;
+
+        // CommercialCode = USER_ID as string (correspond à TabActivite.[User], TabTiers.codRepresTiers)
+        const commercialCode = String(userRows[0].USER_ID).trim();
+        if (!commercialCode) return 0;
+
+        // Build date range from period type
         let startDate, endDate;
+
         if (objectif.TypePeriode === 'Mensuel' || (!objectif.TypePeriode && objectif.Mois)) {
             const year  = parseInt(objectif.Annee, 10);
             const month = parseInt(objectif.Mois,  10);
             if (!year || !month) return 0;
 
-            // startDate = MAX(1er du mois, date de création de l'objectif)
             const firstOfMonth = new Date(year, month - 1, 1);
-            
-            // Handle DateCreation - could be Date object or string
             let dateCreation = null;
             if (objectif.DateCreation) {
-                if (objectif.DateCreation instanceof Date) {
-                    dateCreation = new Date(objectif.DateCreation.getTime());
-                } else {
-                    dateCreation = new Date(objectif.DateCreation);
-                }
-                // Validate the date
-                if (!isNaN(dateCreation.getTime())) {
-                    // Do not strip the time, keep exact DateCreation time
-                } else {
-                    dateCreation = null;
+                const dc = objectif.DateCreation instanceof Date
+                    ? new Date(objectif.DateCreation.getTime())
+                    : new Date(objectif.DateCreation);
+                if (!isNaN(dc.getTime())) {
+                    // Truncate to midnight so same-day activities (stored as date-only) still count
+                    dc.setHours(0, 0, 0, 0);
+                    dateCreation = dc;
                 }
             }
+            startDate = (dateCreation && dateCreation > firstOfMonth) ? dateCreation : firstOfMonth;
+            endDate   = new Date(year, month, 0, 23, 59, 59, 999);
 
-            startDate = (dateCreation && dateCreation > firstOfMonth)
-                ? dateCreation
-                : firstOfMonth;
-
-            endDate = new Date(year, month, 0, 23, 59, 59, 999);
         } else if (objectif.TypePeriode === 'Hebdomadaire') {
             if (!objectif.DateDebut || !objectif.DateFin) return 0;
 
             const weekStart = new Date(objectif.DateDebut);
-            
-            // Handle DateCreation - could be Date object or string
             let dateCreation = null;
             if (objectif.DateCreation) {
-                if (objectif.DateCreation instanceof Date) {
-                    dateCreation = new Date(objectif.DateCreation.getTime());
-                } else {
-                    dateCreation = new Date(objectif.DateCreation);
-                }
-                // Validate the date
-                if (!isNaN(dateCreation.getTime())) {
-                    // Do not strip the time, keep exact DateCreation time
-                } else {
-                    dateCreation = null;
+                const dc = objectif.DateCreation instanceof Date
+                    ? new Date(objectif.DateCreation.getTime())
+                    : new Date(objectif.DateCreation);
+                if (!isNaN(dc.getTime())) {
+                    dc.setHours(0, 0, 0, 0);
+                    dateCreation = dc;
                 }
             }
-
-            startDate = (dateCreation && dateCreation > weekStart)
-                ? dateCreation
-                : weekStart;
-
-            endDate = new Date(objectif.DateFin);
+            startDate = (dateCreation && dateCreation > weekStart) ? dateCreation : weekStart;
+            endDate   = new Date(objectif.DateFin);
             endDate.setHours(23, 59, 59, 999);
         } else {
-            return 0; // TypePeriode invalide ou non supporté
+            return 0;
         }
 
-        // Règle métier :
-        // 1. Si l'objectif est ARCHIVÉ et a une DateArchivage, il s'arrête à cette date.
-        // 2. S'il n'est pas ARCHIVÉ, il accumule jusqu'à la fin de sa période (objectifs multiples coexistent par indicateur).
         if (String(objectif.StatutObjectif || '').toUpperCase() === 'ARCHIVÉ' && objectif.DateArchivage) {
             endDate = new Date(objectif.DateArchivage);
-        } else if (String(objectif.StatutObjectif || '').toUpperCase() !== 'ARCHIVÉ') {
-            endDate = new Date(2100, 11, 31, 23, 59, 59, 999);
         }
 
         const fmt = (d) => {
-            if (!d || !(d instanceof Date) || isNaN(d.getTime())) {
-                console.error('❌ Invalid date passed to fmt:', d);
-                throw new Error(`Invalid date object: ${d}`);
-            }
+            if (!d || !(d instanceof Date) || isNaN(d.getTime())) throw new Error(`Invalid date: ${d}`);
             const z = (n) => String(n).padStart(2, '0');
             return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
         };
-        
-        try {
-            var sd = (startDate instanceof Date && !isNaN(startDate.getTime())) ? fmt(startDate) : String(startDate);
-            var ed = (endDate instanceof Date && !isNaN(endDate.getTime())) ? fmt(endDate) : String(endDate);
-        } catch (dateError) {
-            console.error('❌ Date formatting error for objectif', objectif.ID_Objectif, ':', dateError.message);
-            console.error('   startDate:', startDate, 'endDate:', endDate);
-            throw dateError;
+
+        const sd = fmt(startDate);
+        const ed = fmt(endDate);
+
+        const nf = getNfValue(objectif);
+
+        // nf=0 : Tâches / Appels — toutes activités validées du commercial
+        if (nf === 0) {
+            const results = await sequelize.query(`
+                SELECT COUNT(Guid) AS total FROM TabActivite
+                WHERE TRY_CONVERT(datetime, Mdate) >= :sd
+                  AND TRY_CONVERT(datetime, Mdate) <= :ed
+                  AND CAST([User] AS NVARCHAR(50)) = :cc
+                  AND Valide = 1
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
         }
 
-        const codTiers = objectif.CodTiers
-            || objectif.getDataValue?.('CodTiers')
-            || null;
-
-        if (codTiers && String(codTiers).trim() !== '') {
-            const queryByTiers = `
-                SELECT SUM(r.MntReg) AS total
-                FROM TabReg r
-                WHERE r.CodTiers = :codTiers
-                    AND r.Payed = 1
-                    AND r.DatReg >= :startDate
-                    AND r.DatReg <= :endDate
-            `;
-
-            const results = await sequelize.query(queryByTiers, {
-                replacements: {
-                    codTiers: String(codTiers).trim(),
-                    startDate: sd,
-                    endDate: ed
-                },
-                type: sequelize.QueryTypes.SELECT
-            });
-
-            const total = results?.[0]?.total ?? results?.[0]?.TOTAL ?? results?.[0]?.Total ?? 0;
-            console.log('Calcul réalisé pour objectif', objectif.ID_Objectif, 'commercial:', commercialIdForQuery, 'CodTiers:', String(codTiers).trim(), 'période:', sd, '->', ed, 'résultat:', total);
-            return Number.isFinite(Number(total)) ? parseFloat(total) : 0;
+        // nf=1 : Visites Privées — activité liée à une société Privée (Niveau != 7)
+        if (nf === 1) {
+            const results = await sequelize.query(`
+                SELECT COUNT(A.Guid) AS total FROM TabActivite A
+                INNER JOIN TabTiers T ON A.CodTiers = T.CodTiers
+                WHERE TRY_CONVERT(datetime, A.Mdate) >= :sd
+                  AND TRY_CONVERT(datetime, A.Mdate) <= :ed
+                  AND CAST(A.[User] AS NVARCHAR(50)) = :cc
+                  AND A.Valide = 1
+                  AND (T.Niveau IS NULL OR T.Niveau != 7)
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
         }
 
-                const query = `
-                    SELECT SUM(r.MntReg) AS total
-                    FROM TabReg r
-                    LEFT JOIN TabTiers t ON r.CodTiers = t.CodTiers
-                    WHERE (
-                        LOWER(LTRIM(RTRIM(CONVERT(NVARCHAR(200), t.codRepresTiers)))) = LOWER(LTRIM(RTRIM(:commercialId)))
-                        OR (
-                            TRY_CONVERT(INT, t.codRepresTiers) IS NOT NULL
-                            AND TRY_CONVERT(INT, :commercialId) IS NOT NULL
-                            AND TRY_CONVERT(INT, t.codRepresTiers) = TRY_CONVERT(INT, :commercialId)
-                        )
-                    )
-                        AND r.Payed = 1
-                        AND r.DatReg >= :startDate
-                        AND r.DatReg <= :endDate
-                `;
+        // nf=2 : Visites Étatiques — activité liée à une société Étatique (Niveau = 7)
+        if (nf === 2) {
+            const results = await sequelize.query(`
+                SELECT COUNT(A.Guid) AS total FROM TabActivite A
+                INNER JOIN TabTiers T ON A.CodTiers = T.CodTiers
+                WHERE TRY_CONVERT(datetime, A.Mdate) >= :sd
+                  AND TRY_CONVERT(datetime, A.Mdate) <= :ed
+                  AND CAST(A.[User] AS NVARCHAR(50)) = :cc
+                  AND A.Valide = 1
+                  AND T.Niveau = 7
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
 
-                const results = await sequelize.query(query, {
-                    replacements: {
-                        commercialId: String(commercialIdForQuery || ''),
-                        startDate: sd,
-                        endDate: ed
-                    },
-                    type: sequelize.QueryTypes.SELECT
-                });
+        // nf=3 : Projets Fisher
+        if (nf === 3) {
+            const results = await sequelize.query(`
+                SELECT COUNT(idpojet) AS total FROM tabProjet
+                WHERE dateSave >= :sd AND dateSave <= :ed
+                  AND CAST(CodCom AS NVARCHAR(50)) = :cc
+                  AND (CodFor = 'FR4110053' OR Fornisseur LIKE '%Fisher%')
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
 
-                const total = results?.[0]?.total ?? results?.[0]?.TOTAL ?? results?.[0]?.Total ?? 0;
-                console.log('Calcul réalisé pour objectif', objectif.ID_Objectif, 'commercial:', commercialIdForQuery, 'période:', sd, '->', ed, 'résultat:', total);
-                return Number.isFinite(Number(total)) ? parseFloat(total) : 0;
+        // nf=4 : Projets Presi
+        if (nf === 4) {
+            const results = await sequelize.query(`
+                SELECT COUNT(idpojet) AS total FROM tabProjet
+                WHERE dateSave >= :sd AND dateSave <= :ed
+                  AND CAST(CodCom AS NVARCHAR(50)) = :cc AND CodFor = 'FR411023'
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=5 : Projets Zeiss
+        if (nf === 5) {
+            const results = await sequelize.query(`
+                SELECT COUNT(idpojet) AS total FROM tabProjet
+                WHERE dateSave >= :sd AND dateSave <= :ed
+                  AND CAST(CodCom AS NVARCHAR(50)) = :cc AND CodFor = 'FR411032'
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=6 : Contacts Étatiques — société à Niveau = 7
+        if (nf === 6) {
+            const results = await sequelize.query(`
+                SELECT COUNT(C.ID) AS total FROM TabTiersContact C
+                INNER JOIN TabTiers T ON C.IDTiers = T.IDTiers
+                WHERE T.codRepresTiers = :cc
+                  AND T.Niveau = 7
+            `, { replacements: { cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=7 : Contacts Privés — société à Niveau != 7
+        if (nf === 7) {
+            const results = await sequelize.query(`
+                SELECT COUNT(C.ID) AS total FROM TabTiersContact C
+                INNER JOIN TabTiers T ON C.IDTiers = T.IDTiers
+                WHERE T.codRepresTiers = :cc
+                  AND (T.Niveau IS NULL OR T.Niveau != 7)
+            `, { replacements: { cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=8 : Total Contacts
+        if (nf === 8) {
+            const results = await sequelize.query(`
+                SELECT COUNT(C.ID) AS total FROM TabTiersContact C
+                INNER JOIN TabTiers T ON C.IDTiers = T.IDTiers
+                WHERE T.codRepresTiers = :cc
+            `, { replacements: { cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=9 : Sociétés Étatiques — Niveau = 7
+        if (nf === 9) {
+            const results = await sequelize.query(`
+                SELECT COUNT(T.IDTiers) AS total FROM TabTiers T
+                WHERE T.codRepresTiers = :cc
+                  AND T.Niveau = 7
+            `, { replacements: { cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf=10 : Total Projets
+        if (nf === 10) {
+            const results = await sequelize.query(`
+                SELECT COUNT(*) AS total FROM tabProjet
+                WHERE dateSave >= :sd AND dateSave <= :ed
+                  AND CAST(CodCom AS NVARCHAR(50)) = :cc
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // nf >= 13 : Toutes les activités validées du commercial (sans filtre type)
+        if (nf !== null && nf >= 13) {
+            const results = await sequelize.query(`
+                SELECT COUNT(A.Guid) AS total FROM TabActivite A
+                WHERE TRY_CONVERT(datetime, A.Mdate) >= :sd
+                  AND TRY_CONVERT(datetime, A.Mdate) <= :ed
+                  AND CAST(A.[User] AS NVARCHAR(50)) = :cc
+                  AND A.Valide = 1
+            `, { replacements: { sd, ed, cc: commercialCode }, type: sequelize.QueryTypes.SELECT });
+            return extractCount(results);
+        }
+
+        // Défaut : indicateur financier — somme des règlements du commercial
+        const results = await sequelize.query(`
+            SELECT ISNULL(SUM(r.MntReg), 0) AS total FROM TabReg r
+            LEFT JOIN TabTiers t ON r.CodTiers = t.CodTiers
+            WHERE t.codRepresTiers = :cc
+              AND r.Payed = 1
+              AND r.DatReg >= :sd AND r.DatReg <= :ed
+        `, { replacements: { cc: commercialCode, sd, ed }, type: sequelize.QueryTypes.SELECT });
+        const total = extractTotal(results);
+        console.log(`[Objectif ${objectif.ID_Objectif}] financier user=${commercialCode} période=${sd}→${ed} réalisé=${total}`);
+        return total;
+
     } catch (err) {
-        console.error('Erreur lors du calcul du réalisé:', err);
+        console.error('Erreur calcul réalisé:', err);
         return 0;
     }
 };
@@ -361,7 +703,8 @@ exports.createObjectif = async (req, res, next) => {
             TypePeriode,
             Libelle_Indicateur,
             Statut,
-            ID_Objectif_Parent
+            ID_Objectif_Parent,
+            nf
         } = req.body;
 
         const shouldFilterByCommercial = canFlag(req.permissions?.FiltreRepres);
@@ -438,6 +781,7 @@ exports.createObjectif = async (req, res, next) => {
             TypeObjectif: TypeObjectif || null,
             TypePeriode: TypePeriode || 'Mensuel',
             Libelle_Indicateur: Libelle_Indicateur || null,
+            nf: normalizeInteger(nf),
             StatutObjectif: 'ACTIF'
         });
 
@@ -491,41 +835,68 @@ exports.getAllObjectifs = async (req, res, next) => {
             }
             where.IdCont = resolvedUser.user.GUID;
         }
-        if (mois) where.Mois = String(mois);
-        if (annee) where.Annee = String(annee);
-        if (semaine) where.Numsem = normalizeInteger(semaine);
+        const sqlFilters = {};
+        if (where.IdCont) sqlFilters.idCont = where.IdCont;
+        if (mois)         sqlFilters.mois   = mois;
+        if (annee)        sqlFilters.annee  = annee;
+        if (semaine)      sqlFilters.numsem = semaine;
 
-        const rawObjectifs = await Objectif.findAll({
-            where,
-            include: objectifInclude,
-            order: [
-                ['DateDebut', 'DESC'],
-                ['ID_Objectif', 'DESC']
-            ]
-        });
+        const rawRows = await getObjectifsWithRealisedSQL(sqlFilters);
 
-        const objectifs = await Promise.all(rawObjectifs.map(async (obj) => {
-            const realized = await calculateRealisedForObjectif(obj);
-            const storedRealized = Number(obj.getDataValue('Montant_Realise_Actuel')) || Number(obj.autVal) || 0;
-            const storedAutVal = Number(obj.getDataValue('autVal')) || 0;
-            if (
-                String(obj.StatutObjectif || '').toUpperCase() === 'ACTIF'
-                && (storedRealized !== Number(realized) || storedAutVal !== Number(realized))
-            ) {
-                await obj.update({
-                    Montant_Realise_Actuel: realized,
-                    autVal: realized
-                });
+        // Persist updated realised values for ACTIF objectives and shape response
+        const { sequelize } = require('../models');
+        const objectifs = await Promise.all(rawRows.map(async (row) => {
+            const realized = Number(row.valeurRealisee) || 0;
+            const stored   = Number(row.Montant_Realise_Actuel) || 0;
+
+            if (String(row.StatutObjectif || '').toUpperCase() === 'ACTIF' && stored !== realized) {
+                await sequelize.query(
+                    `UPDATE Objectif SET autVal = :v WHERE IdObj = :id`,
+                    { replacements: { v: String(realized), id: row.ID_Objectif } }
+                );
             }
-            obj.setDataValue('autVal', realized);
-            obj.setDataValue('Montant_Realise_Actuel', realized);
-            obj.setDataValue('CodTiers', obj.getDataValue('CodTiers') || null);
-            try {
-                obj.setDataValue('AutObjAffiche', obj.get('AutObjAffiche'));
-            } catch (e) {
-                // virtual may not be present in older models
-            }
-            return obj;
+
+            const target = Number(row.MontantCible) || 0;
+            const avancement = target > 0 ? Math.min(Math.round((realized / target) * 100), 100) : 0;
+            const nfVal = row.nf_resolved !== undefined ? row.nf_resolved : null;
+            const isCount = nfVal !== null;
+            const fmtVal = isCount
+                ? (v) => Math.round(v).toString()
+                : (v) => v.toFixed(2).replace('.', ',');
+            const unit = isCount ? '' : ' TND';
+
+            return {
+                ID_Objectif:           row.ID_Objectif,
+                IdCont:                row.IdCont,
+                TypeObjectif:          row.TypeObjectif,
+                TypePeriode:           row.TypePeriode || (row.Numsem ? 'Hebdomadaire' : 'Mensuel'),
+                DateDebut:             row.DateDebut,
+                DateFin:               row.DateFin,
+                Mois:                  row.Mois ? parseInt(row.Mois, 10) : null,
+                Annee:                 row.Annee ? parseInt(row.Annee, 10) : null,
+                Numsem:                row.Numsem || null,
+                Semaine:               row.Numsem ? `Semaine ${row.Numsem}` : null,
+                MontantCible:          target,
+                Montant_Realise_Actuel: realized,
+                autObj:                target,
+                autVal:                realized,
+                nf:                    nfVal,
+                CodTiers:              row.CodTiers || null,
+                StatutObjectif:        row.StatutObjectif,
+                Libelle_Indicateur:    row.Libelle_Indicateur,
+                DateCreation:          row.DateCreation,
+                DateArchivage:         row.DateArchivage,
+                NombreReglementsLies:  row.NombreReglementsLies,
+                Avancement:            avancement,
+                AutObjAffiche:         `${fmtVal(realized)} / ${fmtVal(target)}${unit}`,
+                Statut:                realized >= target ? 'Terminé' : 'En cours',
+                utilisateur: row.utilisateur_UserID ? {
+                    UserID:    row.utilisateur_UserID,
+                    FullName:  row.utilisateur_FullName,
+                    EmailPro:  row.utilisateur_EmailPro,
+                    GUID:      row.utilisateur_GUID
+                } : null
+            };
         }));
 
         const normalizedStatut = String(statut || 'actif').toLowerCase();
@@ -622,6 +993,7 @@ exports.updateObjectif = async (req, res, next) => {
             TypePeriode,
             Libelle_Indicateur,
             Statut,
+            nf,
             // ID_Objectif_Parent
         } = req.body;
 
@@ -685,6 +1057,7 @@ exports.updateObjectif = async (req, res, next) => {
             TypeObjectif: TypeObjectif || objectif.TypeObjectif,
             TypePeriode: nextTypePeriode,
             Libelle_Indicateur: Libelle_Indicateur !== undefined ? Libelle_Indicateur : objectif.Libelle_Indicateur,
+            nf: nf !== undefined ? normalizeInteger(nf) : objectif.nf,
             // ID_Objectif_Parent: ID_Objectif_Parent !== undefined ? safeInt(ID_Objectif_Parent) : objectif.ID_Objectif_Parent
         });
 

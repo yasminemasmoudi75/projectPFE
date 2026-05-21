@@ -268,6 +268,72 @@ exports.createFav = async (req, res, next) => {
             await FavDetail.bulkCreate(detailsWithNf, { transaction });
         }
 
+        // ── Décrémentation automatique du stock à la création ──
+        const sourceBlvGuid = master.SourceBlvGuid || null;
+        let shouldDecrementStock = true;
+
+        if (sourceBlvGuid) {
+            const { BlvMaster } = require('../models');
+            const blvSource = await BlvMaster.findOne({ where: { Guid: sourceBlvGuid }, transaction });
+            if (blvSource && blvSource.StockDecremente) {
+                shouldDecrementStock = false;
+            }
+        }
+
+        if (shouldDecrementStock && details && details.length > 0) {
+            const pathMod = require('path');
+            const fs = require('fs').promises;
+            const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
+            let config = { autoriserVenteHorsStock: false };
+            try {
+                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
+                config = { ...config, ...JSON.parse(raw) };
+            } catch { /* use defaults */ }
+
+            const stockUpdates = [];
+            const insuffisants = [];
+
+            for (const detail of details) {
+                const codArt = detail.CodArt;
+                const qteDemandee = parseFloat(detail.Qt) || 0;
+                if (!codArt || qteDemandee <= 0) continue;
+
+                const [stockRow] = await sequelize.query(
+                    'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                    { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+                );
+                const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+
+                if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                    insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                } else {
+                    stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                }
+            }
+
+            if (insuffisants.length > 0) {
+                await transaction.rollback();
+                return res.status(409).json({
+                    status: 'error',
+                    code: 'STOCK_INSUFFISANT',
+                    message: 'Stock insuffisant pour créer cette facture.',
+                    insuffisants,
+                });
+            }
+
+            for (const upd of stockUpdates) {
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                    { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+                );
+            }
+
+            await sequelize.query(
+                'UPDATE TabFavm SET StockDecremente = 1 WHERE Guid = :guid',
+                { replacements: { guid: newFav.Guid }, transaction }
+            );
+        }
+
         await transaction.commit();
 
         // ✅ ENREGISTRER LA CRÉATION DANS MvtDocs
@@ -290,7 +356,7 @@ exports.createFav = async (req, res, next) => {
           const emailService = require('../utils/emailService');
 
           // Notif site
-          await notifyDocumentCreated('FAV', newFav.Nf, selectedTier, userId);
+          await notifyDocumentCreated('FAV', newFav.Nf, selectedTier, userId, { totalTTC: masterData.TotTTC });
 
           // Email client
           if (selectedTier.Email) {
@@ -435,18 +501,161 @@ exports.deleteFav = async (req, res, next) => {
 };
 
 /**
+ * Valider une FAV :
+ *  - Si issue d'un BLV (SourceBlvGuid) dont StockDecremente=true → pas de 2e décrémentation
+ *  - Si facture directe (sans BLV) → vérifie stock et décrémente
+ * PATCH /fav/:id/validate
+ */
+exports.validateFav = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+
+        const fav = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: FavDetail, as: 'details' }],
+            transaction,
+        });
+        if (!fav) {
+            await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
+        }
+        if (fav.Valid) {
+            await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Cette facture est déjà validée' });
+        }
+
+        let stockDecrement = false;
+        let skipStockMsg = null;
+
+        // Cas : FAV générée depuis un BLV déjà décrémenté → pas de 2e décrémentation
+        if (fav.SourceBlvGuid) {
+            const { BlvMaster } = require('../models');
+            const blvSource = await BlvMaster.findOne({ where: { Guid: fav.SourceBlvGuid }, transaction });
+            if (blvSource && blvSource.StockDecremente) {
+                skipStockMsg = `Stock non décrémenté (déjà effectué par BLV ${blvSource.Nf || fav.SourceBlvGuid})`;
+            } else {
+                stockDecrement = true;
+            }
+        } else {
+            stockDecrement = true; // Facture directe : décrémente le stock
+        }
+
+        if (stockDecrement) {
+            // Charger la configuration stock
+            const path = require('path');
+            const fs = require('fs').promises;
+            const CONFIG_FILE = path.join(__dirname, '../../data/stockConfig.json');
+            let config = { autoriserVenteHorsStock: false };
+            try {
+                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
+                config = { ...config, ...JSON.parse(raw) };
+            } catch { /* utilise les défauts */ }
+
+            const details = fav.details || [];
+            const stockUpdates = [];
+            const insuffisants = [];
+
+            for (const detail of details) {
+                const codArt = detail.CodArt;
+                const qteDemandee = parseFloat(detail.Qt) || 0;
+                if (!codArt || qteDemandee <= 0) continue;
+
+                const [stockRow] = await sequelize.query(
+                    'SELECT IDArt, Qte FROM TabStock WHERE CodArt = :codArt',
+                    { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+                );
+                const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+                const qteApres = qteActuelle - qteDemandee;
+
+                if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                    insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                } else {
+                    stockUpdates.push({ codArt, qteApres, qteActuelle, qteDemandee });
+                }
+            }
+
+            if (insuffisants.length > 0) {
+                await transaction.rollback();
+                return res.status(409).json({
+                    status: 'error',
+                    code: 'STOCK_INSUFFISANT',
+                    message: 'Impossible de valider : quantité insuffisante en stock.',
+                    insuffisants,
+                });
+            }
+
+            for (const upd of stockUpdates) {
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                    { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+                );
+            }
+
+            await sequelize.query(
+                `UPDATE TabFavm SET Valid = 1, DatUser = GETDATE(), StockDecremente = 1 WHERE Guid = :guid`,
+                { replacements: { guid: id }, transaction }
+            );
+        } else {
+            await sequelize.query(
+                `UPDATE TabFavm SET Valid = 1, DatUser = GETDATE() WHERE Guid = :guid`,
+                { replacements: { guid: id }, transaction }
+            );
+        }
+
+        await transaction.commit();
+
+        const result = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: FavDetail, as: 'details' }],
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: skipStockMsg || 'Facture validée. Stock décrémenté.',
+            doubleDecrementEvite: !!skipStockMsg,
+            data: result,
+        });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error validateFav:', error);
+        next(error);
+    }
+};
+
+/**
  * Récupérer les factures de l'utilisateur connecté (Client Portal)
  */
 exports.getMyFav = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
-        
-        // Système de filtrage centralisé (Module 7)
-        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '7',
-            req.query,
-            req.user
-        );
+
+        // Clients: filtrage direct par CodTiers sans passer par TabAWProfileAccess
+        const userRole = (req.user?.UserRole || '').toLowerCase().trim();
+        const isClient = ['client'].includes(userRole);
+
+        let where = {};
+        let limit = null;
+        let offset = 0;
+        let page = 1;
+
+        if (isClient) {
+            let codTiers = req.user.getDataValue('CodTiers');
+            if (!codTiers) {
+                const email = (req.user.EmailPro || '').toLowerCase().trim();
+                if (!email) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+                const rows = await sequelize.query(
+                    `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))`,
+                    { replacements: { email }, type: QueryTypes.SELECT }
+                );
+                codTiers = rows[0]?.CodTiers;
+            }
+            if (!codTiers) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+            where = { CodTiers: codTiers };
+        } else {
+            ({ where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination('7', req.query, req.user));
+        }
 
         const { count, rows } = await FavMaster.findAndCountAll({
             where,
@@ -461,16 +670,11 @@ exports.getMyFav = async (req, res, next) => {
                 ]
             }],
             order: [['DatUser', 'DESC']],
-            limit,
-            offset,
+            ...(limit !== null && { limit, offset }),
             tableHint: TableHints.NOLOCK
         });
 
-
-
-        res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
-        );
+        res.json(filterHelper.formatPaginatedResponse(rows, count, page, limit));
     } catch (error) {
         console.error('❌ Error getMyFav:', error);
         next(error);

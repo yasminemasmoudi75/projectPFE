@@ -29,7 +29,8 @@ const allowClientOrCreatePermission = (req, res, next) => {
 	(async () => {
 		const userId = req.user?.id || req.user?.UserID;
 		const access = await resolveUserAccess(userId, req.user?.UserRole);
-		if (access?.normalizedRole === 'client') return next();
+		// Clients and agents can always create claims
+		if (['client', 'agent'].includes(access?.normalizedRole)) return next();
 		return checkPermission(RECLAMATIONS_MODULE, 'create')(req, res, next);
 	})().catch((error) => {
 		return res.status(500).json({

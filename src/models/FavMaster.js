@@ -147,6 +147,17 @@ const FavMaster = sequelize.define('TabFavm', {
         type: DataTypes.STRING(10),
         allowNull: true,
         field: 'CodDev'
+    },
+    StockDecremente: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'StockDecremente'
+    },
+    SourceBlvGuid: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'SourceBlvGuid'
     }
 }, {
     tableName: 'TabFavm',

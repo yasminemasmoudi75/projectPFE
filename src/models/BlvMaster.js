@@ -157,6 +157,13 @@ const BlvMaster = sequelize.define('TabBlvm', {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: 'DesChauff'
+    },
+    // ── Règle métier : empêche la double décrémentation du stock
+    StockDecremente: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'StockDecremente'
     }
 }, {
     tableName: 'TabBlvm',

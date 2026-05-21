@@ -12,6 +12,7 @@ router.get('/my-invoices', checkPermission(MODULES.FACTURES, 'read'), favControl
 router.get('/', checkPermission(MODULES.FACTURES, 'read'), favController.getAllFav);
 router.get('/:id', checkPermission(MODULES.FACTURES, 'read'), favController.getFavById);
 router.post('/', checkPermission(MODULES.FACTURES, 'create'), favController.createFav);
+router.patch('/:id/validate', checkPermission(MODULES.FACTURES, 'update'), favController.validateFav);
 router.put('/:id', checkPermission(MODULES.FACTURES, 'update'), favController.updateFav);
 router.delete('/:id', checkPermission(MODULES.FACTURES, 'delete'), favController.deleteFav);
 

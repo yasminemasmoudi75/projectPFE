@@ -50,8 +50,8 @@ exports.protect = async (req, res, next) => {
             });
         }
 
-        const access = await resolveUserAccess(currentUser.UserID, currentUser.UserRole);
-        currentUser.setDataValue('UserRole', access.role);
+        const access = await resolveUserAccess(currentUser.UserID, decoded.role || currentUser.UserRole);
+        currentUser.setDataValue('UserRole', access.role ?? decoded.role ?? 'User');
 
         // If the user is a Client, look up their linked Tiers record and attach CodTiers
         const normalizedRole = normalizeRole(access.role);

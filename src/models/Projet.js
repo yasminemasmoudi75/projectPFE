@@ -102,6 +102,11 @@ const Projet = sequelize.define('Projet', {
     allowNull: true,
     field: 'Discreption'
   },
+  CodCom: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    field: 'CodCom'
+  },
   nf: {
     type: DataTypes.INTEGER,
     allowNull: true,

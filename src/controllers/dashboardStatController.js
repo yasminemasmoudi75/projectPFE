@@ -160,21 +160,41 @@ exports.getCommercialRecommendations = async (req, res) => {
  */
 exports.getGlobalSatisfaction = async (req, res) => {
   try {
-    // Calcul simplifié basé sur le ratio réclamations résolues / totales
-    const totalClaims = await Reclamation.count();
-    const resolvedClaims = await Reclamation.count({ 
-      where: { Statut: { [Op.in]: ['Résolu', 'Fermé', 'Clôturé'] } } 
-    });
+    const [totalClaims, resolvedClaims, inProgressClaims, openClaims] = await Promise.all([
+      Reclamation.count(),
+      Reclamation.count({ where: { Statut: { [Op.in]: ['Résolu', 'Fermé'] } } }),
+      Reclamation.count({ where: { Statut: 'En cours' } }),
+      Reclamation.count({ where: { Statut: 'Ouvert' } }),
+    ]);
 
-    const satisfactionRate = totalClaims > 0 ? (resolvedClaims / totalClaims) * 10 : 8.5; // Base de 8.5 si pas de data
-    
+    let score;
+    if (totalClaims === 0) {
+      score = 8.5; // Pas de réclamations = bonne baseline
+    } else {
+      // Résolu = 1 point, En cours = 0.5 point (pris en charge), Ouvert = 0
+      const weighted = ((resolvedClaims + inProgressClaims * 0.5) / totalClaims) * 10;
+      score = Math.min(10, Math.max(1, weighted));
+    }
+
+    const resolutionRate = totalClaims > 0
+      ? Math.round((resolvedClaims / totalClaims) * 100)
+      : 100;
+
+    const label = score >= 8 ? 'Excellente'
+                : score >= 6 ? 'Bonne'
+                : score >= 4 ? 'Moyenne'
+                : 'Critique';
+
     return res.json({
       status: 'success',
       data: {
-        score: parseFloat(satisfactionRate.toFixed(1)),
+        score: parseFloat(score.toFixed(1)),
         totalClaims,
         resolvedClaims,
-        label: satisfactionRate > 7 ? 'Excellente' : satisfactionRate > 5 ? 'Moyenne' : 'Critique'
+        inProgressClaims,
+        openClaims,
+        resolutionRate,
+        label
       }
     });
   } catch (error) {

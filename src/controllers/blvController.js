@@ -240,6 +240,61 @@ exports.createBlv = async (req, res, next) => {
             await BlvDetail.bulkCreate(detailsWithNf, { transaction });
         }
 
+        // ── Décrémentation automatique du stock à la création ──
+        if (details && details.length > 0) {
+            const pathMod = require('path');
+            const fs = require('fs').promises;
+            const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
+            let config = { autoriserVenteHorsStock: false };
+            try {
+                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
+                config = { ...config, ...JSON.parse(raw) };
+            } catch { /* use defaults */ }
+
+            const stockUpdates = [];
+            const insuffisants = [];
+
+            for (const detail of details) {
+                const codArt = detail.CodArt;
+                const qteDemandee = parseFloat(detail.Qt) || 0;
+                if (!codArt || qteDemandee <= 0) continue;
+
+                const [stockRow] = await sequelize.query(
+                    'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                    { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+                );
+                const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+
+                if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                    insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                } else {
+                    stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                }
+            }
+
+            if (insuffisants.length > 0) {
+                await transaction.rollback();
+                return res.status(409).json({
+                    status: 'error',
+                    code: 'STOCK_INSUFFISANT',
+                    message: 'Stock insuffisant pour créer ce bon de livraison.',
+                    insuffisants,
+                });
+            }
+
+            for (const upd of stockUpdates) {
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                    { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+                );
+            }
+
+            await sequelize.query(
+                'UPDATE TabBlvm SET StockDecremente = 1 WHERE Guid = :guid',
+                { replacements: { guid: newBlv.Guid }, transaction }
+            );
+        }
+
         await transaction.commit();
 
         // ✅ ENREGISTRER LA CRÉATION DANS MvtDocs
@@ -258,6 +313,21 @@ exports.createBlv = async (req, res, next) => {
           console.log(`✅ Mouvement enregistré: Création BLV #${newBlv.Nf} par utilisateur ${userId}`);
         } catch (mouvementError) {
           console.error('⚠️ Erreur enregistrement mouvement (non bloquant):', mouvementError.message);
+        }
+
+        // 🔔 Notification client + admins
+        try {
+          const { notifyDocumentCreated } = require('../utils/notificationUtils');
+          const { Tiers } = require('../models');
+          const userId = req.user?.id || req.user?.UserID;
+          const tiers = masterData.CodTiers
+            ? await Tiers.findOne({ where: { CodTiers: masterData.CodTiers } })
+            : null;
+          if (tiers) {
+            await notifyDocumentCreated('BLV', newBlv.Nf, tiers, userId, { totalTTC: masterData.TotTTC });
+          }
+        } catch (notifErr) {
+          console.error('⚠️ Erreur notification BLV (non bloquant):', notifErr.message);
         }
 
         const result = await BlvMaster.findOne({
@@ -369,18 +439,155 @@ exports.deleteBlv = async (req, res, next) => {
 };
 
 /**
+ * Valider un BLV : vérifie le stock, décrémente si autorisé, marque StockDecremente = true
+ * PATCH /blv/:id/validate
+ */
+exports.validateBlv = async (req, res, next) => {
+    let transaction;
+    try {
+        transaction = await sequelize.transaction();
+        const { id } = req.params;
+
+        const blv = await BlvMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: BlvDetail, as: 'details' }],
+            transaction,
+        });
+        if (!blv) {
+            await transaction.rollback();
+            return res.status(404).json({ status: 'error', message: 'BLV non trouvé' });
+        }
+        if (blv.Valid) {
+            await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Ce BLV est déjà validé' });
+        }
+        if (blv.StockDecremente) {
+            await transaction.rollback();
+            return res.status(400).json({ status: 'error', message: 'Le stock a déjà été décrémenté pour ce BLV' });
+        }
+
+        // Charger la configuration stock
+        const path = require('path');
+        const fs = require('fs').promises;
+        const CONFIG_FILE = path.join(__dirname, '../../data/stockConfig.json');
+        let config = { autoriserVenteHorsStock: false };
+        try {
+            const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
+            config = { ...config, ...JSON.parse(raw) };
+        } catch { /* utilise les défauts */ }
+
+        const details = blv.details || [];
+        const stockUpdates = [];
+        const insuffisants = [];
+
+        // Vérification de chaque article
+        for (const detail of details) {
+            const codArt = detail.CodArt;
+            const qteDemandee = parseFloat(detail.Qt) || 0;
+            if (!codArt || qteDemandee <= 0) continue;
+
+            const [stockRow] = await sequelize.query(
+                'SELECT IDArt, Qte FROM TabStock WHERE CodArt = :codArt',
+                { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+            );
+
+            const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+            const qteApres = qteActuelle - qteDemandee;
+
+            if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                insuffisants.push({
+                    codArt,
+                    libArt: detail.LibArt || codArt,
+                    stockActuel: qteActuelle,
+                    qteDemandee,
+                });
+            } else {
+                stockUpdates.push({ codArt, qteApres, qteActuelle, qteDemandee, idArt: stockRow?.IDArt });
+            }
+        }
+
+        if (insuffisants.length > 0) {
+            await transaction.rollback();
+            return res.status(409).json({
+                status: 'error',
+                code: 'STOCK_INSUFFISANT',
+                message: 'Impossible de valider : quantité insuffisante en stock.',
+                insuffisants,
+            });
+        }
+
+        // Appliquer les décrémentations
+        for (const upd of stockUpdates) {
+            await sequelize.query(
+                'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+            );
+        }
+
+        await sequelize.query(
+            `UPDATE TabBlvm SET Valid = 1, DatUser = GETDATE(), StockDecremente = 1 WHERE Guid = :guid`,
+            { replacements: { guid: id }, transaction }
+        );
+
+        await transaction.commit();
+
+        const result = await BlvMaster.findOne({
+            where: { Guid: id },
+            include: [{ model: BlvDetail, as: 'details' }],
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            message: insuffisants.length === 0
+                ? 'BLV validé. Stock décrémenté avec succès.'
+                : 'BLV validé avec stock négatif (hors stock autorisé).',
+            data: result,
+            stockUpdates: stockUpdates.map(u => ({
+                codArt: u.codArt,
+                avant: u.qteActuelle,
+                apres: u.qteApres,
+                quantite: u.qteDemandee,
+            })),
+        });
+    } catch (error) {
+        if (transaction && !transaction.finished) await transaction.rollback();
+        console.error('❌ Error validateBlv:', error);
+        next(error);
+    }
+};
+
+/**
  * Récupérer les bons de livraison de l'utilisateur connecté (Client Portal)
  */
 exports.getMyBlv = async (req, res, next) => {
     try {
         const filterHelper = require('../utils/filterHelper');
-        
-        // Utilisation du système de filtrage centralisé pour les clients aussi (Module 6)
-        const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-            '6',
-            req.query,
-            req.user
-        );
+
+        // Clients: filtrage direct par CodTiers sans passer par TabAWProfileAccess
+        const userRole = (req.user?.UserRole || '').toLowerCase().trim();
+        const isClient = ['client'].includes(userRole);
+
+        let where = {};
+        let limit = null;
+        let offset = 0;
+        let page = 1;
+
+        if (isClient) {
+            let codTiers = req.user.getDataValue('CodTiers');
+            if (!codTiers) {
+                const email = (req.user.EmailPro || '').toLowerCase().trim();
+                if (!email) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+                const rows = await sequelize.query(
+                    `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))`,
+                    { replacements: { email }, type: QueryTypes.SELECT }
+                );
+                codTiers = rows[0]?.CodTiers;
+            }
+            if (!codTiers) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+            where = { CodTiers: codTiers };
+        } else {
+            ({ where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination('6', req.query, req.user));
+        }
 
         const { count, rows } = await BlvMaster.findAndCountAll({
             where,
@@ -395,16 +602,11 @@ exports.getMyBlv = async (req, res, next) => {
                 ]
             }],
             order: [['DatUser', 'DESC']],
-            limit,
-            offset,
+            ...(limit !== null && { limit, offset }),
             tableHint: TableHints.NOLOCK
         });
 
-
-
-        res.json(
-            filterHelper.formatPaginatedResponse(rows, count, page, limit)
-        );
+        res.json(filterHelper.formatPaginatedResponse(rows, count, page, limit));
     } catch (error) {
         console.error('❌ Error getMyBlv:', error);
         next(error);

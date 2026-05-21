@@ -12,6 +12,7 @@ router.get('/my-deliveries', checkPermission(MODULES.LIVRAISONS, 'read'), blvCon
 router.get('/', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.getAllBlv);
 router.get('/:id', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.getBlvById);
 router.post('/', checkPermission(MODULES.LIVRAISONS, 'create'), blvController.createBlv);
+router.patch('/:id/validate', checkPermission(MODULES.LIVRAISONS, 'update'), blvController.validateBlv);
 router.put('/:id', checkPermission(MODULES.LIVRAISONS, 'update'), blvController.updateBlv);
 router.delete('/:id', checkPermission(MODULES.LIVRAISONS, 'delete'), blvController.deleteBlv);
 

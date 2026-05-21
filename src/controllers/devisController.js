@@ -563,7 +563,7 @@ exports.createDevis = async (req, res, next) => {
       console.log('📧 [DEBUG-MAIL-DEV] SMTP Config - USER:', process.env.EMAIL_USER);
 
       // Notif site
-      await notifyDocumentCreated('DEV', newDevis.Nf, selectedTier, userId);
+      await notifyDocumentCreated('DEV', newDevis.Nf, selectedTier, userId, { totalTTC: masterData.TotTTC });
 
       // Email client
       if (selectedTier.Email) {
@@ -951,8 +951,8 @@ exports.convertDevis = async (req, res, next) => {
       const emailService = require('../utils/emailService');
       const { User } = require('../models');
 
-      // Notif admins
-      await notifyDocumentCreated('BCV', nextNf, tiers, userId);
+      // Notif admins + client
+      await notifyDocumentCreated('BCV', nextNf, tiers, userId, { totalTTC: data.TotTTC });
 
       // Notif commercial (chercher par CodRepres du devis)
       if (data.CodRepres) {
@@ -1076,32 +1076,44 @@ exports.getMyDevis = async (req, res, next) => {
   try {
     const filterHelper = require('../utils/filterHelper');
 
-    // Utilisation du système de filtrage centralisé (Module 31)
-    const { where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination(
-      '31',
-      req.query,
-      req.user
-    );
+    // Clients: filtrage direct par CodTiers sans passer par TabAWProfileAccess
+    const userRole = (req.user?.UserRole || '').toLowerCase().trim();
+    const isClient = ['client'].includes(userRole);
 
-    const listWhere = {
-      [Op.and]: [where, { bTransf: false }]
-    };
+    let where = {};
+    let limit = null;
+    let offset = 0;
+    let page = 1;
+
+    if (isClient) {
+      let codTiers = req.user.getDataValue('CodTiers');
+      if (!codTiers) {
+        const email = (req.user.EmailPro || '').toLowerCase().trim();
+        if (!email) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+        const { QueryTypes: QT } = require('sequelize');
+        const tRows = await sequelize.query(
+          `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))`,
+          { replacements: { email }, type: QT.SELECT }
+        );
+        codTiers = tRows[0]?.CodTiers;
+      }
+      if (!codTiers) return res.json(filterHelper.formatPaginatedResponse([], 0, 1, null));
+      where = { CodTiers: codTiers };
+    } else {
+      ({ where, limit, offset, page } = await filterHelper.applyTableDrivenFiltersWithPagination('4', req.query, req.user));
+    }
 
     const { count, rows } = await DevisMaster.findAndCountAll({
-      where: listWhere,
+      where,
       include: [
         { model: Tiers, as: 'tiers', attributes: ['CodTiers', 'Raisoc', 'Email'] },
       ],
       order: [['DatUser', 'DESC']],
-      limit,
-      offset,
+      ...(limit !== null && { limit, offset }),
       tableHint: TableHints.NOLOCK
     });
 
-
-    res.json(
-      filterHelper.formatPaginatedResponse(rows, count, page, limit)
-    );
+    res.json(filterHelper.formatPaginatedResponse(rows, count, page, limit));
   } catch (error) {
     console.error('❌ Error getMyDevis:', error);
     next(error);
