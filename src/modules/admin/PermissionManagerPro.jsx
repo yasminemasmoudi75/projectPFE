@@ -8,6 +8,9 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
+/* modules exclus de l'interface (codes API) */
+const EXCLUDED_CODES = new Set([40, 41, 43, 44, 45, 47, 52]);
+
 /* colonnes permission affichées */
 const PERMS = [
   { key: 'isActive',  label: 'Accès'     },
@@ -100,6 +103,7 @@ const PermissionManagerPro = () => {
       });
       const dbModules = Object.entries(modMap)
         .map(([c, n]) => ({ code: Number(c), name: n }))
+        .filter(m => !EXCLUDED_CODES.has(m.code))
         .sort((a, b) => a.code - b.code);
 
       /* ── Build permissions matrix ── */

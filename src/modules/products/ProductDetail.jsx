@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ArrowLeftIcon, PencilSquareIcon, ArchiveBoxIcon, TagIcon,
+    ArrowLeftIcon, PencilSquareIcon, ArchiveBoxIcon,
     CurrencyDollarIcon, PhotoIcon, CubeIcon, BuildingStorefrontIcon,
-    SwatchIcon, ScaleIcon, CalendarIcon,
-    HashtagIcon, ChartBarIcon, ShoppingCartIcon, CheckCircleIcon,
-    ExclamationTriangleIcon, XCircleIcon,
+    ScaleIcon, CalendarIcon, HashtagIcon,
+    CheckCircleIcon, ExclamationTriangleIcon,
+    XCircleIcon, SwatchIcon, InformationCircleIcon,
+    MagnifyingGlassPlusIcon, TagIcon,
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -14,74 +15,65 @@ import axios from '../../app/axios';
 import { getImageUrl } from '../../utils/imageUrl';
 import useAuth from '../../hooks/useAuth';
 
-/* ── helpers ── */
 const num     = (v, fb = 0) => { const n = Number(v); return Number.isFinite(n) ? n : fb; };
 const fmtNum  = (v, d = 3)  => num(v).toLocaleString('fr-TN', { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtInt  = (v)          => num(v).toLocaleString('fr-TN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmtDate = (v) => {
-    if (!v) return '—';
+    if (!v) return null;
     const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-/* ── stock ── */
 const getStock = (qte, minStk) => {
-    if (qte <= 0)      return { label: 'Rupture',       Icon: XCircleIcon,            cls: 'text-red-500 bg-red-50 border-red-200',           dot: 'bg-red-400',     bar: 'from-red-300 to-red-400',           pct: 0 };
-    if (qte <= minStk) return { label: 'Stock faible',  Icon: ExclamationTriangleIcon, cls: 'text-amber-600 bg-amber-50 border-amber-200',      dot: 'bg-amber-400',   bar: 'from-amber-300 to-orange-300',      pct: Math.min(55, Math.round((qte / Math.max(minStk, 1)) * 55)) };
-    return                    { label: 'En stock',       Icon: CheckCircleIcon,         cls: 'text-emerald-600 bg-emerald-50 border-emerald-200', dot: 'bg-emerald-400', bar: 'from-emerald-300 to-teal-300',      pct: 100 };
+    if (qte <= 0)              return { label: 'Rupture de stock', Icon: XCircleIcon,             text: 'text-rose-500',   bg: 'bg-rose-50',   border: 'border-rose-200',   dot: 'bg-rose-400',    bar: 'from-rose-300 to-rose-400',     pct: 3   };
+    if (minStk > 0 && qte <= minStk) return { label: 'Stock faible',     Icon: ExclamationTriangleIcon, text: 'text-amber-500',  bg: 'bg-amber-50',  border: 'border-amber-200',  dot: 'bg-amber-400',   bar: 'from-amber-300 to-orange-300',  pct: Math.min(45, Math.round((qte / minStk) * 45)) };
+    return                             { label: 'En stock',             Icon: CheckCircleIcon,         text: 'text-teal-600',   bg: 'bg-teal-50',   border: 'border-teal-200',   dot: 'bg-teal-400',    bar: 'from-teal-300 to-cyan-300',     pct: 100 };
 };
-
-/* ── PriceCard ── */
-const PriceCard = ({ icon: Icon, label, value, sub, primary }) => (
-    <div className={`rounded-2xl border p-5 flex flex-col gap-1.5 transition-all ${primary
-        ? 'bg-indigo-50 border-indigo-200 shadow-sm'
-        : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'}`}>
-        <div className="flex items-center justify-between mb-1">
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${primary ? 'text-indigo-500' : 'text-slate-400'}`}>{label}</span>
-            <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${primary ? 'bg-indigo-100 border border-indigo-200' : 'bg-slate-50 border border-slate-200'}`}>
-                <Icon className={`h-3.5 w-3.5 ${primary ? 'text-indigo-500' : 'text-slate-400'}`} />
-            </span>
-        </div>
-        <p className={`text-xl font-black tabular-nums leading-none ${primary ? 'text-indigo-700' : 'text-slate-800'}`}>{value}</p>
-        {sub && <p className={`text-[11px] font-medium mt-0.5 ${primary ? 'text-indigo-400' : 'text-slate-400'}`}>{sub}</p>}
-    </div>
-);
 
 /* ── InfoRow ── */
-const InfoRow = ({ label, value, mono, accent }) => (
-    <div className="flex items-center justify-between gap-8 py-3 px-4 odd:bg-slate-50/50 rounded-xl">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex-none">{label}</span>
-        <span className={`text-xs font-semibold text-right ${mono ? 'font-mono' : ''} ${accent ? 'text-indigo-600' : 'text-slate-700'}`}>
-            {value || '—'}
-        </span>
+const InfoRow = ({ label, value, mono }) => (
+    <div className="grid grid-cols-[140px_1fr] items-start py-3 border-b border-slate-100 last:border-0 gap-3">
+        <span className="text-xs text-slate-400 font-medium pt-0.5 leading-snug">{label}</span>
+        {value != null && value !== '' ? (
+            <span className={`text-sm text-slate-700 font-medium text-right leading-snug ${mono ? 'font-mono text-xs bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-600 tracking-tight' : ''}`}>
+                {value}
+            </span>
+        ) : (
+            <span className="text-xs text-slate-300 italic text-right">—</span>
+        )}
     </div>
 );
 
-/* ── Card ── */
-const Card = ({ icon: Icon, title, accent, children }) => (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className={`flex items-center gap-2.5 px-4 py-3 border-b ${accent ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
-            {Icon && (
-                <span className={`h-6 w-6 rounded-lg flex items-center justify-center ${accent ? 'bg-indigo-100 border border-indigo-200' : 'bg-slate-100 border border-slate-200'}`}>
-                    <Icon className={`h-3.5 w-3.5 ${accent ? 'text-indigo-500' : 'text-slate-400'}`} />
-                </span>
-            )}
-            <span className={`text-[11px] font-bold uppercase tracking-widest ${accent ? 'text-indigo-600' : 'text-slate-500'}`}>{title}</span>
+/* ── SectionCard ── */
+const SectionCard = ({ title, icon: Icon, accent = 'bg-blue-400', children }) => (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex">
+        <div className={`w-1 shrink-0 ${accent}`} />
+        <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+                <Icon className="h-4 w-4 text-slate-400 shrink-0" />
+                <span className="text-sm font-semibold text-slate-600">{title}</span>
+            </div>
+            <div className="px-5 py-1">{children}</div>
         </div>
-        <div className="p-2">{children}</div>
     </div>
 );
 
-/* ── Tag ── */
-const Tag = ({ label, color = 'slate' }) => {
-    const c = { indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200', slate: 'bg-slate-100 text-slate-600 border-slate-200', sky: 'bg-sky-50 text-sky-700 border-sky-200' };
-    return <span className={`inline-flex items-center h-6 px-3 rounded-full text-[11px] font-semibold border ${c[color]}`}>{label}</span>;
-};
+/* ── PriceCard ── */
+const PriceCard = ({ label, value, unit, accent = 'bg-slate-200', textColor = 'text-slate-700' }) => (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className={`h-1 ${accent}`} />
+        <div className="px-4 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">{label}</p>
+            <p className={`text-xl font-bold tabular-nums leading-none ${textColor}`}>{value}</p>
+            <p className="text-xs text-slate-400 mt-1.5">{unit}</p>
+        </div>
+    </div>
+);
 
-/* ── Main ── */
+/* ══ Page ══ */
 const ProductDetail = () => {
-    const { id }     = useParams();
-    const navigate   = useNavigate();
+    const { id }       = useParams();
+    const navigate     = useNavigate();
     const { isClient } = useAuth();
 
     const [loading, setLoading]     = useState(true);
@@ -89,6 +81,7 @@ const ProductDetail = () => {
     const [variants, setVariants]   = useState([]);
     const [activeTab, setActiveTab] = useState('details');
     const [imgErr, setImgErr]       = useState(false);
+    const [imgZoom, setImgZoom]     = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -117,277 +110,414 @@ const ProductDetail = () => {
     const stock    = getStock(qte, minStk);
 
     const TABS = [
-        { id: 'details',  label: 'Informations', icon: TagIcon },
-        { id: 'variants', label: 'Variantes',    icon: SwatchIcon, count: variants.length },
+        { id: 'details',  label: 'Fiche produit', icon: InformationCircleIcon },
+        { id: 'variants', label: 'Variantes',      icon: SwatchIcon, count: variants.length },
     ];
 
     return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}
-            className="space-y-4 pb-16 max-w-6xl mx-auto">
-
-            {/* ── Nav bar ── */}
+        <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="max-w-5xl mx-auto pb-20 space-y-5"
+        >
+            {/* ── Top bar ── */}
             <div className="flex items-center justify-between">
-                <button onClick={() => navigate('/products')}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
-                    <ArrowLeftIcon className="h-4 w-4" /> Produits
+                <button
+                    onClick={() => navigate('/products')}
+                    className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors group"
+                >
+                    <span className="w-8 h-8 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center group-hover:border-slate-300 group-hover:bg-slate-50 transition-all">
+                        <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                    </span>
+                    Retour aux produits
                 </button>
                 {!isClient && (
-                    <button onClick={() => navigate(`/products/edit/${id}`)}
-                        className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold transition-colors shadow-sm shadow-indigo-100 active:scale-95">
-                        <PencilSquareIcon className="h-4 w-4" /> Modifier
+                    <button
+                        onClick={() => navigate(`/products/edit/${id}`)}
+                        className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold transition-all shadow-sm active:scale-95"
+                    >
+                        <PencilSquareIcon className="h-4 w-4" />
+                        Modifier
                     </button>
                 )}
             </div>
 
-            {/* ══════════════ HERO ══════════════ */}
-            <div className="rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                {/* Light gradient header */}
-                <div className="relative bg-gradient-to-br from-indigo-50 via-blue-50/60 to-white px-8 pt-8 pb-0 flex gap-8 items-end border-b border-slate-100">
-                    {/* decorative circles */}
-                    <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-indigo-100/40 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-                    <div className="absolute bottom-0 left-32 w-40 h-40 rounded-full bg-blue-100/30 translate-y-1/2 pointer-events-none" />
+            {/* ══ HERO ══ */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr]">
 
-                    {/* Image card floating up from the bottom */}
-                    <div className="relative flex-none w-44 h-44 rounded-2xl bg-white border-2 border-indigo-100 shadow-md overflow-hidden flex items-center justify-center translate-y-6 z-10">
+                    {/* ─ Image ─ */}
+                    <div
+                        className="relative flex flex-col items-center justify-center gap-5 min-h-[320px] p-8 cursor-pointer overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100"
+                        onClick={() => product.urlimg && !imgErr && setImgZoom(true)}
+                    >
+                        <div className="absolute inset-0 opacity-[0.035]"
+                            style={{ backgroundImage: 'radial-gradient(circle, #94a3b8 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
                         {product.urlimg && !imgErr ? (
-                            <motion.img initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                            <motion.img
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
                                 transition={{ duration: 0.4 }}
-                                src={getImageUrl(product.urlimg)} alt={product.LibArt}
+                                src={getImageUrl(product.urlimg)}
+                                alt={product.LibArt}
                                 onError={() => setImgErr(true)}
-                                className="w-full h-full object-contain p-2" />
+                                className="relative z-10 w-72 h-72 object-contain hover:scale-105 transition-transform duration-500 drop-shadow-lg"
+                            />
                         ) : (
-                            <div className="flex flex-col items-center gap-2">
-                                <PhotoIcon className="h-12 w-12 text-slate-300" />
-                                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Aucune image</span>
+                            <div className="relative z-10 flex flex-col items-center gap-3">
+                                <div className="w-28 h-28 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                                    <PhotoIcon className="h-14 w-14 text-slate-300" />
+                                </div>
+                                <span className="text-xs text-slate-400">Aucune image</span>
+                            </div>
+                        )}
+
+                        {/* Stock pill */}
+                        {!isClient && (
+                            <div className={`relative z-10 inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-1.5 rounded-full border ${stock.bg} ${stock.border} ${stock.text}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${stock.dot} animate-pulse`} />
+                                {stock.label}
+                            </div>
+                        )}
+
+                        {product.urlimg && !imgErr && (
+                            <div className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/80 border border-slate-200 shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                <MagnifyingGlassPlusIcon className="w-4 h-4 text-slate-400" />
                             </div>
                         )}
                     </div>
 
-                    {/* Text content */}
-                    <div className="pb-8 flex-1 min-w-0 space-y-3">
-                        {/* chips row */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 h-6 px-3 rounded-lg bg-indigo-100 text-indigo-600 text-[10px] font-bold font-mono border border-indigo-200">
-                                <HashtagIcon className="h-3 w-3 opacity-70" />{product.CodArt}
-                            </span>
-                            {product.Collection && (
-                                <span className="inline-flex items-center h-6 px-3 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold border border-blue-200">
-                                    {product.Collection}
-                                </span>
-                            )}
-                            {product.Marque && (
-                                <span className="inline-flex items-center h-6 px-3 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold border border-slate-200">
-                                    {product.Marque}
-                                </span>
-                            )}
-                            {!isClient && (
-                                <span className={`inline-flex items-center gap-1.5 h-6 px-3 rounded-full text-[10px] font-bold border ${stock.cls} ml-auto`}>
-                                    <span className={`h-1.5 w-1.5 rounded-full ${stock.dot} animate-pulse`} />
-                                    {stock.label}
-                                </span>
-                            )}
-                        </div>
-                        <h1 className="text-3xl font-black text-slate-800 leading-tight">{product.LibArt || '—'}</h1>
-                        {product.Description && (
-                            <p className="text-sm text-slate-500 leading-relaxed line-clamp-2 max-w-xl">{product.Description}</p>
-                        )}
-                        {/* meta tags */}
-                        <div className="flex flex-wrap items-center gap-3 pt-1">
-                            {product.LibFam  && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><CubeIcon className="h-3.5 w-3.5 text-indigo-400" />{product.LibFam}</span>}
-                            {product.LibFour && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><BuildingStorefrontIcon className="h-3.5 w-3.5 text-indigo-400" />{product.LibFour}</span>}
-                            {product.Unite   && <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><ScaleIcon className="h-3.5 w-3.5 text-indigo-400" />{product.Unite}</span>}
-                            {!isClient && qte > 0 && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600"><ArchiveBoxIcon className="h-3.5 w-3.5" />{fmtInt(qte)} en stock</span>}
-                        </div>
-                    </div>
-                </div>
+                    {/* ─ Info ─ */}
+                    <div className="p-7 flex flex-col gap-5">
 
-                {/* White bottom: pricing grid */}
-                <div className="bg-white px-8 pt-10 pb-6">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <PriceCard icon={CurrencyDollarIcon} label="Prix vente HT" value={`${fmtNum(product.PrixVente)} TND`} primary />
-                        <PriceCard icon={ShoppingCartIcon}   label="Prix achat HT" value={`${fmtNum(product.PrixAchat)} TND`} />
-                        <PriceCard icon={TagIcon}            label="TVA"           value={`${num(product.Tva, 0).toLocaleString('fr-TN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`} />
-                        {!isClient
-                            ? <PriceCard icon={ChartBarIcon} label="Marge brute" value={`${marge >= 0 ? '+' : ''}${fmtNum(marge, 2)} TND`} sub={`${margePct}% du prix de vente`} />
-                            : <PriceCard icon={CubeIcon}     label="Famille"     value={product.LibFam || '—'} />
-                        }
+                        {/* Type + code */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {product.CodArt && (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                    <HashtagIcon className="h-3 w-3 text-slate-400" />{product.CodArt}
+                                </span>
+                            )}
+                            {product.Collection && (
+                                <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">{product.Collection}</span>
+                            )}
+                            {product.LibFam && (
+                                <span className="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">{product.LibFam}</span>
+                            )}
+                        </div>
+
+                        {/* Titre */}
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 leading-snug">{product.LibArt || '—'}</h1>
+                            <div className="flex flex-wrap gap-3 mt-2.5">
+                                {product.LibFour && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                        <BuildingStorefrontIcon className="h-3.5 w-3.5" />{product.LibFour}
+                                    </span>
+                                )}
+                                {product.Unite && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                                        <ScaleIcon className="h-3.5 w-3.5" />{product.Unite}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {product.Description && (
+                            <p className="text-sm text-slate-400 leading-relaxed line-clamp-2 border-l-2 border-slate-200 pl-3">{product.Description}</p>
+                        )}
+
+                        <div className="border-t border-slate-100" />
+
+                        {/* Prix */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <PriceCard
+                                label="Prix vente HT"
+                                value={fmtNum(product.PrixVente)}
+                                unit="TND"
+                                accent="bg-blue-300"
+                                textColor="text-blue-700"
+                            />
+                            <PriceCard
+                                label="Prix achat HT"
+                                value={fmtNum(product.PrixAchat)}
+                                unit="TND"
+                                accent="bg-slate-200"
+                                textColor="text-slate-600"
+                            />
+                            <PriceCard
+                                label="TVA"
+                                value={`${num(product.Tva, 0).toLocaleString('fr-TN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
+                                unit="Taux appliqué"
+                                accent="bg-teal-300"
+                                textColor="text-teal-700"
+                            />
+                            {!isClient ? (
+                                <PriceCard
+                                    label="Marge brute"
+                                    value={`${marge >= 0 ? '+' : ''}${fmtNum(marge, 2)}`}
+                                    unit={`${margePct}% du PV`}
+                                    accent={marge >= 0 ? 'bg-emerald-300' : 'bg-rose-300'}
+                                    textColor={marge >= 0 ? 'text-emerald-700' : 'text-rose-600'}
+                                />
+                            ) : (
+                                <PriceCard
+                                    label="Famille"
+                                    value={product.LibFam || '—'}
+                                    unit="Catégorie"
+                                    accent="bg-slate-200"
+                                    textColor="text-slate-600"
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Stock bar (admin) ── */}
+            {/* ── Stock ── */}
             {!isClient && (
-                <div className="bg-white rounded-2xl border border-slate-200 px-6 py-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                            <span className={`h-9 w-9 rounded-xl flex items-center justify-center border ${stock.cls}`}>
-                                <stock.Icon className="h-4.5 w-4.5" style={{ height: '1.1rem', width: '1.1rem' }} />
-                            </span>
-                            <div>
-                                <p className="text-sm font-bold text-slate-700">{stock.label}</p>
-                                <p className="text-[11px] text-slate-400">Seuil min. : <span className="font-semibold text-slate-600">{fmtInt(minStk)}</span> {product.Unite || 'u.'}</p>
+                <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex"
+                >
+                    <div className={`w-1 shrink-0 bg-gradient-to-b ${stock.bar}`} />
+                    <div className="flex-1 px-6 py-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${stock.bg} ${stock.border}`}>
+                                    <stock.Icon className={`h-5 w-5 ${stock.text}`} />
+                                </div>
+                                <div>
+                                    <p className={`text-sm font-semibold ${stock.text}`}>{stock.label}</p>
+                                    {minStk > 0 && (
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            Seuil minimum : <span className="font-semibold text-slate-500">{fmtInt(minStk)} {product.Unite || 'u.'}</span>
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-4xl font-black text-slate-800 tabular-nums leading-none">{fmtInt(qte)}</p>
+                                <p className="text-xs text-slate-400 mt-1 font-medium">{product.Unite || 'unités'} disponibles</p>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-3xl font-black text-slate-800 tabular-nums leading-none">{fmtInt(qte)}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">{product.Unite || 'unités'} disponibles</p>
-                        </div>
+                        {minStk > 0 && (
+                            <>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${stock.pct}%` }}
+                                        transition={{ duration: 1.2, ease: [0.34, 1.56, 0.64, 1] }}
+                                        className={`h-full rounded-full bg-gradient-to-r ${stock.bar}`}
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-1.5">
+                                    <span className="text-[10px] text-slate-400">0</span>
+                                    <span className="text-[10px] text-slate-400">Seuil : {fmtInt(minStk)}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${stock.pct}%` }}
-                            transition={{ duration: 1.3, ease: [0.34, 1.4, 0.64, 1] }}
-                            className={`h-full rounded-full bg-gradient-to-r ${stock.bar}`} />
-                    </div>
-                </div>
+                </motion.div>
             )}
 
             {/* ── Tabs ── */}
-            <div className="flex items-center gap-1 border-b border-slate-200 pb-0">
+            <div className="flex items-center gap-1 bg-slate-100/70 p-1 rounded-xl w-fit border border-slate-200/60">
                 {TABS.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`relative inline-flex items-center gap-2 h-10 px-5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                    <button
+                        key={t.id}
+                        onClick={() => setActiveTab(t.id)}
+                        className={`inline-flex items-center gap-2 h-8 px-4 rounded-lg text-sm font-semibold transition-all ${
                             activeTab === t.id
-                                ? 'text-indigo-600 border-indigo-500'
-                                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
-                        }`}>
+                                ? 'bg-white text-slate-700 shadow-sm border border-slate-200/60'
+                                : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
                         <t.icon className="h-4 w-4" />
                         {t.label}
                         {t.count !== undefined && (
-                            <span className={`inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold ${
-                                activeTab === t.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                            <span className={`h-5 min-w-[20px] px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center ${
+                                activeTab === t.id ? 'bg-slate-100 text-slate-500' : 'bg-slate-200 text-slate-400'
                             }`}>{t.count}</span>
                         )}
                     </button>
                 ))}
             </div>
 
-            {/* ── Tab content ── */}
+            {/* ── Contenu onglets ── */}
             <AnimatePresence mode="wait">
 
-                {/* Details tab */}
                 {activeTab === 'details' && (
-                    <motion.div key="details" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-                        <Card icon={HashtagIcon} title="Identification">
-                            <InfoRow label="Code article"  value={product.CodArt}   mono accent />
+                    <motion.div key="details"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.16 }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                    >
+                        <SectionCard title="Identification" icon={HashtagIcon} accent="bg-blue-300">
+                            <InfoRow label="Code article"  value={product.CodArt}    mono />
                             <InfoRow label="Désignation"   value={product.LibArt} />
                             <InfoRow label="Collection"    value={product.Collection} />
                             <InfoRow label="Marque"        value={product.Marque} />
                             <InfoRow label="Famille"       value={product.LibFam} />
                             <InfoRow label="Fournisseur"   value={product.LibFour} />
                             <InfoRow label="Unité"         value={product.Unite} />
-                            <InfoRow label="ID interne"    value={product.IDArt}    mono />
-                        </Card>
+                            <InfoRow label="ID interne"    value={product.IDArt}     mono />
+                        </SectionCard>
 
-                        <Card icon={CurrencyDollarIcon} title="Tarification" accent>
-                            <InfoRow label="Prix vente HT" value={`${fmtNum(product.PrixVente)} TND`} accent />
-                            <InfoRow label="Prix achat HT" value={`${fmtNum(product.PrixAchat)} TND`} />
-                            <InfoRow label="TVA"           value={`${num(product.Tva, 0).toLocaleString('fr-TN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`} />
-                            {!isClient && <>
-                                <InfoRow label="Marge brute"  value={`${marge >= 0 ? '+' : ''}${fmtNum(marge, 2)} TND`} accent />
-                                <InfoRow label="Marge %"      value={`${margePct}%`} accent />
-                            </>}
-                        </Card>
+                        <div className="flex flex-col gap-4">
+                            <SectionCard title="Tarification" icon={CurrencyDollarIcon} accent="bg-teal-300">
+                                <InfoRow label="Prix vente HT" value={`${fmtNum(product.PrixVente)} TND`} />
+                                <InfoRow label="Prix achat HT" value={`${fmtNum(product.PrixAchat)} TND`} />
+                                <InfoRow label="TVA"           value={`${num(product.Tva, 0).toLocaleString('fr-TN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`} />
+                                {!isClient && (
+                                    <>
+                                        <InfoRow label="Marge brute" value={`${marge >= 0 ? '+' : ''}${fmtNum(marge, 2)} TND`} />
+                                        <InfoRow label="Marge %"     value={`${margePct}%`} />
+                                    </>
+                                )}
+                            </SectionCard>
 
-                        {!isClient && (
-                            <Card icon={ArchiveBoxIcon} title="Stock">
-                                <InfoRow label="Quantité disponible" value={fmtInt(product.Qte)} />
-                                <InfoRow label="Seuil minimal"       value={fmtInt(product.MinStk)} />
-                                <InfoRow label="Statut"              value={stock.label} />
-                            </Card>
-                        )}
+                            {!isClient && (
+                                <SectionCard title="Stock" icon={ArchiveBoxIcon} accent="bg-amber-300">
+                                    <InfoRow label="Quantité disponible" value={fmtInt(product.Qte)} />
+                                    <InfoRow label="Seuil minimal"       value={minStk > 0 ? fmtInt(minStk) : null} />
+                                    <InfoRow label="Statut"              value={stock.label} />
+                                </SectionCard>
+                            )}
 
-                        <Card icon={CalendarIcon} title="Dates">
-                            <InfoRow label="Créé le"          value={fmtDate(product.DateUser)} />
-                            <InfoRow label="Dernière MAJ"     value={fmtDate(product.LastDateUpdate)} />
-                            <InfoRow label="Modifié le"       value={fmtDate(product.DateUpdate)} />
-                        </Card>
+                            <SectionCard title="Dates & Historique" icon={CalendarIcon} accent="bg-violet-300">
+                                {fmtDate(product.DateUser) && (
+                                    <InfoRow label="Créé le" value={fmtDate(product.DateUser)} />
+                                )}
+                                {fmtDate(product.LastDateUpdate) && (
+                                    <InfoRow label="Dernière MAJ" value={fmtDate(product.LastDateUpdate)} />
+                                )}
+                                {fmtDate(product.DateUpdate) && fmtDate(product.DateUpdate) !== fmtDate(product.LastDateUpdate) && (
+                                    <InfoRow label="Modifié le" value={fmtDate(product.DateUpdate)} />
+                                )}
+                                {!fmtDate(product.DateUser) && !fmtDate(product.LastDateUpdate) && !fmtDate(product.DateUpdate) && (
+                                    <p className="text-xs text-slate-300 italic py-3">Aucune date disponible</p>
+                                )}
+                            </SectionCard>
+                        </div>
 
                         {product.Description && (
-                            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Description</p>
-                                <p className="text-sm text-slate-600 leading-relaxed border-l-4 border-indigo-200 pl-4">{product.Description}</p>
-                            </div>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.15 }}
+                                className="lg:col-span-2 bg-slate-50/60 rounded-2xl border border-slate-200/70 px-6 py-5"
+                            >
+                                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Description</p>
+                                <p className="text-sm text-slate-500 leading-relaxed">{product.Description}</p>
+                            </motion.div>
                         )}
                     </motion.div>
                 )}
 
-                {/* Variants tab */}
                 {activeTab === 'variants' && (
-                    <motion.div key="variants" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <motion.div key="variants"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.16 }}
+                    >
+                        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
                             {variants.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-24 gap-4">
-                                    <div className="h-20 w-20 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center">
-                                        <SwatchIcon className="h-9 w-9 text-slate-300" />
+                                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                    <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+                                        <SwatchIcon className="h-8 w-8 text-slate-300" />
                                     </div>
-                                    <div className="text-center">
-                                        <p className="font-semibold text-slate-500">Aucune variante</p>
-                                        <p className="text-sm text-slate-400 mt-1">Les variantes couleur / taille apparaîtront ici.</p>
-                                    </div>
+                                    <p className="text-sm font-medium text-slate-400">Aucune variante disponible</p>
+                                    <p className="text-xs text-slate-300">Ce produit n'a pas de variantes configurées</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-100">
-                                                {['#', 'Code', 'Couleur', 'Désignation', 'Taille', 'Qté'].map((h, i) => (
-                                                    <th key={h} className={`px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {variants.map((row, idx) => {
-                                                const qty = num(row.Qte);
-                                                const qBadge = qty === 0
-                                                    ? 'bg-red-50 text-red-500 border-red-200'
-                                                    : qty <= 5
-                                                        ? 'bg-amber-50 text-amber-600 border-amber-200'
-                                                        : 'bg-emerald-50 text-emerald-600 border-emerald-200';
-                                                return (
-                                                    <motion.tr key={row.ID || `${row.CodArtD}-${row.CodColor}-${row.CodTaille}`}
-                                                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: idx * 0.035, duration: 0.18 }}
-                                                        className="border-b border-slate-50 hover:bg-indigo-50/30 transition-colors group">
-                                                        <td className="px-5 py-4">
-                                                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-bold group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                                                                {idx + 1}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-5 py-4">
-                                                            <code className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">{row.CodArtD || '—'}</code>
-                                                        </td>
-                                                        <td className="px-5 py-4">
-                                                            {row.CodColor ? (
-                                                                <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
-                                                                    <span className="h-4 w-4 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200 flex-none"
-                                                                        style={{ backgroundColor: row.HexColor || '#cbd5e1' }} />
-                                                                    {row.CodColor}
-                                                                </span>
-                                                            ) : <span className="text-slate-300 text-xs">—</span>}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-xs text-slate-600 max-w-[180px] truncate">{row.DesColor || '—'}</td>
-                                                        <td className="px-5 py-4">
-                                                            {row.Taille
-                                                                ? <span className="inline-flex items-center justify-center h-6 min-w-[28px] px-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold">{row.Taille}</span>
-                                                                : <span className="text-slate-300 text-xs">—</span>}
-                                                        </td>
-                                                        <td className="px-5 py-4 text-right">
-                                                            <span className={`inline-flex items-center justify-center h-6 min-w-[36px] px-2.5 rounded-lg border text-[11px] font-bold tabular-nums ${qBadge}`}>
-                                                                {fmtInt(qty)}
-                                                            </span>
-                                                        </td>
-                                                    </motion.tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <>
+                                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                                        <SwatchIcon className="h-4 w-4 text-slate-400" />
+                                        <span className="text-sm font-semibold text-slate-600">{variants.length} variante{variants.length > 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-slate-100 bg-slate-50/60">
+                                                    {['#', 'Code', 'Couleur', 'Désignation', 'Taille', 'Qté'].map((h, i) => (
+                                                        <th key={h} className={`px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {variants.map((row, idx) => {
+                                                    const qty  = num(row.Qte);
+                                                    const qCls = qty === 0 ? 'text-rose-500 bg-rose-50 border-rose-200' : qty <= 5 ? 'text-amber-500 bg-amber-50 border-amber-200' : 'text-teal-600 bg-teal-50 border-teal-200';
+                                                    return (
+                                                        <motion.tr
+                                                            key={row.ID || idx}
+                                                            initial={{ opacity: 0, x: -4 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            transition={{ delay: idx * 0.04 }}
+                                                            className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors"
+                                                        >
+                                                            <td className="px-5 py-3.5">
+                                                                <span className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">{idx + 1}</span>
+                                                            </td>
+                                                            <td className="px-5 py-3.5">
+                                                                <code className="text-xs font-semibold font-mono text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">{row.CodArtD || '—'}</code>
+                                                            </td>
+                                                            <td className="px-5 py-3.5">
+                                                                {row.CodColor ? (
+                                                                    <span className="flex items-center gap-2 text-xs text-slate-600">
+                                                                        <span className="w-5 h-5 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200 shrink-0" style={{ backgroundColor: row.HexColor || '#cbd5e1' }} />
+                                                                        {row.CodColor}
+                                                                    </span>
+                                                                ) : <span className="text-slate-300 text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-5 py-3.5 text-xs text-slate-600 max-w-[160px] truncate">{row.DesColor || '—'}</td>
+                                                            <td className="px-5 py-3.5">
+                                                                {row.Taille ? <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg">{row.Taille}</span> : <span className="text-slate-300 text-xs">—</span>}
+                                                            </td>
+                                                            <td className="px-5 py-3.5 text-right">
+                                                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border tabular-nums ${qCls}`}>{fmtInt(qty)}</span>
+                                                            </td>
+                                                        </motion.tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
                             )}
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Lightbox ── */}
+            <AnimatePresence>
+                {imgZoom && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setImgZoom(false)}
+                        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-8 cursor-zoom-out"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.85, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+                            className="bg-white rounded-3xl shadow-2xl p-8 max-w-lg"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <img src={getImageUrl(product.urlimg)} alt={product.LibArt} className="max-w-full max-h-[65vh] object-contain" />
+                            <p className="text-center text-sm text-slate-400 mt-4 font-medium">{product.LibArt}</p>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

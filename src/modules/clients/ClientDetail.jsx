@@ -49,6 +49,8 @@ const ClientDetail = () => {
         location: false,
         metadata: false,
     });
+    const [clientDevis, setClientDevis] = useState([]);
+    const [loadingDevis, setLoadingDevis] = useState(false);
     const [satisfaction, setSatisfaction] = useState(null);
     const [loadingSatisfaction, setLoadingSatisfaction] = useState(false);
 
@@ -144,6 +146,26 @@ const ClientDetail = () => {
 
         fetchClientProjets();
     }, [client?.IDTiers]);
+
+    // Charger les devis liés à ce client
+    useEffect(() => {
+        const fetchClientDevis = async () => {
+            if (!client?.CodTiers) return;
+            setLoadingDevis(true);
+            try {
+                const response = await axios.get('/devis', {
+                    params: { codTiers: client.CodTiers, limit: 50 },
+                });
+                const data = response.data?.data || response.data || [];
+                setClientDevis(Array.isArray(data) ? data : []);
+            } catch {
+                setClientDevis([]);
+            } finally {
+                setLoadingDevis(false);
+            }
+        };
+        fetchClientDevis();
+    }, [client?.CodTiers]);
 
     // Charger la satisfaction IA
     useEffect(() => {
@@ -421,13 +443,6 @@ const ClientDetail = () => {
                             Modifier
                         </button>
                         <button
-                            onClick={() => navigate(`/clients/${id}/reglements`)}
-                            className="px-5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-all flex items-center gap-2"
-                        >
-                            <BanknotesIcon className="h-4 w-4" />
-                            Règlements
-                        </button>
-                        <button
                             onClick={() => navigate('/devis/new')}
                             className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
                         >
@@ -585,11 +600,12 @@ const ClientDetail = () => {
                         <div className="border-b border-slate-200 bg-slate-50/50 px-6">
                             <div className="flex gap-1">
                                 {[
-                                    { id: 'infos', label: 'Infos Complètes' },
+                                    { id: 'infos',      label: 'Infos Complètes'  },
                                     { id: 'activities', label: 'Journal Activités' },
-                                    { id: 'devis', label: 'Documents Devis' },
-                                    { id: 'projets', label: 'Suivi Projets' },
-                                    { id: 'ia', label: 'Satisfaction & IA' },
+                                    { id: 'devis',      label: 'Documents Devis'  },
+                                    { id: 'projets',    label: 'Suivi Projets'    },
+                                    { id: 'ia',         label: 'Satisfaction & IA'},
+                                    { id: 'reglements', label: 'Règlements'       },
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
@@ -719,34 +735,61 @@ const ClientDetail = () => {
                             )}
 
                             {activeTab === 'devis' && (
-                                <div className="space-y-4">
-                                    {client.DevisRecents?.length > 0 ? (
-                                        client.DevisRecents.map((devis) => (
-                                            <div key={devis.id} className="flex items-center justify-between p-5 rounded-2xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-soft transition-all group cursor-pointer">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-11 w-11 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-gradient-blue group-hover:text-white transition-all">
-                                                        <DocumentTextIcon className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-extrabold text-slate-800 tracking-tight font-mono">{devis.id}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{formatDate(devis.date)}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-6">
-                                                    <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider ${devis.statut === 'Validé' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                                                        }`}>
-                                                        {devis.statut}
-                                                    </span>
-                                                    <span className="text-sm font-black text-slate-800 w-28 text-right">{devis.montant.toLocaleString()} TND</span>
-                                                    <div className="p-2 text-slate-300 group-hover:text-blue-600 transition-colors">
-                                                        <ArrowUpRightIcon className="h-5 w-5" />
-                                                    </div>
-                                                </div>
+                                <div className="space-y-3">
+                                    {loadingDevis ? (
+                                        <div className="flex justify-center py-10 text-sm text-slate-400">
+                                            Chargement des documents…
+                                        </div>
+                                    ) : clientDevis.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                                            <div className="h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                                                <DocumentTextIcon className="h-7 w-7 text-slate-300" />
                                             </div>
-                                        ))
+                                            <p className="text-sm font-medium text-slate-500">Aucun document</p>
+                                            <p className="text-xs text-slate-400 mt-1">Aucun devis ou facture trouvé pour ce client</p>
+                                        </div>
                                     ) : (
-                                        <p className="text-center py-20 text-slate-300 font-bold uppercase text-[10px] tracking-widest">Aucun document financier</p>
+                                        clientDevis.map((devis) => {
+                                            const ref = devis.NumDevis || devis.Num || devis.id || '—';
+                                            const date = devis.DateDevis || devis.Date || devis.date;
+                                            const montant = Number(devis.MontantTTC || devis.montant || 0);
+                                            const statut = devis.Statut || devis.statut || '—';
+                                            const isValide = statut === 'Validé' || statut === 'Accepté';
+                                            return (
+                                                <div
+                                                    key={devis.IDDevis || devis.id || ref}
+                                                    onClick={() => navigate(`/devis/${devis.IDDevis || devis.id}`)}
+                                                    className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-200 hover:border-sky-300 hover:shadow-md transition-all group cursor-pointer"
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-11 w-11 bg-slate-50 rounded-xl flex items-center justify-center text-sky-600 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                                                            <DocumentTextIcon className="h-5 w-5" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-800 font-mono">{ref}</p>
+                                                            <p className="text-xs text-slate-400">{date ? formatDate(date) : '—'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${isValide ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {statut}
+                                                        </span>
+                                                        <span className="text-sm font-bold text-slate-800 tabular-nums w-28 text-right">
+                                                            {montant.toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND
+                                                        </span>
+                                                        <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/devis/new', { state: { defaultTierId: client.IDTiers, defaultCodTiers: client.CodTiers } })}
+                                        className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-500 hover:border-sky-300 hover:text-sky-600 transition-all"
+                                    >
+                                        + Créer un nouveau devis
+                                    </button>
                                 </div>
                             )}
 
@@ -804,153 +847,185 @@ const ClientDetail = () => {
                                             </div>
                                         ))
                                     )}
-                                    {activeTab === 'ia' && (
-                                        <div className="animate-fade-in space-y-8 p-2">
-                                            {loadingSatisfaction ? (
-                                                <div className="py-32 flex flex-col items-center justify-center space-y-4">
-                                                    <div className="relative h-20 w-20">
-                                                        <div className="absolute inset-0 border-4 border-sky-100 rounded-full"></div>
-                                                        <div className="absolute inset-0 border-4 border-sky-500 rounded-full border-t-transparent animate-spin"></div>
-                                                        <SparklesIcon className="absolute inset-0 m-auto h-8 w-8 text-sky-400 animate-pulse" />
+                                </div>
+                            )}
+
+                            {activeTab === 'ia' && (
+                                <div className="space-y-5">
+
+                                    {/* ── Loading ── */}
+                                    {loadingSatisfaction && (
+                                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                            <div className="h-10 w-10 rounded-full border-[3px] border-sky-600 border-t-transparent animate-spin" />
+                                            <div className="text-center">
+                                                <p className="text-sm font-semibold text-slate-700">Analyse IA en cours…</p>
+                                                <p className="text-xs text-slate-400 mt-1">Calcul du score de satisfaction client</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── No data ── */}
+                                    {!loadingSatisfaction && !satisfaction && (
+                                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                                            <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                                                <ChartBarIcon className="h-7 w-7 text-slate-300" />
+                                            </div>
+                                            <p className="text-sm font-semibold text-slate-500">Analyse non disponible</p>
+                                            <p className="text-xs text-slate-400 mt-1">Aucune donnée d'interaction suffisante pour ce profil</p>
+                                        </div>
+                                    )}
+
+                                    {/* ── Main content ── */}
+                                    {!loadingSatisfaction && satisfaction && (() => {
+                                        const score = satisfaction.isProspect ? null : (satisfaction.score ?? 0);
+                                        const scoreColor = score === null ? 'slate' : score >= 8 ? 'emerald' : score >= 5 ? 'amber' : 'rose';
+                                        const scoreLabel = score === null ? 'Prospect' : score >= 8 ? 'Excellent' : score >= 5 ? 'Satisfaisant' : 'À risque';
+                                        const circumference = 2 * Math.PI * 54; // r=54
+                                        const offset = circumference - (circumference * (score !== null ? score / 10 : 0));
+                                        const colorMap = {
+                                            slate:   { ring: '#94a3b8', bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-slate-200',  badge: 'bg-slate-100 text-slate-600'   },
+                                            emerald: { ring: '#10b981', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700' },
+                                            amber:   { ring: '#f59e0b', bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   badge: 'bg-amber-100 text-amber-700'   },
+                                            rose:    { ring: '#f43f5e', bg: 'bg-rose-50',     text: 'text-rose-700',    border: 'border-rose-200',    badge: 'bg-rose-100 text-rose-700'     },
+                                        };
+                                        const c = colorMap[scoreColor];
+
+                                        return (
+                                            <>
+                                            {/* ── Header banner ── */}
+                                            <div className="flex items-center justify-between px-5 py-4 rounded-xl bg-slate-50 border border-slate-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-9 w-9 rounded-xl bg-sky-100 flex items-center justify-center">
+                                                        <SparklesIcon className="h-5 w-5 text-sky-600" />
                                                     </div>
-                                                    <div className="text-center">
-                                                        <p className="text-slate-800 font-bold text-lg">Analyse Cognitive en cours</p>
-                                                        <p className="text-slate-500 text-sm">Le moteur IA ausculte les échanges et l'historique...</p>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-800">Analyse Satisfaction Client</p>
+                                                        <p className="text-xs text-slate-400">Moteur IA · version {satisfaction.version || '2.3'} · {new Date().toLocaleDateString('fr-FR')}</p>
                                                     </div>
                                                 </div>
-                                            ) : !satisfaction ? (
-                                                <div className="card-luxury p-20 text-center border-dashed border-2 border-slate-200">
-                                                    <ChartBarIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                                                    <p className="text-slate-500 font-medium">Données d'analyse non disponibles pour ce profil.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                                                    {/* Left Column: Score Visualization */}
-                                                    <div className="lg:col-span-4 flex flex-col items-center justify-center bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50">
-                                                        <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8 text-center">Satisfaction Globale (NPS)</h4>
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${c.badge} ${c.border}`}>
+                                                    <span className={`h-1.5 w-1.5 rounded-full ${scoreColor === 'emerald' ? 'bg-emerald-500' : scoreColor === 'amber' ? 'bg-amber-500' : scoreColor === 'rose' ? 'bg-rose-500' : 'bg-slate-400'}`} />
+                                                    {scoreLabel}
+                                                </span>
+                                            </div>
 
-                                                        <div className="relative h-48 w-48 flex items-center justify-center">
-                                                            {/* SVG Progress Ring */}
-                                                            <svg className="h-full w-full transform -rotate-90">
-                                                                <circle
-                                                                    cx="96" cy="96" r="88"
-                                                                    fill="transparent"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="12"
-                                                                    className="text-slate-50"
-                                                                />
-                                                                <circle
-                                                                    cx="96" cy="96" r="88"
-                                                                    fill="transparent"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="12"
-                                                                    strokeDasharray={552.92}
-                                                                    strokeDashoffset={552.92 - (552.92 * (satisfaction.isProspect ? 0 : (satisfaction.score || 0) / 10))}
-                                                                    strokeLinecap="round"
-                                                                    className={`transition-all duration-1000 ease-out ${satisfaction.isProspect ? 'text-slate-300' :
-                                                                        satisfaction.score >= 8 ? 'text-emerald-500' :
-                                                                            satisfaction.score >= 5 ? 'text-amber-500' : 'text-rose-500'
-                                                                        }`}
-                                                                />
-                                                            </svg>
-                                                            <div className="absolute flex flex-col items-center">
-                                                                {satisfaction.isProspect ? (
-                                                                    <span className="text-2xl font-black text-slate-400">N/A</span>
-                                                                ) : (
-                                                                    <>
-                                                                        <span className="text-5xl font-black text-slate-800 tracking-tighter">
-                                                                            {satisfaction.score ?? 0}
-                                                                        </span>
-                                                                        <span className="text-xs font-bold text-slate-400 mt-1 uppercase">Sur 10</span>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                            {/* ── Score + Metrics ── */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-5">
 
-                                                        <div className="mt-8 text-center space-y-2">
-                                                            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${satisfaction.isProspect ? 'bg-slate-100 text-slate-600' :
-                                                                satisfaction.score >= 8 ? 'bg-emerald-50 text-emerald-700' :
-                                                                    satisfaction.score >= 5 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'
-                                                                }`}>
-                                                                <SparklesIcon className="h-4 w-4" />
-                                                                {satisfaction.isProspect ? 'Compte Prospect' :
-                                                                    satisfaction.score >= 8 ? 'Excellent Engagement' :
-                                                                        satisfaction.score >= 5 ? 'Relation Stable' : 'Alerte Satisfaction'}
-                                                            </div>
-                                                            <p className="text-[10px] text-slate-400 font-medium italic">
-                                                                Moteur Analytics v{satisfaction.version || '2.3'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Right Column: Breakdown & Recommendations */}
-                                                    <div className="lg:col-span-8 space-y-6">
-                                                        <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative">
-                                                            <div className="relative z-10 flex items-center justify-between">
-                                                                <div>
-                                                                    <h3 className="text-lg font-bold flex items-center gap-2">
-                                                                        Synthèse Cognitive
-                                                                    </h3>
-                                                                    <p className="text-slate-400 text-sm mt-1">
-                                                                        {satisfaction.isProspect ?
-                                                                            "Profil en cours de constitution. Historique insuffisant pour une analyse prédictive." :
-                                                                            "Voici les leviers identifiés par l'IA sur la base de l'interaction client."}
-                                                                    </p>
-                                                                </div>
-                                                                <div className="h-12 w-12 bg-white/10 rounded-2xl backdrop-blur-md flex items-center justify-center border border-white/20">
-                                                                    <DocumentTextIcon className="h-6 w-6 text-sky-400" />
-                                                                </div>
-                                                            </div>
-                                                            {/* Background Glow */}
-                                                            <div className="absolute -top-20 -right-20 h-64 w-64 bg-sky-500/20 blur-[100px] rounded-full"></div>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            {(satisfaction.factors || []).map((factor, idx) => {
-                                                                const isPositive = factor.impact >= 0;
-                                                                return (
-                                                                    <div key={idx} className="group hover:scale-[1.02] transition-all duration-300">
-                                                                        <div className={`h-full p-5 rounded-3xl border ${isPositive ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'} transition-all`}>
-                                                                            <div className="flex items-center justify-between mb-4">
-                                                                                <div className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${isPositive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'}`}>
-                                                                                    {isPositive ? '+' : ''}{factor.impact} IMPACT
-                                                                                </div>
-                                                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isPositive ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                                                                    {isPositive ? <ArrowUpRightIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                                                                                </div>
-                                                                            </div>
-                                                                            <h5 className="font-bold text-slate-800 text-sm">{factor.factor}</h5>
-                                                                            <p className="text-xs text-slate-500 mt-2 leading-relaxed">{factor.desc}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                            {(!satisfaction.factors || satisfaction.factors.length === 0) && (
-                                                                <div className="col-span-2 p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                                                                    <p className="text-slate-400 text-sm italic">Aucun facteur détecté à ce stade.</p>
-                                                                </div>
+                                                {/* Score ring */}
+                                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center gap-4 min-w-[180px]">
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Score NPS</p>
+                                                    <div className="relative h-36 w-36">
+                                                        <svg className="h-full w-full -rotate-90" viewBox="0 0 128 128">
+                                                            <circle cx="64" cy="64" r="54" fill="none" stroke="#f1f5f9" strokeWidth="10" />
+                                                            <circle
+                                                                cx="64" cy="64" r="54"
+                                                                fill="none"
+                                                                stroke={c.ring}
+                                                                strokeWidth="10"
+                                                                strokeDasharray={circumference}
+                                                                strokeDashoffset={offset}
+                                                                strokeLinecap="round"
+                                                                style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+                                                            />
+                                                        </svg>
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                            {score === null ? (
+                                                                <span className="text-xl font-bold text-slate-400">N/A</span>
+                                                            ) : (
+                                                                <>
+                                                                    <span className={`text-4xl font-black ${c.text}`}>{score}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-semibold">/10</span>
+                                                                </>
                                                             )}
                                                         </div>
-
-                                                        {/* Protip Action */}
-                                                        {!satisfaction.isProspect && (
-                                                            <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 flex items-center gap-4">
-                                                                <div className="h-10 w-10 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0 animate-bounce">
-                                                                    <SparklesIcon className="h-5 w-5 text-white" />
-                                                                </div>
-                                                                <p className="text-xs text-sky-800 font-medium">
-                                                                    <span className="font-bold">Conseil de l'IA :</span> {satisfaction.score < 5 ?
-                                                                        "Ce client montre des signes de frustration. Un appel de courtoisie est fortement recommandé." :
-                                                                        "La relation est positive. Profitez-en pour proposer de nouveaux produits ou services."}
-                                                                </p>
-                                                            </div>
-                                                        )}
+                                                    </div>
+                                                    <div className={`w-full text-center py-2 rounded-lg text-xs font-bold ${c.bg} ${c.text} border ${c.border}`}>
+                                                        {scoreLabel}
                                                     </div>
                                                 </div>
-                                            )}
+
+                                                {/* Metrics grid */}
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {[
+                                                        { label: 'Activités',     value: clientActivities.length, icon: ClockIcon,         color: 'text-sky-500',    bg: 'bg-sky-50'    },
+                                                        { label: 'Projets',       value: clientProjets.length,    icon: BriefcaseIcon,     color: 'text-violet-500', bg: 'bg-violet-50' },
+                                                        { label: 'Devis',         value: clientDevis.length,      icon: DocumentTextIcon,  color: 'text-amber-500',  bg: 'bg-amber-50'  },
+                                                        { label: 'Facteurs IA',   value: (satisfaction.factors || []).length, icon: ChartBarIcon, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                                                    ].map(m => (
+                                                        <div key={m.label} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                                                            <div className={`h-9 w-9 rounded-xl ${m.bg} flex items-center justify-center flex-shrink-0`}>
+                                                                <m.icon className={`h-4 w-4 ${m.color}`} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">{m.label}</p>
+                                                                <p className="text-xl font-bold text-slate-700 leading-tight">{m.value}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* ── Factors ── */}
+                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                                <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+                                                    <ChartBarIcon className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Facteurs d'impact identifiés</span>
+                                                    <span className="ml-auto text-[10px] text-slate-400">{(satisfaction.factors || []).length} facteur{(satisfaction.factors || []).length !== 1 ? 's' : ''}</span>
+                                                </div>
+                                                {(!satisfaction.factors || satisfaction.factors.length === 0) ? (
+                                                    <div className="py-10 text-center text-sm text-slate-400">Aucun facteur détecté à ce stade</div>
+                                                ) : (
+                                                    <div className="divide-y divide-slate-100">
+                                                        {satisfaction.factors.map((factor, idx) => {
+                                                            const pos = factor.impact >= 0;
+                                                            return (
+                                                                <div key={idx} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
+                                                                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${pos ? 'bg-emerald-100' : 'bg-rose-100'}`}>
+                                                                        {pos
+                                                                            ? <ArrowUpRightIcon className="h-4 w-4 text-emerald-600" />
+                                                                            : <ChevronDownIcon  className="h-4 w-4 text-rose-600" />
+                                                                        }
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm font-semibold text-slate-800">{factor.factor}</p>
+                                                                        {factor.desc && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{factor.desc}</p>}
+                                                                    </div>
+                                                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${pos ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                                                        {pos ? '+' : ''}{factor.impact}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                                    )}
+
+                                    {activeTab === 'reglements' && (
+                                        <div className="flex flex-col items-center justify-center py-16 gap-5 text-center">
+                                            <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                                                <BanknotesIcon className="h-7 w-7 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-700">Historique des règlements</p>
+                                                <p className="text-xs text-slate-400 mt-1">Consultez tous les paiements et encaissements de ce client</p>
+                                            </div>
+                                            <button
+                                                onClick={() => navigate(`/clients/${id}/reglements`)}
+                                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
+                                            >
+                                                <BanknotesIcon className="h-4 w-4" />
+                                                Voir les règlements
+                                            </button>
                                         </div>
-                                    )}                    </div>
-                            )}
+                                    )}
+
                         </div>
                     </div>
                 </div>

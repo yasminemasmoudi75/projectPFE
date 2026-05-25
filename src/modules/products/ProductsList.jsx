@@ -17,7 +17,9 @@ import {
     PrinterIcon,
     ShieldCheckIcon,
     CubeIcon,
+    Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import StockConfigPage from '../admin/StockConfigPage';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
@@ -46,10 +48,16 @@ const stockBadge = (product) => {
 
 const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all';
 
+const TABS = [
+    { id: 'catalogue',  label: 'Inventaire',       icon: CubeIcon },
+    { id: 'parametres', label: 'Paramètres Stock',  icon: Cog6ToothIcon },
+];
+
 const ProductsList = () => {
     const navigate = useNavigate();
     const { isClient } = useAuth();
     const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.STOCK);
+    const [activeTab, setActiveTab] = useState('catalogue');
 
     const [bootstrapping, setBootstrapping] = useState(true);
     const [loadingMore, setLoadingMore]     = useState(false);
@@ -205,6 +213,36 @@ const ProductsList = () => {
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
             className="space-y-5 pb-12">
+
+            {/* ── Tabs ── */}
+            {!isClient && (
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm w-fit">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={clsx(
+                                'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all',
+                                activeTab === tab.id
+                                    ? 'bg-white border border-slate-200 text-slate-700 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                            )}
+                        >
+                            <tab.icon className={clsx('h-4 w-4', activeTab === tab.id ? 'text-indigo-500' : 'text-slate-400')} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Paramètres Stock tab ── */}
+            {activeTab === 'parametres' && !isClient && (
+                <StockConfigPage />
+            )}
+
+            {/* ── Catalogue tab ── */}
+            {(activeTab === 'catalogue' || isClient) && (
+            <>
 
             {/* ── Top bar ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -589,6 +627,10 @@ const ProductsList = () => {
                     </div>
                 </div>
             )}
+
+            </>
+            )}
+
         </motion.div>
     );
 };

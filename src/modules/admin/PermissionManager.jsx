@@ -27,15 +27,9 @@ const MODULES = [
   { code: 7, name: 'Factures', icon: '💰', category: 'Ventes' },
   { code: 30, name: 'Clients', icon: '👥', category: 'CRM' },
   { code: 31, name: 'Règlement/SAV', icon: '🔧', category: 'Support' },
-  { code: 40, name: 'Tournée', icon: '📍', category: 'Logistique' },
-  { code: 41, name: 'Chargement', icon: '⚡', category: 'Logistique' },
   { code: 42, name: 'Objectifs', icon: '🎯', category: 'RH' },
-  { code: 43, name: 'Recap', icon: '📊', category: 'Analyse' },
   { code: 44, name: 'Relevé', icon: '📝', category: 'Analyse' },
-  { code: 45, name: 'Visites', icon: '🚶', category: 'CRM' },
   { code: 46, name: 'Stock/Produits', icon: '📦', category: 'Inventaire' },
-  { code: 47, name: 'Solde Client', icon: '💳', category: 'Finance' },
-  { code: 52, name: 'Maps', icon: '🗺️', category: 'Logistique' }
 ];
 
 const ROLES = ['Admin', 'Agent', 'Commercial', 'Client', 'Technicien'];
