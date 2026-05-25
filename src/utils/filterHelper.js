@@ -22,6 +22,10 @@ const RESERVED_QUERY_KEYS = new Set([
   'status',
   'selectedCommercial',
   'includeAll',
+  // Domain-specific params handled by controllers — must not become raw SQL WHERE clauses
+  'projetId',
+  'tierId',
+  'commercial',
 ]);
 
 const isFilterableField = (key) => {

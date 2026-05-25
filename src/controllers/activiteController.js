@@ -462,6 +462,7 @@ exports.getAllActivites = async (req, res, next) => {
     delete queryForTableFilters.userId;
     delete queryForTableFilters.tierId;
     delete queryForTableFilters.moduleCode;
+    delete queryForTableFilters.projetId;
     
     // Module 45 = Activités, Module 8 = Calendrier (Table-driven filters from TabRoleFilterVisibility)
     const reqModuleCode = req.query.moduleCode;
