@@ -672,7 +672,12 @@ exports.createTiers = async (req, res, next) => {
 
         // L'envoi d'email est attendu pour s'assurer qu'on trace d'éventuelles erreurs SMTP
         console.time('Send-Email');
-        const emailSent = await sendClientCredentials(normalizedEmail, normalizedRaisoc, clearPassword);
+        let emailSent = false;
+        try {
+            emailSent = await sendClientCredentials(normalizedEmail, normalizedRaisoc, clearPassword);
+        } catch (emailErr) {
+            console.error('❌ [EMAIL] Exception inattendue lors de l\'envoi:', emailErr.message);
+        }
         if (!emailSent) {
             console.warn(`⚠️ L'email n'a pas pu être envoyé à ${normalizedEmail}, mais le client a été créé.`);
         }
@@ -689,6 +694,7 @@ exports.createTiers = async (req, res, next) => {
         res.status(201).json({
             status: 'success',
             message: 'Client et compte utilisateur créés avec succès',
+            emailSent,
             data: {
                 tiers: newTiers,
                 user: {
@@ -910,12 +916,23 @@ exports.checkTierEmailUnique = async (req, res, next) => {
             });
         }
 
+        // Vérifier dans la table Tiers
         const existingTier = await findTiersByEmail({ email, excludeTiersId: excludeId || null });
         if (existingTier) {
             return res.status(200).json({
                 status: 'success',
                 unique: false,
                 message: 'Cet email est déjà utilisé par un autre client'
+            });
+        }
+
+        // Vérifier aussi dans la table User (cas d'un User orphelin après suppression incomplète)
+        const existingUser = await User.findOne({ where: { EmailPro: email } });
+        if (existingUser) {
+            return res.status(200).json({
+                status: 'success',
+                unique: false,
+                message: 'Cet email est déjà associé à un compte utilisateur'
             });
         }
 
@@ -1050,22 +1067,35 @@ exports.updateTiers = async (req, res, next) => {
  * Supprimer un client
  */
 exports.deleteTiers = async (req, res, next) => {
+    const t = await sequelize.transaction();
     try {
-        const tiers = await Tiers.findByPk(req.params.id);
+        const tiers = await Tiers.findByPk(req.params.id, { transaction: t });
         if (!tiers) {
+            await t.rollback();
             return res.status(404).json({ status: 'error', message: 'Client non trouvé' });
         }
 
-        await tiers.destroy();
+        const tiersEmail = normalizeEmailValue(tiers.Email);
+
+        // Supprimer le compte utilisateur associé pour libérer l'email
+        if (tiersEmail) {
+            await User.destroy({
+                where: { EmailPro: tiersEmail },
+                transaction: t
+            });
+        }
+
+        await tiers.destroy({ transaction: t });
+        await t.commit();
 
         res.status(200).json({
             status: 'success',
             message: 'Client supprimé avec succès'
         });
 
-        // Audit Log
-        await logAction(req.user.UserID, 'DELETE', 'Tiers', tiers.CodTiers, 'Suppression client');
+        await logAction(req.user.UserID, 'DELETE', 'Tiers', tiers.CodTiers, 'Suppression client + compte utilisateur');
     } catch (error) {
+        if (t && !t.finished) await t.rollback().catch(() => {});
         next(error);
     }
 };

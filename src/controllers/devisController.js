@@ -764,7 +764,7 @@ exports.deleteDevis = async (req, res, next) => {
   try {
     transaction = await sequelize.transaction();
     const { id } = req.params;
-    const devisWhere = await buildDevisSecurityWhere(id, req.user, transaction);
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, transaction, true);
     const devis = await DevisMaster.findOne({ where: devisWhere, transaction });
 
     if (!devis) {
@@ -797,7 +797,7 @@ exports.deleteDevis = async (req, res, next) => {
 exports.validateDevis = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const devisWhere = await buildDevisSecurityWhere(id, req.user);
+    const devisWhere = await buildDevisSecurityWhere(id, req.user, null, true);
     const devis = await DevisMaster.findOne({ where: devisWhere });
 
     if (!devis) {

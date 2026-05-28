@@ -1,17 +1,22 @@
 const nodemailer = require('nodemailer');
+const { logAction } = require('./logger');
 
-const AUTH_EMAIL_SERVICE = process.env.AUTH_EMAIL_SERVICE || process.env.EMAIL_SERVICE || 'gmail';
 const AUTH_EMAIL_USER = process.env.AUTH_EMAIL_USER || process.env.EMAIL_USER;
 const AUTH_EMAIL_PASS = process.env.AUTH_EMAIL_PASS || process.env.EMAIL_PASS;
 const AUTH_EMAIL_FROM = process.env.AUTH_EMAIL_FROM || process.env.EMAIL_FROM || AUTH_EMAIL_USER || 'no-reply@nexus.local';
 
-// Transport dédié aux emails d'authentification client.
-// Il est volontairement séparé du module Gmail OAuth (messagerie interne/sync).
+// nodemailer v8 a supprimé les shortcuts `service: 'gmail'`.
+// On doit spécifier host/port/secure explicitement.
 const transporter = nodemailer.createTransport({
-  service: AUTH_EMAIL_SERVICE,
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,          // STARTTLS sur 587
   auth: {
     user: AUTH_EMAIL_USER,
-    pass: AUTH_EMAIL_PASS
+    pass: AUTH_EMAIL_PASS  // App Password Google (16 chars, 2FA requis)
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
@@ -33,19 +38,23 @@ const buildDocumentDetailsLink = (docType, docId) => {
 
 const verifyAuthEmailTransport = async () => {
   if (!AUTH_EMAIL_USER || !AUTH_EMAIL_PASS) {
-    return {
-      ok: false,
-      reason: 'AUTH_EMAIL_USER/AUTH_EMAIL_PASS manquants'
-    };
+    console.error('❌ [SMTP] Variables EMAIL_USER / EMAIL_PASS manquantes dans .env');
+    return { ok: false, reason: 'EMAIL_USER/EMAIL_PASS manquants dans .env' };
   }
 
   try {
     await transporter.verify();
-    return {
-      ok: true,
-      reason: 'Connexion SMTP valide'
-    };
+    console.log(`✅ [SMTP] Connexion Gmail OK — compte : ${AUTH_EMAIL_USER}`);
+    return { ok: true, reason: 'Connexion SMTP valide' };
   } catch (error) {
+    console.error('❌ [SMTP] Échec de vérification Gmail :', error.message);
+    if (error.responseCode === 535) {
+      console.error('   → Authentification rejetée : vérifiez que la 2FA est activée sur le compte Gmail');
+      console.error('   → et que EMAIL_PASS est un App Password Google valide (16 chars sans espaces)');
+    }
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      console.error('   → Connexion réseau impossible vers smtp.gmail.com:587');
+    }
     return {
       ok: false,
       reason: error?.message || 'Erreur SMTP inconnue',
@@ -62,8 +71,6 @@ const verifyAuthEmailTransport = async () => {
  * @param {string} password - Mot de passe en clair (juste pour l'email initial)
  */
 const sendClientCredentials = async (email, fullName, password) => {
-  const { logAction } = require('./logger');
-  
   const mailOptions = {
     from: `"Nexus CRM" <${AUTH_EMAIL_FROM}>`,
     to: email,

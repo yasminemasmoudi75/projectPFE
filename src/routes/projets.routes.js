@@ -9,6 +9,7 @@ router.use(protect);
 router.get('/', checkPermission(MODULES.PROJETS, 'read'), projetController.getProjets);
 router.get('/client/:codTiers', projetController.getProjectsByClient);
 router.get('/tiers-lookup', checkPermission(MODULES.PROJETS, 'read'), projetController.lookupProjetTiers);
+router.get('/:id/avancement', checkPermission(MODULES.PROJETS, 'read'), projetController.getAvancement);
 router.get('/:id', checkPermission(MODULES.PROJETS, 'read'), projetController.getProjetById);
 router.post('/', checkPermission(MODULES.PROJETS, 'create'), projetController.createProjet);
 router.put('/:id', checkPermission(MODULES.PROJETS, 'update'), projetController.updateProjet);

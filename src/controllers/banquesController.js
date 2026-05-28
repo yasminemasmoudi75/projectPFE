@@ -17,9 +17,11 @@ exports.getAllBanques = async (req, res, next) => {
       { type: QueryTypes.SELECT }
     );
 
+    console.log(`📋 [BANQUES] ${banques.length} banque(s) retournée(s)`);
     res.json({ status: 'success', data: banques });
   } catch (err) {
-    console.error('❌ getAllBanques:', err);
+    console.error('❌ getAllBanques:', err.message);
+    console.error('❌ getAllBanques SQL error details:', err.original?.message || err);
     next(err);
   }
 };

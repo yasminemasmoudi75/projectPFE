@@ -1,10 +1,177 @@
-const { Projet, Tiers } = require('../models');
+const { Projet, Tiers, DevisMaster, BcvMaster, FavMaster, TabReg } = require('../models');
 const { sequelize } = require('../config/database');
 const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const { sanitizeDate, formatDateForMSSQL } = require('../utils/helpers');
 
 console.log('✅ projetController.js loaded');
+
+/**
+ * Calcule l'avancement réel d'un projet basé sur la chaîne documentaire :
+ * Devis → BCV → BLV → Paiement
+ *
+ * Règle : score proportionnel au ratio (docs complétés / total devis du projet).
+ * Les paiements liés à d'autres projets du même client sont ignorés.
+ */
+async function computeAvancement(projet) {
+  let score = 0;
+
+  // ── 1. Devis liés à ce projet (20% → 50%) ────────────────────────
+  const devisList = await DevisMaster.findAll({
+    where: { CodProject: projet.ID_Projet },
+    attributes: ['Nf', 'Valid', 'bTransf']
+  });
+
+  const totalDevis = devisList.length;
+
+  if (totalDevis > 0) {
+    const valides   = devisList.filter(d => d.Valid).length;
+    const convertis = devisList.filter(d => d.bTransf).length;
+
+    // Proportion des devis validés  : 20% → 35%
+    score = 20 + Math.round((valides / totalDevis) * 15);
+
+    // Proportion des devis convertis en BCV : 35% → 50%
+    if (convertis > 0)
+      score = 35 + Math.round((convertis / totalDevis) * 15);
+  }
+
+  // ── 2. BCV liés à ce projet (50% → 90%) ──────────────────────────
+  const bcvList = await BcvMaster.findAll({
+    where: { CodProject: projet.ID_Projet },
+    attributes: ['Nf', 'Valid', 'bLivr', 'bTransf']
+  });
+
+  if (bcvList.length > 0) {
+    const total   = bcvList.length;
+    const valides = bcvList.filter(b => b.Valid).length;
+    const livres  = bcvList.filter(b => b.bLivr).length;
+
+    // Also detect FAVs created from these BCVs via CodDev linkage
+    // (bTransf on BCV may remain false even when a FAV was created)
+    const bcvNfStrings = bcvList.map(b => String(b.Nf));
+    const favRows = await FavMaster.findAll({
+      where: { CodDev: { [Op.in]: bcvNfStrings } },
+      attributes: ['CodDev'],
+      raw: true
+    });
+    const bcvsWithFav = new Set(favRows.map(f => f.CodDev));
+    const transf = bcvList.filter(b => b.bTransf || bcvsWithFav.has(String(b.Nf))).length;
+
+    score = Math.max(score, 50 + Math.round((valides / total) * 15)); // → 65%
+    if (livres > 0)
+      score = Math.max(score, 65 + Math.round((livres  / total) * 15)); // → 80%
+    if (transf > 0)
+      score = Math.max(score, 80 + Math.round((transf  / total) * 10)); // → 90%
+  }
+
+  // ── 3. Paiements — uniquement pour les BCV de ce projet (90% → 100%) ──
+  const bcvNfs = bcvList.map(b => String(b.Nf));
+
+  if (bcvNfs.length > 0 && totalDevis > 0) {
+    let paidCount = 0;
+
+    for (const nf of bcvNfs) {
+      const paye = await TabReg.findOne({
+        where: {
+          CodTiers: projet.IDTiers,
+          Payed: true,
+          Pieces: { [Op.like]: `%${nf}%` }
+        }
+      });
+      if (paye) paidCount++;
+    }
+
+    if (paidCount > 0)
+      score = Math.max(score, 90 + Math.round((paidCount / totalDevis) * 10));
+  }
+
+  return Math.min(score, 100);
+}
+
+/**
+ * Batch version of computeAvancement for a list of projects.
+ * Uses 2 GROUP BY queries instead of N×3 queries.
+ * Returns a Map<ID_Projet, avancement_auto>.
+ */
+async function computeAvancementBatch(projets) {
+  const result = new Map();
+  if (!projets.length) return result;
+
+  const ids = projets.map(p => p.ID_Projet);
+
+  // ── Devis stats per project ──
+  const devisRows = await DevisMaster.findAll({
+    where: { CodProject: { [Op.in]: ids } },
+    attributes: ['CodProject', 'Valid', 'bTransf'],
+    raw: true
+  });
+
+  // ── BCV stats per project ──
+  const bcvRows = await BcvMaster.findAll({
+    where: { CodProject: { [Op.in]: ids } },
+    attributes: ['CodProject', 'Nf', 'Valid', 'bLivr', 'bTransf'],
+    raw: true
+  });
+
+  // ── FAV records linked to those BCVs via CodDev ──
+  const allBcvNfs = bcvRows.map(b => String(b.Nf));
+  let bcvsWithFav = new Set();
+  if (allBcvNfs.length > 0) {
+    const favRows = await FavMaster.findAll({
+      where: { CodDev: { [Op.in]: allBcvNfs } },
+      attributes: ['CodDev'],
+      raw: true
+    });
+    bcvsWithFav = new Set(favRows.map(f => f.CodDev));
+  }
+
+  // Group devis by project
+  const devisByProject = {};
+  for (const d of devisRows) {
+    const key = d.CodProject;
+    if (!devisByProject[key]) devisByProject[key] = [];
+    devisByProject[key].push(d);
+  }
+
+  // Group bcv by project
+  const bcvByProject = {};
+  for (const b of bcvRows) {
+    const key = b.CodProject;
+    if (!bcvByProject[key]) bcvByProject[key] = [];
+    bcvByProject[key].push(b);
+  }
+
+  for (const projet of projets) {
+    const id = projet.ID_Projet;
+    let score = 0;
+
+    const devisList = devisByProject[id] || [];
+    const totalDevis = devisList.length;
+
+    if (totalDevis > 0) {
+      const valides   = devisList.filter(d => d.Valid).length;
+      const convertis = devisList.filter(d => d.bTransf).length;
+      score = 20 + Math.round((valides / totalDevis) * 15);
+      if (convertis > 0) score = 35 + Math.round((convertis / totalDevis) * 15);
+    }
+
+    const bcvList = bcvByProject[id] || [];
+    if (bcvList.length > 0) {
+      const total   = bcvList.length;
+      const valides = bcvList.filter(b => b.Valid).length;
+      const livres  = bcvList.filter(b => b.bLivr).length;
+      const transf  = bcvList.filter(b => b.bTransf || bcvsWithFav.has(String(b.Nf))).length;
+      score = Math.max(score, 50 + Math.round((valides / total) * 15));
+      if (livres > 0) score = Math.max(score, 65 + Math.round((livres / total) * 15));
+      if (transf > 0) score = Math.max(score, 80 + Math.round((transf / total) * 10));
+    }
+
+    result.set(id, Math.min(score, 100));
+  }
+
+  return result;
+}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -263,9 +430,11 @@ exports.createProjet = async (req, res, next) => {
     const filterHelper = require('../utils/filterHelper');
     const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
     // Si une restriction s'applique (ex: région), on vérifie si le client cible est accessible
-    if (tier) {
+    // Les admins ont accès à tous les clients
+    if (tier && !isAdminRole(req.user?.UserRole)) {
+        const clientFilter = await filterHelper.applyTableDrivenFilters('11', {}, req.user);
         const canAccessClient = await Tiers.findOne({
-          where: { [Op.and]: [{ CodTiers: tier.CodTiers }, await filterHelper.applyTableDrivenFilters('11', {}, req.user)] }
+          where: { [Op.and]: [{ CodTiers: tier.CodTiers }, clientFilter] }
         });
         if (!canAccessClient) {
           return res.status(403).json({ status: 'error', message: 'Accès refusé: ce client ne vous est pas attribué' });
@@ -337,7 +506,13 @@ exports.getProjets = async (req, res, next) => {
       order: [['Date_Creation', 'DESC']]
     });
 
-    res.json(filterHelper.formatPaginatedResponse(rows, rows.length, 1, rows.length || 1));
+    const avancementMap = await computeAvancementBatch(rows);
+    const data = rows.map(r => ({
+      ...r.toJSON(),
+      avancement_auto: avancementMap.get(r.ID_Projet) ?? 0
+    }));
+
+    res.json(filterHelper.formatPaginatedResponse(data, data.length, 1, data.length || 1));
   } catch (error) {
     console.error('❌ [PROJET LIST ERROR]:', error.message);
     console.error('❌ Stack:', error.stack);
@@ -411,13 +586,48 @@ exports.getProjetById = async (req, res, next) => {
       });
     }
 
+    const avancement_auto = await computeAvancement(projet);
 
     res.status(200).json({
       status: 'success',
-      data: projet
+      data: { ...projet.toJSON(), avancement_auto }
     });
   } catch (error) {
     console.error(`❌ Error in getProjetById (${req.params.id}):`, error);
+    next(error);
+  }
+};
+
+/**
+ * GET /api/projets/:id/avancement
+ * Retourne uniquement l'avancement calculé d'un projet
+ */
+exports.getAvancement = async (req, res, next) => {
+  try {
+    const filterHelper = require('../utils/filterHelper');
+    const securityWhere = await filterHelper.applyTableDrivenFilters('46', {}, req.user);
+
+    const projet = await Projet.findOne({
+      where: { [Op.and]: [{ ID_Projet: req.params.id }, securityWhere] },
+      attributes: ['ID_Projet', 'Code_Pro', 'IDTiers', 'Avancement']
+    });
+
+    if (!projet) {
+      return res.status(404).json({ status: 'error', message: 'Projet non trouvé ou accès refusé' });
+    }
+
+    const avancement_auto = await computeAvancement(projet);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        ID_Projet:      projet.ID_Projet,
+        avancement_manuel: projet.Avancement,
+        avancement_auto
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Error in getAvancement (${req.params.id}):`, error);
     next(error);
   }
 };
