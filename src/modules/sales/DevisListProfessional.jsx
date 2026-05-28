@@ -117,7 +117,7 @@ export default function DevisListProfessional() {
     }
 
     try {
-      await axios.post(`/api/devis/${devisId}/validate`);
+      await axios.patch(`/devis/${devisId}/validate`);
       alert('Devis validé');
       loadDevis();
     } catch (err) {

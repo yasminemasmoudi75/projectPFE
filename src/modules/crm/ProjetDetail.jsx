@@ -55,31 +55,42 @@ const ProjetDetail = () => {
 
   useEffect(() => {
     if (!projet) return;
-    const codProject = projet.Code_Pro;
+    const projetUuid = projet.ID_Projet;
     const codTiers = projet.IDTiers;
-    if (!codProject && !codTiers) return;
+    if (!projetUuid && !codTiers) return;
 
     setLoadingDocs(true);
+    const bypass = { includeAll: 'true' };
+    const extract = (r) => Array.isArray(r?.data) ? r.data : [];
+
+    // Phase 1 — fetch devis + BCV (linked by CodProject)
     Promise.all([
-      codProject
-        ? axios.get('/devis', { params: { CodProject: codProject, limit: 100 } }).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
-      codProject
-        ? axios.get('/bcv', { params: { CodProject: codProject, limit: 100 } }).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
-      codTiers
-        ? axios.get('/blv', { params: { CodTiers: codTiers, limit: 100 } }).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
-      codTiers
-        ? axios.get('/fav', { params: { CodTiers: codTiers, limit: 100 } }).catch(() => ({ data: null }))
-        : Promise.resolve({ data: null }),
-    ]).then(([d, b, bl, f]) => {
-      setDocuments({
-        devis: Array.isArray(d.data?.data) ? d.data.data : [],
-        bcv:   Array.isArray(b.data?.data) ? b.data.data : [],
-        blv:   Array.isArray(bl.data?.data) ? bl.data.data : [],
-        fav:   Array.isArray(f.data?.data) ? f.data.data : [],
-      });
+      projetUuid
+        ? axios.get('/devis', { params: { CodProject: projetUuid, limit: 500, ...bypass } }).catch(() => null)
+        : Promise.resolve(null),
+      projetUuid
+        ? axios.get('/bcv', { params: { CodProject: projetUuid, limit: 500, ...bypass } }).catch(() => null)
+        : Promise.resolve(null),
+    ]).then(async ([d, b]) => {
+      const devisList = extract(d);
+      const bcvList   = extract(b);
+
+      // Phase 2 — BLV/FAV have no CodProject: resolve via BCV→Nf chain
+      const bcvNfs = new Set(bcvList.map(bc => String(bc.Nf)));
+
+      let blvList = [];
+      let favList = [];
+
+      if (bcvNfs.size > 0 && codTiers) {
+        const [blRes, fRes] = await Promise.all([
+          axios.get('/blv', { params: { CodTiers: codTiers, limit: 1000, ...bypass } }).catch(() => null),
+          axios.get('/fav', { params: { CodTiers: codTiers, limit: 1000, ...bypass } }).catch(() => null),
+        ]);
+        blvList = extract(blRes).filter(doc => bcvNfs.has(String(doc.CodDev)));
+        favList = extract(fRes).filter(doc => bcvNfs.has(String(doc.CodDev)));
+      }
+
+      setDocuments({ devis: devisList, bcv: bcvList, blv: blvList, fav: favList });
     }).finally(() => setLoadingDocs(false));
   }, [projet]);
 
@@ -253,12 +264,12 @@ const ProjetDetail = () => {
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avancement global</p>
-            <span className="text-3xl font-bold" style={{ color: getProgressColor(projet.Avancement || 0) }}>{projet.Avancement || 0}%</span>
+            <span className="text-3xl font-bold" style={{ color: getProgressColor(projet.avancement_auto ?? projet.Avancement ?? 0) }}>{projet.avancement_auto ?? projet.Avancement ?? 0}%</span>
           </div>
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
             <div
               className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${projet.Avancement || 0}%`, backgroundColor: getProgressColor(projet.Avancement || 0) }}
+              style={{ width: `${projet.avancement_auto ?? projet.Avancement ?? 0}%`, backgroundColor: getProgressColor(projet.avancement_auto ?? projet.Avancement ?? 0) }}
             ></div>
           </div>
         </div>

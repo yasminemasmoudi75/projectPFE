@@ -29,16 +29,16 @@ const isPhoneValid = (value) => value === '' || /^\d{8}$/.test(value);
 
 const STEPS = [
     { id: 1, label: 'Identité', sublabel: 'Infos légales', icon: IdentificationIcon, color: 'sky' },
-    { id: 2, label: 'Localisation', sublabel: 'Adresse & région', icon: MapPinIcon, color: 'emerald' },
-    { id: 3, label: 'Contacts', sublabel: 'Tél, email & responsables', icon: BuildingOffice2Icon, color: 'violet' },
-    { id: 4, label: 'Financier', sublabel: 'Conditions', icon: CreditCardIcon, color: 'amber' },
+    { id: 2, label: 'Localisation', sublabel: 'Adresse & région', icon: MapPinIcon, color: 'sky' },
+    { id: 3, label: 'Contacts', sublabel: 'Tél, email & responsables', icon: BuildingOffice2Icon, color: 'sky' },
+    { id: 4, label: 'Financier', sublabel: 'Conditions', icon: CreditCardIcon, color: 'sky' },
 ];
 
 const STEP_COLORS = {
-    sky:     { bg: 'bg-sky-500',     light: 'bg-sky-50',     text: 'text-sky-600',     border: 'border-sky-200',     ring: 'ring-sky-200',     shadow: 'shadow-sky-200/50',    gradient: 'from-sky-50 to-blue-50/30' },
-    emerald: { bg: 'bg-emerald-500', light: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', ring: 'ring-emerald-200', shadow: 'shadow-emerald-200/50', gradient: 'from-emerald-50 to-teal-50/30' },
-    violet:  { bg: 'bg-violet-500',  light: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-200',  ring: 'ring-violet-200',  shadow: 'shadow-violet-200/50',  gradient: 'from-violet-50 to-purple-50/30' },
-    amber:   { bg: 'bg-amber-500',   light: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200',   ring: 'ring-amber-200',   shadow: 'shadow-amber-200/50',   gradient: 'from-amber-50 to-orange-50/30' },
+    sky:     { bg: 'bg-sky-500',     light: 'bg-sky-50',     text: 'text-sky-600',     border: 'border-sky-200',     ring: 'ring-sky-200',     shadow: 'shadow-sky-200/50',    gradient: 'from-sky-50 to-blue-50/30',    inputFocus: 'focus:border-sky-400 focus:ring-2 focus:ring-sky-100',     divider: 'border-sky-100',     h3: 'text-sky-600' },
+    emerald: { bg: 'bg-emerald-500', light: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', ring: 'ring-emerald-200', shadow: 'shadow-emerald-200/50', gradient: 'from-emerald-50 to-teal-50/30', inputFocus: 'focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100', divider: 'border-emerald-100', h3: 'text-emerald-600' },
+    violet:  { bg: 'bg-violet-500',  light: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-200',  ring: 'ring-violet-200',  shadow: 'shadow-violet-200/50',  gradient: 'from-violet-50 to-purple-50/30', inputFocus: 'focus:border-violet-400 focus:ring-2 focus:ring-violet-100', divider: 'border-violet-100', h3: 'text-violet-600' },
+    amber:   { bg: 'bg-amber-500',   light: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200',   ring: 'ring-amber-200',   shadow: 'shadow-amber-200/50',   gradient: 'from-amber-50 to-orange-50/30', inputFocus: 'focus:border-amber-400 focus:ring-2 focus:ring-amber-100',   divider: 'border-amber-100', h3: 'text-amber-600' },
 };
 
 const InputField = ({ label, required, error, children, hint }) => (
@@ -52,7 +52,9 @@ const InputField = ({ label, required, error, children, hint }) => (
     </div>
 );
 
-const inputClass = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all text-sm";
+const inputBase = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none transition-all text-sm";
+const inputClass = `${inputBase} focus:border-sky-400 focus:ring-2 focus:ring-sky-100`;
+const ic = (color) => `${inputBase} ${STEP_COLORS[color].inputFocus}`;
 
 const ClientForm = () => {
     const { id } = useParams();
@@ -483,8 +485,14 @@ const ClientForm = () => {
                 await axios.put(`/tiers/${id}`, payload);
                 toast.success('Client mis à jour avec succès');
             } else {
-                await axios.post('/tiers', payload);
+                const res = await axios.post('/tiers', payload);
                 toast.success('Client créé avec succès');
+                if (res?.data?.emailSent === false) {
+                    toast.error(
+                        "Le compte a été créé mais l'email avec les identifiants n'a pas pu être envoyé. Vérifiez la configuration SMTP.",
+                        { duration: 6000 }
+                    );
+                }
             }
             navigate('/clients');
         } catch (error) {
@@ -523,8 +531,8 @@ const ClientForm = () => {
                                     {isEdit ? 'Modifier le client' : 'Nouveau client'}
                                 </h1>
                                 {!isEdit && (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                        Étape {currentStep}/{totalSteps}
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
+                                        {currentStep} / {totalSteps}
                                     </span>
                                 )}
                                 {formData.classeAuto && (
@@ -538,9 +546,9 @@ const ClientForm = () => {
                                     </span>
                                 )}
                             </div>
-                            <p className="text-xs text-slate-500">
-                                {isEdit ? formData.Raisoc || 'Mise à jour du profil client' : 'Configuration du profil client et des conditions commerciales'}
-                            </p>
+                            {isEdit && formData.Raisoc && (
+                                <p className="text-xs text-slate-500">{formData.Raisoc}</p>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -555,7 +563,7 @@ const ClientForm = () => {
                             <button
                                 onClick={handleSubmit}
                                 disabled={saving}
-                                className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-200/50 transition-all flex items-center gap-2 disabled:opacity-60"
+                                className="px-5 py-2 text-sm font-bold text-white bg-[#004792] hover:bg-[#003370] rounded-xl shadow-md shadow-[#004792]/30 transition-all flex items-center gap-2 disabled:opacity-60"
                             >
                                 {saving ? (
                                     <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -571,61 +579,6 @@ const ClientForm = () => {
 
             <div className="max-w-5xl mx-auto px-6 pt-8 space-y-6">
 
-                {/* ── Step Progress Indicator (création seulement) ── */}
-                {!isEdit && (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                        {/* Progress bar */}
-                        <div className="relative mb-6">
-                            <div className="absolute top-5 left-0 right-0 h-0.5 bg-slate-100" />
-                            <div
-                                className="absolute top-5 left-0 h-0.5 bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-500"
-                                style={{ width: `${progressPct}%` }}
-                            />
-                            <div className="relative flex justify-between">
-                                {STEPS.map((step) => {
-                                    const isDone = completedSteps.has(step.id) && step.id < currentStep;
-                                    const isActive = step.id === currentStep;
-                                    const isAccessible = completedSteps.has(step.id) || step.id <= currentStep;
-                                    const c = STEP_COLORS[step.color];
-                                    return (
-                                        <button
-                                            key={step.id}
-                                            type="button"
-                                            onClick={() => isAccessible && goToStep(step.id)}
-                                            className={`flex flex-col items-center gap-2 ${isAccessible ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}
-                                        >
-                                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-300 border-2 ${
-                                                isDone
-                                                    ? `${c.bg} border-transparent shadow-md ${c.shadow}`
-                                                    : isActive
-                                                    ? `${c.bg} border-transparent shadow-md ${c.shadow} scale-110`
-                                                    : 'bg-white border-slate-200'
-                                            }`}>
-                                                <step.icon className={`h-5 w-5 ${isDone || isActive ? 'text-white' : 'text-slate-400'}`} />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className={`text-xs font-bold transition-colors ${isActive ? c.text : isDone ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                    {step.label}
-                                                </p>
-                                                <p className="text-[10px] text-slate-400 hidden sm:block">{step.sublabel}</p>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Current step description */}
-                        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r ${currentColor.gradient} border ${currentColor.border}`}>
-                            {(() => { const S = STEPS[currentStep - 1]; return <S.icon className={`h-4 w-4 ${currentColor.text} flex-shrink-0`} />; })()}
-                            <div>
-                                <p className={`text-xs font-bold ${currentColor.text}`}>{STEPS[currentStep - 1].label}</p>
-                                <p className="text-[11px] text-slate-500">{STEPS[currentStep - 1].sublabel}</p>
-                            </div>
-                            <div className="ml-auto text-[10px] font-bold text-slate-400">{currentStep} / {totalSteps}</div>
-                        </div>
-                    </div>
-                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -676,27 +629,30 @@ const ClientForm = () => {
                                                 value={formData.Raisoc}
                                                 onChange={handleChange}
                                                 placeholder="Nom complet de l'entreprise"
-                                                className={`${inputClass} font-semibold`}
+                                                className={`${ic('sky')} font-semibold`}
                                                 required
                                             />
                                         </InputField>
                                     </div>
                                 </div>
 
-                                {/* Prénom + Nom */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Prénom + Nom + CIN */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <InputField label="Prénom du responsable">
-                                        <input type="text" name="Prenom" value={formData.Prenom} onChange={handleChange} placeholder="Prénom" className={inputClass} />
+                                        <input type="text" name="Prenom" value={formData.Prenom} onChange={handleChange} placeholder="Prénom" className={ic('sky')} />
                                     </InputField>
                                     <InputField label="Nom du responsable">
-                                        <input type="text" name="Nom" value={formData.Nom} onChange={handleChange} placeholder="Nom de famille" className={inputClass} />
+                                        <input type="text" name="Nom" value={formData.Nom} onChange={handleChange} placeholder="Nom de famille" className={ic('sky')} />
+                                    </InputField>
+                                    <InputField label="CIN / Identifiant">
+                                        <input type="text" name="Cin" value={formData.Cin} onChange={handleChange} placeholder="N° CIN" className={ic('sky')} />
                                     </InputField>
                                 </div>
 
                                 {/* Catégorie + Classe (auto Prospect) */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <InputField label="Catégorie">
-                                        <select name="Categorie" value={formData.Categorie} onChange={handleChange} className={inputClass}>
+                                        <select name="Categorie" value={formData.Categorie} onChange={handleChange} className={ic('sky')}>
                                             <option value="">Sélectionner...</option>
                                             <option value="Étatique">Étatique</option>
                                             <option value="Privé">Privé</option>
@@ -753,60 +709,65 @@ const ClientForm = () => {
                     ═══════════════════════════════════════════════════════ */}
                     {(currentStep === 2 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.emerald.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.emerald.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.emerald.shadow}`}>
+                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
+                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
                                     <MapPinIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
                                     <h2 className="text-sm font-bold text-slate-800">Localisation</h2>
                                     <p className="text-[11px] text-slate-500">Adresse et situation géographique</p>
                                 </div>
-                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.emerald.text} ${STEP_COLORS.emerald.light} px-2.5 py-1 rounded-full`}>Étape 2</span>}
+                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.sky.text} ${STEP_COLORS.sky.light} px-2.5 py-1 rounded-full`}>Étape 2</span>}
                             </div>
 
                             <div className="p-6 space-y-5">
-                                {/* Adresse + Ville */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="md:col-span-2">
-                                        <InputField label="Adresse">
-                                            <input type="text" name="Adresse" value={formData.Adresse} onChange={handleChange} placeholder="Rue, numéro, bâtiment..." className={inputClass} />
+                                {/* Adresse */}
+                                <div>
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <MapPinIcon className="h-3.5 w-3.5" /> Adresse principale
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="md:col-span-2">
+                                            <InputField label="Adresse">
+                                                <input type="text" name="Adresse" value={formData.Adresse} onChange={handleChange} placeholder="Rue, numéro, bâtiment..." className={ic('sky')} />
+                                            </InputField>
+                                        </div>
+                                        <InputField label="Ville">
+                                            <input type="text" name="Ville" value={formData.Ville} onChange={handleChange} placeholder="Ex: Tunis" className={ic('sky')} />
+                                        </InputField>
+                                        <InputField label="Code postal">
+                                            <input type="text" name="CodePostal" value={formData.CodePostal} onChange={handleChange} placeholder="Ex: 1000" className={ic('sky')} />
                                         </InputField>
                                     </div>
-                                    <InputField label="Ville">
-                                        <input type="text" name="Ville" value={formData.Ville} onChange={handleChange} placeholder="Ex: Tunis" className={inputClass} />
-                                    </InputField>
-                                    <InputField label="Code postal">
-                                        <input type="text" name="CodePostal" value={formData.CodePostal} onChange={handleChange} placeholder="Ex: 1000" className={inputClass} />
-                                    </InputField>
                                 </div>
+
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
                                 {/* Gouvernorat + Pays */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Gouvernorat" required>
-                                        <select name="gouvernorat" value={formData.gouvernorat} onChange={handleChange} className={inputClass} required>
-                                            <option value="">-- Choisir un gouvernorat --</option>
-                                            {tiersGouvernorats.map((g) => (
-                                                <option key={g.id} value={g.id}>{g.libelle}</option>
-                                            ))}
-                                        </select>
-                                    </InputField>
-                                    <InputField label="Pays">
-                                        <input type="text" name="Pays" value={formData.Pays} onChange={handleChange} placeholder="Ex: Tunisie" className={inputClass} />
-                                    </InputField>
-                                </div>
-
-                                {/* CIN */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="CIN / Identifiant">
-                                        <input type="text" name="Cin" value={formData.Cin} onChange={handleChange} placeholder="Numéro CIN" className={inputClass} />
-                                    </InputField>
+                                <div>
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <MapPinIcon className="h-3.5 w-3.5" /> Région
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <InputField label="Gouvernorat" required>
+                                            <select name="gouvernorat" value={formData.gouvernorat} onChange={handleChange} className={ic('sky')} required>
+                                                <option value="">-- Choisir un gouvernorat --</option>
+                                                {tiersGouvernorats.map((g) => (
+                                                    <option key={g.id} value={g.id}>{g.libelle}</option>
+                                                ))}
+                                            </select>
+                                        </InputField>
+                                        <InputField label="Pays">
+                                            <input type="text" name="Pays" value={formData.Pays} onChange={handleChange} placeholder="Ex: Tunisie" className={ic('sky')} />
+                                        </InputField>
+                                    </div>
                                 </div>
                             </div>
 
                             {!isEdit && (
                                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between">
                                     <button type="button" onClick={handlePreviousStep} className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">← Précédent</button>
-                                    <button type="button" onClick={handleNextStep} disabled={!validateStep2()} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${STEP_COLORS.emerald.bg} ${STEP_COLORS.emerald.shadow} hover:opacity-90`}>
+                                    <button type="button" onClick={handleNextStep} disabled={!validateStep2()} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${STEP_COLORS.sky.bg} ${STEP_COLORS.sky.shadow} hover:opacity-90`}>
                                         Suivant →
                                     </button>
                                 </div>
@@ -819,29 +780,30 @@ const ClientForm = () => {
                     ═══════════════════════════════════════════════════════ */}
                     {(currentStep === 3 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.violet.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.violet.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.violet.shadow}`}>
+                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
+                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
                                     <UserIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
                                     <h2 className="text-sm font-bold text-slate-800">Contacts & Coordonnées</h2>
                                     <p className="text-[11px] text-slate-500">Téléphone, email, site web et responsables</p>
                                 </div>
-                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.violet.text} ${STEP_COLORS.violet.light} px-2.5 py-1 rounded-full`}>Étape 3</span>}
+                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.sky.text} ${STEP_COLORS.sky.light} px-2.5 py-1 rounded-full`}>Étape 3</span>}
                             </div>
 
                             <div className="p-6 space-y-6">
                                 {/* Email + Site web */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <EnvelopeIcon className="h-4 w-4" />
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <EnvelopeIcon className="h-3.5 w-3.5" />
                                         Coordonnées électroniques
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField
                                             label="Email professionnel"
+                                            required
                                             error={emailCheckMessage}
-                                            hint={emailChecking ? 'Vérification en cours...' : ''}
+                                            hint={emailChecking ? 'Vérification en cours...' : 'Utilisé pour la connexion au compte client'}
                                         >
                                             <div className="relative">
                                                 <EnvelopeIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -852,48 +814,51 @@ const ClientForm = () => {
                                                     onChange={(e) => { setEmailCheckMessage(''); handleChange(e); }}
                                                     onBlur={checkEmailUniqueness}
                                                     placeholder="contact@entreprise.com"
-                                                    className={`${inputClass} pl-10 ${emailCheckMessage ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100' : ''}`}
+                                                    className={`${ic('sky')} pl-10 ${emailCheckMessage ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100' : ''}`}
                                                 />
                                             </div>
                                         </InputField>
                                         <InputField label="Site web">
                                             <div className="relative">
                                                 <GlobeAltIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <input type="text" name="www" value={formData.www} onChange={handleChange} placeholder="www.entreprise.com" className={`${inputClass} pl-10`} />
+                                                <input type="text" name="www" value={formData.www} onChange={handleChange} placeholder="www.entreprise.com" className={`${ic('sky')} pl-10`} />
                                             </div>
                                         </InputField>
                                     </div>
                                 </div>
 
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
+
                                 {/* Tel + Mobile + Fax */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <PhoneIcon className="h-4 w-4" />
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <PhoneIcon className="h-3.5 w-3.5" />
                                         Numéros de téléphone
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Téléphone fixe" hint="8 chiffres">
                                             <div className="relative">
                                                 <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <input type="text" name="Tel" value={formData.Tel} onChange={handleChange} inputMode="numeric" maxLength={8} pattern="[0-9]{8}" placeholder="XXXXXXXX" className={`${inputClass} pl-10`} />
+                                                <input type="text" name="Tel" value={formData.Tel} onChange={handleChange} inputMode="numeric" maxLength={8} placeholder="XXXXXXXX" className={`${ic('sky')} pl-10`} />
                                             </div>
                                         </InputField>
                                         <InputField label="Mobile / GSM" hint="8 chiffres">
                                             <div className="relative">
                                                 <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <input type="text" name="Gsm" value={formData.Gsm} onChange={handleChange} inputMode="numeric" maxLength={8} pattern="[0-9]{8}" placeholder="XXXXXXXX" className={`${inputClass} pl-10`} />
+                                                <input type="text" name="Gsm" value={formData.Gsm} onChange={handleChange} inputMode="numeric" maxLength={8} placeholder="XXXXXXXX" className={`${ic('sky')} pl-10`} />
                                             </div>
                                         </InputField>
-                                        <InputField label="Fax" hint="8 chiffres">
+                                        {/* Fax — optionnel, affiché en discret */}
+                                        <InputField label="Fax" hint="Optionnel — 8 chiffres">
                                             <div className="relative">
-                                                <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <input type="text" name="Fax" value={formData.Fax} onChange={handleChange} inputMode="numeric" maxLength={8} pattern="[0-9]{8}" placeholder="XXXXXXXX" className={`${inputClass} pl-10`} />
+                                                <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                                                <input type="text" name="Fax" value={formData.Fax} onChange={handleChange} inputMode="numeric" maxLength={8} placeholder="XXXXXXXX" className={`${ic('sky')} pl-10 text-slate-400`} />
                                             </div>
                                         </InputField>
                                     </div>
                                 </div>
 
-                                <div className="border-t border-dashed border-slate-200" />
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
                                 {/* Liste de contacts */}
                                 <div>
@@ -905,7 +870,7 @@ const ClientForm = () => {
                                         <button
                                             type="button"
                                             onClick={addContact}
-                                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl ${STEP_COLORS.violet.light} ${STEP_COLORS.violet.text} ${STEP_COLORS.violet.border} border hover:opacity-80 transition-all`}
+                                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl ${STEP_COLORS.sky.light} ${STEP_COLORS.sky.text} ${STEP_COLORS.sky.border} border hover:opacity-80 transition-all`}
                                         >
                                             <PlusIcon className="h-3.5 w-3.5" />
                                             Ajouter
@@ -960,7 +925,7 @@ const ClientForm = () => {
                                         <button
                                             type="button"
                                             onClick={addAddress}
-                                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl ${STEP_COLORS.violet.light} ${STEP_COLORS.violet.text} ${STEP_COLORS.violet.border} border hover:opacity-80 transition-all`}
+                                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl ${STEP_COLORS.sky.light} ${STEP_COLORS.sky.text} ${STEP_COLORS.sky.border} border hover:opacity-80 transition-all`}
                                         >
                                             <PlusIcon className="h-3.5 w-3.5" />
                                             Ajouter
@@ -992,7 +957,7 @@ const ClientForm = () => {
                             {!isEdit && (
                                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between">
                                     <button type="button" onClick={handlePreviousStep} className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">← Précédent</button>
-                                    <button type="button" onClick={handleNextStep} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all ${STEP_COLORS.violet.bg} ${STEP_COLORS.violet.shadow} hover:opacity-90`}>
+                                    <button type="button" onClick={handleNextStep} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all ${STEP_COLORS.sky.bg} ${STEP_COLORS.sky.shadow} hover:opacity-90`}>
                                         Suivant →
                                     </button>
                                 </div>
@@ -1005,28 +970,28 @@ const ClientForm = () => {
                     ═══════════════════════════════════════════════════════ */}
                     {(currentStep === 4 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.amber.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.amber.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.amber.shadow}`}>
+                            <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
+                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
                                     <BanknotesIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
                                     <h2 className="text-sm font-bold text-slate-800">Informations Financières & Commerciales</h2>
                                     <p className="text-[11px] text-slate-500">Données comptables, bancaires et conditions de paiement</p>
                                 </div>
-                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.amber.text} ${STEP_COLORS.amber.light} px-2.5 py-1 rounded-full`}>Étape 4</span>}
+                                {!isEdit && <span className={`ml-auto text-[10px] font-bold uppercase ${STEP_COLORS.sky.text} ${STEP_COLORS.sky.light} px-2.5 py-1 rounded-full`}>Étape 4</span>}
                             </div>
 
                             <div className="p-6 space-y-6">
 
                                 {/* Identifiants légaux */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <IdentificationIcon className="h-4 w-4" />
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <IdentificationIcon className="h-3.5 w-3.5" />
                                         Identifiants légaux
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Matricule fiscale">
-                                            <input type="text" name="MatriculeFiscale" value={formData.MatriculeFiscale} onChange={handleChange} placeholder="Ex: 123456A" className={inputClass} />
+                                            <input type="text" name="MatriculeFiscale" value={formData.MatriculeFiscale} onChange={handleChange} placeholder="Ex: 123456A" className={ic('sky')} />
                                         </InputField>
                                         <InputField label="Banque principale">
                                             <select
@@ -1036,7 +1001,7 @@ const ClientForm = () => {
                                                     handleChange(e);
                                                     setAddingBanque(e.target.value === 'AUTRE');
                                                 }}
-                                                className={inputClass}
+                                                className={ic('sky')}
                                                 disabled={loadingBanques}
                                             >
                                                 <option value="">-- Choisir --</option>
@@ -1059,14 +1024,14 @@ const ClientForm = () => {
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <InputField label="Nom de la banque">
-                                                    <input type="text" value={otherBanque} onChange={(e) => setOtherBanque(e.target.value)} placeholder="Ex: BNA, STB..." className={inputClass} />
+                                                    <input type="text" value={otherBanque} onChange={(e) => setOtherBanque(e.target.value)} placeholder="Ex: BNA, STB..." className={ic('sky')} />
                                                 </InputField>
                                                 <InputField label="Adresse / Agence">
-                                                    <input type="text" value={otherBanqueAdresse} onChange={(e) => setOtherBanqueAdresse(e.target.value)} className={inputClass} />
+                                                    <input type="text" value={otherBanqueAdresse} onChange={(e) => setOtherBanqueAdresse(e.target.value)} className={ic('sky')} />
                                                 </InputField>
                                                 <div className="md:col-span-2">
                                                     <InputField label="Logo / Image">
-                                                        <input type="file" accept="image/*" ref={otherBanquePhotoInputRef} onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)} className={`${inputClass} py-2`} />
+                                                        <input type="file" accept="image/*" ref={otherBanquePhotoInputRef} onChange={(e) => setOtherBanquePhoto(e.target.files?.[0] || null)} className={`${ic('sky')} py-2`} />
                                                     </InputField>
                                                     {otherBanquePhoto && <p className="mt-1 text-[11px] text-emerald-600 font-medium">✓ {otherBanquePhoto.name}</p>}
                                                 </div>
@@ -1083,29 +1048,29 @@ const ClientForm = () => {
                                     )}
                                 </div>
 
-                                <div className="border-t border-dashed border-slate-200" />
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
                                 {/* Conditions financières */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <CreditCardIcon className="h-4 w-4" />
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <CreditCardIcon className="h-3.5 w-3.5" />
                                         Conditions financières
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Remise (%)">
-                                            <input type="number" min="0" step="0.001" name="Remise" value={formData.Remise} onChange={handleChange} placeholder="0.000" className={inputClass} />
+                                            <input type="number" min="0" step="0.001" name="Remise" value={formData.Remise} onChange={handleChange} placeholder="0.000" className={ic('sky')} />
                                         </InputField>
                                         <InputField label="Plafond crédit">
-                                            <input type="number" min="0" step="0.01" name="Plafondcredit" value={formData.Plafondcredit} onChange={handleChange} placeholder="0.00" className={inputClass} />
+                                            <input type="number" min="0" step="0.01" name="Plafondcredit" value={formData.Plafondcredit} onChange={handleChange} placeholder="0.00" className={ic('sky')} />
                                         </InputField>
                                     </div>
                                 </div>
 
-                                <div className="border-t border-dashed border-slate-200" />
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
                                 {/* Options booléennes */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Options & statuts</h3>
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${STEP_COLORS.sky.h3}`}>Options & statuts</h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {[
                                             { key: 'Actif', label: 'Actif', color: 'emerald' },
@@ -1121,7 +1086,7 @@ const ClientForm = () => {
                                                 key={key}
                                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${
                                                     formData[key]
-                                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                                        ? 'bg-sky-50 border-sky-200 text-sky-700'
                                                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                                                 }`}
                                             >
@@ -1130,7 +1095,7 @@ const ClientForm = () => {
                                                     name={key}
                                                     checked={Boolean(formData[key])}
                                                     onChange={handleChange}
-                                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-200"
+                                                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-200"
                                                 />
                                                 <span className="text-xs font-semibold">{label}</span>
                                             </label>
@@ -1138,12 +1103,12 @@ const ClientForm = () => {
                                     </div>
                                 </div>
 
-                                <div className="border-t border-dashed border-slate-200" />
+                                <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
                                 {/* Paramètres commerciaux */}
                                 <div>
-                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <SparklesIcon className="h-4 w-4" />
+                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
+                                        <SparklesIcon className="h-3.5 w-3.5" />
                                         Paramètres commerciaux
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1153,7 +1118,7 @@ const ClientForm = () => {
                                                     name="Commercial"
                                                     value={formData.Commercial}
                                                     onChange={handleChange}
-                                                    className={inputClass}
+                                                    className={ic('sky')}
                                                     disabled={(isEdit && !canAssignCommercial) || (!isEdit && isCommercial)}
                                                 >
                                                     <option value="">-- Choisir --</option>
@@ -1183,7 +1148,7 @@ const ClientForm = () => {
                                             )}
                                         </div>
                                         <InputField label="Conditions de paiement">
-                                            <select name="ConditionPaiement" value={formData.ConditionPaiement} onChange={handleChange} className={inputClass}>
+                                            <select name="ConditionPaiement" value={formData.ConditionPaiement} onChange={handleChange} className={ic('sky')}>
                                                 <option>Comptant</option>
                                                 <option>30 jours</option>
                                                 <option>30 jours fin de mois</option>
@@ -1200,7 +1165,7 @@ const ClientForm = () => {
                                     <button
                                         type="submit"
                                         disabled={saving}
-                                        className="px-6 py-2 text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-xl shadow-lg shadow-emerald-200/50 transition-all flex items-center gap-2 disabled:opacity-60"
+                                        className="px-6 py-2 text-sm font-bold text-white bg-[#004792] hover:bg-[#003370] rounded-xl shadow-lg shadow-[#004792]/30 transition-all flex items-center gap-2 disabled:opacity-60"
                                     >
                                         {saving ? (
                                             <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
