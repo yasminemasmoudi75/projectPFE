@@ -16,8 +16,9 @@ router.get('/commercials/activites-filter', checkPermission([MODULES.ACTIVITES, 
 router.get('/members/calendar-filter', checkPermission([MODULES.ACTIVITES, MODULES.CALENDRIER], 'read'), userController.getCalendarMembers);
 router.get('/commercials/objectifs-filter', checkPermission(MODULES.OBJECTIFS, 'read'), userController.getAssignableCommercials);
 router.get('/commercials/projets-filter', checkPermission(MODULES.PROJETS, 'read'), userController.getAssignableCommercials);
-router.get('/:id', checkPermission(MODULES.USERS, 'read'), userController.getUserById);     // Récupérer un utilisateur par ID
-router.put('/:id', checkPermission(MODULES.USERS, 'update'), userController.updateUser);      // Mettre à jour un utilisateur
-router.delete('/:id', restrictTo('Admin'), checkPermission(MODULES.USERS, 'delete'), userController.deleteUser);   // Supprimer un utilisateur
+router.get('/:id', checkPermission(MODULES.USERS, 'read'), userController.getUserById);
+router.put('/:id', checkPermission(MODULES.USERS, 'update'), userController.updateUser);
+router.post('/:id/resend-credentials', restrictTo('Admin'), checkPermission(MODULES.USERS, 'update'), userController.resendCredentials);
+router.delete('/:id', restrictTo('Admin'), checkPermission(MODULES.USERS, 'delete'), userController.deleteUser);
 
 module.exports = router;

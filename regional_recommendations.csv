@@ -1,0 +1,25 @@
+Region_Inferred,N_Ventes,Score_HAUSSE,Percentile,Recommendation,Action_Plan
+ARIANA,195,0.3859,0.7916666666666666,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+BEJA,82,0.3617,0.5833333333333334,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+BEN_AROUS,94,0.344,0.20833333333333334,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+BIZERTE,162,0.3559,0.4166666666666667,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+GABES,95,0.3577,0.4583333333333333,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+GAFSA,57,0.3536,0.3333333333333333,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+JENDOUBA,111,0.3295,0.041666666666666664,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+KAIROUAN,178,0.3433,0.16666666666666666,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+KASSERINE,98,0.349,0.25,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+KEBILI,130,0.4059,0.875,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+LE_KEF,131,0.3301,0.08333333333333333,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+MAHDIA,125,0.3699,0.625,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+MANOUBA,63,0.3609,0.5416666666666666,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+MEDENINE,138,0.3699,0.6666666666666666,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+MONASTIR,69,0.3723,0.75,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+NABEUL,127,0.3711,0.7083333333333334,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+SFAX,125,0.3608,0.5,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+SIDI_BOUZID,186,0.4067,0.9166666666666666,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+SILIANA,88,0.3558,0.375,MAINTENIR,"Stabiliser la logistique, maintenir la couverture commerciale active."
+SOUSSE,93,0.352,0.2916666666666667,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+TATAOUINE,694,0.4182,0.9583333333333334,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+TOZEUR,76,0.4188,1.0,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+TUNIS,440,0.3378,0.125,RÉDUIRE,Réallouer les ressources vers les gouvernorats à plus haut potentiel.
+ZAGHOUAN,68,0.3928,0.8333333333333334,AUGMENTER,"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."

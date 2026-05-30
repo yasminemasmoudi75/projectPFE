@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { User, sequelize } = require('../models');
 const { TableHints } = require('sequelize');
+const { sendClientCredentials } = require('../utils/emailService');
 
 const { sanitizeDate } = require('../utils/helpers');
 const { allocateNextUserId } = require('../utils/userId');
@@ -110,10 +112,10 @@ exports.createUser = async (req, res, next) => {
     }
 
     // 1. Validation des champs obligatoires
-    if (!Password || !FullName || !EmailPro || !TelPro) {
+    if (!FullName || !EmailPro || !TelPro) {
       return res.status(400).json({
         status: 'error',
-        message: 'Password, FullName, EmailPro et Téléphone (8 chiffres) sont obligatoires'
+        message: 'FullName, EmailPro et Téléphone sont obligatoires'
       });
     }
 
@@ -166,8 +168,9 @@ exports.createUser = async (req, res, next) => {
       });
     }
 
-    // 3. Sécurité : Hasher le mot de passe et générer les identifiants
-    const hashedPassword = await bcrypt.hash(Password, 10);
+    // 3. Générer un mot de passe aléatoire et hasher
+    const clearPassword = Password || crypto.randomBytes(6).toString('base64').slice(0, 10);
+    const hashedPassword = await bcrypt.hash(clearPassword, 10);
     const resolvedLoginName = LoginName || await generateUniqueLoginName(FullName, transaction);
     const nextUserId = await allocateNextUserId({ transaction });
 
@@ -206,16 +209,47 @@ exports.createUser = async (req, res, next) => {
       IsActive: newUser.IsActive
     };
 
+    // 6. Envoyer les identifiants par email
+    let emailSent = false;
+    try {
+      emailSent = await sendClientCredentials(newUser.EmailPro, newUser.FullName, clearPassword);
+    } catch (emailErr) {
+      console.error('⚠️ Email envoi échoué:', emailErr.message);
+    }
+
     res.status(201).json({
       status: 'success',
       message: 'Utilisateur créé avec succès',
+      emailSent,
       data: userResponse
     });
   } catch (error) {
     if (transaction) {
       await transaction.rollback();
     }
-    // Transmet l'erreur au middleware errorHandler
+    next(error);
+  }
+};
+
+/**
+ * Renvoyer les identifiants de connexion par email
+ */
+exports.resendCredentials = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ status: 'error', message: 'Utilisateur introuvable' });
+    if (!user.EmailPro) return res.status(400).json({ status: 'error', message: "Cet utilisateur n'a pas d'email enregistré" });
+
+    const newPassword = crypto.randomBytes(6).toString('base64').slice(0, 10);
+    user.Password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    const emailSent = await sendClientCredentials(user.EmailPro, user.FullName, newPassword);
+    if (!emailSent) return res.status(500).json({ status: 'error', message: "Impossible d'envoyer l'email" });
+
+    res.json({ status: 'success', message: 'Identifiants renvoyés par email' });
+  } catch (error) {
     next(error);
   }
 };
