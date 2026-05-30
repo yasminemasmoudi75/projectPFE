@@ -395,7 +395,7 @@ const Objectifs = () => {
                         )}
                         {canCreate && (
                             <button onClick={() => navToNew()}
-                                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
+                                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
                                 <PlusIcon className="h-4 w-4" /> Nouvel Objectif
                             </button>
                         )}
@@ -660,7 +660,7 @@ const Objectifs = () => {
                         </div>
                         {canCreate && (
                             <button onClick={() => navToNew({ typePeriode: 'Mensuel' })}
-                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-indigo-500 text-white text-xs font-semibold hover:bg-indigo-600 transition-all shadow-sm active:scale-95">
+                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] text-white text-xs font-semibold hover:bg-indigo-600 transition-all shadow-sm active:scale-95">
                                 <PlusIcon className="h-3.5 w-3.5" /> Ajouter
                             </button>
                         )}
@@ -729,7 +729,7 @@ const Objectifs = () => {
                                     </button>
                                     {canCreate && (
                                         <button onClick={() => navToNew({ typePeriode: 'Mensuel' })}
-                                            className="h-8 px-4 rounded-xl bg-indigo-500 text-white text-xs font-semibold hover:bg-indigo-600 transition-colors shadow-sm flex items-center gap-1.5">
+                                            className="h-8 px-4 rounded-xl bg-[#0062AF] text-white text-xs font-semibold hover:bg-indigo-600 transition-colors shadow-sm flex items-center gap-1.5">
                                             <PlusIcon className="h-3.5 w-3.5" /> Créer
                                         </button>
                                     )}

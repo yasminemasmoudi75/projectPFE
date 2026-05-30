@@ -12,8 +12,8 @@ const InputField = ({ label, required, children }) => (
   </div>
 );
 
-const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({ to: '', subject: '', message: '' });
+const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
+  const [formData, setFormData] = useState({ to: initialTo, subject: '', message: '' });
   const [attachment, setAttachment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

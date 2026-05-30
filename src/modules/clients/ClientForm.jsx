@@ -1037,7 +1037,7 @@ const ClientForm = () => {
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 mt-3">
-                                                <button type="button" onClick={handleAddOtherBanque} disabled={!String(otherBanque || '').trim()} className="flex-1 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all">
+                                                <button type="button" onClick={handleAddOtherBanque} disabled={!String(otherBanque || '').trim()} className="flex-1 py-2 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all">
                                                     Confirmer l'ajout
                                                 </button>
                                                 <button type="button" onClick={() => { setAddingBanque(false); setFormData(prev => ({ ...prev, Banque: '' })); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50">

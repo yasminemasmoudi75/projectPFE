@@ -13,6 +13,7 @@ import {
   ChevronRightIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
+import { useLocation } from 'react-router-dom';
 import { fetchMessages, markAsRead, markAsUnread, deleteMessage } from './messageSlice';
 import ComposeEmailModal from './ComposeEmailModal';
 import GmailConnectButton from './GmailConnectButton';
@@ -43,8 +44,10 @@ const getAvatarColor = (id) => avatarColors[(id || 0) % avatarColors.length];
 
 const MessageInbox = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
   const { messages, loading, unreadCount, pagination } = useSelector((s) => s.messages);
   const [showComposeModal, setShowComposeModal] = useState(false);
+  const [composeTo, setComposeTo] = useState('');
   const [gmailConnected, setGmailConnected] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,6 +56,13 @@ const MessageInbox = () => {
   useEffect(() => {
     dispatch(fetchMessages({ page: currentPage, limit: 10 }));
   }, [dispatch, currentPage]);
+
+  useEffect(() => {
+    if (location.state?.composeTo) {
+      setComposeTo(location.state.composeTo);
+      setShowComposeModal(true);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const check = async () => {
@@ -409,9 +419,11 @@ const MessageInbox = () => {
 
       <ComposeEmailModal
         isOpen={showComposeModal}
-        onClose={() => setShowComposeModal(false)}
+        initialTo={composeTo}
+        onClose={() => { setShowComposeModal(false); setComposeTo(''); }}
         onSuccess={() => {
           setShowComposeModal(false);
+          setComposeTo('');
           dispatch(fetchMessages({ page: 1, limit: 10 }));
         }}
       />

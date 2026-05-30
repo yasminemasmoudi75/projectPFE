@@ -770,7 +770,7 @@ const Dashboard = () => {
               {objectifStats?.achievedCount || 0}/{objectifStats?.total || 0} objectifs
             </span>
             <button onClick={() => navigate('/reclamations')}
-              className="h-8 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-xl transition-all shadow-sm">
+              className="h-8 px-4 bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold rounded-xl transition-all shadow-sm">
               Voir SAV
             </button>
           </div>

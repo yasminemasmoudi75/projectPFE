@@ -263,7 +263,7 @@ const ActivitesList = () => {
             {canCreate && (
               <button
                 onClick={() => navigate('/activites/new')}
-                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                className="px-6 py-2.5 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 font-medium"
               >
                 <PlusIcon className="h-4 w-4" />
                 Nouvelle Activité

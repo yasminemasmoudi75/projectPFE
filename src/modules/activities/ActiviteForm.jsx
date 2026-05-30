@@ -477,7 +477,7 @@ const ActiviteForm = () => {
     <button
       onClick={handleSubmit}
       disabled={saving || isReadOnly}
-      className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all disabled:opacity-60 flex items-center gap-2"
+      className="px-6 py-2.5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white font-medium shadow-md shadow-blue-500/20 transition-all disabled:opacity-60 flex items-center gap-2"
     >
       {saving ? (
         <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

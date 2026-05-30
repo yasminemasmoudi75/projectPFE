@@ -202,7 +202,7 @@ const ClaimInterventionForm = () => {
                                     <button
                                         type="button"
                                         onClick={() => onChange('reportMode', 'with-report')}
-                                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${form.reportMode === 'with-report' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${form.reportMode === 'with-report' ? 'bg-[#0062AF] text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
                                     >
                                         Avec rapport
                                     </button>

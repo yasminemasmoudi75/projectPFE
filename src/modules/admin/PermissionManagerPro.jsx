@@ -263,7 +263,7 @@ const PermissionManagerPro = () => {
             </button>
             {hasChanges && (
               <button onClick={save} disabled={saving}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold transition-all shadow-sm disabled:opacity-60">
+                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-bold transition-all shadow-sm disabled:opacity-60">
                 {saving
                   ? <><div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Sauvegarde…</>
                   : <><CheckCircleIcon className="h-4 w-4" />Enregistrer ({pending.length})</>}

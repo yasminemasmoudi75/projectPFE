@@ -18,7 +18,8 @@ import {
     ArrowPathIcon,
     ArrowDownTrayIcon,
     PrinterIcon,
-    TrashIcon
+    TrashIcon,
+    XMarkIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
@@ -407,132 +408,125 @@ const ClientsList = () => {
     if (loading) return <LoadingSpinner />;
 
     return (
-        <div className="animate-fade-in space-y-6 pb-12">
-            {/* Header - Modern Design */}
-            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
-                            <UserGroupIcon className="h-3 w-3" />
-                            Gestion CRM
+        <div className="animate-fade-in space-y-5 pb-12">
+
+            {/* ── Hero ── */}
+            <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                <div className="absolute -right-20 -top-20 w-64 h-64 bg-[#0062AF]/4 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-10 bottom-0 w-48 h-48 bg-sky-400/4 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="relative px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#0062AF] to-sky-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                            <UserGroupIcon className="h-6 w-6 text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Portefeuille Clients</h1>
-                        <p className="text-slate-600 mt-1 flex items-center gap-2 text-sm">
-                            <BuildingOffice2Icon className="h-4 w-4 text-sky-500" />
-                            Gérez votre portefeuille de clients et partenaires
-                        </p>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-900">Portefeuille Clients</h1>
+                            <p className="text-sm text-slate-400 font-medium mt-0.5">
+                                {stats.total} clients · {stats.active} actifs
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-3">
+
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={() => fetchClients(true)}
-                            className={`p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all ${refreshing ? 'animate-spin' : ''}`}
+                            disabled={refreshing}
+                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-all shadow-sm disabled:opacity-50"
                             title="Rafraîchir"
                         >
-                            <ArrowPathIcon className="h-5 w-5" />
+                            <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                         </button>
-
-                        {/* Export Buttons */}
                         <button
                             onClick={exportToCSV}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-medium hover:bg-emerald-100 transition-colors"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm"
                             title="Exporter en CSV"
                         >
-                            <ArrowDownTrayIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">CSV</span>
+                            <ArrowDownTrayIcon className="h-4 w-4 text-emerald-500" /> CSV
                         </button>
-
                         <button
                             onClick={exportToPDF}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-medium hover:bg-rose-100 transition-colors"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm"
                             title="Imprimer / PDF"
                         >
-                            <PrinterIcon className="h-5 w-5" />
-                            <span className="hidden sm:inline">PDF</span>
+                            <PrinterIcon className="h-4 w-4 text-rose-400" /> PDF
                         </button>
-
                         {canCreate && (
                             <button
                                 onClick={() => navigate('/clients/new')}
-                                className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all flex items-center gap-2 font-medium"
+                                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-md shadow-blue-500/20 active:scale-95"
                             >
                                 <PlusIcon className="h-4 w-4" />
-                                Nouveau Client
+                                Nouveau client
                             </button>
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* ── KPI cards ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
-                    { label: 'Total Clients', value: stats.total, sub: 'clients enregistrés', icon: UserGroupIcon, color: 'sky' },
-                    { label: 'Clients Actifs', value: `${stats.active}`, sub: '100% actifs', icon: ChartBarIcon, color: 'emerald' },
-                    { label: 'CA Mensuel', value: stats.revenue, sub: 'global', icon: CreditCardIcon, color: 'amber' },
-                ].map((stat, i) => {
-                    const colorMap = {
-                        sky: { bg: 'bg-sky-50', text: 'text-sky-500', bar: 'bg-sky-400' },
-                        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-500', bar: 'bg-emerald-400' },
-                        amber: { bg: 'bg-amber-50', text: 'text-amber-500', bar: 'bg-amber-400' },
-                    };
-                    const colors = colorMap[stat.color];
-                    return (
-                        <div key={i} className="card-luxury shadow-sm border border-slate-200 hover:shadow-md transition-shadow group">
-                            <div className="p-5">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                                        <h3 className="text-2xl font-bold text-slate-800">{stat.value}</h3>
-                                        <p className="text-xs text-slate-500 mt-1">{stat.sub}</p>
-                                    </div>
-                                    <div className={`${colors.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
-                                        <stat.icon className={`h-5 w-5 ${colors.text}`} />
-                                    </div>
-                                </div>
-                                <div className={`h-1 ${colors.bar} mt-4 rounded-full`}></div>
+                    { label: 'Total',   value: stats.total,  sub: 'enregistrés',  icon: UserGroupIcon,    accent: 'from-[#0062AF] to-sky-500',     bg: 'bg-blue-50',    text: 'text-[#0062AF]'   },
+                    { label: 'Actifs',  value: stats.active, sub: `${stats.total > 0 ? Math.round(stats.active / stats.total * 100) : 0}%`, icon: ChartBarIcon, accent: 'from-emerald-500 to-teal-400', bg: 'bg-emerald-50', text: 'text-emerald-600' },
+                    { label: 'CA Mois', value: stats.revenue, sub: 'global',      icon: CreditCardIcon,   accent: 'from-amber-400 to-orange-400',  bg: 'bg-amber-50',   text: 'text-amber-600'   },
+                ].map((s, i) => (
+                    <div key={i} className="relative bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${s.accent}`} />
+                        <div className="p-4 pt-5 flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{s.label}</p>
+                                <p className={`text-2xl font-black leading-none tabular-nums ${s.text}`}>{s.value}</p>
+                                <p className="text-[11px] text-slate-400 font-medium mt-1">{s.sub}</p>
+                            </div>
+                            <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                                <s.icon className={`h-4 w-4 ${s.text}`} />
                             </div>
                         </div>
-                    );
-                })}
+                    </div>
+                ))}
             </div>
 
-            {/* Filters & Search */}
-            <div className="card-luxury shadow-sm">
-                <div className="p-6">
-                    <div className="flex flex-col md:flex-row gap-4 items-center">
-                        <div className="relative flex-1 w-full">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 focus:outline-none transition-all"
-                            />
-                        </div>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${showFilters
-                                ? 'bg-sky-100 text-sky-700 border border-sky-200'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:border-sky-300'
-                                }`}
-                        >
-                            <FunnelIcon className="h-4 w-4" />
-                            Filtres {hasActiveFilters && <span className="bg-sky-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{Object.values(filters).filter(f => f !== '').length}</span>}
-                        </button>
+            {/* ── Toolbar ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/8 focus:bg-white transition-all"
+                        />
                     </div>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`inline-flex items-center gap-2 h-10 px-4 rounded-xl border text-sm font-semibold transition-all flex-none ${showFilters
+                            ? 'bg-blue-50 border-blue-200 text-[#0062AF]'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                    >
+                        <FunnelIcon className="h-4 w-4" />
+                        Filtres
+                        {hasActiveFilters && (
+                            <span className="h-5 w-5 bg-[#0062AF] text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                                {Object.values(filters).filter(f => f !== '').length}
+                            </span>
+                        )}
+                    </button>
+                </div>
 
                     {/* Advanced Filters */}
                     {showFilters && (
-                        <div className="border-t border-slate-200 mt-6 pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="border-t border-slate-100 pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                             {/* Status Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Statut</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Statut</label>
                                 <select
                                     value={filters.status}
                                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 >
                                     <option value="">Tous les statuts</option>
                                     <option value="active">Actif</option>
@@ -542,24 +536,23 @@ const ClientsList = () => {
                             </div>
 
                             {/* Client Code Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Code Client</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Code Client</label>
                                 <input
                                     type="text"
                                     value={filters.clientCode}
                                     onChange={(e) => handleFilterChange('clientCode', e.target.value)}
-                                    placeholder="Filtrer par code..."
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 />
                             </div>
 
                             {/* City Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Gouvernorat</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gouvernorat</label>
                                 <select
                                     value={filters.city}
                                     onChange={(e) => handleFilterChange('city', e.target.value)}
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 >
                                     <option value="">Tous les gouvernorats</option>
                                     {uniqueCities.map(city => (
@@ -569,12 +562,12 @@ const ClientsList = () => {
                             </div>
 
                             {/* Class Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Classe</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Classe</label>
                                 <select
                                     value={filters.classe}
                                     onChange={(e) => handleFilterChange('classe', e.target.value)}
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 >
                                     <option value="">Toutes les classes</option>
                                     {uniqueClasses.map(classe => (
@@ -583,14 +576,13 @@ const ClientsList = () => {
                                 </select>
                             </div>
 
-                            {/* Commercial Representative Filter - hidden for commercial users (backend already scopes their data) */}
                             {!isCommercial && (
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-xs text-slate-500 uppercase tracking-wider">Commercial</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Commercial</label>
                                     <select
                                         value={filters.commercial}
                                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
-                                        className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
+                                        className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                     >
                                         <option value="">Tous les commerciaux</option>
                                         {uniqueCommercials.map(c => (
@@ -600,83 +592,82 @@ const ClientsList = () => {
                                 </div>
                             )}
 
-
-
                             {/* Email Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Email</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</label>
                                 <input
                                     type="text"
                                     value={filters.email}
                                     onChange={(e) => handleFilterChange('email', e.target.value)}
-                                    placeholder="Filtrer par email..."
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 />
                             </div>
 
                             {/* Phone Filter */}
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs text-slate-500 uppercase tracking-wider">Téléphone</label>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Téléphone</label>
                                 <input
                                     type="text"
                                     value={filters.phone}
                                     onChange={(e) => handleFilterChange('phone', e.target.value)}
-                                    placeholder="Filtrer par tél..."
-                                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:border-sky-400 focus:outline-none"
+                                    className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-[#0062AF]/50 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
                                 />
                             </div>
 
-                            {/* Reset Button */}
                             {hasActiveFilters && (
                                 <div className="flex items-end">
                                     <button
                                         onClick={handleResetFilters}
-                                        className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-200 transition-all"
+                                        className="w-full inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl border border-rose-200 text-rose-500 bg-rose-50 hover:bg-rose-100 text-xs font-semibold transition-all"
                                     >
-                                        Réinitialiser les filtres
+                                        <XMarkIcon className="h-3.5 w-3.5" /> Réinitialiser
                                     </button>
                                 </div>
                             )}
                         </div>
                     )}
-                </div>
             </div>
 
-            {/* Main Table Card */}
-            <div className="card-luxury shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-slate-800">Liste des Partenaires</h3>
-                    <span className="text-xs text-slate-500 font-medium">{filteredClients.length} résultats</span>
+            {/* ── Table ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 bg-slate-50/40">
+                    <div className="flex items-center gap-2">
+                        <UserGroupIcon className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-bold text-slate-700">Partenaires clients</span>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                        <span className="font-semibold text-slate-600">{filteredClients.length}</span> résultat{filteredClients.length !== 1 ? 's' : ''}
+                    </span>
                 </div>
 
                 {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-slate-50/30 text-left border-b border-slate-200">
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Client</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Classe</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Fonction</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Catégorie</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gouvernorat</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Satisfaction</th>
-                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="w-0 p-0" />
+                                <th className="pl-6 pr-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left">Client</th>
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left">Contact</th>
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left">Classe</th>
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left hidden xl:table-cell">Catégorie</th>
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left hidden lg:table-cell">Gouvernorat</th>
+                                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left">Satisfaction</th>
+                                <th className="pr-5 pl-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                             {filteredClients.length === 0 ? (
                                 <tr>
                                     <td colSpan="8" className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-                                                <UserGroupIcon className="h-8 w-8" />
+                                            <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                                <UserGroupIcon className="h-7 w-7 text-slate-300" />
                                             </div>
-                                            <p className="text-slate-500 font-medium">Aucun client trouvé</p>
+                                            <p className="text-sm font-semibold text-slate-500">Aucun client trouvé</p>
                                             {canCreate && (
                                                 <button
                                                     onClick={() => navigate('/clients/new')}
-                                                    className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-md shadow-sky-200/50 transition-all text-sm font-medium"
+                                                    className="text-xs text-[#0062AF] font-semibold hover:underline"
                                                 >
                                                     Ajouter un client
                                                 </button>
@@ -685,160 +676,191 @@ const ClientsList = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                paginatedClients.map((client) => (
-                                    <tr
-                                        key={client.IDTiers}
-                                        className="group hover:bg-sky-50/30 transition-all cursor-pointer"
-                                        onClick={() => navigate(`/clients/${client.IDTiers}`)}
-                                    >
-                                        <td className="px-6 py-5">
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800 mb-0.5 group-hover:text-sky-600 transition-colors">
-                                                    {client.Raisoc || 'Client'}
-                                                </p>
-                                                <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                                    {client.CodTiers}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                    <EnvelopeIcon className="h-4 w-4 text-sky-500" />
-                                                    {client.Email || 'Non renseigné'}
+                                paginatedClients.map((client) => {
+                                    const categorie = client.tiersCategorieObj?.libelle || client.Categorie || '';
+                                    const gouvernorat = client.region?.libelle || client.Region?.libelle || client.tiersGouvernorat?.libelle || client.TiersGouvernorat?.libelle || '';
+                                    const classeLabel = client.classeAuto?.ClasseCalculee || client.tiersClasse?.libelle || '';
+                                    const classeCls = client.classeAuto ? (
+                                        classeLabel === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                        classeLabel === 'Gold'    ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                        classeLabel === 'Silver'  ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                                        classeLabel === 'Passif'  ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                        classeLabel === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                                        'bg-sky-50 text-sky-700 border-sky-200'
+                                    ) : 'bg-slate-100 text-slate-600 border-slate-200';
+
+                                    return (
+                                        <tr
+                                            key={client.IDTiers}
+                                            className="group border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition-all cursor-pointer relative"
+                                            onClick={() => navigate(`/clients/${client.IDTiers}`)}
+                                        >
+                                            {/* Left accent bar */}
+                                            <td className="w-0 p-0">
+                                                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#0062AF] opacity-0 group-hover:opacity-100 transition-opacity rounded-r-full" />
+                                            </td>
+
+                                            {/* Client */}
+                                            <td className="pl-6 pr-4 py-3.5">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${client.Actif ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                                                        <p className="text-sm font-semibold text-slate-800 truncate leading-tight group-hover:text-[#0062AF] transition-colors">
+                                                            {client.Raisoc || 'Client'}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-[#0062AF] bg-blue-50 border border-[#0062AF]/15 px-2 py-0.5 rounded-md font-mono">
+                                                        {client.CodTiers}
+                                                    </span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                            </td>
+
+                                            {/* Contact */}
+                                            <td className="px-4 py-3.5">
+                                                <div className="space-y-1">
+                                                    {client.Email ? (
+                                                        <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate max-w-[180px]">
+                                                            <EnvelopeIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                                            {client.Email}
+                                                        </div>
+                                                    ) : null}
                                                     {client.Tel ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <a href={getPhoneLink(client.Tel)} className="flex items-center gap-1.5 hover:text-sky-600 transition-colors" title="Appeler">
-                                                                <PhoneIcon className="h-4 w-4 text-sky-500" />
+                                                        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                                                            <a href={getPhoneLink(client.Tel)} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-[#0062AF] transition-colors" title="Appeler">
+                                                                <PhoneIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                                                                 {client.Tel}
                                                             </a>
-                                                            <a href={getWhatsAppLink(client.Tel)} target="_blank" rel="noopener noreferrer" title="WhatsApp">
-                                                                <svg className="h-4 w-4 text-emerald-500 hover:text-emerald-600 transition-colors" viewBox="0 0 24 24" fill="currentColor">
+                                                            <a href={getWhatsAppLink(client.Tel)} target="_blank" rel="noopener noreferrer" title="WhatsApp" className="ml-0.5">
+                                                                <svg className="h-3.5 w-3.5 text-emerald-500 hover:text-emerald-600 transition-colors" viewBox="0 0 24 24" fill="currentColor">
                                                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                                                                 </svg>
                                                             </a>
                                                         </div>
-                                                    ) : 'Non renseigné'}
+                                                    ) : null}
+                                                    {!client.Email && !client.Tel && (
+                                                        <span className="text-xs text-slate-300">—</span>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            {client.classeAuto ? (
-                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-sm ${client.classeAuto.ClasseCalculee === 'Diamant' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                    client.classeAuto.ClasseCalculee === 'Gold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                        client.classeAuto.ClasseCalculee === 'Silver' ? 'bg-slate-50 text-slate-700 border-slate-200' :
-                                                            client.classeAuto.ClasseCalculee === 'Passif' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                                client.classeAuto.ClasseCalculee === 'Inactif' ? 'bg-slate-100 text-slate-500 border-slate-300' :
-                                                                    'bg-sky-50 text-sky-700 border-sky-200'
-                                                    }`}>
-                                                    <SparklesIcon className="h-3 w-3" />
-                                                    {client.classeAuto.ClasseCalculee}
+                                            </td>
+
+                                            {/* Classe */}
+                                            <td className="px-4 py-3.5">
+                                                {classeLabel ? (
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${classeCls}`}>
+                                                        {client.classeAuto && <SparklesIcon className="h-2.5 w-2.5" />}
+                                                        {classeLabel}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Catégorie */}
+                                            <td className="px-4 py-3.5 hidden xl:table-cell">
+                                                {categorie ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 text-[10px] font-semibold border border-sky-100">
+                                                        {categorie}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Gouvernorat */}
+                                            <td className="px-4 py-3.5 hidden lg:table-cell">
+                                                {gouvernorat ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                                                        <MapPinIcon className="h-2.5 w-2.5 text-slate-400" />
+                                                        {gouvernorat}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Satisfaction */}
+                                            <td className="px-4 py-3.5">
+                                                <ClientSatisfactionBadge codTiers={client.CodTiers} />
+                                            </td>
+
+                                            {/* Actions */}
+                                            <td className="pr-5 pl-4 py-3.5" onClick={e => e.stopPropagation()}>
+                                                <div className="flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => navigate(`/clients/${client.IDTiers}`)}
+                                                        className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-[#0062AF] hover:bg-blue-50 hover:border hover:border-blue-200 transition-all"
+                                                        title="Voir"
+                                                    >
+                                                        <EyeIcon className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => navigate(`/clients/edit/${client.IDTiers}`)}
+                                                            className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-amber-600 hover:bg-amber-50 hover:border hover:border-amber-200 transition-all"
+                                                            title="Modifier"
+                                                        >
+                                                            <PencilSquareIcon className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={() => handleDelete(client.IDTiers, client.Raisoc)}
+                                                            className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 hover:border hover:border-rose-200 transition-all"
+                                                            title="Supprimer"
+                                                        >
+                                                            <TrashIcon className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full font-medium">
-                                                    {client.tiersClasse?.libelle || '-'}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <p className="text-sm text-slate-600">
-                                                {client.Fonction || 'Non renseigné'}
-                                            </p>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className="text-sm text-slate-600 bg-sky-100 px-3 py-1 rounded-full font-medium">
-                                                {client.tiersCategorieObj?.libelle || client.Categorie || '-'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className="text-sm text-slate-600 bg-amber-100 px-3 py-1 rounded-full font-medium">
-                                                {client.region?.libelle || client.Region?.libelle || client.tiersGouvernorat?.libelle || client.TiersGouvernorat?.libelle || '-'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <ClientSatisfactionBadge codTiers={client.CodTiers} />
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex justify-end gap-1">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); navigate(`/clients/${client.IDTiers}`); }}
-                                                    className="p-2.5 text-slate-400 hover:text-sky-600 hover:bg-sky-100 rounded-xl transition-all"
-                                                    title="Voir"
-                                                >
-                                                    <EyeIcon className="h-5 w-5" />
-                                                </button>
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); navigate(`/clients/edit/${client.IDTiers}`); }}
-                                                        className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
-                                                        title="Modifier"
-                                                    >
-                                                        <PencilSquareIcon className="h-5 w-5" />
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(client.IDTiers, client.Raisoc); }}
-                                                        className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"
-                                                        title="Supprimer"
-                                                    >
-                                                        <TrashIcon className="h-5 w-5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
 
-                {filteredClients.length > 0 && (
-                    <div className="px-8 py-4 border-t border-slate-100/50 bg-white/70 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                            <span>Éléments par page</span>
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                className="input-modern py-1.5 px-2 text-xs w-20"
-                            >
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={50}>50</option>
-                            </select>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Précédent
+                {/* ── Pagination ── */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/30">
+                        <p className="text-xs text-slate-400">
+                            Page <span className="font-semibold text-slate-600">{currentPage}</span> sur <span className="font-semibold text-slate-600">{totalPages}</span>
+                        </p>
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold">
+                                ‹
                             </button>
-                            <span className="text-xs font-semibold text-slate-600 min-w-20 text-center">
-                                Page {currentPage} / {totalPages}
-                            </span>
-                            <button
-                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Suivant
+                            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                let p;
+                                if (totalPages <= 7) p = i + 1;
+                                else if (currentPage <= 4) p = i + 1;
+                                else if (currentPage >= totalPages - 3) p = totalPages - 6 + i;
+                                else p = currentPage - 3 + i;
+                                if (p < 1 || p > totalPages) return null;
+                                return (
+                                    <button key={p} onClick={() => setCurrentPage(p)}
+                                        className={`h-7 w-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-all ${
+                                            p === currentPage
+                                                ? 'bg-[#0062AF] text-white shadow-sm'
+                                                : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                                        }`}>
+                                        {p}
+                                    </button>
+                                );
+                            })}
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs font-bold">
+                                ›
                             </button>
                         </div>
                     </div>
                 )}
 
-                {/* Footer */}
-                <div className="px-8 py-4 bg-slate-50/50 border-t border-slate-100/50 text-xs font-medium text-slate-500 flex justify-between items-center">
-                    <span>
-                        Affichage de {paginatedClients.length} sur {filteredClients.length} clients filtrés ({clients.length} au total)
-                    </span>
-                    <span className="text-slate-400">NexusCRM v2.0</span>
+                {/* Footer count */}
+                <div className="px-6 py-3 border-t border-slate-50 bg-slate-50/30 text-xs text-slate-400 font-medium">
+                    Affichage de {paginatedClients.length} sur {filteredClients.length} clients filtrés ({clients.length} au total)
                 </div>
             </div>
         </div>

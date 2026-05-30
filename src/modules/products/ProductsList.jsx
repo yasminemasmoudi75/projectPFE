@@ -46,7 +46,7 @@ const stockBadge = (product) => {
     return              { key: 'ok',      ...STOCK_CFG.ok      };
 };
 
-const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all';
+const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/10 focus:border-[#0062AF]/50 transition-all';
 
 const TABS = [
     { id: 'catalogue',  label: 'Inventaire',       icon: CubeIcon },
@@ -228,7 +228,7 @@ const ProductsList = () => {
                                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                             )}
                         >
-                            <tab.icon className={clsx('h-4 w-4', activeTab === tab.id ? 'text-indigo-500' : 'text-slate-400')} />
+                            <tab.icon className={clsx('h-4 w-4', activeTab === tab.id ? 'text-[#0062AF]' : 'text-slate-400')} />
                             {tab.label}
                         </button>
                     ))}
@@ -244,56 +244,77 @@ const ProductsList = () => {
             {(activeTab === 'catalogue' || isClient) && (
             <>
 
-            {/* ── Top bar ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="h-7 w-7 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
-                            <CubeIcon className="h-4 w-4 text-indigo-500" />
+            {/* ── Hero Card ── */}
+            <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm">
+                {/* Accent top bar */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                {/* Soft background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/40 via-white to-teal-50/30 pointer-events-none" />
+                {/* Decorative blob */}
+                <div className="absolute -right-16 -top-16 w-48 h-48 bg-[#0062AF]/5 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="relative px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#0062AF] to-sky-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                            <CubeIcon className="h-6 w-6 text-white" />
                         </div>
-                        <h1 className="text-xl font-bold text-slate-800">Catalogue Produits</h1>
-                        {loadingMore && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-xl font-bold text-slate-900">Catalogue Produits</h1>
+                                {loadingMore && <ArrowPathIcon className="h-4 w-4 text-slate-400 animate-spin" />}
+                            </div>
+                            <p className="text-sm text-slate-400 font-medium mt-0.5">
+                                Gérez vos références, prix et niveaux de stock
+                            </p>
+                        </div>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium pl-9">Références, prix et stocks</p>
-                </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => { setPage(1); fetchProducts(searchTerm, 1); }} disabled={loadingMore}
-                        className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
-                        title="Actualiser">
-                        <ArrowPathIcon className={clsx('h-4 w-4', loadingMore && 'animate-spin')} />
-                    </button>
-
-                    {!isClient && (
-                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-                            {[{ id: 'table', icon: ListBulletIcon, label: 'Liste' }, { id: 'grid', icon: Squares2X2Icon, label: 'Grille' }].map(v => (
-                                <button key={v.id} onClick={() => setViewMode(v.id)}
-                                    className={clsx('inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all', viewMode === v.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-                                    <v.icon className="h-3.5 w-3.5" /> {v.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {!isClient && (
-                        <>
-                            <button onClick={exportToCSV}
-                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm">
-                                <ArrowDownTrayIcon className="h-4 w-4" /> CSV
-                            </button>
-                            <button onClick={exportToPDF}
-                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-all shadow-sm">
-                                <PrinterIcon className="h-4 w-4" /> PDF
-                            </button>
-                        </>
-                    )}
-
-                    {!isClient && canCreate && (
-                        <button onClick={() => navigate('/products/new')}
-                            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-all shadow-sm">
-                            <PlusIcon className="h-4 w-4" /> Nouveau produit
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => { setPage(1); fetchProducts(searchTerm, 1); }}
+                            disabled={loadingMore}
+                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/80 border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-white hover:border-slate-300 transition-all shadow-sm disabled:opacity-50"
+                            title="Actualiser"
+                        >
+                            <ArrowPathIcon className={clsx('h-4 w-4', loadingMore && 'animate-spin')} />
                         </button>
-                    )}
+
+                        {!isClient && (
+                            <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
+                                {[{ id: 'table', icon: ListBulletIcon, label: 'Liste' }, { id: 'grid', icon: Squares2X2Icon, label: 'Grille' }].map(v => (
+                                    <button key={v.id} onClick={() => setViewMode(v.id)}
+                                        className={clsx(
+                                            'inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all',
+                                            viewMode === v.id
+                                                ? 'bg-white text-[#0062AF] shadow-sm border border-slate-200'
+                                                : 'text-slate-500 hover:text-slate-700'
+                                        )}>
+                                        <v.icon className="h-3.5 w-3.5" /> {v.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {!isClient && (
+                            <>
+                                <button onClick={exportToCSV}
+                                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white/80 border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-white hover:border-slate-300 transition-all shadow-sm">
+                                    <ArrowDownTrayIcon className="h-4 w-4 text-emerald-500" /> CSV
+                                </button>
+                                <button onClick={exportToPDF}
+                                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white/80 border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-white hover:border-slate-300 transition-all shadow-sm">
+                                    <PrinterIcon className="h-4 w-4 text-rose-400" /> PDF
+                                </button>
+                            </>
+                        )}
+
+                        {!isClient && canCreate && (
+                            <button onClick={() => navigate('/products/new')}
+                                className="inline-flex items-center gap-2 h-9 px-5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-md shadow-blue-500/20 active:scale-95">
+                                <PlusIcon className="h-4 w-4 stroke-[2.5]" /> Nouveau produit
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -301,20 +322,55 @@ const ProductsList = () => {
             {!isClient && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                        { label: 'Total produits',   value: totalCount,                                         icon: CubeIcon,           iconCls: 'text-indigo-500',  iconBg: 'bg-indigo-50 border-indigo-200'   },
-                        { label: 'Valeur stock',      value: filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k TND' : '0 TND', icon: CurrencyDollarIcon, iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
-                        { label: 'Santé stock',       value: stockHealthPct + '%',                               icon: ShieldCheckIcon,    iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200'         },
-                        { label: 'En rupture',        value: ruptureCount,                                       icon: ArchiveBoxIcon,     iconCls: 'text-rose-500',    iconBg: 'bg-rose-50 border-rose-200'       },
+                        {
+                            label: 'Total produits', value: totalCount,
+                            icon: CubeIcon,
+                            accent: 'from-[#0062AF] to-sky-500',
+                            bg: 'bg-blue-50', text: 'text-[#0062AF]',
+                            sub: 'références'
+                        },
+                        {
+                            label: 'Valeur stock', value: filteredValueTTC > 0 ? (filteredValueTTC / 1000).toFixed(1) + 'k' : '0',
+                            icon: CurrencyDollarIcon,
+                            accent: 'from-emerald-400 to-teal-500',
+                            bg: 'bg-emerald-50', text: 'text-emerald-600',
+                            sub: 'TND estimé'
+                        },
+                        {
+                            label: 'Santé stock', value: stockHealthPct + '%',
+                            icon: ShieldCheckIcon,
+                            accent: 'from-sky-400 to-cyan-500',
+                            bg: 'bg-sky-50', text: 'text-sky-600',
+                            sub: 'disponible'
+                        },
+                        {
+                            label: 'En rupture', value: ruptureCount,
+                            icon: ArchiveBoxIcon,
+                            accent: 'from-rose-400 to-red-500',
+                            bg: 'bg-rose-50', text: 'text-rose-600',
+                            sub: 'articles'
+                        },
                     ].map((s, i) => (
-                        <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.06 }}
-                            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                            <div className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-none ${s.iconBg}`}>
-                                <s.icon className={`h-4 w-4 ${s.iconCls}`} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{s.label}</p>
-                                <p className="text-xl font-bold text-slate-700 leading-tight tabular-nums">{s.value}</p>
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.07, type: 'spring', stiffness: 300, damping: 28 }}
+                            className="relative bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group"
+                        >
+                            {/* Accent top line */}
+                            <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${s.accent}`} />
+                            <div className="p-4 pt-5">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{s.label}</p>
+                                        <p className={`text-2xl font-black leading-none tabular-nums ${s.text}`}>{s.value}</p>
+                                        <p className="text-[11px] text-slate-400 mt-1 font-medium">{s.sub}</p>
+                                    </div>
+                                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-none ${s.bg} group-hover:scale-110 transition-transform`}>
+                                        <s.icon className={`h-4 w-4 ${s.text}`} />
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     ))}
@@ -329,7 +385,7 @@ const ProductsList = () => {
                         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input type="text" placeholder="Référence, désignation, marque…"
                             value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
+                            className="w-full h-9 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/10 focus:border-[#0062AF]/50 transition-all" />
                     </div>
 
                     {/* Stock pills */}
@@ -351,7 +407,7 @@ const ProductsList = () => {
                                                 ? s.id === 'ok'      ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
                                                 : s.id === 'low'     ? 'bg-amber-50 text-amber-600 border-amber-300'
                                                 : s.id === 'rupture' ? 'bg-rose-50 text-rose-600 border-rose-300'
-                                                : 'bg-indigo-600 text-white border-indigo-600'
+                                                : 'bg-[#0062AF] text-white border-[#0062AF]'
                                                 : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                         )}>
                                         {stockFilterMeta?.[s.id]?.label || s.label}
@@ -366,10 +422,10 @@ const ProductsList = () => {
                     {!isClient && (
                         <button type="button" onClick={() => setShowFilters(!showFilters)}
                             className={clsx('inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border text-xs font-semibold transition-all flex-none',
-                                showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
+                                showFilters ? 'bg-blue-50 border-blue-200 text-[#0062AF]' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300')}>
                             <FunnelIcon className="h-3.5 w-3.5" /> Filtres
                             {activeAdvancedCount > 0 && (
-                                <span className="h-4 w-4 bg-indigo-600 text-white text-[9px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>
+                                <span className="h-4 w-4 bg-[#0062AF] text-white text-[9px] rounded-full flex items-center justify-center">{activeAdvancedCount}</span>
                             )}
                         </button>
                     )}
@@ -445,43 +501,91 @@ const ProductsList = () => {
 
                 ) : viewMode === 'grid' ? (
                     /* ── Grid view ── */
-                    <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                         <AnimatePresence mode="popLayout">
                             {filteredProducts.map((product, i) => {
                                 const badge = stockBadge(product);
-                                const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
+                                const showBadge = !isClient && stockFilterMeta?.[badge.key]?.visible !== false;
+                                const hasImg = !!product.urlimg;
                                 return (
-                                    <motion.div key={product.IDArt}
-                                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                                        transition={{ delay: i * 0.04 }}
+                                    <motion.div
+                                        key={product.IDArt}
+                                        initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.97 }}
+                                        transition={{ delay: i * 0.035, type: 'spring', stiffness: 280, damping: 26 }}
                                         onClick={() => navigate(`/products/${product.IDArt}`)}
-                                        className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
-                                        {/* Image */}
-                                        <div className="aspect-[4/3] bg-slate-50 overflow-hidden border-b border-slate-100">
-                                            {product.urlimg ? (
-                                                <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover" />
+                                        className="group rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-lg hover:border-[#0062AF]/20 hover:-translate-y-1 transition-all duration-250 cursor-pointer"
+                                    >
+                                        {/* Image area */}
+                                        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-100">
+                                            {hasImg ? (
+                                                <img
+                                                    src={getImageUrl(product.urlimg)}
+                                                    alt={product.LibArt}
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <PhotoIcon className="h-10 w-10 text-slate-300" />
+                                                <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                                                    <div className="h-14 w-14 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                                                        <CubeIcon className="h-7 w-7 text-slate-300" />
+                                                    </div>
+                                                    <span className="text-[10px] text-slate-300 font-medium">Pas d'image</span>
                                                 </div>
                                             )}
-                                        </div>
-                                        {/* Info */}
-                                        <div className="p-3.5">
-                                            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">{product.CodArt}</p>
-                                            <h4 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">{product.LibArt}</h4>
-                                            <div className="mt-3 flex items-center justify-between gap-2">
-                                                <span className="text-sm font-bold text-slate-800 tabular-nums">{formatCurrency(product.PrixVente || 0)}</span>
-                                                {!isClient && showBadge && (
-                                                    <span className={clsx('inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', badge.badge)}>
+                                            {/* Stock badge overlay */}
+                                            {showBadge && (
+                                                <div className="absolute top-3 right-3">
+                                                    <span className={clsx(
+                                                        'inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm',
+                                                        badge.badge
+                                                    )}>
                                                         <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
                                                         {badge.label}
                                                     </span>
+                                                </div>
+                                            )}
+                                            {/* Gradient overlay on hover */}
+                                            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="p-4">
+                                            {/* Code + collection */}
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-[10px] font-bold text-[#0062AF] bg-blue-50 px-2 py-0.5 rounded-md font-mono tracking-wide">
+                                                    {product.CodArt}
+                                                </span>
+                                                {product.Collection && (
+                                                    <span className="text-[10px] text-slate-400 font-medium truncate">
+                                                        {product.Collection}
+                                                    </span>
                                                 )}
                                             </div>
-                                            {!isClient && (
-                                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Qté : {product.Qte ?? '—'}</p>
-                                            )}
+
+                                            {/* Name */}
+                                            <h4 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0062AF] transition-colors mb-3">
+                                                {product.LibArt}
+                                            </h4>
+
+                                            {/* Footer */}
+                                            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                                <div>
+                                                    <span className="text-base font-black text-slate-900 tabular-nums">
+                                                        {formatCurrency(product.PrixVente || 0).replace(' TND', '')}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 ml-1 font-medium">TND</span>
+                                                </div>
+                                                {!isClient && (
+                                                    <span className={clsx(
+                                                        'text-[10px] font-semibold tabular-nums',
+                                                        (Number(product.Qte) || 0) === 0 ? 'text-rose-500' :
+                                                        (Number(product.Qte) || 0) <= 5 ? 'text-amber-600' : 'text-emerald-600'
+                                                    )}>
+                                                        {product.Qte ?? 0} {product.Unite || 'u.'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </motion.div>
                                 );
@@ -518,14 +622,14 @@ const ProductsList = () => {
                                                 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.2, delay: idx * 0.03 }}
                                                 onClick={() => navigate(`/products/${product.IDArt}`)}
-                                                className="group hover:bg-indigo-50/40 transition-colors cursor-pointer">
+                                                className="group hover:bg-blue-50/30 transition-colors cursor-pointer">
                                                 <td className="px-5 py-3.5">
                                                     <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-bold">
                                                         {idx + 1}
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-3.5">
-                                                    <span className="text-xs font-bold text-slate-600 font-mono group-hover:text-indigo-600 transition-colors">{product.CodArt}</span>
+                                                    <span className="text-xs font-bold text-slate-600 font-mono group-hover:text-[#0062AF] transition-colors">{product.CodArt}</span>
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-3">
@@ -536,7 +640,7 @@ const ProductsList = () => {
                                                             }
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-semibold text-slate-700 group-hover:text-indigo-600 transition-colors line-clamp-1">{product.LibArt}</p>
+                                                            <p className="text-sm font-semibold text-slate-700 group-hover:text-[#0062AF] transition-colors line-clamp-1">{product.LibArt}</p>
                                                             {product.Collection && <p className="text-[10px] text-slate-400">{product.Collection}</p>}
                                                         </div>
                                                     </div>
@@ -566,7 +670,7 @@ const ProductsList = () => {
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button type="button" onClick={e => { e.stopPropagation(); navigate(`/products/${product.IDArt}`); }}
-                                                            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all">
+                                                            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-[#0062AF] hover:border-blue-200 hover:bg-blue-50 transition-all">
                                                             <EyeIcon className="h-3.5 w-3.5" />
                                                         </button>
                                                         {!isClient && canEdit && (
@@ -615,7 +719,7 @@ const ProductsList = () => {
                             return (
                                 <button key={p} onClick={() => goToPage(p)}
                                     className={clsx('h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
-                                        p === page ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                                        p === page ? 'bg-[#0062AF] text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
                                     {p}
                                 </button>
                             );

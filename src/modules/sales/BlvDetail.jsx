@@ -45,26 +45,52 @@ const BlvDetail = () => {
   }, [dispatch, id]);
 
   if (loading) return <LoadingSpinner />;
-  if (error) return <div className="text-center text-red-600 p-8">Erreur: {error}</div>;
-  if (!blv) return <div className="text-center text-gray-500 p-8">Bon de livraison non trouvé</div>;
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-32 gap-3">
+      <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-400 text-xl font-bold select-none">!</div>
+      <p className="text-sm font-semibold text-slate-700">Erreur lors du chargement</p>
+      <p className="text-xs text-slate-400 max-w-xs text-center">{error}</p>
+    </div>
+  );
+  if (!blv) return (
+    <div className="flex flex-col items-center justify-center py-32 gap-3">
+      <div className="h-14 w-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+        <ArrowLeftIcon className="h-7 w-7 text-slate-300" />
+      </div>
+      <p className="text-sm font-semibold text-slate-700">Bon de livraison introuvable</p>
+      <button onClick={() => navigate('/blv')} className="btn btn-secondary text-xs mt-2">← Retour à la liste</button>
+    </div>
+  );
 
   const details = blv.details || [];
 
   return (
-    <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-20 pt-10 px-4 font-sans">
-      {/* Action Buttons (Simple - Print Hidden) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-        <button
-          onClick={() => navigate('/blv')}
-          className="flex items-center text-slate-500 hover:text-blue-600 transition-colors font-semibold text-xs py-2"
-        >
-          <ArrowLeftIcon className="h-4 w-4 mr-2" />
-          Retour à la liste
-        </button>
+    <div className="animate-fade-in space-y-6 max-w-5xl mx-auto pb-20">
+      {/* ── Page Header ── */}
+      <div className="card-luxury p-5 bg-gradient-to-r from-teal-50 via-white to-blue-50/40 border-none print:hidden">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/blv')}
+              className="h-10 w-10 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all flex-shrink-0"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+            </button>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-teal-500 mb-0.5">Bons de Livraison</p>
+              <h1 className="text-lg font-bold text-slate-800 leading-tight">{blv.Prfx || 'BL'}{blv.Nf}</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Client · <span className="font-semibold text-slate-700">{blv.LibTiers}</span>
+                {blv.Valid ? <span className="ml-2 badge badge-success">Validé</span> : <span className="ml-2 badge badge-warning">En cours</span>}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* CLEAN DOCUMENT VIEW */}
-      <div className="bg-white rounded-lg border border-slate-100 p-12 shadow-sm min-h-[1000px] text-slate-700 print:shadow-none print:border-none print:p-0">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[1000px] text-slate-700 print:shadow-none print:border-none print:p-0">
+        <div className="h-1 bg-gradient-to-r from-teal-400 via-blue-500 to-sky-400 -mx-12 -mt-12 mb-12 print:hidden" />
         {/* Header Section */}
         <div className="flex justify-between items-start mb-16">
           <div className="space-y-2">

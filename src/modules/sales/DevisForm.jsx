@@ -1103,7 +1103,7 @@ const DevisForm = () => {
                                 form="devis-form"
                                 type="submit"
                                 disabled={saving}
-                                className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-200/50 transition-all disabled:opacity-60"
+                                className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-md shadow-indigo-200/50 transition-all disabled:opacity-60"
                             >
                                 {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
                                 {isEdit ? 'Sauvegarder' : 'Finaliser'}
@@ -1281,7 +1281,7 @@ const DevisForm = () => {
                                     </div>
                                     <div className="px-5 pb-5">
                                         <button type="submit" form="devis-form" disabled={saving}
-                                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-60">
+                                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-60">
                                             {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
                                             Sauvegarder les modifications
                                         </button>

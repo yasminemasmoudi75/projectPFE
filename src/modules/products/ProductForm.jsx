@@ -1,583 +1,602 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ArrowLeftIcon,
-    CheckIcon,
-    ArchiveBoxIcon,
-    TagIcon,
-    CurrencyDollarIcon,
-    InformationCircleIcon,
-    PhotoIcon,
-    ChevronDownIcon,
-    SparklesIcon,
-    PlusIcon,
-    TrashIcon
+    ArrowLeftIcon, CheckIcon, ArchiveBoxIcon,
+    TagIcon, CurrencyDollarIcon, PhotoIcon,
+    ChevronDownIcon, SparklesIcon, PlusIcon, TrashIcon,
+    CubeIcon, ExclamationTriangleIcon, BuildingStorefrontIcon,
+    ScaleIcon, HashtagIcon, SwatchIcon, PencilSquareIcon,
 } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import axios from '../../app/axios';
 import { getImageUrl } from '../../utils/imageUrl';
 
+/* ── helpers ── */
+const toNum = (v, fb = 0) => { const n = parseFloat(v); return isFinite(n) ? Math.max(0, n) : fb; };
+
+/* ── shared styles (module-level so they never change reference) ── */
+const INP = 'w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-[#0062AF]/60 focus:ring-2 focus:ring-[#0062AF]/8 transition-all placeholder:text-slate-300 font-medium';
+const LBL = 'block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5';
+
+/* ── Field wrapper (outside ProductForm to avoid remount on every keystroke) ── */
+const Field = ({ label, required, hint, children }) => (
+    <div>
+        <label className={LBL}>
+            {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
+        </label>
+        {children}
+        {hint && <p className="text-[11px] text-slate-400 mt-1">{hint}</p>}
+    </div>
+);
+
+/* ── PriceField card (outside ProductForm — receives handlers as props) ── */
+const PriceField = ({ label, name, value, color, textColor, suffix = 'TND', readOnly, computed, onChange, onKeyDown, onPaste }) => (
+    <div className={`bg-white rounded-2xl border ${readOnly ? 'border-slate-100' : 'border-slate-200'} shadow-sm overflow-hidden`}>
+        <div className={`h-1 ${color}`} />
+        <div className="px-4 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{label}</p>
+            {readOnly ? (
+                <p className={`text-xl font-black tabular-nums leading-none ${textColor}`}>{computed}</p>
+            ) : (
+                <input
+                    type="number" name={name} value={value}
+                    min="0" step="0.001"
+                    onChange={onChange}
+                    onKeyDown={onKeyDown}
+                    onPaste={onPaste}
+                    className={`w-full text-xl font-black bg-transparent border-none outline-none p-0 tabular-nums leading-none ${textColor} placeholder:text-slate-200`}
+                    placeholder="0.000"
+                />
+            )}
+            <p className="text-xs text-slate-400 mt-1.5 font-medium">{suffix}</p>
+        </div>
+    </div>
+);
+
 const ProductForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
     const [loading, setLoading] = useState(isEdit);
     const [saving, setSaving] = useState(false);
     const [collections, setCollections] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
-    const [showDetails, setShowDetails] = useState(false);
+    const [showVariants, setShowVariants] = useState(false);
     const [variants, setVariants] = useState([]);
-
-    const emptyVariant = () => ({ CodArtD: '', CodColor: '', DesColor: '', CodTaille: '', Taille: '', Qte: '0' });
+    const [imgZoom, setImgZoom] = useState(false);
 
     const [formData, setFormData] = useState({
-        CodArt: '',
-        LibArt: '',
-        Collection: '',
-        Marque: '',
-        PrixVente: '0',
-        PrixAchat: '0',
-        Qte: '0',
-        MinStk: '0',
-        Tva: '19',
-        Description: '',
-        Unite: 'UNI',
-        LibFam: '',
-        LibFour: '',
-        urlimg: '',
-        imgArt: ''
+        CodArt: '', LibArt: '', Collection: '', Marque: '',
+        PrixVente: '0', PrixAchat: '0', Qte: '0', MinStk: '0',
+        Tva: '19', Description: '', Unite: 'UNI',
+        LibFam: '', LibFour: '', urlimg: '', imgArt: ''
     });
 
     useEffect(() => {
         const fetchCollections = async () => {
             try {
-                const response = await axios.get('/categories/collections/all');
-                const data = response?.data || response || [];
+                const res = await axios.get('/categories/collections/all');
+                const data = res?.data || res || [];
                 setCollections(Array.isArray(data) ? data : []);
-                if (!isEdit && Array.isArray(data) && data.length > 0) {
-                    setFormData(prev => ({ ...prev, Collection: data[0].Collection }));
-                }
-            } catch (error) {
-                console.error("Error fetching collections:", error);
-                toast.error("Erreur chargement des familles");
-            }
+                if (!isEdit && Array.isArray(data) && data.length > 0)
+                    setFormData(p => ({ ...p, Collection: data[0].Collection }));
+            } catch { /* silently ignore */ }
         };
-
         fetchCollections();
 
         if (isEdit) {
-            const fetchProduct = async () => {
+            (async () => {
                 try {
-                    const varRes = await axios.get(`/products/${id}/variants`);
-                    const varData = varRes?.data || varRes || [];
-                    if (Array.isArray(varData) && varData.length > 0) {
-                        setVariants(varData.map(v => ({
-                            CodArtD: v.CodArtD || '',
-                            CodColor: v.CodColor || '',
-                            DesColor: v.DesColor || '',
-                            CodTaille: v.CodTaille || '',
-                            Taille: v.Taille || '',
-                            Qte: v.Qte ?? '0'
-                        })));
-                    }
-                    const response = await axios.get(`/products/${id}`);
-                    const product = response?.data || response || {};
+                    const [pRes, vRes] = await Promise.all([
+                        axios.get(`/products/${id}`),
+                        axios.get(`/products/${id}/variants`).catch(() => null),
+                    ]);
+                    const p = pRes?.data?.data || pRes?.data || {};
                     setFormData({
-                        CodArt: product.CodArt || '',
-                        LibArt: product.LibArt || '',
-                        Collection: product.Collection || '',
-                        Marque: product.Marque || '',
-                        PrixVente: product.PrixVente || '0',
-                        PrixAchat: product.PrixAchat || '0',
-                        Qte: product.Qte || '0',
-                        MinStk: product.MinStk || '0',
-                        Tva: product.Tva || '19',
-                        Description: product.Description || '',
-                        Unite: product.Unite || 'UNI',
-                        LibFam: product.LibFam || '',
-                        LibFour: product.LibFour || '',
-                        urlimg: product.urlimg || '',
-                        imgArt: product.imgArt || ''
+                        CodArt: p.CodArt || '', LibArt: p.LibArt || '',
+                        Collection: p.Collection || '', Marque: p.Marque || '',
+                        PrixVente: p.PrixVente ?? '0', PrixAchat: p.PrixAchat ?? '0',
+                        Qte: p.Qte ?? '0', MinStk: p.MinStk ?? '0',
+                        Tva: p.Tva ?? '19', Description: p.Description || '',
+                        Unite: p.Unite || 'UNI', LibFam: p.LibFam || '',
+                        LibFour: p.LibFour || '', urlimg: p.urlimg || '', imgArt: p.imgArt || ''
                     });
-                    if (product.urlimg) {
-                        setPreviewUrl(getImageUrl(product.urlimg));
+                    const rows = vRes?.data || vRes || [];
+                    const varList = Array.isArray(rows) ? rows : [];
+                    if (varList.length > 0) {
+                        setVariants(varList.map(v => ({
+                            CodArtD: v.CodArtD || '', CodColor: v.CodColor || '',
+                            DesColor: v.DesColor || '', CodTaille: v.CodTaille || '',
+                            Taille: v.Taille || '', Qte: String(v.Qte ?? '0'),
+                        })));
+                        setShowVariants(true);
                     }
-                } catch (error) {
-                    console.error("Error fetching product:", error);
-                    toast.error("Impossible de charger le produit");
+                } catch {
+                    toast.error('Erreur chargement produit');
                     navigate('/products');
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchProduct();
+                } finally { setLoading(false); }
+            })();
         }
     }, [id, isEdit, navigate]);
 
     const handleChange = (e) => {
-        const { name, value, files } = e.target;
-        if (name === 'image' && files && files[0]) {
-            const file = files[0];
-            setSelectedFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
-        } else {
-            if (['PrixVente', 'PrixAchat', 'Qte', 'MinStk'].includes(name)) {
-                const normalizedValue = value === '' ? '' : String(Math.max(0, Number(value) || 0));
-                setFormData(prev => ({ ...prev, [name]: normalizedValue }));
-                return;
+        const { name, value, type, files } = e.target;
+        if (type === 'file') {
+            const file = files?.[0];
+            if (file) {
+                setSelectedFile(file);
+                const reader = new FileReader();
+                reader.onloadend = () => setPreviewUrl(reader.result);
+                reader.readAsDataURL(file);
             }
-            setFormData(prev => ({ ...prev, [name]: value }));
+            return;
         }
+        setFormData(p => ({ ...p, [name]: value }));
     };
 
-    const preventNegativeInput = (e) => {
-        if (e.key === '-' || e.key === 'Minus' || e.key === 'Subtract') {
-            e.preventDefault();
-        }
+    const preventNeg = (e) => { if (e.key === '-') e.preventDefault(); };
+    const preventNegPaste = (e) => {
+        if ((e.clipboardData || window.clipboardData)?.getData('text')?.includes('-')) e.preventDefault();
     };
-
-    const preventNegativePaste = (e) => {
-        const pastedText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-        if (pastedText.includes('-')) {
-            e.preventDefault();
-        }
-    };
-
-    const isVariantCodeField = (field) => ['CodArtD', 'CodTaille'].includes(field);
-
-    const sanitizeVariantTextValue = (field, value) => {
-        if (isVariantCodeField(field)) {
-            return String(value || '').replace(/-/g, '');
-        }
-        return value;
-    };
-
-    const preventMinusTextInput = (e) => {
-        if (e.key === '-' || e.key === 'Minus' || e.key === 'Subtract') {
-            e.preventDefault();
-        }
-    };
-
-    const preventMinusTextPaste = (e) => {
-        const pastedText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-        if (pastedText.includes('-')) {
-            e.preventDefault();
-        }
-    };
+    const isVarCode = (f) => ['CodArtD', 'CodTaille'].includes(f);
+    const sanitizeVar = (f, v) => isVarCode(f) ? String(v || '').replace(/-/g, '') : v;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        const prixAchatValue = Number(formData.PrixAchat);
-        const prixVenteValue = Number(formData.PrixVente);
-        const qteValue = Number(formData.Qte);
-        const minStkValue = Number(formData.MinStk);
-        const hasNegativeVariantQuantity = variants.some((variant) => Number(variant.Qte) < 0);
-
-        if ((Number.isFinite(prixAchatValue) && prixAchatValue < 0) || (Number.isFinite(prixVenteValue) && prixVenteValue < 0)) {
-            toast.error('Les prix d\'achat et de vente ne peuvent pas être négatifs');
+        if (!formData.CodArt || !formData.LibArt) {
+            toast.error('Code article et désignation sont obligatoires');
             return;
         }
-
-        if ((Number.isFinite(qteValue) && qteValue < 0) || (Number.isFinite(minStkValue) && minStkValue < 0) || hasNegativeVariantQuantity) {
-            toast.error('Les quantités ne peuvent pas être négatives');
-            return;
-        }
-
         setSaving(true);
-        const toNumber = (value, fallback = 0) => {
-            const normalized = typeof value === 'string' ? value.trim() : value;
-            const parsed = Number(normalized);
-            return Number.isFinite(parsed) ? parsed : fallback;
-        };
-
-        const toNonNegativeNumber = (value, fallback = 0) => Math.max(0, toNumber(value, fallback));
-
-        console.log("Saving product. isEdit:", isEdit);
-        console.log("Selected file:", selectedFile);
-        console.log("Form data urlimg:", formData.urlimg);
-
         const fData = new FormData();
-        fData.append('CodArt', formData.CodArt);
-        fData.append('LibArt', formData.LibArt);
-        fData.append('PrixVente', toNonNegativeNumber(formData.PrixVente));
-        fData.append('PrixAchat', toNonNegativeNumber(formData.PrixAchat));
-        fData.append('Qte', toNonNegativeNumber(formData.Qte));
-        fData.append('MinStk', toNonNegativeNumber(formData.MinStk));
-        fData.append('Tva', toNumber(formData.Tva));
-        fData.append('Collection', formData.Collection || '');
-        fData.append('Marque', formData.Marque || '');
-        fData.append('Unite', formData.Unite || 'UNI');
-        fData.append('LibFam', formData.LibFam || '');
-        fData.append('LibFour', formData.LibFour || '');
-        fData.append('Description', formData.Description || '');
+        Object.entries({
+            CodArt: formData.CodArt, LibArt: formData.LibArt,
+            PrixVente: toNum(formData.PrixVente), PrixAchat: toNum(formData.PrixAchat),
+            Qte: toNum(formData.Qte), MinStk: toNum(formData.MinStk),
+            Tva: parseFloat(formData.Tva) || 0,
+            Collection: formData.Collection, Marque: formData.Marque,
+            Unite: formData.Unite, LibFam: formData.LibFam,
+            LibFour: formData.LibFour, Description: formData.Description,
+        }).forEach(([k, v]) => fData.append(k, v));
 
-        if (selectedFile) {
-            console.log("Appending image file to FormData");
-            fData.append('image', selectedFile);
-        } else {
-            console.log("Appending urlimg string to FormData:", formData.urlimg);
-            fData.append('urlimg', formData.urlimg || '');
-        }
+        if (selectedFile) fData.append('image', selectedFile);
+        else fData.append('urlimg', formData.urlimg || '');
 
         try {
             let savedId = id;
             if (isEdit) {
-                console.log("Sending PUT request to /products/", id);
                 await axios.put(`/products/${id}`, fData);
-                toast.success('Produit mis à jour avec succès');
+                toast.success('Produit mis à jour');
             } else {
-                console.log("Sending POST request to /products");
                 const res = await axios.post('/products', fData);
                 savedId = res?.data?.data?.IDArt || id;
-                toast.success('Produit créé avec succès');
+                toast.success('Produit créé');
             }
             if (variants.length > 0 && savedId) {
                 try {
                     await axios.post(`/products/${savedId}/variants`, {
-                        variants: variants.map((variant) => ({
-                            ...variant,
-                            Qte: toNonNegativeNumber(variant.Qte)
-                        }))
+                        variants: variants.map(v => ({ ...v, Qte: Math.max(0, Number(v.Qte) || 0) }))
                     });
-                } catch (e) {
-                    console.warn('Variants save failed:', e.message);
-                }
+                } catch { /* variants optional */ }
             }
             navigate('/products');
-        } catch (error) {
-            console.error("Error saving product:", error);
-            const message = error.response?.data?.message || (isEdit ? "Erreur lors de la mise à jour" : "Erreur lors de la création");
-            toast.error(message);
-        } finally {
-            setSaving(false);
-        }
+        } catch (err) {
+            toast.error(err.response?.data?.message || (isEdit ? 'Erreur mise à jour' : 'Erreur création'));
+        } finally { setSaving(false); }
     };
 
     if (loading) return <LoadingSpinner />;
 
-    const fieldCls = 'w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-300';
-    const labelCls = 'block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5';
-    const prixTTC = formData.PrixVente > 0
-        ? (Number(formData.PrixVente) * (1 + Number(formData.Tva) / 100)).toFixed(3)
-        : null;
-    const montantTVA = formData.PrixVente > 0
-        ? (Number(formData.PrixVente) * Number(formData.Tva) / 100).toFixed(3)
-        : null;
-    const isLowStock = Number(formData.Qte) > 0 && Number(formData.MinStk) > 0 && Number(formData.Qte) <= Number(formData.MinStk);
+    const imgSrc   = previewUrl || (formData.urlimg ? getImageUrl(formData.urlimg) : null);
+    const prixTTC  = Number(formData.PrixVente) > 0
+        ? (Number(formData.PrixVente) * (1 + Number(formData.Tva) / 100)).toFixed(3) : null;
+    const isLowStock = Number(formData.Qte) > 0 && Number(formData.MinStk) > 0
+        && Number(formData.Qte) <= Number(formData.MinStk);
     const stockPct = Number(formData.MinStk) > 0
-        ? Math.min(100, Math.round((Number(formData.Qte) / Number(formData.MinStk)) * 100))
-        : null;
-    const filledRequired = [formData.CodArt, formData.LibArt].filter(Boolean).length;
+        ? Math.min(100, Math.round((Number(formData.Qte) / Number(formData.MinStk)) * 100)) : null;
+    const isReady  = !!(formData.CodArt && formData.LibArt);
 
     return (
-        <div className="min-h-screen bg-slate-50/70 pb-16">
+        <form onSubmit={handleSubmit} className="animate-fade-in pb-20">
 
-            {/* Sticky Header */}
-            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
-                <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(-1)}
-                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all group">
+            {/* ── Sticky top bar ── */}
+            <div className="sticky top-0 z-20 bg-white/96 backdrop-blur-md border-b border-slate-200 shadow-[0_1px_0_0_rgba(226,232,240,0.8)] -mx-4 lg:-mx-8 px-4 lg:px-8 mb-6">
+                <div className="max-w-5xl mx-auto py-3.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button type="button" onClick={() => navigate(-1)}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all group flex-shrink-0">
                             <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                         </button>
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-9 w-9 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center">
-                                <TagIcon className="h-5 w-5 text-indigo-500" />
-                            </div>
-                            <div>
-                                <h1 className="text-sm font-bold text-slate-800 leading-tight">
-                                    {isEdit ? (formData.LibArt || 'Modifier Article') : 'Nouvel Article'}
+                        <div className="min-w-0">
+                            <nav className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-bold text-[#0062AF]/60 uppercase tracking-widest">Produits</span>
+                                <span className="text-slate-300">›</span>
+                                <span className="text-[10px] text-slate-400">{isEdit ? 'Modifier' : 'Nouveau'}</span>
+                            </nav>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-[15px] font-bold text-slate-900 truncate">
+                                    {isEdit ? (formData.LibArt || 'Modifier le produit') : 'Nouveau produit'}
                                 </h1>
-                                <p className="text-[11px] text-slate-400">{isEdit ? formData.CodArt : 'Nouveau produit'}</p>
+                                {isEdit && formData.CodArt && (
+                                    <code className="text-[10px] font-bold text-[#0062AF] bg-blue-50 border border-[#0062AF]/15 px-2 py-0.5 rounded-md hidden sm:block">
+                                        {formData.CodArt}
+                                    </code>
+                                )}
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="hidden sm:flex">
+                            {isReady
+                                ? <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] font-bold rounded-lg">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Prêt
+                                  </span>
+                                : <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200/80 text-amber-600 text-[11px] font-semibold rounded-lg">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />Incomplet
+                                  </span>
+                            }
+                        </div>
                         <button type="button" onClick={() => navigate(-1)}
-                            className="h-9 px-4 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                            className="h-8 px-4 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
                             Annuler
                         </button>
-                        <button type="submit" form="product-form" disabled={saving}
-                            className="flex items-center gap-2 px-5 h-9 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl shadow-sm shadow-indigo-100 transition-all disabled:opacity-60">
-                            {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
-                            {isEdit ? 'Sauvegarder' : 'Enregistrer'}
+                        <button type="submit" disabled={saving || !isReady}
+                            className="flex items-center gap-2 px-5 h-8 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-lg shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
+                            {saving
+                                ? <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                : <CheckIcon className="h-3.5 w-3.5 stroke-[2.5]" />
+                            }
+                            {isEdit ? 'Sauvegarder' : 'Créer le produit'}
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Page title bar */}
-            <div className="bg-white border-b border-slate-100">
-                <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center">
-                            <TagIcon className="h-7 w-7 text-indigo-500" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Catalogue</span>
-                                <span className="text-slate-300 text-xs">/</span>
-                                <span className="text-[11px] text-slate-400">{isEdit ? 'Modifier' : 'Nouveau'}</span>
-                            </div>
-                            <h2 className="text-xl font-black text-slate-800">
-                                {isEdit ? (formData.LibArt || 'Modifier Article') : 'Nouvel Article'}
-                            </h2>
-                        </div>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-2">
-                        {filledRequired >= 2 ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-bold rounded-xl">
-                                <CheckIcon className="h-3.5 w-3.5" /> Pret a enregistrer
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-xs font-semibold rounded-xl">
-                                {filledRequired}/2 champs requis
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
+            <div className="max-w-5xl mx-auto space-y-5">
 
-            <form id="product-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto px-6 pt-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                {/* ══ HERO CARD ══ */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                    <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
 
-                    {/* ── Left column ── */}
-                    <div className="lg:col-span-2 space-y-5">
+                        {/* ─ Image upload ─ */}
+                        <div className="relative flex flex-col items-center justify-center min-h-[300px] border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-br from-blue-50/40 via-slate-50 to-teal-50/20 overflow-hidden">
+                            <div className="absolute inset-0 opacity-[0.03]"
+                                style={{ backgroundImage: 'radial-gradient(circle,#94a3b8 1px,transparent 1px)', backgroundSize: '20px 20px' }} />
 
-                        {/* 01 · Identification */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">01</span>
-                                    <div className="h-9 w-9 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center">
-                                        <TagIcon className="h-5 w-5 text-indigo-500" />
+                            {imgSrc ? (
+                                <>
+                                    <motion.img
+                                        key={imgSrc}
+                                        initial={{ scale: 0.95, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{ duration: 0.3 }}
+                                        src={imgSrc} alt={formData.LibArt}
+                                        onClick={() => setImgZoom(true)}
+                                        className="relative z-10 w-60 h-60 object-contain hover:scale-105 transition-transform duration-500 drop-shadow-md cursor-zoom-in"
+                                    />
+                                    <label className="relative z-10 mt-4 cursor-pointer">
+                                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white/90 border border-slate-200 rounded-full text-xs font-semibold text-slate-600 hover:border-[#0062AF]/30 hover:text-[#0062AF] transition-all shadow-sm">
+                                            <PencilSquareIcon className="h-3.5 w-3.5" />
+                                            Changer l'image
+                                        </span>
+                                        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    </label>
+                                </>
+                            ) : (
+                                <label className="relative z-10 flex flex-col items-center gap-4 cursor-pointer group p-8 text-center">
+                                    <div className="h-20 w-20 rounded-2xl bg-white border-2 border-dashed border-slate-200 group-hover:border-[#0062AF]/40 group-hover:bg-blue-50/50 flex items-center justify-center transition-all shadow-sm">
+                                        <PhotoIcon className="h-10 w-10 text-slate-300 group-hover:text-[#0062AF]/50 transition-colors" />
                                     </div>
                                     <div>
-                                        <h2 className="text-sm font-bold text-slate-700">Identification</h2>
-                                        <p className="text-[11px] text-slate-400">Code et designation du produit</p>
+                                        <p className="text-sm font-semibold text-slate-500 group-hover:text-[#0062AF] transition-colors">Ajouter une image</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 Mo</p>
                                     </div>
-                                </div>
-                                <span className="text-[11px] font-bold text-rose-400 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">Requis</span>
+                                    <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </label>
+                            )}
+                        </div>
+
+                        {/* ─ Form fields (right) ─ */}
+                        <div className="p-7 flex flex-col gap-5">
+
+                            {/* Code + Designation */}
+                            <div className="grid grid-cols-[180px_1fr] gap-4 items-end">
+                                <Field label="Code article" required>
+                                    <div className="relative">
+                                        <HashtagIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#0062AF]/50 pointer-events-none" />
+                                        <input type="text" name="CodArt" value={formData.CodArt}
+                                            onChange={handleChange} required
+                                            className={`${INP} pl-8 font-mono text-[#0062AF] font-bold`}
+                                            placeholder="MED-001" />
+                                    </div>
+                                </Field>
+                                <Field label="Désignation" required>
+                                    <input type="text" name="LibArt" value={formData.LibArt}
+                                        onChange={handleChange} required
+                                        className={`${INP} text-base font-bold text-slate-900`}
+                                        placeholder="Nom complet du produit" />
+                                </Field>
                             </div>
-                            <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div>
-                                    <label className={labelCls}>Code Article <span className="text-rose-400 normal-case">*</span></label>
-                                    <input type="text" name="CodArt" value={formData.CodArt} onChange={handleChange} required
-                                        className={fieldCls} placeholder="ex: MED-001" />
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Designation <span className="text-rose-400 normal-case">*</span></label>
-                                    <input type="text" name="LibArt" value={formData.LibArt} onChange={handleChange} required
-                                        className={fieldCls} placeholder="ex: Paracetamol 500mg" />
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Collection / Famille</label>
-                                    <select name="Collection" value={formData.Collection} onChange={handleChange} className={fieldCls}>
-                                        <option value="">Selectionner une famille</option>
-                                        {collections.map((col, index) => (
-                                            <option key={col.Collection ?? col.ID ?? `collection-${index}`} value={col.Collection || ''}>
-                                                {col.Collection}
-                                            </option>
+
+                            {/* Metadata row */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <Field label="Collection">
+                                    <select name="Collection" value={formData.Collection} onChange={handleChange} className={INP}>
+                                        <option value="">— Sélectionner —</option>
+                                        {collections.map((c, i) => (
+                                            <option key={c.Collection ?? i} value={c.Collection || ''}>{c.Collection}</option>
                                         ))}
                                         {!collections.length && <option value="Divers">Divers</option>}
                                     </select>
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Marque</label>
-                                    <input type="text" name="Marque" value={formData.Marque} onChange={handleChange}
-                                        className={fieldCls} placeholder="ex: BioPharm" />
-                                </div>
+                                </Field>
+                                <Field label="Famille">
+                                    <input type="text" name="LibFam" value={formData.LibFam}
+                                        onChange={handleChange} className={INP} placeholder="Ex : Médicaments" />
+                                </Field>
+                                <Field label="Marque">
+                                    <input type="text" name="Marque" value={formData.Marque}
+                                        onChange={handleChange} className={INP} placeholder="Ex : BioPharm" />
+                                </Field>
                             </div>
-                        </div>
 
-                        {/* 02 · Description */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                                <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">02</span>
-                                <div className="h-9 w-9 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center">
-                                    <InformationCircleIcon className="h-5 w-5 text-amber-500" />
-                                </div>
-                                <div>
-                                    <h2 className="text-sm font-bold text-slate-700">Description</h2>
-                                    <p className="text-[11px] text-slate-400">Categorie, fournisseur et details</p>
-                                </div>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <div>
-                                        <label className={labelCls}>Categorie / Famille</label>
-                                        <input type="text" name="LibFam" value={formData.LibFam} onChange={handleChange}
-                                            className={fieldCls} placeholder="ex: Medicaments" />
+                            {/* Supplier + Unit */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Field label="Fournisseur">
+                                    <div className="relative">
+                                        <BuildingStorefrontIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                                        <input type="text" name="LibFour" value={formData.LibFour}
+                                            onChange={handleChange} className={`${INP} pl-8`} placeholder="Ex : Pharma Distribution" />
                                     </div>
-                                    <div>
-                                        <label className={labelCls}>Fournisseur</label>
-                                        <input type="text" name="LibFour" value={formData.LibFour} onChange={handleChange}
-                                            className={fieldCls} placeholder="ex: Pharma Distribution" />
+                                </Field>
+                                <Field label="Unité de mesure">
+                                    <div className="relative">
+                                        <ScaleIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                                        <select name="Unite" value={formData.Unite} onChange={handleChange} className={`${INP} pl-8`}>
+                                            <option value="UNI">Unité</option>
+                                            <option value="KG">Kilogramme</option>
+                                            <option value="L">Litre</option>
+                                            <option value="M">Mètre</option>
+                                            <option value="BOX">Boîte</option>
+                                        </select>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Description detaillee</label>
-                                    <textarea name="Description" value={formData.Description} onChange={handleChange} rows={3}
-                                        className={`${fieldCls} resize-none`}
-                                        placeholder="Caracteristiques principales, utilisation, composition..." />
-                                </div>
+                                </Field>
                             </div>
-                        </div>
 
-                        {/* 03 · Image */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                                <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">03</span>
-                                <div className="h-9 w-9 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center">
-                                    <PhotoIcon className="h-5 w-5 text-slate-400" />
+                            {/* Description */}
+                            <Field label="Description">
+                                <textarea name="Description" value={formData.Description}
+                                    onChange={handleChange} rows={3}
+                                    className={`${INP} resize-none leading-relaxed`}
+                                    placeholder="Caractéristiques, utilisation, composition…" />
+                            </Field>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ══ PRICING ══  (same visual as detail PriceCards but editable) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <PriceField
+                        label="Prix vente HT" name="PrixVente" value={formData.PrixVente}
+                        color="bg-blue-300" textColor="text-blue-700"
+                        onChange={handleChange} onKeyDown={preventNeg} onPaste={preventNegPaste} />
+                    <PriceField
+                        label="Prix achat HT" name="PrixAchat" value={formData.PrixAchat}
+                        color="bg-slate-200" textColor="text-slate-600"
+                        onChange={handleChange} onKeyDown={preventNeg} onPaste={preventNegPaste} />
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="h-1 bg-teal-300" />
+                        <div className="px-4 py-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Taux TVA</p>
+                            <select name="Tva" value={formData.Tva} onChange={handleChange}
+                                className="w-full text-xl font-black bg-transparent border-none outline-none p-0 text-teal-700 cursor-pointer">
+                                <option value="19">19 %</option>
+                                <option value="7">7 %</option>
+                                <option value="0">0 %</option>
+                            </select>
+                            <p className="text-xs text-slate-400 mt-1.5 font-medium">Taux appliqué</p>
+                        </div>
+                    </div>
+                    <PriceField
+                        label="Prix TTC (calculé)" name="_ttc" value=""
+                        color={prixTTC ? 'bg-emerald-300' : 'bg-slate-100'}
+                        textColor={prixTTC ? 'text-emerald-700' : 'text-slate-300'}
+                        computed={prixTTC || '—'}
+                        suffix="TND"
+                        readOnly />
+                </div>
+
+                {/* ══ STOCK ══ (same visual as detail stock section but editable) */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex">
+                    <div className={`w-1 shrink-0 bg-gradient-to-b ${
+                        isLowStock ? 'from-rose-300 to-rose-400'
+                        : stockPct !== null && stockPct <= 60 ? 'from-amber-300 to-orange-300'
+                        : 'from-teal-300 to-cyan-300'
+                    }`} />
+                    <div className="flex-1 px-6 py-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border flex-shrink-0 ${
+                                    isLowStock ? 'bg-rose-50 border-rose-200'
+                                    : 'bg-amber-50 border-amber-200'
+                                }`}>
+                                    <ArchiveBoxIcon className={`h-5 w-5 ${isLowStock ? 'text-rose-400' : 'text-amber-500'}`} />
                                 </div>
                                 <div>
-                                    <h2 className="text-sm font-bold text-slate-700">Image du produit</h2>
-                                    <p className="text-[11px] text-slate-400">Photo ou URL de l'article</p>
+                                    <p className="text-sm font-bold text-slate-700">Gestion du stock</p>
+                                    {isLowStock && (
+                                        <p className="text-xs text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
+                                            <ExclamationTriangleIcon className="h-3 w-3" />
+                                            Stock critique — en dessous du seuil minimum
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                    <label className="relative block cursor-pointer group">
-                                        <div className={`border-2 border-dashed rounded-2xl transition-all min-h-[190px] flex items-center justify-center
-                                            ${(previewUrl || formData.urlimg) ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/20'}`}>
-                                            {(previewUrl || formData.urlimg) ? (
-                                                <div className="flex flex-col items-center gap-3 p-5 w-full">
-                                                    <img src={previewUrl || getImageUrl(formData.urlimg)} alt="Preview"
-                                                        className="max-h-36 max-w-full object-contain rounded-xl shadow-sm" />
-                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold
-                                                        ${previewUrl ? 'bg-indigo-100 text-indigo-600 border border-indigo-200' : 'bg-slate-100 text-slate-500'}`}>
-                                                        <CheckIcon className="h-3.5 w-3.5" />
-                                                        {previewUrl ? 'Fichier selectionne' : 'Cliquer pour changer'}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-3 p-6 text-center">
-                                                    <div className="h-16 w-16 rounded-2xl bg-slate-100 group-hover:bg-indigo-50 border border-slate-200 group-hover:border-indigo-200 flex items-center justify-center transition-all">
-                                                        <PhotoIcon className="h-8 w-8 text-slate-300 group-hover:text-indigo-400 transition-colors" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-slate-500 group-hover:text-indigo-500 transition-colors">Cliquer pour uploader</p>
-                                                        <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 MB</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <input type="file" name="image" onChange={handleChange}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" />
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 flex-1 max-w-md">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                        Quantité
                                     </label>
-
-                                    <div className="flex flex-col justify-center space-y-3">
-                                        <div>
-                                            <label className={labelCls}>Ou entrer une URL</label>
-                                            <input type="text" name="urlimg" value={formData.urlimg} onChange={handleChange}
-                                                className={fieldCls} placeholder="https://example.com/img.jpg" disabled={!!selectedFile} />
-                                        </div>
-                                        {selectedFile ? (
-                                            <div className="flex items-center gap-2.5 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                                                <CheckIcon className="h-4 w-4 text-indigo-500 flex-shrink-0" />
-                                                <p className="text-xs text-indigo-700 font-semibold">Fichier local actif — URL ignoree</p>
-                                            </div>
-                                        ) : (
-                                            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Format recommande</p>
-                                                <p className="text-xs text-slate-400 leading-relaxed">JPG ou PNG · min 400×400 px<br/>Taille max 5 MB</p>
-                                            </div>
-                                        )}
+                                    <div className="relative">
+                                        <input type="number" min="0" name="Qte" value={formData.Qte}
+                                            onChange={handleChange} onKeyDown={preventNeg} onPaste={preventNegPaste}
+                                            className={`w-full px-3 py-2 bg-white border rounded-xl text-sm font-bold tabular-nums focus:outline-none focus:ring-2 transition-all ${
+                                                isLowStock
+                                                    ? 'text-rose-500 border-rose-200 focus:border-rose-400 focus:ring-rose-500/10'
+                                                    : 'text-slate-800 border-slate-200 focus:border-[#0062AF]/60 focus:ring-[#0062AF]/8'
+                                            }`}
+                                            placeholder="0" />
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                        Seuil min.
+                                    </label>
+                                    <input type="number" min="0" name="MinStk" value={formData.MinStk}
+                                        onChange={handleChange} onKeyDown={preventNeg} onPaste={preventNegPaste}
+                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:border-[#0062AF]/60 focus:ring-2 focus:ring-[#0062AF]/8 transition-all"
+                                        placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                                        Unité
+                                    </label>
+                                    <select name="Unite" value={formData.Unite} onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-[#0062AF]/60 focus:ring-2 focus:ring-[#0062AF]/8 transition-all">
+                                        <option value="UNI">Unité</option>
+                                        <option value="KG">KG</option>
+                                        <option value="L">Litre</option>
+                                        <option value="M">Mètre</option>
+                                        <option value="BOX">Boîte</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
-                        {/* 04 · Variantes */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <button type="button" onClick={() => setShowDetails(!showDetails)}
-                                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50/70 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-3xl font-black text-slate-100 leading-none select-none w-8">04</span>
-                                    <div className="h-9 w-9 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-center">
-                                        <SparklesIcon className="h-5 w-5 text-violet-500" />
-                                    </div>
-                                    <div className="text-left">
-                                        <h2 className="text-sm font-bold text-slate-700">Variantes</h2>
-                                        <p className="text-[11px] text-slate-400">Couleur, taille et quantite par variante</p>
-                                    </div>
+                        {stockPct !== null && (
+                            <div className="mt-4">
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${stockPct}%` }}
+                                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                                        className={`h-full rounded-full ${
+                                            stockPct <= 30 ? 'bg-rose-400'
+                                            : stockPct <= 60 ? 'bg-amber-400'
+                                            : 'bg-teal-400'
+                                        }`}
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[10px] text-slate-400">0</span>
+                                    <span className={`text-[10px] font-bold ${isLowStock ? 'text-rose-500' : 'text-slate-400'}`}>
+                                        {stockPct}% · seuil : {formData.MinStk} {formData.Unite}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ══ VARIANTS ══ */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    {!showVariants && <div className="h-0.5 bg-gradient-to-r from-emerald-500 to-teal-400" />}
+                    <button type="button" onClick={() => setShowVariants(v => !v)}
+                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-all text-left">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/20 flex-shrink-0">
+                                <SwatchIcon className="h-[18px] w-[18px] text-white" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-slate-800">Variantes</span>
                                     {variants.length > 0 && (
-                                        <span className="px-2.5 py-0.5 bg-violet-100 text-violet-600 text-[11px] font-bold rounded-full">
+                                        <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
                                             {variants.length}
                                         </span>
                                     )}
                                 </div>
-                                <div className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${showDetails ? 'bg-slate-200' : 'bg-slate-100'}`}>
-                                    <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`} />
-                                </div>
-                            </button>
+                                <p className="text-[11px] text-slate-400">Tailles, couleurs — optionnel</p>
+                            </div>
+                        </div>
+                        <div className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${showVariants ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                            <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${showVariants ? 'rotate-180' : ''}`} />
+                        </div>
+                    </button>
 
-                            {showDetails && (
+                    <AnimatePresence>
+                        {showVariants && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                            >
                                 <div className="border-t border-slate-100 p-6 space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{variants.length} variante{variants.length !== 1 ? 's' : ''}</p>
-                                        <button type="button" onClick={() => setVariants(prev => [...prev, emptyVariant()])}
-                                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-violet-100">
+                                        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                                            {variants.length} variante{variants.length !== 1 ? 's' : ''}
+                                        </p>
+                                        <button type="button"
+                                            onClick={() => setVariants(p => [...p, { CodArtD: '', CodColor: '', DesColor: '', CodTaille: '', Taille: '', Qte: '0' }])}
+                                            className="inline-flex items-center gap-1.5 h-7 px-3 bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold rounded-lg transition-all">
                                             <PlusIcon className="h-3.5 w-3.5" /> Ajouter
                                         </button>
                                     </div>
 
                                     {variants.length === 0 ? (
-                                        <div className="py-12 flex flex-col items-center gap-3 border-2 border-dashed border-slate-100 rounded-2xl">
-                                            <div className="h-12 w-12 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-                                                <SparklesIcon className="h-6 w-6 text-violet-300" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm font-semibold text-slate-400">Aucune variante</p>
-                                                <p className="text-xs text-slate-300 mt-0.5">Cliquez sur Ajouter pour commencer</p>
-                                            </div>
+                                        <div className="flex flex-col items-center justify-center py-10 gap-3 border-2 border-dashed border-slate-100 rounded-2xl text-center">
+                                            <SwatchIcon className="h-8 w-8 text-slate-200" />
+                                            <p className="text-sm text-slate-400">Aucune variante configurée</p>
                                         </div>
                                     ) : (
-                                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                                            <table className="w-full text-xs">
+                                        <div className="rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+                                            <table className="w-full text-xs min-w-[600px]">
                                                 <thead>
                                                     <tr className="bg-slate-50 border-b border-slate-200">
-                                                        {['Code Detail', 'Couleur', 'Designation', 'Taille', 'Code Taille', 'Qte', ''].map(h => (
-                                                            <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">{h}</th>
+                                                        {['Code variante', 'Code couleur', 'Désignation', 'Taille', 'Code taille', 'Qté', ''].map((h, i) => (
+                                                            <th key={i} className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                         ))}
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
                                                     {variants.map((v, i) => (
-                                                        <tr key={i} className="hover:bg-violet-50/30 transition-colors">
+                                                        <tr key={i} className="hover:bg-blue-50/20 transition-colors">
                                                             {['CodArtD', 'CodColor', 'DesColor', 'Taille', 'CodTaille'].map(field => (
                                                                 <td key={field} className="px-3 py-2">
                                                                     <input type="text" value={v[field]}
-                                                                        onKeyDown={isVariantCodeField(field) ? preventMinusTextInput : undefined}
-                                                                        onPaste={isVariantCodeField(field) ? preventMinusTextPaste : undefined}
                                                                         onChange={e => {
-                                                                            const updated = [...variants];
-                                                                            updated[i] = { ...updated[i], [field]: sanitizeVariantTextValue(field, e.target.value) };
-                                                                            setVariants(updated);
+                                                                            const u = [...variants];
+                                                                            u[i] = { ...u[i], [field]: sanitizeVar(field, e.target.value) };
+                                                                            setVariants(u);
                                                                         }}
-                                                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:border-violet-300 focus:ring-1 focus:ring-violet-100 focus:outline-none transition-all"
-                                                                        placeholder="—" />
+                                                                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 focus:border-[#0062AF]/50 focus:ring-1 focus:ring-[#0062AF]/10 focus:outline-none transition-all"
+                                                                        placeholder="—"
+                                                                    />
                                                                 </td>
                                                             ))}
                                                             <td className="px-3 py-2">
                                                                 <input type="number" value={v.Qte} min="0"
-                                                                    onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
+                                                                    onKeyDown={preventNeg} onPaste={preventNegPaste}
                                                                     onChange={e => {
-                                                                        const updated = [...variants];
-                                                                        updated[i] = { ...updated[i], Qte: e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)) };
-                                                                        setVariants(updated);
+                                                                        const u = [...variants];
+                                                                        u[i] = { ...u[i], Qte: e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)) };
+                                                                        setVariants(u);
                                                                     }}
-                                                                    className="w-16 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-violet-600 text-center focus:border-violet-300 focus:outline-none" />
+                                                                    className="w-16 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-[#0062AF] text-center focus:border-[#0062AF]/50 focus:outline-none"
+                                                                />
                                                             </td>
                                                             <td className="px-3 py-2 text-center">
-                                                                <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))}
-                                                                    className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all">
-                                                                    <TrashIcon className="h-4 w-4" />
+                                                                <button type="button"
+                                                                    onClick={() => setVariants(p => p.filter((_, idx) => idx !== i))}
+                                                                    className="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all">
+                                                                    <TrashIcon className="h-3.5 w-3.5" />
                                                                 </button>
                                                             </td>
                                                         </tr>
@@ -587,200 +606,49 @@ const ProductForm = () => {
                                         </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── Right sidebar ── */}
-                    <div className="lg:col-span-1">
-                        <div className="lg:sticky lg:top-24 space-y-4">
-
-                            {/* Live product preview */}
-                            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-indigo-50/80 to-blue-50/50 border-b border-slate-100">
-                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-4">Apercu en direct</p>
-                                    <div className="flex items-start gap-3.5">
-                                        <div className="h-16 w-16 rounded-xl bg-white border border-indigo-100 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
-                                            {(previewUrl || formData.urlimg) ? (
-                                                <img src={previewUrl || getImageUrl(formData.urlimg)} alt="" className="h-full w-full object-cover" />
-                                            ) : (
-                                                <TagIcon className="h-7 w-7 text-slate-300" />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-slate-800 text-sm leading-snug truncate">
-                                                {formData.LibArt || <span className="text-slate-400 font-normal italic text-xs">Nom du produit</span>}
-                                            </p>
-                                            <p className="text-indigo-400 text-xs mt-0.5">
-                                                {formData.CodArt || <span className="text-slate-300 italic">Code article</span>}
-                                            </p>
-                                            {prixTTC ? (
-                                                <p className="text-indigo-600 font-black text-lg mt-2 leading-none">
-                                                    {prixTTC} <span className="text-xs font-semibold text-indigo-400">TND TTC</span>
-                                                </p>
-                                            ) : (
-                                                <p className="text-slate-300 text-sm mt-2 italic text-xs">Prix non defini</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {(formData.Collection || formData.Marque) && (
-                                        <div className="flex flex-wrap gap-1.5 mt-3.5">
-                                            {formData.Collection && (
-                                                <span className="text-[11px] font-semibold bg-indigo-100 text-indigo-600 px-2.5 py-0.5 rounded-full">{formData.Collection}</span>
-                                            )}
-                                            {formData.Marque && (
-                                                <span className="text-[11px] font-semibold bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full">{formData.Marque}</span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                                {formData.Qte !== '' && formData.Qte !== undefined && (
-                                    <div className={`px-5 py-2.5 flex items-center justify-between text-xs font-bold border-t ${isLowStock ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
-                                        <span className={isLowStock ? 'text-rose-400' : 'text-slate-400'}>Stock</span>
-                                        <span className={isLowStock ? 'text-rose-600' : 'text-slate-600'}>{formData.Qte} {formData.Unite || 'UNI'}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Tarification */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center">
-                                        <CurrencyDollarIcon className="h-5 w-5 text-emerald-500" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-700">Tarification</h2>
-                                        <p className="text-[11px] text-slate-400">Prix hors taxe</p>
-                                    </div>
-                                </div>
-                                <div className="p-5 space-y-4">
-                                    <div>
-                                        <label className={labelCls}>Prix Achat</label>
-                                        <div className="relative">
-                                            <input type="number" min="0" name="PrixAchat" value={formData.PrixAchat} onChange={handleChange}
-                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
-                                                className={`${fieldCls} pr-12`} placeholder="0.000" step="0.001" />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">TND</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Prix Vente HT</label>
-                                        <div className="relative">
-                                            <input type="number" min="0" name="PrixVente" value={formData.PrixVente} onChange={handleChange}
-                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
-                                                className={`${fieldCls} pr-12 font-bold text-emerald-600`} placeholder="0.000" step="0.001" />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">TND</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>TVA</label>
-                                        <select name="Tva" value={formData.Tva} onChange={handleChange} className={fieldCls}>
-                                            <option value="19">19% — Standard</option>
-                                            <option value="7">7% — Reduit</option>
-                                            <option value="0">0% — Exonere</option>
-                                        </select>
-                                    </div>
-
-                                    {prixTTC && (
-                                        <div className="rounded-xl overflow-hidden border border-emerald-200">
-                                            <div className="px-4 py-3 flex items-center justify-between bg-emerald-50 border-b border-emerald-100">
-                                                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Prix TTC</p>
-                                                <p className="text-xl font-black text-emerald-700">
-                                                    {prixTTC} <span className="text-sm font-semibold text-emerald-500">TND</span>
-                                                </p>
-                                            </div>
-                                            <div className="px-4 py-2.5 flex justify-between text-xs text-slate-500 bg-white">
-                                                <span>HT : <b className="text-slate-700">{Number(formData.PrixVente).toFixed(3)}</b></span>
-                                                <span className="text-slate-300">+</span>
-                                                <span>TVA {formData.Tva}% : <b className="text-emerald-600">{montantTVA}</b></span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Stock */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center">
-                                        <ArchiveBoxIcon className="h-5 w-5 text-amber-500" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-700">Stock</h2>
-                                        <p className="text-[11px] text-slate-400">Quantites et seuils</p>
-                                    </div>
-                                </div>
-                                <div className="p-5 space-y-4">
-                                    <div>
-                                        <label className={labelCls}>Quantite en stock</label>
-                                        <div className="relative">
-                                            <input type="number" min="0" name="Qte" value={formData.Qte} onChange={handleChange}
-                                                onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
-                                                className={`${fieldCls} pr-12 font-bold ${isLowStock ? 'text-rose-500 border-rose-200 focus:border-rose-300 focus:ring-rose-50' : 'text-amber-600'}`}
-                                                placeholder="0" />
-                                            {formData.Unite && (
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">{formData.Unite}</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {stockPct !== null && (
-                                        <div className="space-y-1.5">
-                                            <div className="flex justify-between">
-                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Niveau stock</p>
-                                                <p className={`text-[11px] font-bold ${isLowStock ? 'text-rose-400' : 'text-emerald-500'}`}>{stockPct}%</p>
-                                            </div>
-                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full transition-all duration-500 ${stockPct <= 50 ? 'bg-rose-300' : stockPct <= 80 ? 'bg-amber-300' : 'bg-emerald-400'}`}
-                                                    style={{ width: `${stockPct}%` }} />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className={labelCls}>Stock Minimum</label>
-                                        <input type="number" min="0" name="MinStk" value={formData.MinStk} onChange={handleChange}
-                                            onKeyDown={preventNegativeInput} onPaste={preventNegativePaste}
-                                            className={fieldCls} placeholder="0" />
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Unite de Mesure</label>
-                                        <select name="Unite" value={formData.Unite} onChange={handleChange} className={fieldCls}>
-                                            <option value="UNI">Unite</option>
-                                            <option value="KG">Kilogramme</option>
-                                            <option value="L">Litre</option>
-                                            <option value="M">Metre</option>
-                                            <option value="BOX">Boite</option>
-                                        </select>
-                                    </div>
-
-                                    {isLowStock && (
-                                        <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border border-rose-100 rounded-xl">
-                                            <div className="h-8 w-8 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0">
-                                                <ArchiveBoxIcon className="h-4 w-4 text-rose-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-rose-600">Stock critique</p>
-                                                <p className="text-[11px] text-rose-400 mt-0.5">En dessous du seuil minimum</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="px-5 pb-5">
-                                    <button type="submit" form="product-form" disabled={saving}
-                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl shadow-sm shadow-indigo-100 transition-all disabled:opacity-60">
-                                        {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
-                                        {isEdit ? 'Sauvegarder les modifications' : 'Enregistrer le produit'}
-                                    </button>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
-            </form>
-        </div>
+
+                {/* Bottom CTA */}
+                <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" onClick={() => navigate(-1)}
+                        className="h-10 px-6 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                        Annuler
+                    </button>
+                    <button type="submit" disabled={saving || !isReady}
+                        className="flex items-center gap-2 h-10 px-8 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-md shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95">
+                        {saving
+                            ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <CheckIcon className="h-4 w-4 stroke-[2.5]" />
+                        }
+                        {isEdit ? 'Sauvegarder les modifications' : 'Créer le produit'}
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Lightbox image ── */}
+            <AnimatePresence>
+                {imgZoom && imgSrc && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => setImgZoom(false)}
+                        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-8 cursor-zoom-out"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.85, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+                            className="bg-white rounded-3xl shadow-2xl p-8 max-w-lg"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <img src={imgSrc} alt={formData.LibArt} className="max-w-full max-h-[65vh] object-contain" />
+                            <p className="text-center text-sm text-slate-400 mt-4 font-medium">{formData.LibArt}</p>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </form>
     );
 };
 

@@ -266,7 +266,7 @@ const ClaimDetail = () => {
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`inline-flex items-center gap-2 h-8 px-4 rounded-xl text-xs font-semibold transition-all ${
               activeTab === t.id
-                ? 'bg-sky-600 text-white shadow-sm'
+                ? 'bg-[#0062AF] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}>
             <t.icon className="h-3.5 w-3.5" />
@@ -349,7 +349,7 @@ const ClaimDetail = () => {
                     </div>
                     {(isAdmin || isTechnicien) && !isClosed && (
                       <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-sky-600 text-white text-xs font-semibold hover:bg-sky-500 transition-all shadow-sm">
+                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
                         <PlusIcon className="h-3.5 w-3.5" /> Planifier
                       </button>
                     )}
@@ -364,7 +364,7 @@ const ClaimDetail = () => {
                       <p className="text-xs text-slate-400">Les interventions apparaîtront ici une fois planifiées.</p>
                       {(isAdmin || isTechnicien) && !isClosed && (
                         <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                          className="mt-1 inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-500 transition-all shadow-sm">
+                          className="mt-1 inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
                           <PlusIcon className="h-3.5 w-3.5" /> Ajouter une intervention
                         </button>
                       )}
@@ -494,7 +494,7 @@ const ClaimDetail = () => {
               <div className="space-y-2">
                 {!isClosed && (
                   <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                    className="w-full h-9 flex items-center gap-2 px-3 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-500 transition-all shadow-sm">
+                    className="w-full h-9 flex items-center gap-2 px-3 rounded-xl bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
                     <WrenchScrewdriverIcon className="h-3.5 w-3.5" /> Nouvelle intervention
                   </button>
                 )}

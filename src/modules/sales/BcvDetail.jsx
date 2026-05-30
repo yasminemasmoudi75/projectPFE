@@ -142,11 +142,25 @@ const BcvDetail = () => {
     };
 
     if (loading) return <LoadingSpinner />;
-    if (error) return <div className="text-center text-red-600 p-8">Erreur: {error}</div>;
-    if (!bcv) return <div className="text-center text-gray-500 p-8">Bon de commande non trouvé</div>;
+    if (error) return (
+        <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-400 text-xl font-bold select-none">!</div>
+            <p className="text-sm font-semibold text-slate-700">Erreur lors du chargement</p>
+            <p className="text-xs text-slate-400 max-w-xs text-center">{error}</p>
+        </div>
+    );
+    if (!bcv) return (
+        <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <div className="h-14 w-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+                <PrinterIcon className="h-7 w-7 text-slate-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">Bon de commande introuvable</p>
+            <button onClick={() => navigate('/bcv')} className="btn btn-secondary text-xs mt-2">← Retour à la liste</button>
+        </div>
+    );
 
     return (
-        <div className="animate-fade-in space-y-8 max-w-5xl mx-auto pb-20 pt-10 px-4 font-sans">
+        <div className="animate-fade-in space-y-6 max-w-5xl mx-auto pb-20">
             {/* Driver form modal (shown only for BC -> BL) */}
             {showDriverForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4 print:hidden">
@@ -215,15 +229,25 @@ const BcvDetail = () => {
                 </div>
             )}
             
-            {/* Action Buttons (Print Hidden) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-                <button
-                    onClick={() => navigate('/bcv')}
-                    className="flex items-center text-slate-500 hover:text-blue-600 transition-colors font-semibold text-xs py-2"
-                >
-                    <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                    Retour à la liste
-                </button>
+            {/* ── Page Header ── */}
+            <div className="card-luxury p-5 bg-gradient-to-r from-sky-50 via-white to-blue-50/40 border-none print:hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => navigate('/bcv')}
+                        className="h-10 w-10 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all flex-shrink-0"
+                    >
+                        <ArrowLeftIcon className="h-4 w-4" />
+                    </button>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 mb-0.5">Bons de Commande</p>
+                        <h1 className="text-lg font-bold text-slate-800 leading-tight">{bcv.Prfx || 'BC'}{bcv.Nf}</h1>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Client · <span className="font-semibold text-slate-700">{bcv.LibTiers}</span>
+                            {bcv.Valid ? <span className="ml-2 badge badge-success">Validé</span> : <span className="ml-2 badge badge-warning">En cours</span>}
+                        </p>
+                    </div>
+                </div>
                 <div className="flex gap-2 flex-wrap">
                     {!alreadyTransferred && isAdmin && (
                         <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
@@ -277,10 +301,13 @@ const BcvDetail = () => {
                         Télécharger PDF
                     </button>
                 </div>
+              </div>
             </div>
 
             {/* CLEAN DOCUMENT VIEW */}
-            <div className="bg-white rounded-lg border border-slate-100 p-12 shadow-sm min-h-[1000px] text-slate-700 print:shadow-none print:border-none print:p-0">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[1000px] text-slate-700 overflow-hidden print:shadow-none print:border-none">
+                <div className="h-1 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 print:hidden" />
+                <div className="p-12 print:p-0">
                 
                 {/* Header Section */}
                 <div className="flex justify-between items-start mb-16">
@@ -436,6 +463,7 @@ const BcvDetail = () => {
 
                 <div className="mt-20 border-t border-slate-50 italic text-[10px] text-slate-400 text-center uppercase tracking-widest">
                     NexusCRM Suite — Document Officiel
+                </div>
                 </div>
             </div>
         </div>

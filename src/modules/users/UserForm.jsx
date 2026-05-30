@@ -1,66 +1,83 @@
 import { useState, useEffect } from 'react';
 import axios from '../../app/axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-    UserIcon, 
-    EnvelopeIcon, 
-    PhoneIcon, 
-    BriefcaseIcon, 
-    GlobeAltIcon, 
-    ShieldCheckIcon, 
-    CheckIcon, 
-    ArrowLeftIcon,
-    BuildingOfficeIcon,
-    LockClosedIcon,
+import { motion } from 'framer-motion';
+import {
+    UserIcon, EnvelopeIcon, PhoneIcon,
+    ShieldCheckIcon, CheckIcon, ArrowLeftIcon,
+    BuildingOfficeIcon, LockClosedIcon,
+    MapPinIcon, XMarkIcon, KeyIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
+/* ── Input field wrapper ── */
+const Field = ({ label, required, children }) => (
+    <div className="flex flex-col gap-2">
+        <label className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+            {label}{required && <span className="text-rose-400 ml-1">*</span>}
+        </label>
+        {children}
+    </div>
+);
+
+const inputCls =
+    'w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/10 transition-all';
+
+const selectCls =
+    'w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/10 transition-all';
+
+/* ── Section card ── */
+const Card = ({ title, icon: Icon, iconBg, iconColor, accent, children, delay = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay, duration: 0.22 }}
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+    >
+        <div className={`h-1 bg-gradient-to-r ${accent}`} />
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+            <div className={`h-9 w-9 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+                <Icon className={`h-5 w-5 ${iconColor}`} />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{title}</p>
+        </div>
+        <div className="p-6 space-y-5">{children}</div>
+    </motion.div>
+);
+
+/* ══ Page ══ */
 const UserForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
-    const [loading, setLoading] = useState(isEdit);
-    const [saving, setSaving] = useState(false);
+    const [loading, setLoading]     = useState(isEdit);
+    const [saving, setSaving]       = useState(false);
+    const [resending, setResending] = useState(false);
     const [gouvernorats, setGouvernorats] = useState([]);
 
     const [formData, setFormData] = useState({
-        LoginName: '',
-        Password: '',
-        ConfirmPassword: '',
-        Nom: '',
-        Prenom: '',
-        EmailPro: '',
-        TelPro: '',
-        Poste: '',
-        Departement: '',
-        UserRole: 'Agent',
-        Gouvernorat: '',
-        IsActive: true,
+        Password: '', ConfirmPassword: '',
+        Nom: '', Prenom: '', EmailPro: '', TelPro: '',
+        Poste: '', Departement: '', UserRole: 'Agent',
+        Gouvernorat: '', IsActive: true,
     });
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Charger les gouvernorats
                 const govRes = await axios.get('/tiers-gouvernorats');
                 const govData = govRes.data?.data || govRes.data || [];
                 setGouvernorats(Array.isArray(govData) ? govData : []);
 
-                // 2. Charger l'utilisateur si on est en mode édition
                 if (isEdit) {
                     const response = await axios.get(`/users/${id}`);
                     if (response.status === 'success') {
                         const user = response.data;
                         const nameParts = (user.FullName || '').split(' ');
-                        const prenom = nameParts[0] || '';
-                        const nom = nameParts.slice(1).join(' ') || '';
-                        
                         setFormData({
-                            LoginName: user.LoginName || '',
-                            Password: '',
-                            ConfirmPassword: '',
-                            Nom: nom,
-                            Prenom: prenom,
+                            Password: '', ConfirmPassword: '',
+                            Nom: nameParts.slice(1).join(' ') || '',
+                            Prenom: nameParts[0] || '',
                             EmailPro: user.EmailPro || '',
                             TelPro: user.TelPro || '',
                             Poste: user.PosteOccupe || '',
@@ -72,7 +89,7 @@ const UserForm = () => {
                     }
                 }
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error(error);
                 toast.error('Erreur lors du chargement des données');
                 if (isEdit) navigate('/users');
             } finally {
@@ -85,61 +102,48 @@ const UserForm = () => {
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => {
-            const newState = {
-                ...prev,
-                [name]: type === 'checkbox' ? checked : value
-            };
-            
-            // Activation automatique si un rôle est assigné
-            if (name === 'UserRole' && value && !prev.IsActive) {
-                newState.IsActive = true;
-            }
-            return newState;
+            const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
+            if (name === 'UserRole' && value && !prev.IsActive) next.IsActive = true;
+            return next;
         });
+    };
+
+    const handleResendCredentials = async () => {
+        if (!window.confirm('Générer un nouveau mot de passe et l\'envoyer par email ?')) return;
+        setResending(true);
+        try {
+            await axios.post(`/users/${id}/resend-credentials`);
+            toast.success('Nouveaux identifiants envoyés par email');
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Erreur lors de l'envoi");
+        } finally {
+            setResending(false);
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // Validations
-        if (!isEdit && !formData.Password) {
-            toast.error('Le mot de passe est obligatoire pour un nouvel utilisateur.');
-            return;
-        }
-
-        if (formData.Password && formData.Password !== formData.ConfirmPassword) {
-            toast.error('Les mots de passe ne correspondent pas.');
-            return;
-        }
-
         if (formData.UserRole && !formData.Gouvernorat) {
-            toast.error('Le champ Gouvernorat est obligatoire lorsqu\'un rôle est assigné.');
-            return;
+            toast.error("Le gouvernorat est obligatoire lorsqu'un rôle est assigné."); return;
         }
-
-        // Validation du numéro de téléphone (8 chiffres)
-        if (!/^\d{8}$/.test(formData.TelPro)) {
-            toast.error('Le numéro de téléphone doit contenir exactement 8 chiffres.');
-            return;
+        if (!formData.TelPro || !/^\d{8}$/.test(formData.TelPro)) {
+            toast.error('Le numéro de téléphone doit contenir exactement 8 chiffres.'); return;
         }
 
         setSaving(true);
         try {
-            const payload = {
-                ...formData,
-                FullName: `${formData.Prenom} ${formData.Nom}`.trim()
-            };
-
-            let response;
+            const payload = { ...formData, FullName: `${formData.Prenom} ${formData.Nom}`.trim() };
             if (isEdit) {
-                response = await axios.put(`/users/${id}`, payload);
-                toast.success('Utilisateur mis à jour avec succès');
+                await axios.put(`/users/${id}`, payload);
+                toast.success('Collaborateur mis à jour');
+                navigate('/users');
             } else {
-                response = await axios.post('/users', payload);
-                toast.success('Utilisateur créé avec succès');
-            }
-
-            if (response.status === 'success') {
+                const res = await axios.post('/users', payload);
+                if (res.emailSent === false) {
+                    toast.error("Compte créé, mais l'email n'a pas pu être envoyé. Vérifiez la configuration SMTP.");
+                } else {
+                    toast.success('Compte créé — identifiants envoyés par email');
+                }
                 navigate('/users');
             }
         } catch (error) {
@@ -149,241 +153,241 @@ const UserForm = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-            </div>
-        );
-    }
+    if (loading) return (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="h-10 w-10 border-2 border-slate-200 border-t-[#0062AF] rounded-full animate-spin" />
+        </div>
+    );
 
     return (
-        <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+            className="max-w-6xl mx-auto pb-24 space-y-6"
+        >
+            {/* ── Top bar ── */}
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <button
+                        type="button"
                         onClick={() => navigate('/users')}
-                        className="p-3 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-2xl transition-all border border-slate-100"
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-[#0062AF] hover:border-[#0062AF]/30 hover:bg-blue-50 transition-all group"
                     >
-                        <ArrowLeftIcon className="h-5 w-5" />
+                        <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            {isEdit ? 'Modifier Collaborateur' : 'Nouveau Collaborateur'}
+                        <h1 className="text-xl font-bold text-slate-900">
+                            {isEdit ? 'Modifier le collaborateur' : 'Nouveau collaborateur'}
                         </h1>
-                        <p className="text-sm text-slate-500">
-                            {isEdit ? 'Mise à jour du profil et des permissions' : 'Création d\'un compte utilisateur interne'}
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            {isEdit ? 'Modifiez les informations du collaborateur' : 'Remplissez les informations pour créer un nouveau compte'}
                         </p>
                     </div>
                 </div>
-            </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
-                {/* Colonne Gauche: Profil & Localisation */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Identité */}
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
-                        <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
-                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                                <UserIcon className="h-5 w-5" />
-                            </div>
-                            <h2 className="text-lg font-bold text-slate-800">Identité du Collaborateur</h2>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Prénom <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="text"
-                                    name="Prenom"
-                                    value={formData.Prenom}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nom <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="text"
-                                    name="Nom"
-                                    value={formData.Nom}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><EnvelopeIcon className="h-4 w-4" /> Email <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="email"
-                                    name="EmailPro"
-                                    value={formData.EmailPro}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><PhoneIcon className="h-4 w-4" /> Téléphone <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="tel"
-                                    name="TelPro"
-                                    value={formData.TelPro}
-                                    onChange={handleChange}
-                                    maxLength={8}
-                                    required
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Poste et Gouvernorat */}
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
-                        <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
-                            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
-                                <BriefcaseIcon className="h-5 w-5" />
-                            </div>
-                            <h2 className="text-lg font-bold text-slate-800">Affectation & Région</h2>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Poste Occupé</label>
-                                <input
-                                    type="text"
-                                    name="Poste"
-                                    value={formData.Poste}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-sky-100 focus:border-sky-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><BuildingOfficeIcon className="h-4 w-4" /> Département</label>
-                                <input
-                                    type="text"
-                                    name="Departement"
-                                    value={formData.Departement}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-sky-100 focus:border-sky-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2">
-                                    <GlobeAltIcon className="h-4 w-4 text-indigo-500" />
-                                    Gouvernorat {formData.UserRole && <span className="text-rose-500">*</span>}
-                                </label>
-                                <select
-                                    name="Gouvernorat"
-                                    value={formData.Gouvernorat}
-                                    onChange={handleChange}
-                                    required={!!formData.UserRole}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="">Sélectionnez un gouvernorat</option>
-                                    {gouvernorats.map(gov => (
-                                        <option key={gov.id} value={gov.id}>
-                                            {gov.libelle}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Colonne Droite: Sécurité & Actions */}
-                <div className="space-y-8">
-                    {/* Rôle & Statut */}
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
-                        <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
-                            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                                <ShieldCheckIcon className="h-5 w-5" />
-                            </div>
-                            <h2 className="text-lg font-bold text-slate-800">Permissions</h2>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Rôle Utilisateur</label>
-                                <select
-                                    name="UserRole"
-                                    value={formData.UserRole}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 outline-none transition-all"
-                                >
-                                    <option value="">Aucun (Accès restreint)</option>
-                                    <option value="Admin">Administrateur</option>
-                                    <option value="Agent">Agent</option>
-                                    <option value="Commercial">Commercial</option>
-                                    <option value="Technicien">Technicien</option>
-                                </select>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2.5 h-2.5 rounded-full ${formData.IsActive ? 'bg-emerald-500' : 'bg-slate-300'} animate-pulse`}></div>
-                                    <span className="text-sm font-bold text-slate-700">Compte Actif</span>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="IsActive"
-                                        checked={formData.IsActive}
-                                        onChange={handleChange}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Mot de passe */}
-                        <div className="space-y-4 pt-4 border-t border-slate-50">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><LockClosedIcon className="h-4 w-4" /> Mot de passe {!isEdit && <span className="text-rose-500">*</span>}</label>
-                                <input
-                                    type="password"
-                                    name="Password"
-                                    value={formData.Password}
-                                    onChange={handleChange}
-                                    required={!isEdit}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-2"><LockClosedIcon className="h-4 w-4" /> Confirmation {!isEdit && <span className="text-rose-500">*</span>}</label>
-                                <input
-                                    type="password"
-                                    name="ConfirmPassword"
-                                    value={formData.ConfirmPassword}
-                                    onChange={handleChange}
-                                    required={!isEdit}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:bg-white focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/users')}
+                        className="inline-flex items-center gap-2 h-10 px-5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-all"
+                    >
+                        <XMarkIcon className="h-4 w-4" />
+                        Annuler
+                    </button>
                     <button
                         type="submit"
+                        form="user-form"
                         disabled={saving}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-3xl font-bold shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
+                        className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-60"
                     >
-                        {saving ? (
-                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        ) : (
-                            <>
-                                <CheckIcon className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                                {isEdit ? 'Sauvegarder les modifications' : 'Créer le Collaborateur'}
-                            </>
-                        )}
+                        {saving
+                            ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <CheckIcon className="h-4 w-4" />
+                        }
+                        {isEdit ? 'Sauvegarder' : 'Créer le compte'}
                     </button>
                 </div>
+            </div>
+
+            {/* ── Form ── */}
+            <form id="user-form" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    {/* ── Left (2 cols) ── */}
+                    <div className="lg:col-span-2 space-y-6">
+
+                        {/* Identité */}
+                        <Card
+                            title="Identité"
+                            icon={UserIcon}
+                            iconBg="bg-blue-50"
+                            iconColor="text-[#0062AF]"
+                            accent="from-[#0062AF] to-sky-400"
+                            delay={0.08}
+                        >
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <Field label="Prénom" required>
+                                    <input type="text" name="Prenom" value={formData.Prenom}
+                                        onChange={handleChange} required
+                                        className={inputCls} />
+                                </Field>
+                                <Field label="Nom" required>
+                                    <input type="text" name="Nom" value={formData.Nom}
+                                        onChange={handleChange} required
+                                        className={inputCls} />
+                                </Field>
+                                <Field label="Email professionnel" required>
+                                    <input type="email" name="EmailPro" value={formData.EmailPro}
+                                        onChange={handleChange} required
+                                        className={inputCls} />
+                                </Field>
+                                <Field label="Téléphone (8 chiffres)" required>
+                                    <input type="tel" name="TelPro" value={formData.TelPro}
+                                        onChange={handleChange} required
+                                        maxLength={8} pattern="\d{8}"
+                                        title="8 chiffres exactement"
+                                        className={inputCls} />
+                                </Field>
+                            </div>
+                        </Card>
+
+                        {/* Organisation */}
+                        <Card
+                            title="Organisation"
+                            icon={BuildingOfficeIcon}
+                            iconBg="bg-violet-50"
+                            iconColor="text-violet-500"
+                            accent="from-violet-400 to-purple-400"
+                            delay={0.12}
+                        >
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <Field label="Poste occupé">
+                                    <input type="text" name="Poste" value={formData.Poste}
+                                        onChange={handleChange}
+                                        className={inputCls} />
+                                </Field>
+                                <Field label="Département">
+                                    <input type="text" name="Departement" value={formData.Departement}
+                                        onChange={handleChange}
+                                        className={inputCls} />
+                                </Field>
+                                <Field label={`Gouvernorat${formData.UserRole ? ' *' : ''}`} required={!!formData.UserRole}>
+                                    <div className="relative">
+                                        <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                        <select name="Gouvernorat" value={formData.Gouvernorat}
+                                            onChange={handleChange} required={!!formData.UserRole}
+                                            className={`${selectCls} pl-10`}>
+                                            <option value="">— Sélectionnez —</option>
+                                            {gouvernorats.map(gov => (
+                                                <option key={gov.id} value={gov.id}>{gov.libelle}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </Field>
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* ── Right (1 col) ── */}
+                    <div className="space-y-6">
+
+                        {/* Accès & Sécurité */}
+                        <Card
+                            title="Accès & Sécurité"
+                            icon={ShieldCheckIcon}
+                            iconBg="bg-emerald-50"
+                            iconColor="text-emerald-500"
+                            accent="from-emerald-400 to-teal-400"
+                            delay={0.08}
+                        >
+                            {/* Rôle */}
+                            <Field label="Rôle">
+                                <div className="relative">
+                                    <ShieldCheckIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    <select name="UserRole" value={formData.UserRole}
+                                        onChange={handleChange}
+                                        className={`${selectCls} pl-10`}>
+                                        <option value="">Accès restreint</option>
+                                        <option value="Admin">Administrateur</option>
+                                        <option value="Agent">Agent</option>
+                                        <option value="Commercial">Commercial</option>
+                                        <option value="Technicien">Technicien</option>
+                                    </select>
+                                </div>
+                            </Field>
+
+                            {/* Statut actif */}
+                            <div className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                                formData.IsActive ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'
+                            }`}>
+                                <div className="flex items-center gap-2.5">
+                                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${formData.IsActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                                    <span className={`text-sm font-semibold ${formData.IsActive ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                        {formData.IsActive ? 'Compte actif' : 'Compte inactif'}
+                                    </span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="IsActive" checked={formData.IsActive}
+                                        onChange={handleChange} className="sr-only peer" />
+                                    <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5 peer-checked:after:border-white" />
+                                </label>
+                            </div>
+                        </Card>
+
+                        {/* Sécurité */}
+                        <Card
+                            title="Sécurité"
+                            icon={LockClosedIcon}
+                            iconBg="bg-amber-50"
+                            iconColor="text-amber-500"
+                            accent="from-amber-400 to-orange-300"
+                            delay={0.13}
+                        >
+                            {!isEdit ? (
+                                /* CREATE — mot de passe envoyé par email */
+                                <div className="flex items-start gap-3 px-3.5 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+                                    <EnvelopeIcon className="h-4 w-4 text-[#0062AF] flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-[#0062AF] font-medium leading-relaxed">
+                                        Un mot de passe temporaire sera généré automatiquement et envoyé à l'adresse email du collaborateur.
+                                    </p>
+                                </div>
+                            ) : (
+                                /* EDIT — renvoyer mot de passe uniquement */
+                                <button
+                                    type="button"
+                                    onClick={handleResendCredentials}
+                                    disabled={resending}
+                                    className="w-full flex items-center justify-center gap-2 h-9 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-semibold transition-all disabled:opacity-50"
+                                >
+                                    {resending
+                                        ? <div className="h-3.5 w-3.5 border-2 border-amber-400/30 border-t-amber-500 rounded-full animate-spin" />
+                                        : <KeyIcon className="h-4 w-4" />
+                                    }
+                                    Renvoyer le mot de passe
+                                </button>
+                            )}
+                        </Card>
+
+                        {/* Submit */}
+                        <motion.button
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            type="submit"
+                            disabled={saving}
+                            className="w-full h-13 py-3.5 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95"
+                        >
+                            {saving
+                                ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                : <CheckIcon className="h-4 w-4" />
+                            }
+                            {isEdit ? 'Sauvegarder les modifications' : 'Créer le collaborateur'}
+                        </motion.button>
+                    </div>
+                </div>
             </form>
-        </div>
+        </motion.div>
     );
 };
 

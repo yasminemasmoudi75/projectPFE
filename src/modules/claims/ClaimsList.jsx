@@ -274,26 +274,28 @@ const ClaimsList = () => {
 
       {/* ── Hero ── */}
       <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-        <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-sky-50/60 to-transparent pointer-events-none rounded-2xl" />
+        {/* Accent top */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 via-[#0062AF] to-sky-400" />
+        <div className="absolute top-0 right-0 w-72 h-full bg-gradient-to-l from-sky-50/50 to-transparent pointer-events-none" />
         <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
           <div className="flex items-start gap-4 flex-1">
-            <div className="h-11 w-11 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center flex-none">
-              <LifebuoyIcon className="h-5 w-5 text-sky-500" />
+            <div className="h-11 w-11 rounded-xl bg-[#0062AF]/10 border border-[#0062AF]/20 flex items-center justify-center flex-none shadow-sm">
+              <LifebuoyIcon className="h-5 w-5 text-[#0062AF]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">{pageTitle}</h1>
-              <p className="text-sm text-slate-400 mt-1">{pageDesc}</p>
+              <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
+              <p className="text-sm text-slate-400 mt-0.5 font-medium">{pageDesc}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => fetchClaims()}
-              className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
               title="Actualiser">
               <ArrowPathIcon className="h-4 w-4" />
             </button>
             {(isAdmin || isClient || canAddReclamation) && (
               <button onClick={() => navigate('/claims/new')}
-                className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-500 transition-colors shadow-sm">
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-sm shadow-blue-500/20">
                 <PlusIcon className="h-4 w-4" />
                 {isAdmin ? 'Créer un ticket' : 'Signaler un problème'}
               </button>
@@ -603,7 +605,7 @@ const ClaimsList = () => {
                   <button onClick={() => handlePageChange(p)}
                     className={`h-8 min-w-[2rem] px-2 rounded-lg text-xs font-medium transition-all ${
                       currentPage === p
-                        ? 'bg-sky-600 text-white'
+                        ? 'bg-[#0062AF] text-white'
                         : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
                     }`}>{p}</button>
                 </span>

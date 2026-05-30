@@ -1,33 +1,49 @@
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ChevronRightIcon, HomeIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 
-const PageHeader = ({ 
-  title, 
-  subtitle, 
-  icon: Icon, 
+const PageHeader = ({
+  title,
+  subtitle,
+  icon: Icon,
+  iconColor = 'blue',
   action,
   backButton = false,
   backTo,
-  breadcrumbs = []
+  breadcrumbs = [],
+  badge,
 }) => {
   const navigate = useNavigate();
 
+  const iconPalette = {
+    blue:    'from-[#0062AF] to-[#004a85]',
+    emerald: 'from-emerald-500 to-emerald-600',
+    amber:   'from-amber-500 to-amber-600',
+    violet:  'from-violet-500 to-violet-600',
+    rose:    'from-rose-500 to-rose-600',
+    sky:     'from-sky-500 to-sky-600',
+    teal:    'from-teal-500 to-teal-600',
+  };
+
+  const gradient = iconPalette[iconColor] || iconPalette.blue;
+
   return (
-    <div className="mb-8">
+    <div className="mb-6">
+      {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <nav className="flex items-center gap-1 text-xs text-slate-400 mb-4 flex-wrap">
+          <HomeIcon className="h-3 w-3 flex-shrink-0" />
           {breadcrumbs.map((crumb, idx) => (
-            <span key={idx} className="flex items-center gap-2">
-              {idx > 0 && <span className="text-slate-300">/</span>}
+            <span key={idx} className="flex items-center gap-1">
+              <ChevronRightIcon className="h-3 w-3 text-slate-300 flex-shrink-0" />
               {crumb.href ? (
-                <button 
+                <button
                   onClick={() => navigate(crumb.href)}
-                  className="hover:text-blue-600 transition-colors"
+                  className="hover:text-[#0062AF] font-medium transition-colors"
                 >
                   {crumb.label}
                 </button>
               ) : (
-                <span className="text-slate-700 font-medium">{crumb.label}</span>
+                <span className="text-slate-600 font-semibold">{crumb.label}</span>
               )}
             </span>
           ))}
@@ -35,31 +51,41 @@ const PageHeader = ({
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Back button */}
           {backButton && (
             <button
               onClick={() => backTo ? navigate(backTo) : navigate(-1)}
-              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
+              className="h-9 w-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center shadow-sm flex-shrink-0"
             >
-              <ArrowLeftIcon className="h-5 w-5" />
+              <ArrowLeftIcon className="h-4 w-4" />
             </button>
           )}
-          
-          <div className="flex items-center gap-3">
-            {Icon && (
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <Icon className="h-6 w-6 text-white" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-              {subtitle && (
-                <p className="text-slate-500 text-sm mt-0.5">{subtitle}</p>
+
+          {/* Icon */}
+          {Icon && (
+            <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md shadow-black/10 flex-shrink-0`}>
+              <Icon className="h-5 w-5 text-white" />
+            </div>
+          )}
+
+          {/* Text */}
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">{title}</h1>
+              {badge && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#e0f0ff] text-[#0062AF] border border-blue-200/60">
+                  {badge}
+                </span>
               )}
             </div>
+            {subtitle && (
+              <p className="text-sm text-slate-400 font-medium mt-0.5">{subtitle}</p>
+            )}
           </div>
         </div>
 
+        {/* Action slot */}
         {action && (
           <div className="flex-shrink-0">
             {action}

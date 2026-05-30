@@ -111,7 +111,7 @@ const ActiviteDetail = () => {
         <p className="text-slate-500 font-semibold mb-6">Activité introuvable</p>
         <button
           onClick={() => navigate('/activites')}
-          className="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl font-medium shadow-md shadow-sky-200/50 transition-all"
+          className="px-6 py-2.5 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl font-medium shadow-md shadow-blue-500/20 transition-all"
         >
           Retour au journal
         </button>
@@ -214,7 +214,7 @@ const ActiviteDetail = () => {
             )}
             <button
               onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`, { state: location.state })}
-              className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-medium shadow-md shadow-sky-200/50 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white font-medium shadow-md shadow-blue-500/20 transition-all flex items-center gap-2"
             >
               <PencilSquareIcon className="h-4 w-4" />
               Modifier

@@ -21,7 +21,7 @@ const StepDot = ({ num, label, active, done }) => (
   <div className="flex items-center gap-2.5">
     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold flex-none transition-all ${
       done  ? 'bg-emerald-500 text-white' :
-      active ? 'bg-sky-600 text-white' :
+      active ? 'bg-[#0062AF] text-white' :
                'bg-slate-100 text-slate-400 border border-slate-200'
     }`}>
       {done ? <CheckIcon className="h-4 w-4" /> : num}
@@ -327,12 +327,12 @@ const ClaimForm = () => {
                   if ((step === 1 && isStep1Complete) || (step === 2 && isStep2Complete)) setStep(step + 1);
                 }}
                 disabled={(step === 1 && !isStep1Complete) || (step === 2 && !isStep2Complete)}
-                className="h-10 px-6 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm">
+                className="h-10 px-6 rounded-xl bg-[#0062AF] text-white text-sm font-semibold hover:bg-[#004a85] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-500/20">
                 Suivant →
               </button>
             ) : (
               <button type="submit" disabled={saving || !isStep3Complete}
-                className="h-10 px-6 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm flex items-center gap-2">
+                className="h-10 px-6 rounded-xl bg-[#0062AF] text-white text-sm font-semibold hover:bg-[#004a85] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-500/20 flex items-center gap-2">
                 {saving
                   ? <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Création…</>
                   : <><CheckIcon className="h-4 w-4" /> Ouvrir le ticket</>

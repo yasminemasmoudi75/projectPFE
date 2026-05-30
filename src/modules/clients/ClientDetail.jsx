@@ -409,7 +409,7 @@ const ClientDetail = () => {
                             <div className="flex items-center gap-4">
                                 {/* Avatar initiales */}
                                 <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                                    style={{ background: 'linear-gradient(135deg, #004792, #0070cc)' }}>
+                                    style={{ background: 'linear-gradient(135deg, #0062AF, #0070cc)' }}>
                                     {(client.LibTiers || '?')[0].toUpperCase()}
                                 </div>
 
@@ -470,9 +470,9 @@ const ClientDetail = () => {
                             <button
                                 onClick={() => navigate('/devis/new', { state: { defaultCodTiers: client.CodTiers } })}
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl shadow-md transition-all"
-                                style={{ background: '#004792' }}
+                                style={{ background: '#0062AF' }}
                                 onMouseEnter={e => e.currentTarget.style.background = '#003370'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#004792'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#0062AF'}
                             >
                                 <PlusIcon className="h-4 w-4" />
                                 Nouveau Devis
@@ -487,7 +487,7 @@ const ClientDetail = () => {
                 {/* ── KPI Strip ── */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'C.A Total',  value: `${client.ChiffreAffairesTotal.toLocaleString('fr-FR')} TND`, icon: ChartBarIcon,    border: 'border-l-[#004792]', iconBg: 'bg-blue-50',    iconColor: 'text-[#004792]' },
+                        { label: 'C.A Total',  value: `${client.ChiffreAffairesTotal.toLocaleString('fr-FR')} TND`, icon: ChartBarIcon,    border: 'border-l-[#0062AF]', iconBg: 'bg-blue-50',    iconColor: 'text-[#0062AF]' },
                         { label: 'Encours',    value: `${client.Solde.toLocaleString('fr-FR')} TND`,               icon: BanknotesIcon,   border: client.Solde > 5000 ? 'border-l-amber-400' : 'border-l-emerald-400', iconBg: client.Solde > 5000 ? 'bg-amber-50' : 'bg-emerald-50', iconColor: client.Solde > 5000 ? 'text-amber-600' : 'text-emerald-600' },
                         { label: 'Devis',      value: clientDevis.length,                                           icon: DocumentTextIcon, border: 'border-l-violet-400', iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
                         { label: 'Projets',    value: clientProjets.length,                                         icon: BriefcaseIcon,   border: 'border-l-sky-400',    iconBg: 'bg-sky-50',     iconColor: 'text-sky-600'    },
@@ -513,8 +513,8 @@ const ClientDetail = () => {
                         {/* Fiche Identité */}
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-[#004792]/10 flex items-center justify-center">
-                                    <IdentificationIcon className="h-4 w-4 text-[#004792]" />
+                                <div className="h-8 w-8 rounded-lg bg-[#0062AF]/10 flex items-center justify-center">
+                                    <IdentificationIcon className="h-4 w-4 text-[#0062AF]" />
                                 </div>
                                 <h3 className="text-sm font-bold text-slate-800">Fiche Identité</h3>
                             </div>
@@ -600,7 +600,7 @@ const ClientDetail = () => {
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
                                             activeTab === tab.id
-                                                ? 'border-[#004792] text-[#004792] bg-blue-50/40'
+                                                ? 'border-[#0062AF] text-[#0062AF] bg-blue-50/40'
                                                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                         }`}
                                     >
@@ -625,8 +625,8 @@ const ClientDetail = () => {
                                                         className="w-full px-5 py-3.5 flex items-center justify-between bg-slate-50 hover:bg-slate-100/70 transition-colors"
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-lg bg-[#004792]/10 flex items-center justify-center">
-                                                                <section.icon className="h-4 w-4 text-[#004792]" />
+                                                            <div className="h-8 w-8 rounded-lg bg-[#0062AF]/10 flex items-center justify-center">
+                                                                <section.icon className="h-4 w-4 text-[#0062AF]" />
                                                             </div>
                                                             <span className="text-sm font-semibold text-slate-700">{section.title}</span>
                                                             <span className="text-[10px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">{section.fields.length}</span>
@@ -678,7 +678,7 @@ const ClientDetail = () => {
                                             return (
                                                 <div key={activity.ID_Activite} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50/20 transition-all group cursor-pointer"
                                                     onClick={() => navigate(`/activites/${activity.ID_Activite}`, { state: { fromClientId: client.IDTiers } })}>
-                                                    <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 group-hover:bg-[#004792] group-hover:text-white transition-all">
+                                                    <div className="h-10 w-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 group-hover:bg-[#0062AF] group-hover:text-white transition-all">
                                                         {activity.Type_Activite === 'Appel' ? <PhoneIcon className="h-4 w-4" /> : <EnvelopeIcon className="h-4 w-4" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -688,14 +688,14 @@ const ClientDetail = () => {
                                                         </div>
                                                         <p className="text-xs text-slate-500 truncate">{activity.Description || 'Aucune description'}</p>
                                                     </div>
-                                                    <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#004792] transition-colors flex-shrink-0" />
+                                                    <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#0062AF] transition-colors flex-shrink-0" />
                                                 </div>
                                             );
                                         })}
                                         <button
                                             type="button"
                                             onClick={() => navigate('/activites/new', { state: { defaultTierId: client.IDTiers } })}
-                                            className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-400 hover:border-[#004792] hover:text-[#004792] transition-all"
+                                            className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-400 hover:border-[#0062AF] hover:text-[#0062AF] transition-all"
                                         >
                                             + Consigner une nouvelle interaction
                                         </button>
@@ -727,7 +727,7 @@ const ClientDetail = () => {
                                                     onClick={() => navigate(`/devis/${devis.IDDevis || devis.id}`)}
                                                     className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-blue-200 hover:shadow-sm transition-all group cursor-pointer">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 group-hover:bg-[#004792] group-hover:text-white transition-all">
+                                                        <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 group-hover:bg-[#0062AF] group-hover:text-white transition-all">
                                                             <DocumentTextIcon className="h-5 w-5" />
                                                         </div>
                                                         <div>
@@ -738,14 +738,14 @@ const ClientDetail = () => {
                                                     <div className="flex items-center gap-3">
                                                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${isValide ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{statut}</span>
                                                         <span className="text-sm font-bold text-slate-800 tabular-nums">{montant.toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND</span>
-                                                        <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#004792] transition-colors" />
+                                                        <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#0062AF] transition-colors" />
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                         <button type="button"
                                             onClick={() => navigate('/devis/new', { state: { defaultTierId: client.IDTiers, defaultCodTiers: client.CodTiers } })}
-                                            className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-400 hover:border-[#004792] hover:text-[#004792] transition-all">
+                                            className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-medium text-slate-400 hover:border-[#0062AF] hover:text-[#0062AF] transition-all">
                                             + Créer un nouveau devis
                                         </button>
                                     </div>
@@ -772,7 +772,7 @@ const ClientDetail = () => {
                                                 onClick={() => navigate(`/projets/${projet.ID_Projet}`, { state: { fromClientId: client.IDTiers } })}
                                                 className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-blue-200 hover:shadow-sm transition-all group cursor-pointer">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-[#004792] group-hover:text-white transition-all">
+                                                    <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-[#0062AF] group-hover:text-white transition-all">
                                                         <BriefcaseIcon className="h-5 w-5 text-slate-500 group-hover:text-white" />
                                                     </div>
                                                     <div>
@@ -782,7 +782,7 @@ const ClientDetail = () => {
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-sm font-semibold text-slate-700">{formatCurrency(projet.Budget_Alloue || 0)}</span>
-                                                    <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#004792] transition-colors" />
+                                                    <ArrowUpRightIcon className="h-4 w-4 text-slate-300 group-hover:text-[#0062AF] transition-colors" />
                                                 </div>
                                             </div>
                                         ))}
@@ -794,7 +794,7 @@ const ClientDetail = () => {
                                     <div className="space-y-5">
                                         {loadingSatisfaction && (
                                             <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                                <div className="h-10 w-10 rounded-full border-[3px] border-[#004792] border-t-transparent animate-spin" />
+                                                <div className="h-10 w-10 rounded-full border-[3px] border-[#0062AF] border-t-transparent animate-spin" />
                                                 <p className="text-sm text-slate-500">Analyse IA en cours…</p>
                                             </div>
                                         )}
@@ -904,7 +904,7 @@ const ClientDetail = () => {
                                         <button
                                             onClick={() => navigate(`/clients/${id}/reglements`)}
                                             className="flex items-center gap-2 px-5 py-2.5 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
-                                            style={{ background: '#004792' }}
+                                            style={{ background: '#0062AF' }}
                                         >
                                             <BanknotesIcon className="h-4 w-4" />
                                             Voir les règlements

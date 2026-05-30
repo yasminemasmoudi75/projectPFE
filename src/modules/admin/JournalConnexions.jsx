@@ -133,7 +133,7 @@ const JournalConnexions = () => {
                                 { val: 'LOGOUT',        label: 'Déco.'      },
                             ].map(({ val, label }) => (
                                 <button key={val} type="button" onClick={() => setActionFilter(val)}
-                                    className={`px-3 py-1.5 transition-all ${actionFilter === val ? 'bg-indigo-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                                    className={`px-3 py-1.5 transition-all ${actionFilter === val ? 'bg-[#0062AF] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
                                     {label}
                                 </button>
                             ))}
@@ -149,7 +149,7 @@ const JournalConnexions = () => {
                         </div>
 
                         <button type="submit"
-                            className="h-9 px-4 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl transition-all shadow-sm">
+                            className="h-9 px-4 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold rounded-xl transition-all shadow-sm">
                             Filtrer
                         </button>
                         {(search || dateFrom || dateTo || actionFilter !== 'ALL') && (
@@ -248,7 +248,7 @@ const JournalConnexions = () => {
                                     if (p < 1 || p > totalPages) return null;
                                     return (
                                         <button key={p} onClick={() => fetchLogs(p)}
-                                            className={`h-8 w-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>
+                                            className={`h-8 w-8 rounded-lg text-xs font-semibold transition-all ${p === page ? 'bg-[#0062AF] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>
                                             {p}
                                         </button>
                                     );
