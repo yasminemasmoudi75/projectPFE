@@ -369,21 +369,24 @@ class PredictionService:
         self.model_path = model_path or str(base_dir / 'model' / 'predict_ventes_regions_v1.3.pkl')
         self.metadata_path = metadata_path or str(base_dir / 'model' / 'metadata_v1.3.json')
         self.recommendations_path = recommendations_path or str(base_dir / 'model' / 'regional_recommendations.json')
-        
+        self.historical_path = str(base_dir / 'model' / 'historical_variations.json')
+
         # Initialiser les composants
         self.model = None
         self.metadata = None
         self.recommendations = None
+        self.historical_data = {}
         self.data_manager = RegionalDataManager(
             ref_data_path=str(base_dir / 'model' / 'gouvernorats_reference.csv')
         )
         self.cache = DataCache(ttl_minutes=5)
-        
+
         # Charger les ressources
         self._load_model()
         self._load_metadata()
         self._load_recommendations()
-        
+        self._load_historical_data()
+
         self.logger.info("[READY] PredictionService initialisé avec succès")
     
     def _load_model(self) -> None:
@@ -411,10 +414,41 @@ class PredictionService:
             self.logger.warning(f"⚠️  Erreur chargement métadonnées: {e}")
             self.metadata = {'version': 'unknown'}
     
+    def _load_historical_data(self) -> None:
+        """Charge les variations historiques réelles (depuis build_historical_stats.py)"""
+        try:
+            with open(self.historical_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self.historical_data = data.get('by_region_trimestre', {})
+            self.historical_global = data.get('by_region_global', {})
+            self.logger.info(f"[OK] Variations historiques chargées ({len(self.historical_data)} régions)")
+        except FileNotFoundError:
+            self.logger.warning("⚠️  historical_variations.json non trouvé — lancez build_historical_stats.py")
+            self.historical_data = {}
+            self.historical_global = {}
+        except Exception as e:
+            self.logger.warning(f"⚠️  Erreur chargement historique: {e}")
+            self.historical_data = {}
+            self.historical_global = {}
+
+    def _get_historical_variation(self, region: str, trimestre: int) -> Optional[float]:
+        """Retourne la variation historique médiane pour région/trimestre."""
+        # Chercher avec le nom exact puis les variantes
+        for key in self.historical_data:
+            if key.upper().replace(' ', '_') == region.upper().replace(' ', '_'):
+                trim_data = self.historical_data[key].get(str(trimestre))
+                if trim_data:
+                    return trim_data.get('median_variation')
+                # fallback: variation globale de la région
+                global_data = self.historical_global.get(key)
+                if global_data:
+                    return global_data.get('median_variation')
+        return None
+
     def _load_recommendations(self) -> None:
         """Charge les recommandations régionales"""
         try:
-            with open(self.recommendations_path, 'r') as f:
+            with open(self.recommendations_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             # Convertir liste en dictionnaire
@@ -482,28 +516,77 @@ class PredictionService:
             self.logger.debug(f"[OK] Features préparées: {features.shape}")
             
             # ===== ÉTAPE 5: Prédire =====
-            prediction = self.model.predict(features)[0]
             probabilities = self.model.predict_proba(features)[0]
-            
+            prob_hausse   = float(probabilities[1])
+            prob_baisse   = float(probabilities[0])
+
+            # Seuil optimal identifié par courbe Précision-Rappel (0.39 au lieu de 0.50 par défaut)
+            # Améliore le rappel HAUSSE de 29% → ~50% sans re-entraînement
+            OPTIMAL_THRESHOLD = 0.39
+            prediction       = 1 if prob_hausse >= OPTIMAL_THRESHOLD else 0
             prediction_label = 'HAUSSE' if prediction == 1 else 'BAISSE'
-            confiance = max(probabilities) * 100
-            
-            self.logger.info(f"[RESULT] Prédiction: {prediction_label} ({confiance:.1f}%)")
+            confiance        = round(max(prob_hausse, prob_baisse) * 100, 1)
+
+            self.logger.info(f"[RESULT] Prédiction: {prediction_label} "
+                             f"(P(HAUSSE)={prob_hausse:.3f}, seuil={OPTIMAL_THRESHOLD})")
             
             # ===== ÉTAPE 6: Déterminer recommandation =====
             recommandation = self._get_recommendation(region, prediction)
             
             # ===== ÉTAPE 7: Construire réponse =====
+            score_potentiel = round(prob_hausse * 100, 1)
+
+            if score_potentiel >= 45:
+                niveau = 'Élevé'
+            elif score_potentiel >= 30:
+                niveau = 'Modéré'
+            elif score_potentiel >= 20:
+                niveau = 'Faible'
+            else:
+                niveau = 'Très faible'
+
+            # Variation historique réelle depuis la BDD (médiane par région/trimestre)
+            hist_variation = self._get_historical_variation(region, trimestre)
+
+            # Label de décision basé sur la variation historique (si disponible)
+            # sinon basé sur la direction ML
+            if hist_variation is not None:
+                if hist_variation >= 5:
+                    recommandation_finale = 'AUGMENTER'
+                elif hist_variation <= -5:
+                    recommandation_finale = 'REDUIRE'
+                else:
+                    recommandation_finale = 'MAINTENIR'
+                variation_affichee = hist_variation
+                variation_source = 'historique_reel'
+            else:
+                # Fallback : dériver depuis les probabilités ML (±25%)
+                MAX_VAR = 25.0
+                variation_affichee = round((prob_hausse - 0.5) * 2 * MAX_VAR, 1)
+                recommandation_finale = recommandation
+                variation_source = 'modele_ml'
+
+            variation_label = (
+                f"+{variation_affichee}%" if variation_affichee >= 0
+                else f"{variation_affichee}%"
+            )
+
             result = {
                 'success': True,
                 'region': region,
                 'trimestre': trimestre,
                 'year': year,
                 'prediction': prediction_label,
+                'variation_estimee': variation_affichee,
+                'variation_label': variation_label,
+                'variation_source': variation_source,
+                'recommandation': recommandation_finale,
                 'confiance': round(confiance, 1),
-                'probabilite_baisse': round(probabilities[0] * 100, 1),
-                'probabilite_hausse': round(probabilities[1] * 100, 1),
-                'recommandation': recommandation,
+                'probabilite_baisse': round(prob_baisse * 100, 1),
+                'probabilite_hausse': round(prob_hausse * 100, 1),
+                'score_potentiel': score_potentiel,
+                'niveau_potentiel': niveau,
+                'seuil_utilise': OPTIMAL_THRESHOLD,
                 'region_data': region_data,
                 'timestamp': datetime.now().isoformat(),
                 'model_version': self.metadata.get('version', 'unknown'),
@@ -533,20 +616,22 @@ class PredictionService:
     
     def _get_recommendation(self, region: str, prediction: int) -> str:
         """Détermine la recommandation commerciale"""
+        def normalize(s):
+            """Supprime les accents et met en majuscules pour comparaison robuste"""
+            return s.replace('É','E').replace('È','E').replace('Ê','E').replace('À','A').replace('Â','A').upper()
+
         try:
-            # Normaliser la région (remplacer underscores par espaces pour matcher le JSON)
-            region_normalized = region.replace('_', ' ').upper()
-            
-            # Chercher dans les recommandations avec normalisation des deux côtés
+            region_normalized = normalize(region.replace('_', ' '))
+
             for key, value in self.recommendations.items():
-                if key.replace('_', ' ').upper() == region_normalized:
-                    return value.get('Recommendation', 'MAINTENIR')
-            
-            # Fallback: utiliser la prédiction
-            return 'AUGMENTER' if prediction == 1 else 'RÉDUIRE'
-        
+                if normalize(key.replace('_', ' ')) == region_normalized:
+                    raw = value.get('Recommendation', 'MAINTENIR')
+                    return normalize(raw)   # toujours retourner sans accents
+
+            return 'AUGMENTER' if prediction == 1 else 'REDUIRE'
+
         except Exception as e:
-            self.logger.warning(f"⚠️  Erreur récupération recommandation: {e}")
+            self.logger.warning(f"Erreur recommandation: {e}")
             return 'MAINTENIR'
     
     def predict_batch(self, regions: list, trimestre: int, year: int = 2026) -> Dict:

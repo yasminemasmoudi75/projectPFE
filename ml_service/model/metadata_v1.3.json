@@ -1,16 +1,29 @@
 {
-  "version": "1.3",
-  "model_type": "GradientBoostingClassifier",
-  "accuracy": 0.7437557816836263,
-  "f1_score": 0.7298145122024994,
+  "version": "1.4",
+  "model_type": "VotingClassifier",
+  "model_name": "Voting Ensemble (optimisé)",
+  "accuracy": 0.7293790546802595,
+  "f1_score": 0.700296240071556,
+  "auc_roc": 0.7091858347100437,
+  "cv_score_mean": 0.7285118219749652,
+  "cv_score_std": 0.0083634472202353,
+  "n_transactions": 3595,
+  "n_gouvernorats": 24,
   "features": [
     "Population",
     "Indice_Achat",
     "Nb_Hopitaux",
     "Nb_Laboratoires",
     "Mois",
-    "Ann\u00e9e",
+    "Année",
     "Trimestre",
     "Prix"
-  ]
+  ],
+  "target_classes": [
+    "BAISSE",
+    "HAUSSE"
+  ],
+  "class_weights": "balanced",
+  "date_created": "2026-05-31T02:01:48.551627",
+  "flask_ready": true
 }

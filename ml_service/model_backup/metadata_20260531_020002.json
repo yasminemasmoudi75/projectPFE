@@ -1,0 +1,15 @@
+{
+  "version": "1.2",
+  "created_at": "2026-05-08T11:32:36.136040",
+  "query_fix": "LEFT JOIN instead of INNER JOIN",
+  "performance": {
+    "accuracy": 0.7312326227988879,
+    "f1_score": 0.7368788764525558,
+    "cv_mean": 0.7228113558297775
+  },
+  "data": {
+    "n_total": 3595,
+    "n_train": 2516,
+    "n_test": 1079
+  }
+}

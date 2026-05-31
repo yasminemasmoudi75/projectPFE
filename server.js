@@ -25,12 +25,12 @@ const startPythonMLService = () => {
 
   console.log('🤖 Tentative de lancement du service ML (Flask)...');
   
-  const flaskScript = path.join(__dirname, '../../ml_service/flask_api.py');
-  
+  const flaskScript = path.join(__dirname, 'ml_service', 'flask_api.py');
+
   // On tente 'python' (standard Windows)
   const pythonProcess = spawn('python', [flaskScript], {
-    cwd: path.join(__dirname, '../../'),
-    stdio: ['ignore', out, err], // Redirige la sortie vers un fichier log
+    cwd: path.join(__dirname, 'ml_service'),
+    stdio: ['ignore', out, err],
     detached: true,
     windowsHide: true
   });
