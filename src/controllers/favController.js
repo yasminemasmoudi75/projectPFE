@@ -1,4 +1,5 @@
-const { FavMaster, FavDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
+const { FavMaster, FavDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, TabSociete, sequelize } = require('../models');
+const PDFService = require('../services/pdfService');
 const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
@@ -681,3 +682,29 @@ exports.getMyFav = async (req, res, next) => {
     }
 };
 
+
+/**
+ * Générer le PDF d'une facture
+ */
+exports.generateFavPDF = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const fav = await FavMaster.findOne({
+            where: { Guid: id },
+            include: [
+                { model: FavDetail, as: 'details' },
+                { model: Tiers, as: 'client' }
+            ]
+        });
+        if (!fav) return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
+        const docData = fav.toJSON();
+        const soc = await TabSociete.findOne();
+        const pdfBuffer = await PDFService.generateCommercialPDF(docData, soc, 'FACTURE');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=fac_${docData.Prfx || 'FAC'}${docData.Nf}.pdf`);
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error('❌ Error generateFavPDF:', error);
+        next(error);
+    }
+};

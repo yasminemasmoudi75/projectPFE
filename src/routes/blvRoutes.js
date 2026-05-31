@@ -9,6 +9,7 @@ router.use(protect);
 // ⚠️ Routes spécifiques AVANT routes génériques avec :id
 router.get('/my-deliveries', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.getMyBlv);
 
+router.get('/:id/pdf', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.generateBlvPDF);
 router.get('/', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.getAllBlv);
 router.get('/:id', checkPermission(MODULES.LIVRAISONS, 'read'), blvController.getBlvById);
 router.post('/', checkPermission(MODULES.LIVRAISONS, 'create'), blvController.createBlv);

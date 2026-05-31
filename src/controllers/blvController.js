@@ -1,4 +1,5 @@
-const { BlvMaster, BlvDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, sequelize } = require('../models');
+const { BlvMaster, BlvDetail, Tiers, TiersClasse, TiersGouvernorat, TiersCategorie, TabSociete, sequelize } = require('../models');
+const PDFService = require('../services/pdfService');
 const { Op, TableHints, QueryTypes } = require('sequelize');
 
 const mouvementService = require('../services/mouvementService'); // ✅ Service de traçabilité mouvements
@@ -613,3 +614,29 @@ exports.getMyBlv = async (req, res, next) => {
     }
 };
 
+
+/**
+ * Générer le PDF d'un bon de livraison
+ */
+exports.generateBlvPDF = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const blv = await BlvMaster.findOne({
+            where: { Guid: id },
+            include: [
+                { model: BlvDetail, as: 'details' },
+                { model: Tiers, as: 'client' }
+            ]
+        });
+        if (!blv) return res.status(404).json({ status: 'error', message: 'Bon de livraison non trouvé' });
+        const docData = blv.toJSON();
+        const soc = await TabSociete.findOne();
+        const pdfBuffer = await PDFService.generateCommercialPDF(docData, soc, 'BON DE LIVRAISON');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=bl_${docData.Prfx || 'BL'}${docData.Nf}.pdf`);
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error('❌ Error generateBlvPDF:', error);
+        next(error);
+    }
+};
