@@ -1,29 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import {
-  PlusIcon,
-  MagnifyingGlassIcon,
+  PlusIcon, MagnifyingGlassIcon, CalendarIcon,
+  ChatBubbleLeftEllipsisIcon, PhoneIcon, UserGroupIcon,
+  BriefcaseIcon, ClockIcon, MapPinIcon, ChevronRightIcon,
+  CheckCircleIcon, EnvelopeIcon, DocumentTextIcon,
+  ArrowPathIcon, XMarkIcon, UserIcon, BuildingOfficeIcon,
   FunnelIcon,
-  CalendarIcon,
-  ChatBubbleLeftEllipsisIcon,
-  PhoneIcon,
-  UserGroupIcon,
-  BriefcaseIcon,
-  ClockIcon,
-  MapPinIcon,
-  ChevronRightIcon,
-  CheckCircleIcon,
-  AdjustmentsHorizontalIcon,
-  EllipsisVerticalIcon,
-  EnvelopeIcon,
-  DocumentTextIcon,
-  ArrowPathIcon,
-  XMarkIcon,
-  SparklesIcon,
-  UserIcon,
-  BuildingOfficeIcon,
-  FireIcon
 } from '@heroicons/react/24/outline';
 import { fetchActivites, createActivite, validateActivite } from './activiteSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -31,6 +14,7 @@ import toast from 'react-hot-toast';
 import axios from '../../app/axios';
 import usePermission from '../../hooks/usePermission';
 import { MODULE_CODES } from '../../utils/constants';
+import ActivitePanel from './ActivitePanel';
 
 const extractArrayPayload = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -38,32 +22,60 @@ const extractArrayPayload = (payload) => {
   return [];
 };
 
+const TYPE_CFG = {
+  appel:   { Icon: PhoneIcon,        iconBg: 'bg-emerald-500', badgeCls: 'bg-emerald-50 text-emerald-700', borderCls: 'border-l-emerald-400' },
+  email:   { Icon: EnvelopeIcon,     iconBg: 'bg-sky-500',     badgeCls: 'bg-sky-50 text-sky-700',         borderCls: 'border-l-sky-400'     },
+  visite:  { Icon: MapPinIcon,       iconBg: 'bg-violet-500',  badgeCls: 'bg-violet-50 text-violet-700',   borderCls: 'border-l-violet-400'  },
+  réunion: { Icon: UserGroupIcon,    iconBg: 'bg-indigo-500',  badgeCls: 'bg-indigo-50 text-indigo-700',   borderCls: 'border-l-indigo-400'  },
+  reunion: { Icon: UserGroupIcon,    iconBg: 'bg-indigo-500',  badgeCls: 'bg-indigo-50 text-indigo-700',   borderCls: 'border-l-indigo-400'  },
+  note:    { Icon: DocumentTextIcon, iconBg: 'bg-amber-500',   badgeCls: 'bg-amber-50 text-amber-700',     borderCls: 'border-l-amber-400'   },
+};
+const getTypeCfg = t => TYPE_CFG[(t || '').toLowerCase()] ?? {
+  Icon: ChatBubbleLeftEllipsisIcon, iconBg: 'bg-slate-400',
+  badgeCls: 'bg-slate-100 text-slate-600', borderCls: 'border-l-slate-300',
+};
+
+const STATUS_CFG = {
+  'Terminé':  { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+  'Planifié': { cls: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400'   },
+  'En cours': { cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-400'    },
+};
+const getStatusCfg = s => STATUS_CFG[s] ?? { cls: 'bg-slate-100 text-slate-500 border-slate-200', dot: 'bg-slate-400' };
+
+const TYPE_TABS = [
+  { label: 'Tout',     type: 'All',     Icon: null           },
+  { label: 'Appels',   type: 'Appel',   Icon: PhoneIcon      },
+  { label: 'Emails',   type: 'Email',   Icon: EnvelopeIcon   },
+  { label: 'Réunions', type: 'Réunion', Icon: UserGroupIcon  },
+  { label: 'Visites',  type: 'Visite',  Icon: MapPinIcon     },
+  { label: 'Notes',    type: 'Note',    Icon: DocumentTextIcon },
+];
+
 const ActivitesListProMax = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { canCreate } = usePermission(MODULE_CODES.VISITES);
-  const { activites, loading } = useSelector((state) => state.activites);
+  const { activites, loading } = useSelector(s => s.activites);
 
-  const [filterType, setFilterType] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [tiers, setTiers] = useState([]);
-  const [selectedTier, setSelectedTier] = useState('');
-  const [projets, setProjets] = useState([]);
-  const [selectedProjet, setSelectedProjet] = useState('');
-  const [commerciaux, setCommerciaux] = useState([]);
+  const [filterType,         setFilterType]         = useState('All');
+  const [searchTerm,         setSearchTerm]         = useState('');
+  const [showFilters,        setShowFilters]        = useState(false);
+  const [isAddModalOpen,     setIsAddModalOpen]     = useState(false);
+  const [panelActiviteId,    setPanelActiviteId]    = useState(null);
+  const [refreshing,         setRefreshing]         = useState(false);
+
+  const [tiers,              setTiers]              = useState([]);
+  const [selectedTier,       setSelectedTier]       = useState('');
+  const [projets,            setProjets]            = useState([]);
+  const [selectedProjet,     setSelectedProjet]     = useState('');
+  const [commerciaux,        setCommerciaux]        = useState([]);
   const [selectedCommercial, setSelectedCommercial] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const [dateFrom,           setDateFrom]           = useState('');
+  const [dateTo,             setDateTo]             = useState('');
 
   const [newActivity, setNewActivity] = useState({
-    Type_Activite: 'Appel',
-    Description: '',
+    Type_Activite: 'Appel', Description: '',
     Date_Activite: new Date().toISOString().slice(0, 16),
-    Statut: 'Planifié',
-    IDTiers: '',
-    ID_Projet: ''
+    Statut: 'Planifié', IDTiers: '', ID_Projet: '',
   });
 
   useEffect(() => {
@@ -71,195 +83,79 @@ const ActivitesListProMax = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    const fetchTiers = async () => {
-      try {
-        const response = await axios.get('/tiers');
-        setTiers(extractArrayPayload(response));
-      } catch (error) {
-        console.error('Error fetching tiers:', error);
-      }
-    };
-    fetchTiers();
+    axios.get('/tiers').then(r => setTiers(extractArrayPayload(r))).catch(() => {});
   }, []);
 
   useEffect(() => {
-    const fetchProjets = async () => {
-      try {
-        const response = await axios.get('/projets', { params: { page: 1, limit: 100 } });
-        setProjets(extractArrayPayload(response));
-      } catch (error) {
-        console.error('Error fetching projets:', error);
-      }
-    };
-    fetchProjets();
+    axios.get('/projets', { params: { page: 1, limit: 100 } })
+      .then(r => setProjets(extractArrayPayload(r))).catch(() => {});
   }, []);
 
   useEffect(() => {
-    const fetchCommerciaux = async () => {
-      try {
-        const response = await axios.get('/users/commercials/activites-filter');
-        const rawData = extractArrayPayload(response);
-        // Map backend response shape to { UserID, FullName, LoginName }
-        const mapped = rawData.map(c => ({
+    axios.get('/users/commercials/activites-filter').then(r => {
+      const raw = extractArrayPayload(r);
+      setCommerciaux(
+        raw.map(c => ({
           UserID: c.userId || c.UserID,
           FullName: c.fullName || c.FullName || c.label,
-          LoginName: c.login || c.LoginName
-        }));
-        const sortedActifs = mapped
-          .sort((a, b) =>
-            (a.FullName || a.LoginName || '')
-              .toString()
-              .localeCompare((b.FullName || b.LoginName || '').toString(), 'fr', { sensitivity: 'base' })
-          );
-        setCommerciaux(sortedActifs);
-      } catch (error) {
-        console.error('Error fetching commercials:', error);
-      }
-    };
-    fetchCommerciaux();
+          LoginName: c.login || c.LoginName,
+        })).sort((a, b) =>
+          (a.FullName || '').localeCompare(b.FullName || '', 'fr', { sensitivity: 'base' })
+        )
+      );
+    }).catch(() => {});
   }, []);
-
-  const getActivityIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'appel': return <PhoneIcon className="h-6 w-6" />;
-      case 'réunion': return <UserGroupIcon className="h-6 w-6" />;
-      case 'visite': return <MapPinIcon className="h-6 w-6" />;
-      case 'email': return <EnvelopeIcon className="h-6 w-6" />;
-      case 'devis': return <BriefcaseIcon className="h-6 w-6" />;
-      case 'note': return <DocumentTextIcon className="h-6 w-6" />;
-      default: return <ChatBubbleLeftEllipsisIcon className="h-6 w-6" />;
-    }
-  };
-
-  const getTypeStyle = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'appel': return {
-        bg: 'bg-gradient-to-br from-blue-50 to-blue-100',
-        icon: 'bg-gradient-to-br from-blue-400 to-blue-600',
-        badge: 'bg-blue-100 text-blue-800',
-        line: 'bg-gradient-to-r from-blue-400 to-blue-600'
-      };
-      case 'réunion': return {
-        bg: 'bg-gradient-to-br from-purple-50 to-purple-100',
-        icon: 'bg-gradient-to-br from-purple-400 to-purple-600',
-        badge: 'bg-purple-100 text-purple-800',
-        line: 'bg-gradient-to-r from-purple-400 to-purple-600'
-      };
-      case 'visite': return {
-        bg: 'bg-gradient-to-br from-green-50 to-green-100',
-        icon: 'bg-gradient-to-br from-green-400 to-green-600',
-        badge: 'bg-green-100 text-green-800',
-        line: 'bg-gradient-to-r from-green-400 to-green-600'
-      };
-      case 'email': return {
-        bg: 'bg-gradient-to-br from-cyan-50 to-cyan-100',
-        icon: 'bg-gradient-to-br from-cyan-400 to-cyan-600',
-        badge: 'bg-cyan-100 text-cyan-800',
-        line: 'bg-gradient-to-r from-cyan-400 to-cyan-600'
-      };
-      case 'note': return {
-        bg: 'bg-gradient-to-br from-amber-50 to-amber-100',
-        icon: 'bg-gradient-to-br from-amber-400 to-amber-600',
-        badge: 'bg-amber-100 text-amber-800',
-        line: 'bg-gradient-to-r from-amber-400 to-amber-600'
-      };
-      default: return {
-        bg: 'bg-gradient-to-br from-gray-50 to-gray-100',
-        icon: 'bg-gradient-to-br from-gray-400 to-gray-600',
-        badge: 'bg-gray-100 text-gray-800',
-        line: 'bg-gradient-to-r from-gray-400 to-gray-600'
-      };
-    }
-  };
-
-  const getStatusStyle = (statut) => {
-    switch (statut) {
-      case 'Terminé': return {
-        bg: 'bg-gradient-to-r from-green-50 to-emerald-50',
-        border: 'border-l-4 border-green-500',
-        badge: 'bg-green-100 text-green-800',
-        icon: '✅'
-      };
-      case 'Planifié': return {
-        bg: 'bg-gradient-to-r from-amber-50 to-orange-50',
-        border: 'border-l-4 border-amber-500',
-        badge: 'bg-amber-100 text-amber-800',
-        icon: '📅'
-      };
-      case 'En cours': return {
-        bg: 'bg-gradient-to-r from-blue-50 to-indigo-50',
-        border: 'border-l-4 border-blue-500',
-        badge: 'bg-blue-100 text-blue-800',
-        icon: '⚡'
-      };
-      default: return {
-        bg: 'bg-gradient-to-r from-gray-50 to-slate-50',
-        border: 'border-l-4 border-gray-500',
-        badge: 'bg-gray-100 text-gray-800',
-        icon: '•'
-      };
-    }
-  };
-
-  const handleAddActivity = async (e) => {
-    e.preventDefault();
-    try {
-      await dispatch(createActivite(newActivity)).unwrap();
-      toast.success('✨ Activité créée avec succès!');
-      setIsAddModalOpen(false);
-      setNewActivity({
-        Type_Activite: 'Appel',
-        Description: '',
-        Date_Activite: new Date().toISOString().slice(0, 16),
-        Statut: 'Planifié',
-        IDTiers: '',
-        ID_Projet: ''
-      });
-    } catch (error) {
-      toast.error('❌ Erreur lors de la création');
-    }
-  };
 
   const filteredProjetsForFilters = useMemo(() => {
     if (!selectedTier) return projets;
-    return projets.filter((p) => p.IDTiers === selectedTier || p.client?.IDTiers === selectedTier);
+    return projets.filter(p => p.IDTiers === selectedTier || p.client?.IDTiers === selectedTier);
   }, [projets, selectedTier]);
 
-  const filteredActivites = useMemo(() => {
-    return activites.filter(a => {
-      const matchesValidated = Number(a.Valide) === 1;
-      const matchesType = filterType === 'All' || a.Type_Activite?.toLowerCase() === filterType.toLowerCase();
-      const matchesSearch = (a.Description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (a.Type_Activite?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-      const matchesClient = !selectedTier || a.IDTiers === selectedTier;
-      const matchesProjet = !selectedProjet || a.ID_Projet === selectedProjet;
-      const matchesCommercial = !selectedCommercial || String(a.utilisateur?.UserID) === selectedCommercial;
-      const activiteDate = a.Date_Activite ? new Date(a.Date_Activite) : null;
-      const fromOk = !dateFrom || (activiteDate && activiteDate >= new Date(dateFrom));
-      const toOk = !dateTo || (activiteDate && activiteDate <= new Date(dateTo));
+  const filteredActivites = useMemo(() => activites.filter(a => {
+    const q = searchTerm.toLowerCase();
+    const d = a.Date_Activite ? new Date(a.Date_Activite) : null;
+    return (
+      Number(a.Valide) === 1 &&
+      (filterType === 'All' || (a.Type_Activite || '').toLowerCase() === filterType.toLowerCase()) &&
+      (!q || (a.Description || '').toLowerCase().includes(q) || (a.Type_Activite || '').toLowerCase().includes(q)) &&
+      (!selectedTier       || a.IDTiers === selectedTier) &&
+      (!selectedProjet     || a.ID_Projet === selectedProjet) &&
+      (!selectedCommercial || String(a.utilisateur?.UserID) === selectedCommercial) &&
+      (!dateFrom || (d && d >= new Date(dateFrom))) &&
+      (!dateTo   || (d && d <= new Date(dateTo)))
+    );
+  }), [activites, filterType, searchTerm, selectedTier, selectedProjet, selectedCommercial, dateFrom, dateTo]);
 
-      return matchesValidated && matchesType && matchesSearch && matchesClient && matchesProjet && matchesCommercial && fromOk && toOk;
-    });
-  }, [activites, filterType, searchTerm, selectedTier, selectedProjet, selectedCommercial, dateFrom, dateTo]);
+  const stats = useMemo(() => ({
+    total:      filteredActivites.length,
+    done:       filteredActivites.filter(a => a.Statut === 'Terminé').length,
+    planned:    filteredActivites.filter(a => a.Statut === 'Planifié').length,
+    inProgress: filteredActivites.filter(a => a.Statut === 'En cours').length,
+  }), [filteredActivites]);
 
-  const activityStats = useMemo(() => {
-    const total = filteredActivites.length;
-    let done = 0, planned = 0, inProgress = 0;
+  const hasActiveFilters = selectedTier || selectedProjet || selectedCommercial || dateFrom || dateTo;
 
-    filteredActivites.forEach((a) => {
-      if (a.Statut === 'Terminé') done += 1;
-      else if (a.Statut === 'Planifié') planned += 1;
-      else if (a.Statut === 'En cours') inProgress += 1;
-    });
-
-    return { total, done, planned, inProgress };
-  }, [filteredActivites]);
+  const handleAddActivity = async e => {
+    e.preventDefault();
+    try {
+      await dispatch(createActivite(newActivity)).unwrap();
+      toast.success('Activité créée');
+      setIsAddModalOpen(false);
+      setNewActivity({
+        Type_Activite: 'Appel', Description: '',
+        Date_Activite: new Date().toISOString().slice(0, 16),
+        Statut: 'Planifié', IDTiers: '', ID_Projet: '',
+      });
+    } catch {
+      toast.error('Erreur lors de la création');
+    }
+  };
 
   const refreshActivites = async () => {
+    setRefreshing(true);
     try {
-      setRefreshing(true);
       await dispatch(fetchActivites({ page: 1, limit: 50, filters: { valide: 1 } }));
-      toast.success('✅ Données actualisées');
+      toast.success('Données actualisées');
     } finally {
       setRefreshing(false);
     }
@@ -268,403 +164,385 @@ const ActivitesListProMax = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8 space-y-8 pb-20">
-      {/* MEGA HEADER */}
-      <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 animate-pulse"></div>
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-        </div>
-        
-        <div className="relative z-10 px-8 md:px-12 py-16">
-          <div className="mb-6">
-            <div className="inline-block">
-              <span className="px-4 py-2 bg-white/20 backdrop-blur rounded-full text-sm font-bold uppercase tracking-widest flex items-center gap-2 mb-4">
-                <FireIcon className="h-4 w-4 text-orange-300" />
-                Activités en Direct
-              </span>
+    <div className="space-y-5 pb-10">
+
+      {/* ── Header ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-xl bg-[#0062AF] flex items-center justify-center flex-shrink-0">
+              <ChatBubbleLeftEllipsisIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Journal d'activités</h1>
+              <p className="text-sm text-slate-500">Suivez toutes vos interactions clients</p>
             </div>
           </div>
-          
-          <h1 className="text-5xl md:text-6xl font-black mb-4 tracking-tight">
-            Journal d'Activités
-          </h1>
-          <p className="text-lg text-white/80 max-w-2xl leading-relaxed">
-            Gérez, suivez et optimisez toutes vos interactions clients. Transformez vos données en intelligence commerciale.
-          </p>
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-4 mt-8">
+          <div className="flex items-center gap-2">
             <button
               onClick={refreshActivites}
-              className={`px-6 py-3 bg-white/10 backdrop-blur hover:bg-white/20 rounded-xl font-bold transition-all flex items-center gap-2 ${refreshing ? 'animate-spin' : ''}`}
+              title="Actualiser"
+              className={`h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
             >
               <ArrowPathIcon className="h-4 w-4" />
-              Actualiser
             </button>
             {canCreate && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="px-8 py-3 bg-white text-indigo-600 font-bold rounded-xl hover:shadow-2xl transition-all flex items-center gap-2 shadow-xl hover:scale-105 transform"
+                className="flex items-center gap-2 px-4 py-2 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl text-sm font-medium transition-colors"
               >
-                <PlusIcon className="h-5 w-5" />
-                Créer une Activité
+                <PlusIcon className="h-4 w-4" />
+                Nouvelle activité
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: activityStats.total, emoji: '📊', color: 'from-blue-500 to-cyan-500' },
-          { label: 'Terminées', value: activityStats.done, emoji: '✅', color: 'from-green-500 to-emerald-500' },
-          { label: 'Planifiées', value: activityStats.planned, emoji: '📅', color: 'from-amber-500 to-orange-500' },
-          { label: 'En Cours', value: activityStats.inProgress, emoji: '⚡', color: 'from-purple-500 to-pink-500' }
-        ].map((stat, idx) => (
-          <div 
-            key={idx}
-            className="group relative rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-slate-700 cursor-pointer transform hover:scale-105"
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-10 transition-all duration-300`}></div>
-            
-            <div className="relative z-10">
-              <div className="text-4xl mb-3">{stat.emoji}</div>
-              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">{stat.label}</p>
-              <p className={`text-4xl font-black bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
-                {stat.value}
-              </p>
+          { label: 'Total',      value: stats.total,      Icon: ChatBubbleLeftEllipsisIcon },
+          { label: 'Terminées',  value: stats.done,       Icon: CheckCircleIcon            },
+          { label: 'Planifiées', value: stats.planned,    Icon: CalendarIcon               },
+          { label: 'En cours',   value: stats.inProgress, Icon: ClockIcon                  },
+        ].map((s, i) => (
+          <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{s.label}</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">{s.value}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50">
+                <s.Icon className="w-5 h-5 text-[#0062AF]" />
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* FILTERS */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700 shadow-xl">
-        <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-          <FunnelIcon className="h-5 w-5 text-purple-400" />
-          Filtrer les Activités
-        </h3>
+      {/* ── Filters + Search ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
-        {/* Type Filter */}
-        <div className="mb-8">
-          <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mb-4">Par Canal</p>
-          <div className="flex flex-wrap gap-3">
-            {[
-              { name: 'Tout', type: 'All', emoji: '∞' },
-              { name: 'Appels', type: 'Appel', emoji: '📞' },
-              { name: 'Emails', type: 'Email', emoji: '📧' },
-              { name: 'Réunions', type: 'Réunion', emoji: '👥' },
-              { name: 'Visites', type: 'Visite', emoji: '📍' },
-              { name: 'Notes', type: 'Note', emoji: '📝' }
-            ].map(item => (
-              <button
-                key={item.type}
-                onClick={() => setFilterType(item.type)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all transform hover:scale-110 ${
-                  filterType === item.type
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                    : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-                }`}
-              >
-                <span>{item.emoji}</span>
-                {item.name}
-              </button>
-            ))}
+        {/* Type tabs */}
+        <div className="flex items-center gap-1 px-4 pt-3 pb-3 border-b border-slate-100 overflow-x-auto">
+          {TYPE_TABS.map(({ label, type, Icon }) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                filterType === type
+                  ? 'bg-[#0062AF] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5" />}
+              {label}
+            </button>
+          ))}
+          <div className="ml-auto flex-shrink-0 flex items-center gap-2 pl-3">
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                hasActiveFilters
+                  ? 'bg-blue-50 text-[#0062AF] border border-blue-200'
+                  : 'text-slate-500 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              <FunnelIcon className="h-3.5 w-3.5" />
+              Filtres
+              {hasActiveFilters && (
+                <span className="h-4 w-4 rounded-full bg-[#0062AF] text-white text-[10px] font-bold flex items-center justify-center">
+                  {[selectedTier, selectedProjet, selectedCommercial, dateFrom, dateTo].filter(Boolean).length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Advanced Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Client</label>
-            <select
-              value={selectedTier}
-              onChange={(e) => setSelectedTier(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-            >
-              <option value="">Tous</option>
-              {tiers.map(t => (
-                <option key={t.IDTiers} value={t.IDTiers}>
-                  {t.Raisoc || t.NomTiers || t.IDTiers}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Projet</label>
-            <select
-              value={selectedProjet}
-              onChange={(e) => setSelectedProjet(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-            >
-              <option value="">Tous</option>
-              {filteredProjetsForFilters.map(p => (
-                <option key={p.ID_Projet} value={p.ID_Projet}>
-                  {p.Nom_Projet || p.Code_Pro}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Commercial</label>
-            <select
-              value={selectedCommercial}
-              onChange={(e) => setSelectedCommercial(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-            >
-              <option value="">Tous</option>
-              {commerciaux.map(c => (
-                <option key={c.UserID} value={String(c.UserID)}>
-                  {c.FullName || c.LoginName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Du</label>
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 font-bold uppercase mb-2">Au</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
+              type="text"
+              placeholder="Rechercher par description ou type d'activité…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
         </div>
-      </div>
 
-      {/* SEARCH */}
-      <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-        <input
-          type="text"
-          placeholder="🔍 Cherchez par description, type..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-6 py-4 bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 transition-all text-lg"
-        />
-      </div>
-
-      {/* ACTIVITIES LIST */}
-      <div>
-        <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
-          <span className="text-3xl">🚀</span>
-          {filteredActivites.length} Activité(s)
-        </h2>
-
-        <div className="space-y-4">
-          {filteredActivites.length === 0 ? (
-            <div className="rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 px-8 py-16 text-center">
-              <ChatBubbleLeftEllipsisIcon className="h-12 w-12 mx-auto text-slate-600 mb-4" />
-              <h3 className="text-lg font-bold mb-2">Aucune activité trouvée</h3>
-              <p className="text-slate-400">Ajustez vos filtres ou créez une nouvelle activité</p>
-            </div>
-          ) : (
-            filteredActivites.map((activite, idx) => {
-              const typeStyle = getTypeStyle(activite.Type_Activite);
-              const statusStyle = getStatusStyle(activite.Statut);
-              
-              return (
-                <div
-                  key={activite.ID_Activite}
-                  className={`group rounded-2xl overflow-hidden transition-all duration-300 transform hover:scale-[1.01] hover:shadow-2xl cursor-pointer border border-slate-700 ${statusStyle.bg} ${statusStyle.border}`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                >
-                  <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
-                    {/* Icon */}
-                    <div className={`flex-shrink-0 h-16 w-16 rounded-2xl ${typeStyle.icon} flex items-center justify-center text-white shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
-                      {getActivityIcon(activite.Type_Activite)}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h3 className="text-xl font-black text-white">
-                          {activite.Type_Activite}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-black ${statusStyle.badge}`}>
-                          {statusStyle.icon} {activite.Statut}
-                        </span>
-                      </div>
-                      
-                      <p className="text-slate-300 mb-3 line-clamp-2">
-                        {activite.Description || '—'}
-                      </p>
-                      
-                      <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-                        <span className="flex items-center gap-2">
-                          <ClockIcon className="h-4 w-4" />
-                          {new Date(activite.Date_Activite).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <CalendarIcon className="h-4 w-4" />
-                          {new Date(activite.Date_Activite).toLocaleDateString('fr-FR')}
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <UserIcon className="h-4 w-4" />
-                          {activite.utilisateur?.FullName || 'Collaborateur'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {Number(activite.Valide) !== 1 && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await dispatch(validateActivite(activite.ID_Activite)).unwrap();
-                              toast.success('✅ Validé!');
-                              dispatch(fetchActivites({ page: 1, limit: 50, filters: { valide: 1 } }));
-                            } catch {
-                              toast.error('❌ Erreur');
-                            }
-                          }}
-                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-sm rounded-lg transition-all"
-                        >
-                          Valider
-                        </button>
-                      )}
-                      <button
-                        onClick={() => navigate(`/activites/${activite.ID_Activite}`)}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded-lg transition-all flex items-center gap-1"
-                      >
-                        Voir <ChevronRightIcon className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* MODAL */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-950 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-700">
-            <div className="sticky top-0 flex justify-between items-center border-b border-slate-700 px-8 py-6 bg-gradient-to-r from-purple-600 to-pink-600">
-              <h2 className="text-2xl font-black text-white">✨ Créer une Activité</h2>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-2 hover:bg-white/20 rounded-xl transition-all"
-              >
-                <XMarkIcon className="h-6 w-6 text-white" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddActivity} className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Canal</label>
-                  <select
-                    value={newActivity.Type_Activite}
-                    onChange={(e) => setNewActivity({ ...newActivity, Type_Activite: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-                  >
-                    <option>Appel</option>
-                    <option>Email</option>
-                    <option>Visite</option>
-                    <option>Réunion</option>
-                    <option>Note</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-white mb-2">Statut</label>
-                  <select
-                    value={newActivity.Statut}
-                    onChange={(e) => setNewActivity({ ...newActivity, Statut: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
-                  >
-                    <option>Planifié</option>
-                    <option>En cours</option>
-                    <option>Terminé</option>
-                  </select>
-                </div>
-              </div>
-
+        {/* Advanced filters (collapsible) */}
+        {showFilters && (
+          <div className="px-4 py-4 bg-slate-50/60 border-b border-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Description</label>
-                <textarea
-                  value={newActivity.Description}
-                  onChange={(e) => setNewActivity({ ...newActivity, Description: e.target.value })}
-                  rows="4"
-                  placeholder="Détails..."
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 transition-all"
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Client</label>
+                <select
+                  value={selectedTier}
+                  onChange={e => setSelectedTier(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-[#0062AF] bg-white"
+                >
+                  <option value="">Tous</option>
+                  {tiers.map(t => (
+                    <option key={t.IDTiers} value={t.IDTiers}>{t.Raisoc || t.NomTiers || t.IDTiers}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Projet</label>
+                <select
+                  value={selectedProjet}
+                  onChange={e => setSelectedProjet(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-[#0062AF] bg-white"
+                >
+                  <option value="">Tous</option>
+                  {filteredProjetsForFilters.map(p => (
+                    <option key={p.ID_Projet} value={p.ID_Projet}>{p.Nom_Projet || p.Code_Pro}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Commercial</label>
+                <select
+                  value={selectedCommercial}
+                  onChange={e => setSelectedCommercial(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-[#0062AF] bg-white"
+                >
+                  <option value="">Tous</option>
+                  {commerciaux.map(c => (
+                    <option key={c.UserID} value={String(c.UserID)}>{c.FullName || c.LoginName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Du</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-[#0062AF]"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Au</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-[#0062AF]"
+                />
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setSelectedTier(''); setSelectedProjet(''); setSelectedCommercial(''); setDateFrom(''); setDateTo(''); }}
+                className="mt-3 text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors"
+              >
+                Réinitialiser les filtres
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Count row ── */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-sm font-semibold text-slate-500">
+          {filteredActivites.length} activité{filteredActivites.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+
+      {/* ── Activity list ── */}
+      <div className="space-y-2">
+        {filteredActivites.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-2xl flex flex-col items-center py-16 gap-3">
+            <ChatBubbleLeftEllipsisIcon className="h-10 w-10 text-slate-200" />
+            <p className="text-sm font-semibold text-slate-400">Aucune activité trouvée</p>
+            <p className="text-xs text-slate-300">Ajustez vos filtres ou créez une nouvelle activité</p>
+          </div>
+        ) : (
+          filteredActivites.map(a => {
+            const tcfg  = getTypeCfg(a.Type_Activite);
+            const scfg  = getStatusCfg(a.Statut);
+            const TypeI = tcfg.Icon;
+            const d     = a.Date_Activite ? new Date(a.Date_Activite) : null;
+
+            return (
+              <div
+                key={a.ID_Activite}
+                onClick={() => setPanelActiviteId(a.ID_Activite)}
+                className={`bg-white border border-slate-200 border-l-4 ${tcfg.borderCls} rounded-xl hover:shadow-sm hover:border-slate-300 transition-all cursor-pointer`}
+              >
+                <div className="px-5 py-4 flex items-center gap-4">
+                  {/* Type icon */}
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tcfg.iconBg}`}>
+                    <TypeI className="h-5 w-5 text-white" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-semibold text-slate-800">{a.Type_Activite}</span>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${scfg.cls}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${scfg.dot}`} />
+                        {a.Statut}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate max-w-md leading-relaxed">
+                      {a.Description || <span className="italic text-slate-300">Sans description</span>}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                      {d && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                          <CalendarIcon className="h-3 w-3" />
+                          {d.toLocaleDateString('fr-FR')}
+                          <span className="mx-0.5">·</span>
+                          {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                      {a.utilisateur?.FullName && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                          <UserIcon className="h-3 w-3" />
+                          {a.utilisateur.FullName}
+                        </span>
+                      )}
+                      {a.tiers?.Raisoc && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                          <BuildingOfficeIcon className="h-3 w-3" />
+                          {a.tiers.Raisoc}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ChevronRightIcon className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── Side panel ── */}
+      {panelActiviteId && (
+        <ActivitePanel
+          activiteId={panelActiviteId}
+          onClose={() => setPanelActiviteId(null)}
+        />
+      )}
+
+      {/* ── Create modal ── */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden">
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-[#0062AF] flex items-center justify-center">
+                  <PlusIcon className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-900">Nouvelle activité</h2>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddActivity} className="p-6 space-y-4">
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Type</label>
+                  <select
+                    value={newActivity.Type_Activite}
+                    onChange={e => setNewActivity({ ...newActivity, Type_Activite: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 bg-white"
+                  >
+                    {['Appel', 'Email', 'Visite', 'Réunion', 'Note'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Statut</label>
+                  <select
+                    value={newActivity.Statut}
+                    onChange={e => setNewActivity({ ...newActivity, Statut: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 bg-white"
+                  >
+                    {['Planifié', 'En cours', 'Terminé'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
 
               <div>
-                <label className="block text-sm font-bold text-white mb-2">Date & Heure</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Date & Heure</label>
                 <input
                   type="datetime-local"
                   value={newActivity.Date_Activite}
-                  onChange={(e) => setNewActivity({ ...newActivity, Date_Activite: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
+                  onChange={e => setNewActivity({ ...newActivity, Date_Activite: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Client</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Client</label>
                   <select
                     value={newActivity.IDTiers || ''}
-                    onChange={(e) => setNewActivity({ ...newActivity, IDTiers: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
+                    onChange={e => setNewActivity({ ...newActivity, IDTiers: e.target.value, ID_Projet: '' })}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 bg-white"
                   >
-                    <option value="">Sélectionner</option>
-                    {tiers.map((tier) => (
-                      <option key={tier.IDTiers} value={tier.IDTiers}>
-                        {tier.Raisoc || tier.NomTiers}
-                      </option>
+                    <option value="">— Sélectionner —</option>
+                    {tiers.map(t => (
+                      <option key={t.IDTiers} value={t.IDTiers}>{t.Raisoc || t.NomTiers}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-white mb-2">Projet</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Projet</label>
                   <select
                     value={newActivity.ID_Projet || ''}
-                    onChange={(e) => setNewActivity({ ...newActivity, ID_Projet: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 transition-all"
+                    onChange={e => setNewActivity({ ...newActivity, ID_Projet: e.target.value })}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 bg-white"
                   >
-                    <option value="">Sélectionner</option>
+                    <option value="">— Sélectionner —</option>
                     {projets
-                      .filter((p) => !newActivity.IDTiers || p.IDTiers === newActivity.IDTiers)
-                      .map((p) => (
-                        <option key={p.ID_Projet} value={p.ID_Projet}>
-                          {p.Nom_Projet || p.Code_Pro}
-                        </option>
+                      .filter(p => !newActivity.IDTiers || p.IDTiers === newActivity.IDTiers)
+                      .map(p => (
+                        <option key={p.ID_Projet} value={p.ID_Projet}>{p.Nom_Projet || p.Code_Pro}</option>
                       ))}
                   </select>
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Description</label>
+                <textarea
+                  value={newActivity.Description}
+                  onChange={e => setNewActivity({ ...newActivity, Description: e.target.value })}
+                  rows={6}
+                  placeholder="Détails de l'activité…"
+                  className="w-full px-3 py-3 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 resize-none leading-relaxed"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 px-6 py-3 border border-slate-600 text-white font-bold rounded-lg hover:bg-slate-700 transition-all"
+                  className="flex-1 h-10 border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:shadow-xl transition-all transform hover:scale-105"
+                  className="flex-1 h-10 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                   Enregistrer
                 </button>

@@ -657,6 +657,13 @@ const DevisForm = () => {
             return;
         }
 
+        const articlesValides = items.filter(i => i.CodArt);
+        if (articlesValides.length === 0) {
+            toast.error('Veuillez sélectionner au moins un article avant de créer le devis');
+            setCurrentStep(3);
+            return;
+        }
+
         setSaving(true);
 
         // Helper to serialize dates properly
@@ -795,76 +802,87 @@ const DevisForm = () => {
     /* Shared articles table used in both edit and new-devis modes */
     const articlesTableJsx = (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-teal-50/30 flex items-center justify-between">
+            <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
-                        <DocumentTextIcon className="h-5 w-5 text-white" />
+                    <div className="h-9 w-9 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                        <DocumentTextIcon className="h-5 w-5 text-[#0062AF]" />
                     </div>
-                    <div>
-                        <h2 className="text-sm font-bold text-slate-800">Articles du devis</h2>
-                        <p className="text-[11px] text-slate-500">{items.length} article{items.length > 1 ? 's' : ''}</p>
-                    </div>
+                    <h2 className="text-base font-bold text-slate-800">Articles</h2>
+                    {items.length > 0 && (
+                        <span className="h-6 min-w-[24px] px-2 rounded-full bg-[#e0f0ff] text-[#0062AF] text-xs font-bold flex items-center justify-center">{items.length}</span>
+                    )}
                 </div>
                 <button type="button" onClick={addItem}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all">
-                    <PlusIcon className="h-4 w-4" /> Ajouter un article
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                    <PlusIcon className="h-4 w-4 stroke-[2.5]" /> Ajouter un article
                 </button>
             </div>
 
             {/* Article cards */}
             <div className="divide-y divide-slate-100">
                 {items.length === 0 && (
-                    <div className="py-16 text-center">
-                        <DocumentTextIcon className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm text-slate-400">Aucun article. Cliquez sur Ajouter.</p>
+                    <div className="py-24 flex flex-col items-center justify-center gap-4">
+                        <div className="h-20 w-20 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center">
+                            <DocumentTextIcon className="h-10 w-10 text-slate-300" />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-base font-semibold text-slate-500 mb-1">Aucun article ajouté</p>
+                            <p className="text-sm text-slate-400">Cliquez sur <strong className="text-[#0062AF] cursor-pointer" onClick={addItem}>+ Ajouter un article</strong></p>
+                        </div>
                     </div>
                 )}
                 {items.map((item, index) => (
-                    <div key={item.tempId} className="px-5 py-4 hover:bg-slate-50/50 transition-colors">
+                    <div key={item.tempId} className="relative">
+                        {item.CodArt && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#0062AF] to-sky-400 rounded-r" />}
 
-                        {/* Row header */}
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Article {index + 1}</span>
-                            <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors ${expandedItems[item.tempId] ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}>
-                                    <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
-                                    Options
-                                </button>
-                                <button type="button" onClick={() => removeItem(item.tempId)}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors">
-                                    <TrashIcon className="h-3.5 w-3.5" />
-                                    Supprimer
-                                </button>
+                        <div className={`px-7 py-7 transition-colors ${item.CodArt ? 'bg-white' : 'bg-slate-50/30'}`}>
+
+                            {/* Row header */}
+                            <div className="flex items-center justify-between mb-5">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`h-7 w-7 rounded-full text-xs font-black flex items-center justify-center flex-shrink-0 transition-all ${item.CodArt ? 'bg-[#0062AF] text-white shadow-sm shadow-blue-500/30' : 'bg-white text-slate-400 border border-slate-200'}`}>{index + 1}</span>
+                                    {item.CodArt && (
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="text-[10px] font-mono font-bold text-[#0062AF] bg-[#e0f0ff] px-2 py-0.5 rounded-md flex-shrink-0">{item.CodArt}</span>
+                                            <span className="text-sm font-semibold text-slate-800 truncate">{item.LibArt}</span>
+                                        </div>
+                                    )}
+                                    {!item.CodArt && <span className="text-xs text-slate-400 font-medium">Sélectionnez un article</span>}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                    <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
+                                        className={`h-8 px-2.5 flex items-center gap-1 rounded-lg text-xs font-semibold transition-all ${expandedItems[item.tempId] ? 'bg-[#e0f0ff] text-[#0062AF]' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}>
+                                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-200 ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <button type="button" onClick={() => removeItem(item.tempId)}
+                                        className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-400 transition-all">
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Recherche produit — pleine largeur */}
-                        <div
-                            className="relative mb-3"
-                            ref={el => productDropdownRefs.current[item.tempId] = el}
-                        >
-                            <div className="relative">
-                                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input
-                                    type="text"
-                                    value={item.productSearch ?? (item.CodArt ? `${item.CodArt} — ${item.LibArt}` : '')}
-                                    onFocus={() => {
-                                        setActiveProductRowId(item.tempId);
-                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
-                                        if (!item.CodArt) setProductOptions(allProductOptions);
-                                    }}
-                                    onChange={(e) => {
-                                        handleProductSearchChange(item.tempId, e.target.value);
-                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
-                                    }}
-                                    onPaste={() => {
-                                        setTimeout(() => setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true })), 10);
-                                    }}
-                                    placeholder="Taper ou coller le nom / code produit pour rechercher…"
-                                    className="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
-                                />
+                            {/* Recherche produit */}
+                            <div className="relative mb-5" ref={el => productDropdownRefs.current[item.tempId] = el}>
+                                <div className="relative">
+                                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                    <input
+                                        type="text"
+                                        value={item.productSearch ?? (item.CodArt ? `${item.CodArt} — ${item.LibArt}` : '')}
+                                        onFocus={() => {
+                                            setActiveProductRowId(item.tempId);
+                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                            if (!item.CodArt) setProductOptions(allProductOptions);
+                                        }}
+                                        onChange={(e) => {
+                                            handleProductSearchChange(item.tempId, e.target.value);
+                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                        }}
+                                        onPaste={() => { setTimeout(() => setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true })), 10); }}
+                                        placeholder="Rechercher par nom ou code produit…"
+                                        className={`w-full pl-12 pr-10 py-5 text-base font-medium rounded-2xl border-2 transition-all focus:outline-none focus:ring-4 ${item.CodArt ? 'border-[#0062AF]/30 bg-[#f0f7ff] text-[#0062AF] focus:border-[#0062AF]/60 focus:ring-[#0062AF]/10' : 'border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:border-[#0062AF]/50 focus:ring-[#0062AF]/8'}`}
+                                    />
                                 {item.CodArt && (
                                     <button type="button"
                                         onClick={() => {
@@ -919,111 +937,98 @@ const DevisForm = () => {
                             )}
                         </div>
 
-                        {/* Produit sélectionné — badge */}
-                        {item.CodArt && (
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold">
-                                    <CheckCircleIcon className="h-3.5 w-3.5" />
-                                    {item.CodArt} — {item.LibArt}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Qté + Prix + Total */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quantité</label>
-                                <div className="flex items-center gap-1.5">
-                                    <button type="button"
-                                        onClick={() => handleItemChange(item.tempId, 'Qt', Math.max(1, (parseFloat(item.Qt) || 1) - 1))}
-                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
-                                        −
-                                    </button>
-                                    <input
-                                        type="number" min="1"
-                                        value={item.Qt}
-                                        onFocus={e => e.target.select()}
-                                        onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                                        onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
-                                        className="w-full h-10 text-center border-2 border-slate-200 rounded-xl text-base font-black text-blue-600 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all"
-                                    />
-                                    <button type="button"
-                                        onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
-                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">P.U HT (TND)</label>
-                                <input type="number" min="0" step="0.001"
-                                    value={item.PuHT || 0}
-                                    onFocus={e => e.target.select()}
-                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
-                                    className="w-full h-10 text-right px-3 border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total HT</label>
-                                <div className="h-10 flex items-center justify-end px-3 bg-slate-50 border-2 border-slate-100 rounded-xl">
-                                    <span className="text-base font-black text-slate-800">{fmt(item.MntHT)}</span>
-                                    <span className="text-[10px] text-slate-400 ml-1">TND</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Options avancées */}
-                        <AnimatePresence>
-                            {expandedItems[item.tempId] && (
-                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">TVA (%)</label>
-                                            <input type="number" value={item.Tva || 19}
-                                                onFocus={e => e.target.select()}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remise (%)</label>
-                                            <input type="number" value={item.Remise || 0}
-                                                onFocus={e => e.target.select()}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Observation</label>
-                                            <input type="text" value={item.Observation || ''}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" maxLength="255" />
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 col-span-2 md:col-span-4 flex gap-4">
-                                            <span>Remise : <strong className="text-slate-600">{fmt(item.MntRem)}</strong> TND</span>
-                                            <span>TVA : <strong className="text-slate-600">{fmt(item.MntTVA)}</strong> TND</span>
-                                            <span>TTC/u : <strong className="text-blue-600">{fmt(item.PuTTC)}</strong> TND</span>
-                                        </div>
+                            {/* ── Qté · PU HT · TVA · Total ── */}
+                            <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quantité</label>
+                                    <div className="flex h-12 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                        <button type="button" onClick={() => handleItemChange(item.tempId, 'Qt', Math.max(1, (parseFloat(item.Qt) || 1) - 1))}
+                                            className="w-10 flex items-center justify-center text-slate-400 hover:text-[#0062AF] hover:bg-[#f0f7ff] transition-colors font-bold text-xl border-r border-slate-200 flex-shrink-0">−</button>
+                                        <input type="number" min="1" value={item.Qt} onFocus={e => e.target.select()}
+                                            onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                                            onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
+                                            className="flex-1 h-full text-center text-base font-black text-[#0062AF] focus:outline-none bg-transparent min-w-0" />
+                                        <button type="button" onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
+                                            className="w-10 flex items-center justify-center text-slate-400 hover:text-[#0062AF] hover:bg-[#f0f7ff] transition-colors font-bold text-xl border-l border-slate-200 flex-shrink-0">+</button>
                                     </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Prix unitaire HT</label>
+                                    <div className="relative h-12">
+                                        <input type="number" min="0" step="0.001" value={item.PuHT || 0} onFocus={e => e.target.select()}
+                                            onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-full text-right pl-4 pr-12 bg-white border border-slate-200 rounded-xl text-base font-semibold text-slate-800 focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/8 focus:outline-none transition-all shadow-sm" />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">TND</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">TVA</label>
+                                    <div className="flex h-12 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                        {[19, 7, 0].map((t, ti) => (
+                                            <button key={t} type="button" onClick={() => handleItemChange(item.tempId, 'Tva', t)}
+                                                className={`flex-1 text-sm font-bold transition-all ${ti > 0 ? 'border-l border-slate-200' : ''} ${(item.Tva ?? 19) === t ? 'bg-[#0062AF] text-white' : 'text-slate-500 hover:bg-[#f0f7ff] hover:text-[#0062AF]'}`}>
+                                                {t}%
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total HT</label>
+                                    <div className="h-12 flex items-center justify-end px-4 bg-[#f0f7ff] border border-[#0062AF]/20 rounded-xl shadow-sm gap-1.5">
+                                        <span className="text-base font-black text-[#0062AF] tabular-nums">{fmt(item.MntHT)}</span>
+                                        <span className="text-xs text-[#0062AF]/50 font-semibold">TND</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Options avancées */}
+                            <AnimatePresence>
+                                {expandedItems[item.tempId] && (
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                        <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Remise (%)</label>
+                                                <input type="number" value={item.Remise || 0} onFocus={e => e.target.select()}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
+                                                    onKeyDown={e => ['-','+','e','E'].includes(e.key) && e.preventDefault()}
+                                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-[#0062AF]/50 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Observation</label>
+                                                <input type="text" value={item.Observation || ''}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-[#0062AF]/50 focus:outline-none" maxLength="255" />
+                                            </div>
+                                            <div className="col-span-2 flex gap-6 text-xs text-slate-400 pt-1">
+                                                <span>TVA : <strong className="text-slate-600 tabular-nums">{fmt(item.MntTVA)}</strong> TND</span>
+                                                <span>TTC/u : <strong className="text-[#0062AF] tabular-nums">{fmt(item.PuTTC)}</strong> TND</span>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 ))}
             </div>
 
             {items.length > 0 && (
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <span className="text-xs text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
-                    <div className="flex gap-6">
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Total HT</p>
-                            <p className="text-base font-bold text-slate-700">{fmt(formData.TotHT)} <span className="text-[10px] text-slate-400">TND</span></p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">TVA</p>
-                            <p className="text-base font-bold text-slate-600">{fmt(formData.TotTva)} <span className="text-[10px] text-slate-400">TND</span></p>
-                        </div>
-                        <div className="text-right pl-4 border-l border-slate-200">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase">Net TTC</p>
-                            <p className="text-xl font-black text-blue-600">{fmt(formData.TotTTC)} <span className="text-xs text-blue-400">TND</span></p>
+                <div className="px-7 py-5 bg-slate-50/60 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-8">
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Base HT</p>
+                                <p className="text-base font-bold text-slate-700 tabular-nums">{fmt(formData.TotHT)} <span className="text-xs text-slate-400">TND</span></p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">TVA</p>
+                                <p className="text-base font-bold text-slate-600 tabular-nums">{fmt(formData.TotTva)} <span className="text-xs text-slate-400">TND</span></p>
+                            </div>
+                            <div className="text-right pl-8 border-l-2 border-[#0062AF]/20">
+                                <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest mb-0.5">Net TTC</p>
+                                <p className="text-2xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)} <span className="text-sm font-bold text-[#0062AF]/60">TND</span></p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1032,7 +1037,7 @@ const DevisForm = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/20 pb-16">
+        <div className="min-h-screen bg-slate-50/70 pb-20">
 
             {/* Sticky Header */}
             <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
@@ -1070,9 +1075,9 @@ const DevisForm = () => {
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <p className="text-xs text-slate-400">
-                                    {formData.LibTiers || 'Sélectionnez un client pour commencer'}
-                                </p>
+                                {formData.LibTiers && (
+                                    <p className="text-xs font-medium text-slate-600 truncate max-w-[300px]">{formData.LibTiers}</p>
+                                )}
                                 {isEdit && formData.DatUser && (
                                     <>
                                         <span className="text-slate-200 text-xs">·</span>
@@ -1114,29 +1119,30 @@ const DevisForm = () => {
 
                 {/* Step progress bar — new devis only */}
                 {!isEdit && (
-                    <div className="max-w-6xl mx-auto px-6 pb-3">
-                        <div className="flex items-center gap-0">
+                    <div className="max-w-6xl mx-auto px-6 pb-3.5">
+                        <div className="flex items-center">
                             {[
-                                { n: 1, label: 'Client', icon: UserGroupIcon, step: 1 },
-                                { n: 2, label: 'Articles', icon: DocumentTextIcon, step: 3 },
-                                { n: 3, label: 'Confirmation', icon: CalculatorIcon, step: 4 },
+                                { n: 1, label: 'Client', step: 1 },
+                                { n: 2, label: 'Articles', step: 3 },
+                                { n: 3, label: 'Confirmation', step: 4 },
                             ].map((s, i, arr) => {
                                 const done = displayStep > s.n;
                                 const active = displayStep === s.n;
                                 return (
                                     <React.Fragment key={s.n}>
-                                        <button
-                                            type="button"
-                                            onClick={() => done && setCurrentStep(s.step)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${active ? 'text-indigo-700 bg-indigo-50' : done ? 'text-emerald-600 cursor-pointer hover:bg-emerald-50' : 'text-slate-400 cursor-default'}`}
-                                        >
-                                            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all ${active ? 'bg-indigo-600 border-indigo-600 text-white' : done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-slate-400'}`}>
-                                                {done ? <CheckIcon className="h-3 w-3" /> : s.n}
+                                        <button type="button" onClick={() => done && setCurrentStep(s.step)}
+                                            className={`flex items-center gap-2.5 transition-all ${done ? 'cursor-pointer' : 'cursor-default'}`}>
+                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all shadow-sm ${
+                                                active ? 'bg-[#0062AF] text-white shadow-blue-500/30' :
+                                                done   ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
+                                                         'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {done ? <CheckIcon className="h-3.5 w-3.5 stroke-[2.5]" /> : s.n}
                                             </div>
-                                            {s.label}
+                                            <span className={`text-xs font-semibold transition-all ${active ? 'text-[#0062AF]' : done ? 'text-emerald-600' : 'text-slate-400'}`}>{s.label}</span>
                                         </button>
                                         {i < arr.length - 1 && (
-                                            <div className={`flex-1 h-0.5 mx-1 rounded-full transition-all ${displayStep > s.n ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                            <div className={`flex-1 h-px mx-4 rounded-full transition-all duration-500 ${displayStep > s.n ? 'bg-emerald-400' : 'bg-slate-200'}`} />
                                         )}
                                     </React.Fragment>
                                 );
@@ -1368,174 +1374,150 @@ const DevisForm = () => {
             ) : (
 
             /* NEW DEVIS — step-by-step form */
-            <form id="devis-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-6 pt-6 space-y-6">
+            <form id="devis-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
 
                 {/* STEP 1 — Client */}
                 <AnimatePresence mode="wait">
                     {currentStep === 1 && (
-                        <motion.div key="step1" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
+                        <motion.div key="step1" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }}>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
-                                        <UserGroupIcon className="h-5 w-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Sélection du client</h2>
-                                        <p className="text-[11px] text-slate-500">Recherchez et sélectionnez un client</p>
-                                    </div>
-                                </div>
-
-                                <div className="p-6 space-y-4">
-                                    <div className="relative" ref={clientDropdownRef}>
-                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
-                                        <div className="relative">
-                                            <UserGroupIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                value={clientSearch}
-                                                onChange={(e) => {
-                                                    setClientSearch(e.target.value);
-                                                    setShowClientDropdown(true);
-                                                    if (formData.CodTiers && !clients.some(c => c.Raisoc === e.target.value || c.CodTiers === e.target.value)) {
-                                                        setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
-                                                    }
-                                                }}
-                                                onFocus={() => setShowClientDropdown(true)}
-                                                placeholder={loadingClients ? 'Chargement des clients...' : 'Nom, code ou email du client...'}
-                                                className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 ${formData.CodTiers ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800 focus:border-emerald-400' : 'border-slate-200 bg-white text-slate-700 focus:border-blue-400'}`}
-                                                autoComplete="off"
-                                            />
-                                            {clientSearch && (
-                                                <button type="button" onClick={() => { setClientSearch(''); setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); setShowClientDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                    <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-                                                </button>
+                                {/* ── Colonne gauche : client (2/3) ── */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400 rounded-t-2xl" />
+                                        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                            <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                                <UserGroupIcon className="h-4 w-4 text-blue-500" />
+                                            </div>
+                                            <h2 className="text-sm font-semibold text-slate-700">Client</h2>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="relative" ref={clientDropdownRef}>
+                                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
+                                                <div className="relative">
+                                                    <UserGroupIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                    <input type="text" value={clientSearch}
+                                                        onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true); if (formData.CodTiers && !clients.some(c => c.Raisoc === e.target.value || c.CodTiers === e.target.value)) setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); }}
+                                                        onFocus={() => setShowClientDropdown(true)}
+                                                        placeholder={loadingClients ? 'Chargement des clients...' : 'Nom, code ou email du client...'}
+                                                        className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 ${formData.CodTiers ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800 focus:border-emerald-400' : 'border-slate-200 bg-white text-slate-700 focus:border-[#0062AF]/50'}`}
+                                                        autoComplete="off" />
+                                                    {clientSearch && (
+                                                        <button type="button" onClick={() => { setClientSearch(''); setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); setShowClientDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {showClientDropdown && filteredClients.length > 0 && (
+                                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                                                        {filteredClients.map(client => (
+                                                            <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
+                                                                className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-[#f0f7ff] transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-[#f0f7ff]' : ''}`}>
+                                                                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                                    <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-semibold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
+                                                                    <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}{client.Ville ? ` · ${client.Ville}` : ''}</p>
+                                                                </div>
+                                                                {formData.CodTiers === client.CodTiers && <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {showClientDropdown && clientSearch && filteredClients.length === 0 && (
+                                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-center">
+                                                        <p className="text-sm text-slate-400">Aucun client trouvé pour « {clientSearch} »</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {formData.CodTiers && (
+                                                <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                                    <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                                        <BuildingOfficeIcon className="h-5 w-5 text-emerald-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-emerald-800">{formData.LibTiers}</p>
+                                                        <div className="flex flex-wrap gap-2 mt-1.5">
+                                                            {formData.CodTiers && <span className="text-[10px] font-mono bg-white text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>}
+                                                            {formData.Ville && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1"><MapPinIcon className="h-3 w-3" />{formData.Ville}</span>}
+                                                            {formData.Classe && <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">{formData.Classe}</span>}
+                                                            {formData.Tel && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>}
+                                                        </div>
+                                                        {formData.Adresse && <p className="text-[11px] text-slate-400 mt-1">{formData.Adresse}</p>}
+                                                    </div>
+                                                    <CheckCircleIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                                                </div>
+                                            )}
+                                            {formData.CodTiers && (
+                                                <div>
+                                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Projet associé</label>
+                                                    <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)}
+                                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/8 focus:outline-none transition-all"
+                                                        disabled={loadingProjects}>
+                                                        <option value="">Sans projet lié</option>
+                                                        {projects.map((project) => (
+                                                            <option key={project.ID_Projet} value={project.ID_Projet}>
+                                                                {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
+                                                                {project.CodDev ? ` | Devis ${project.CodDev}` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {loadingProjects && <p className="text-[11px] text-blue-500 mt-1 animate-pulse">Chargement des projets...</p>}
+                                                </div>
                                             )}
                                         </div>
-
-                                        {showClientDropdown && filteredClients.length > 0 && (
-                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
-                                                {filteredClients.map(client => (
-                                                    <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
-                                                        className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}>
-                                                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                            <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
-                                                            <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}{client.Ville ? ` · ${client.Ville}` : ''}</p>
-                                                        </div>
-                                                        {formData.CodTiers === client.CodTiers && <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {showClientDropdown && clientSearch && filteredClients.length === 0 && (
-                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-center">
-                                                <p className="text-sm text-slate-400">Aucun client trouvé pour « {clientSearch} »</p>
-                                            </div>
-                                        )}
                                     </div>
+                                    <div className="flex justify-end">
+                                        <button type="button" onClick={() => { if (!formData.CodTiers) { toast.error('Veuillez sélectionner un client'); return; } setCurrentStep(3); }}
+                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                                            Continuer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                        </button>
+                                    </div>
+                                </div>
 
-                                    {formData.CodTiers && (
-                                        <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                                            <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                                <BuildingOfficeIcon className="h-5 w-5 text-emerald-600" />
+                                {/* ── Colonne droite : commercial (1/3) ── */}
+                                <div className="lg:sticky lg:top-24 space-y-4">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                                            <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                <UserIcon className="h-4 w-4 text-indigo-500" />
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-emerald-800">{formData.LibTiers}</p>
-                                                <div className="flex flex-wrap gap-2 mt-1.5">
-                                                    {formData.CodTiers && <span className="text-[10px] font-mono bg-white text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>}
-                                                    {formData.Ville && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1"><MapPinIcon className="h-3 w-3" />{formData.Ville}</span>}
-                                                    {formData.Classe && <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">{formData.Classe}</span>}
-                                                    {formData.Tel && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>}
-                                                    {clientCin && <span className="text-[10px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{clientCin}</span>}
+                                            <h2 className="text-sm font-semibold text-slate-700">Commercial</h2>
+                                        </div>
+                                        <div className="p-5">
+                                            {isAdmin || isAgent ? (
+                                                <div>
+                                                    <div className="relative">
+                                                        <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                        <select name="CodRepres" value={formData.CodRepres || ''}
+                                                            onChange={(e) => { const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value); setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' })); }}
+                                                            className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
+                                                            disabled={loadingCommercials}>
+                                                            <option value="">— Sélectionner —</option>
+                                                            {commercials.map(comm => (
+                                                                <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
+                                                            ))}
+                                                        </select>
+                                                        {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
+                                                    </div>
                                                 </div>
-                                                {formData.Adresse && <p className="text-[11px] text-slate-400 mt-1">{formData.Adresse}</p>}
-                                            </div>
-                                            <CheckCircleIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                                            ) : (
+                                                <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                                        <UserIcon className="h-4 w-4 text-violet-600" />
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-
-                                    {formData.CodTiers && (
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Projet associé <span className="normal-case font-normal text-slate-400">(optionnel)</span></label>
-                                            <select
-                                                value={selectedProjectId}
-                                                onChange={(e) => setSelectedProjectId(e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
-                                                disabled={loadingProjects}
-                                            >
-                                                <option value="">Sans projet lié</option>
-                                                {projects.map((project) => (
-                                                    <option key={project.ID_Projet} value={project.ID_Projet}>
-                                                        {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
-                                                        {project.CodDev ? ` | Devis ${project.CodDev}` : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {loadingProjects && <p className="text-[11px] text-blue-500 mt-1 animate-pulse">Chargement des projets...</p>}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Commercial */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-50/60 to-purple-50/30 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-violet-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-200/50">
-                                        <UserIcon className="h-5 w-5 text-white" />
                                     </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Commercial assigné</h2>
-                                        <p className="text-[11px] text-slate-500">Représentant commercial du devis</p>
+                                    <div className="rounded-2xl bg-[#e0f0ff]/60 border border-[#0062AF]/15 p-4">
+                                        <p className="text-[11px] font-bold text-[#0062AF] uppercase tracking-wider mb-1.5">Étape 1 / 3</p>
+                                        <p className="text-xs text-slate-600 leading-relaxed">Sélectionnez le client destinataire de ce devis, puis cliquez sur <strong>Continuer</strong> pour ajouter les articles.</p>
                                     </div>
                                 </div>
-                                <div className="p-6">
-                                    {isAdmin || isAgent ? (
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Choisir un commercial</label>
-                                            <div className="relative">
-                                                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <select
-                                                    name="CodRepres"
-                                                    value={formData.CodRepres || ''}
-                                                    onChange={(e) => {
-                                                        const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value);
-                                                        setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' }));
-                                                    }}
-                                                    className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
-                                                    disabled={loadingCommercials}
-                                                >
-                                                    <option value="">-- Sélectionner un commercial --</option>
-                                                    {commercials.map(comm => (
-                                                        <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
-                                            <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                <UserIcon className="h-4 w-4 text-violet-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
-                                                <p className="text-[10px] text-slate-400">Commercial assigné</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Navigation */}
-                            <div className="flex justify-end pt-2">
-                                <button type="button" onClick={() => { if (!formData.CodTiers) { toast.error('Veuillez sélectionner un client'); return; } setCurrentStep(3); }}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
-                                    Articles
-                                    <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -1546,28 +1528,15 @@ const DevisForm = () => {
                     {currentStep === 3 && (
                         <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
 
-                            {formData.CodTiers && (
-                                <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200 shadow-sm">
-                                    <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                        <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-slate-800 truncate">{formData.LibTiers}</p>
-                                        <p className="text-[10px] text-slate-400 font-mono">{formData.CodTiers}{formData.Ville ? ` · ${formData.Ville}` : ''}</p>
-                                    </div>
-                                    <button type="button" onClick={() => setCurrentStep(1)} className="text-[10px] text-blue-600 hover:underline font-semibold">Modifier</button>
-                                </div>
-                            )}
-
                             {articlesTableJsx}
 
-                            <div className="flex justify-between pt-2">
+                            <div className="flex justify-between pt-1">
                                 <button type="button" onClick={() => setCurrentStep(1)}
-                                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
-                                    <ArrowLeftIcon className="h-4 w-4" /> Client
+                                    className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                    <ArrowLeftIcon className="h-4 w-4" /> Retour
                                 </button>
                                 <button type="button" onClick={() => setCurrentStep(4)}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
+                                    className="flex items-center gap-2 px-8 py-3 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
                                     Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
                                 </button>
                             </div>
@@ -1578,67 +1547,122 @@ const DevisForm = () => {
                 {/* STEP 3 — Recap & Confirmation */}
                 <AnimatePresence mode="wait">
                     {currentStep === 4 && (
-                        <motion.div key="step4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="max-w-lg mx-auto space-y-4">
+                        <motion.div key="step4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-5">
 
-                            <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden">
-                                <div className="px-6 py-5 border-b border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/40 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
-                                        <CalculatorIcon className="h-5 w-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Récapitulatif financier</h2>
-                                        <p className="text-[11px] text-slate-500">Vérification finale avant enregistrement</p>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+                                {/* ── Left — table articles ── */}
+                                <div className="lg:col-span-2">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                        <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                                    <DocumentTextIcon className="h-5 w-5 text-[#0062AF]" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-slate-800">Détail des articles</h3>
+                                                    <p className="text-xs text-slate-400">{items.filter(i => i.CodArt).length} article{items.filter(i => i.CodArt).length !== 1 ? 's' : ''}</p>
+                                                </div>
+                                            </div>
+                                            <button type="button" onClick={() => setCurrentStep(3)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0062AF] bg-[#e0f0ff] hover:bg-[#d0e8ff] rounded-xl transition-all">
+                                                Modifier
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-[auto_1fr_80px_100px_70px_110px] gap-0 px-7 py-3 bg-slate-50/60 border-b border-slate-100">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest w-8">#</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Désignation</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Qté</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">PU HT</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">TVA</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Total HT</span>
+                                        </div>
+                                        <div className="divide-y divide-slate-50">
+                                            {items.map((item, idx) => (
+                                                <div key={item.tempId} className="grid grid-cols-[auto_1fr_80px_100px_70px_110px] gap-0 px-7 py-5 items-center hover:bg-slate-50/50 transition-colors">
+                                                    <span className={`w-8 h-7 w-7 rounded-full text-xs font-black flex items-center justify-center flex-shrink-0 ${item.CodArt ? 'bg-[#0062AF] text-white' : 'bg-slate-100 text-slate-400'}`}>{idx + 1}</span>
+                                                    <div className="min-w-0 pr-4">
+                                                        {item.CodArt ? (
+                                                            <>
+                                                                <p className="text-sm font-semibold text-slate-800 truncate">{item.LibArt}</p>
+                                                                <span className="text-[10px] font-mono text-[#0062AF] bg-[#e0f0ff] px-1.5 py-0.5 rounded-md mt-1 inline-block">{item.CodArt}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400 italic">Aucun article sélectionné</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-center"><span className="text-sm font-bold text-slate-700 tabular-nums">{item.Qt}</span></div>
+                                                    <div className="text-right"><span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(item.PuHT)}</span><span className="text-[10px] text-slate-400 ml-1">TND</span></div>
+                                                    <div className="text-center"><span className="inline-flex items-center justify-center px-2 py-0.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-600">{item.Tva ?? 19}%</span></div>
+                                                    <div className="text-right"><span className="text-sm font-black text-[#0062AF] tabular-nums">{fmt(item.MntHT)}</span><span className="text-[10px] text-[#0062AF]/60 ml-1">TND</span></div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="px-7 py-4 bg-slate-50/60 border-t border-slate-200 flex justify-end">
+                                            <div className="flex items-center gap-8">
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Base HT</p>
+                                                    <p className="text-base font-bold text-slate-700 tabular-nums">{fmt(formData.TotHT)} <span className="text-xs text-slate-400">TND</span></p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">TVA totale</p>
+                                                    <p className="text-base font-bold text-slate-600 tabular-nums">{fmt(formData.TotTva)} <span className="text-xs text-slate-400">TND</span></p>
+                                                </div>
+                                                <div className="text-right pl-8 border-l-2 border-[#0062AF]/20">
+                                                    <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest mb-0.5">Net TTC</p>
+                                                    <p className="text-2xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)} <span className="text-sm font-bold text-[#0062AF]/60">TND</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                                    <div>
-                                        <p className="text-xs text-slate-400">Client</p>
-                                        <p className="text-sm font-bold text-slate-800">{formData.LibTiers || '—'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-slate-400">Articles</p>
-                                        <p className="text-sm font-bold text-slate-800">{items.length}</p>
-                                    </div>
-                                </div>
-
-                                <div className="px-6 py-5 space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500">Base HT</span>
-                                        <span className="font-semibold text-slate-700">{fmt(formData.TotHT)} TND</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500">TVA</span>
-                                        <span className="font-semibold text-slate-700">{fmt(formData.TotTva)} TND</span>
-                                    </div>
-                                    {formData.TotRem > 0 && (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-rose-500">Remise globale</span>
-                                            <span className="font-semibold text-rose-600">- {fmt(formData.TotRem)} TND</span>
+                                {/* ── Right — récapitulatif + CTA ── */}
+                                <div className="lg:sticky lg:top-24">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2.5">
+                                            <CalculatorIcon className="h-5 w-5 text-[#0062AF]" />
+                                            <h3 className="text-sm font-bold text-slate-700">Récapitulatif</h3>
                                         </div>
-                                    )}
-                                    <div className="border-t border-dashed border-emerald-100 pt-3 flex justify-between items-center">
-                                        <div>
-                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Net TTC</p>
-                                            <p className="text-[11px] text-slate-400">Toutes taxes comprises</p>
+                                        <div className="px-6 py-5 space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Base HT</span>
+                                                <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">TVA</span>
+                                                <span className="text-sm font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
+                                            </div>
+                                            {Number(formData.TotRem) > 0 && (
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-rose-500">Remise</span>
+                                                    <span className="font-semibold text-rose-600 tabular-nums">− {fmt(formData.TotRem)} TND</span>
+                                                </div>
+                                            )}
+                                            <div className="pt-4 border-t border-dashed border-[#0062AF]/20">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-sm font-bold text-[#0062AF] uppercase tracking-wide">Net TTC</p>
+                                                    <div className="text-right">
+                                                        <span className="text-3xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
+                                                        <span className="ml-1 text-sm font-bold text-[#0062AF]/60">TND</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-black text-emerald-600">{fmt(formData.TotTTC)}</span>
-                                            <span className="ml-1 text-sm font-bold text-emerald-400">TND</span>
+                                        <div className="px-6 pb-6 space-y-3">
+                                            <button type="submit" disabled={saving}
+                                                className="w-full flex items-center justify-center gap-2 py-4 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
+                                                {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4 stroke-[2.5]" />}
+                                                Créer le devis
+                                            </button>
+                                            <button type="button" onClick={() => setCurrentStep(3)}
+                                                className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-slate-500 hover:text-[#0062AF] border border-slate-200 rounded-xl hover:border-[#0062AF]/30 transition-all bg-white">
+                                                <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="px-6 pb-6 space-y-3">
-                                    <button type="submit" disabled={saving}
-                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-200/50 transition-all disabled:opacity-60">
-                                        {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
-                                        Créer le devis
-                                    </button>
-                                    <button type="button" onClick={() => setCurrentStep(3)}
-                                        className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all">
-                                        <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
-                                    </button>
                                 </div>
                             </div>
                         </motion.div>

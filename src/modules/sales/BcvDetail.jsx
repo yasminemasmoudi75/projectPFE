@@ -9,6 +9,13 @@ import {
   CheckCircleIcon,
   ArrowPathIcon,
   PaperAirplaneIcon,
+  PencilSquareIcon,
+  BuildingOfficeIcon,
+  MapPinIcon,
+  CalendarIcon,
+  UserIcon,
+  ArchiveBoxIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { fetchBcvById, clearCurrentBcv } from './bcvSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -16,6 +23,18 @@ import { formatDate, formatCurrency } from '../../utils/format';
 import api from '@app/axios';
 import toast from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
+
+const fmt3 = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+const StatusBadge = ({ bcv }) => {
+    if (bcv?.bLivr || bcv?.IsConverted)
+        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Livré</span>;
+    if (bcv?.bTransf)
+        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />Transformé</span>;
+    if (bcv?.Valid)
+        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />Validé</span>;
+    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200"><span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />Brouillon</span>;
+};
 
 const BcvDetail = () => {
     const { id } = useParams();
@@ -27,25 +46,21 @@ const BcvDetail = () => {
     const [isTransferring, setIsTransferring] = useState(false);
     const [isRequesting, setIsRequesting] = useState(false);
     const [pendingRequestTarget, setPendingRequestTarget] = useState(null);
-    const [chauffeur, setChauffeur] = useState({
-        nom: '',
-        tel: ''
-    });
+    const [chauffeur, setChauffeur] = useState({ nom: '', tel: '' });
 
     const alreadyTransferred = Boolean(bcv?.bTransf || bcv?.bLivr || bcv?.IsConverted);
 
     const canSubmitDriver = useMemo(() => {
         const nomOk = String(chauffeur?.nom || '').trim().length > 0;
         const tel = String(chauffeur?.tel || '').trim();
-        const telOk = /^\d{8}$/.test(tel); // exactement 8 chiffres, uniquement nombres
-        return nomOk && telOk;
+        return nomOk && /^\d{8}$/.test(tel);
     }, [chauffeur]);
 
     const phoneError = useMemo(() => {
         const tel = String(chauffeur?.tel || '').trim();
         if (!tel) return 'Téléphone obligatoire';
-        if (!/^\d+$/.test(tel)) return 'Téléphone doit contenir uniquement des chiffres';
-        if (tel.length !== 8) return 'Téléphone doit contenir exactement 8 chiffres';
+        if (!/^\d+$/.test(tel)) return 'Uniquement des chiffres';
+        if (tel.length !== 8) return 'Exactement 8 chiffres';
         return '';
     }, [chauffeur?.tel]);
 
@@ -56,10 +71,7 @@ const BcvDetail = () => {
 
     const handleDownloadPDF = async () => {
         try {
-            const response = await api.get(`/bcv/${id}/pdf`, {
-                responseType: 'blob'
-            });
-
+            const response = await api.get(`/bcv/${id}/pdf`, { responseType: 'blob' });
             const pdfBlob = response instanceof Blob ? response : new Blob([response]);
             const url = window.URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
@@ -70,10 +82,7 @@ const BcvDetail = () => {
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
             toast.success('PDF généré avec succès');
-        } catch (err) {
-            console.error('Erreur PDF BC:', err);
-            toast.error('Erreur lors de la génération du PDF');
-        }
+        } catch { toast.error('Erreur lors de la génération du PDF'); }
     };
 
     const doTransfer = async (targetType, payload = {}) => {
@@ -81,389 +90,336 @@ const BcvDetail = () => {
             setIsTransferring(true);
             const response = await api.post(`/bcv/${id}/transfer`, { targetType, ...payload });
             if (response?.status === 'success') {
-                toast.success(`Transféré avec succès vers ${targetType === 'BL' ? 'Bon de Livraison' : 'Facture'}`);
+                toast.success(`Transféré vers ${targetType === 'BL' ? 'Bon de Livraison' : 'Facture'}`);
                 const newId = response.data?.Guid;
-                if (newId) {
-                    navigate(targetType === 'BL' ? `/blv/${newId}` : `/fav/${newId}`);
-                } else {
-                    navigate(targetType === 'BL' ? '/blv' : '/fav');
-                }
+                navigate(newId ? (targetType === 'BL' ? `/blv/${newId}` : `/fav/${newId}`) : (targetType === 'BL' ? '/blv' : '/fav'));
             }
         } catch (err) {
-            console.error('Erreur transfert BC:', err);
             toast.error(err.response?.data?.message || 'Erreur lors du transfert');
-        } finally {
-            setIsTransferring(false);
-        }
+        } finally { setIsTransferring(false); }
     };
 
     const handleRequestTransfer = async (targetType) => {
-        if (isRequesting) return;
-        if (alreadyTransferred) { toast.error('Ce bon de commande a déjà été transféré'); return; }
+        if (isRequesting || alreadyTransferred) { toast.error('Ce bon a déjà été transféré'); return; }
         try {
             setIsRequesting(true);
             setPendingRequestTarget(targetType);
             await api.post(`/bcv/${id}/request-transfer`, { targetType });
-            toast.success(`Demande vers ${targetType === 'FAC' ? 'Facture' : 'Bon de Livraison'} envoyée à l'administrateur`);
+            toast.success(`Demande ${targetType === 'FAC' ? 'Facture' : 'BL'} envoyée`);
         } catch (err) {
             toast.error(err?.response?.data?.message || 'Erreur lors de la demande');
-        } finally {
-            setIsRequesting(false);
-            setPendingRequestTarget(null);
-        }
+        } finally { setIsRequesting(false); setPendingRequestTarget(null); }
     };
 
     const handleTransfer = async (targetType) => {
-        if (alreadyTransferred) {
-            toast.error('Ce bon de commande a déjà été transféré');
-            return;
-        }
-        if (targetType === 'BL') {
-            // Ouvre un petit formulaire Chauffeur avant transformation vers BL
-            setShowDriverForm(true);
-            return;
-        }
+        if (alreadyTransferred) { toast.error('Ce bon a déjà été transféré'); return; }
+        if (targetType === 'BL') { setShowDriverForm(true); return; }
         await doTransfer(targetType);
     };
 
     const submitDriverAndTransfer = async () => {
-        if (!canSubmitDriver) {
-            toast.error(phoneError || 'Veuillez renseigner les informations du chauffeur');
-            return;
-        }
-        const payload = {
-            transport: {
-                nom: String(chauffeur.nom || '').trim(),
-                tel: String(chauffeur.tel || '').trim()
-            }
-        };
+        if (!canSubmitDriver) { toast.error(phoneError || 'Informations chauffeur incomplètes'); return; }
         setShowDriverForm(false);
-        await doTransfer('BL', payload);
+        await doTransfer('BL', { transport: { nom: chauffeur.nom.trim(), tel: chauffeur.tel.trim() } });
     };
 
     if (loading) return <LoadingSpinner />;
-    if (error) return (
-        <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-400 text-xl font-bold select-none">!</div>
-            <p className="text-sm font-semibold text-slate-700">Erreur lors du chargement</p>
-            <p className="text-xs text-slate-400 max-w-xs text-center">{error}</p>
-        </div>
-    );
-    if (!bcv) return (
-        <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <div className="h-14 w-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
-                <PrinterIcon className="h-7 w-7 text-slate-300" />
+    if (error || !bcv) return (
+        <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <div className="h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+                <ArchiveBoxIcon className="h-8 w-8 text-slate-300" />
             </div>
-            <p className="text-sm font-semibold text-slate-700">Bon de commande introuvable</p>
-            <button onClick={() => navigate('/bcv')} className="btn btn-secondary text-xs mt-2">← Retour à la liste</button>
+            <p className="text-sm font-semibold text-slate-700">{error ? 'Erreur de chargement' : 'Bon de commande introuvable'}</p>
+            <button onClick={() => navigate('/bcv')} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                <ArrowLeftIcon className="h-4 w-4" /> Retour à la liste
+            </button>
         </div>
     );
 
     return (
-        <div className="animate-fade-in space-y-6 max-w-5xl mx-auto pb-20">
-            {/* Driver form modal (shown only for BC -> BL) */}
+        <div className="animate-fade-in space-y-5 max-w-5xl mx-auto pb-20">
+
+            {/* ── Modal Chauffeur ── */}
             {showDriverForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4 print:hidden">
-                    <div
-                        className="absolute inset-0 bg-slate-900/40"
-                        onClick={() => (isTransferring ? null : setShowDriverForm(false))}
-                    />
-                    <div className="relative w-full max-w-lg rounded-xl bg-white shadow-xl border border-slate-200">
-                        <div className="p-5 border-b border-slate-100">
-                            <h3 className="text-sm font-extrabold text-slate-900 tracking-wide uppercase">
-                                Informations chauffeur
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-1">
-                                Vous devez renseigner ces informations avant de créer le Bon de Livraison.
-                            </p>
-                        </div>
-
-                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                                    Nom du chauffeur <span className="text-rose-600">*</span>
-                                </label>
-                                <input
-                                    value={chauffeur.nom}
-                                    onChange={(e) => setChauffeur((s) => ({ ...s, nom: e.target.value }))}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                    placeholder="Ex: Mohamed Trabelsi"
-                                />
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => !isTransferring && setShowDriverForm(false)} />
+                    <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-xl bg-[#e0f0ff] flex items-center justify-center">
+                                    <TruckIcon className="h-5 w-5 text-[#0062AF]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-900">Informations chauffeur</h3>
+                                    <p className="text-xs text-slate-400">Requis pour créer le Bon de Livraison</p>
+                                </div>
                             </div>
-
+                            <button onClick={() => setShowDriverForm(false)} disabled={isTransferring} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 transition-all">
+                                <XMarkIcon className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="p-6 grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-                                    Numéro de téléphone <span className="text-rose-600">*</span>
-                                </label>
-                                <input
-                                    value={chauffeur.tel}
-                                    onChange={(e) => setChauffeur((s) => ({ ...s, tel: e.target.value }))}
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                    placeholder="Ex: 22 123 456"
-                                    inputMode="numeric"
-                                    maxLength={8}
-                                />
-                                {!!phoneError && (
-                                    <p className="text-[11px] text-rose-600 font-semibold mt-1">{phoneError}</p>
-                                )}
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nom <span className="text-rose-500">*</span></label>
+                                <input value={chauffeur.nom} onChange={(e) => setChauffeur(s => ({ ...s, nom: e.target.value }))}
+                                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/10 transition-all"
+                                    placeholder="Mohamed Trabelsi" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Téléphone <span className="text-rose-500">*</span></label>
+                                <input value={chauffeur.tel} onChange={(e) => setChauffeur(s => ({ ...s, tel: e.target.value }))}
+                                    className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-all ${phoneError && chauffeur.tel ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100' : 'border-slate-200 focus:border-[#0062AF]/50 focus:ring-[#0062AF]/10'}`}
+                                    placeholder="22123456" inputMode="numeric" maxLength={8} />
+                                {phoneError && chauffeur.tel && <p className="text-[11px] text-rose-500 font-medium mt-1">{phoneError}</p>}
                             </div>
                         </div>
-
-                        <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
-                            <button
-                                onClick={() => setShowDriverForm(false)}
-                                disabled={isTransferring}
-                                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs disabled:opacity-60"
-                            >
+                        <div className="px-6 pb-6 flex items-center justify-end gap-2">
+                            <button onClick={() => setShowDriverForm(false)} disabled={isTransferring}
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all disabled:opacity-50">
                                 Annuler
                             </button>
-                            <button
-                                onClick={submitDriverAndTransfer}
-                                disabled={!canSubmitDriver || isTransferring}
-                                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-extrabold text-xs disabled:opacity-60"
-                            >
-                                {isTransferring ? 'Transformation...' : 'Créer le BL'}
+                            <button onClick={submitDriverAndTransfer} disabled={!canSubmitDriver || isTransferring}
+                                className="px-5 py-2.5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all disabled:opacity-50 active:scale-95 shadow-sm shadow-blue-500/20">
+                                {isTransferring ? <span className="flex items-center gap-2"><span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Création...</span> : 'Créer le BL'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-            
+
             {/* ── Page Header ── */}
-            <div className="card-luxury p-5 bg-gradient-to-r from-sky-50 via-white to-blue-50/40 border-none print:hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/bcv')}
-                        className="h-10 w-10 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all flex-shrink-0"
-                    >
-                        <ArrowLeftIcon className="h-4 w-4" />
-                    </button>
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 mb-0.5">Bons de Commande</p>
-                        <h1 className="text-lg font-bold text-slate-800 leading-tight">{bcv.Prfx || 'BC'}{bcv.Nf}</h1>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                            Client · <span className="font-semibold text-slate-700">{bcv.LibTiers}</span>
-                            {bcv.Valid ? <span className="ml-2 badge badge-success">Validé</span> : <span className="ml-2 badge badge-warning">En cours</span>}
-                        </p>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+                <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate('/bcv')}
+                            className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all group flex-shrink-0">
+                            <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                        </button>
+                        <div className="h-10 w-10 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                            <ArchiveBoxIcon className="h-5 w-5 text-[#0062AF]" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <h1 className="text-base font-bold text-slate-900">{bcv.Prfx || 'BC'}{bcv.Nf}</h1>
+                                <StatusBadge bcv={bcv} />
+                            </div>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                <span className="font-semibold text-slate-600">{bcv.LibTiers}</span>
+                                {bcv.DatUser && <> · <CalendarIcon className="h-3 w-3 inline mx-0.5 text-slate-300" />{formatDate(bcv.DatUser)}</>}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {!alreadyTransferred && isAdmin && (
+                            <>
+                                <button onClick={() => handleTransfer('BL')} disabled={isTransferring}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
+                                    <TruckIcon className="h-4 w-4" />
+                                    {isTransferring ? 'Transfert...' : 'Créer BL'}
+                                </button>
+                                <button onClick={() => handleTransfer('FAC')} disabled={isTransferring}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all disabled:opacity-50">
+                                    <BanknotesIcon className="h-4 w-4" />
+                                    Facturer
+                                </button>
+                            </>
+                        )}
+                        {!alreadyTransferred && isCommercial && bcv?.CodDev && (
+                            <>
+                                <button onClick={() => handleRequestTransfer('BL')} disabled={isRequesting}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all disabled:opacity-50">
+                                    <PaperAirplaneIcon className="h-4 w-4" />
+                                    {isRequesting && pendingRequestTarget === 'BL' ? 'Envoi...' : 'Demander BL'}
+                                </button>
+                                <button onClick={() => handleRequestTransfer('FAC')} disabled={isRequesting}
+                                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all disabled:opacity-50">
+                                    <PaperAirplaneIcon className="h-4 w-4" />
+                                    {isRequesting && pendingRequestTarget === 'FAC' ? 'Envoi...' : 'Demander Facture'}
+                                </button>
+                            </>
+                        )}
+                        {(isAdmin || isCommercial) && (
+                            <button onClick={() => navigate(`/bcv/edit/${id}`)}
+                                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+                                <PencilSquareIcon className="h-4 w-4" />
+                                Modifier
+                            </button>
+                        )}
+                        <button onClick={handleDownloadPDF}
+                            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+                            <PrinterIcon className="h-4 w-4" />
+                            PDF
+                        </button>
                     </div>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                    {!alreadyTransferred && isAdmin && (
-                        <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                            <button
-                                onClick={() => handleTransfer('BL')}
-                                disabled={isTransferring}
-                                className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-blue-50 border-r border-slate-100 transition-all font-bold text-xs"
-                                title="Transférer vers Bon de Livraison"
-                            >
-                                <TruckIcon className="h-4 w-4 mr-2 text-blue-500" />
-                                Transférer en BL
-                            </button>
-                            <button
-                                onClick={() => handleTransfer('FAC')}
-                                disabled={isTransferring}
-                                className="inline-flex items-center px-4 py-2 text-slate-700 hover:bg-emerald-50 transition-all font-bold text-xs"
-                                title="Transférer vers Facture"
-                            >
-                                <BanknotesIcon className="h-4 w-4 mr-2 text-emerald-500" />
-                                Facturer
-                            </button>
-                        </div>
-                    )}
-                    {!alreadyTransferred && isCommercial && bcv?.CodDev && (
-                        <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                            <button
-                                onClick={() => handleRequestTransfer('BL')}
-                                disabled={isRequesting}
-                                className="inline-flex items-center px-4 py-2 text-amber-700 hover:bg-amber-50 border-r border-slate-100 transition-all font-bold text-xs"
-                                title="Demander transformation en Bon de Livraison"
-                            >
-                                <PaperAirplaneIcon className="h-4 w-4 mr-2 text-amber-500" />
-                                {isRequesting && pendingRequestTarget === 'BL' ? 'Envoi...' : 'Demander BL'}
-                            </button>
-                            <button
-                                onClick={() => handleRequestTransfer('FAC')}
-                                disabled={isRequesting}
-                                className="inline-flex items-center px-4 py-2 text-amber-700 hover:bg-amber-50 transition-all font-bold text-xs"
-                                title="Demander transformation en Facture"
-                            >
-                                <PaperAirplaneIcon className="h-4 w-4 mr-2 text-amber-500" />
-                                {isRequesting && pendingRequestTarget === 'FAC' ? 'Envoi...' : 'Demander Facture'}
-                            </button>
-                        </div>
-                    )}
-                    <button
-                        onClick={handleDownloadPDF}
-                        className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-bold text-xs shadow-sm"
-                    >
-                        <PrinterIcon className="h-4 w-4 inline mr-2" />
-                        Télécharger PDF
-                    </button>
-                </div>
-              </div>
             </div>
 
-            {/* CLEAN DOCUMENT VIEW */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[1000px] text-slate-700 overflow-hidden print:shadow-none print:border-none">
-                <div className="h-1 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-400 print:hidden" />
-                <div className="p-12 print:p-0">
-                
-                {/* Header Section */}
-                <div className="flex justify-between items-start mb-16">
-                    <div className="space-y-2">
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">AMS-LABO</h1>
-                        <div className="text-[11px] text-slate-500 font-medium leading-relaxed uppercase tracking-wider space-y-0.5">
-                            <p>RUE TAHER KAMMOUN</p>
-                            <p>3000 SFAX — TUNISIE</p>
-                            <p className="pt-2">Tel: <span className="text-slate-700">74 407 194</span></p>
-                            <p>Email: <span className="text-slate-700 lowercase">contact@amslabo.com</span></p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-lg font-bold text-slate-800 tracking-wider uppercase border-b border-slate-100 pb-1">NEXUS</h2>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1 italic">Innovation</p>
-                    </div>
-                </div>
+            {/* ── Document Card ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-none">
+                <div className="h-1 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400 print:hidden" />
 
-                {/* Big Centered Title */}
-                <div className="text-center mb-16">
-                    <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-[0.3em] py-4 border-y border-slate-100">Bon de Commande</h2>
-                </div>
+                <div className="px-12 py-10 print:p-8">
 
-                {/* Ref & Client Information */}
-                <div className="grid grid-cols-2 gap-20 mb-16">
-                    <div className="space-y-4">
+                    {/* ── En-tête : société + branding ── */}
+                    <div className="flex justify-between items-start mb-10">
                         <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Détails Document</p>
-                            <div className="space-y-1 text-sm">
-                                <p className="font-bold text-slate-800">Réf: <span className="text-blue-600 tracking-tight">{bcv.Prfx || 'BC'}{bcv.Nf}</span></p>
-                                <p>Date BC: <span className="font-semibold">{formatDate(bcv.DatUser)}</span></p>
-                                <p>Date Livraison: <span className="font-semibold">{formatDate(bcv.DatLiv)}</span></p>
-                                <p>État: <span className={`font-semibold ${bcv.Valid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                    {bcv.Valid ? 'Validé' : 'En cours'}
-                                </span></p>
+                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">AMS-LABO</h1>
+                            <div className="text-xs text-slate-400 mt-2 space-y-0.5 leading-relaxed">
+                                <p className="text-slate-500">Rue Taher Kammoun · 3000 Sfax, Tunisie</p>
+                                <p>Tél : <span className="font-semibold text-slate-600">74 407 194</span></p>
+                                <p>Email : <span className="font-semibold text-slate-600">contact@amslabo.com</span></p>
                             </div>
                         </div>
-                        {bcv.Remarq && (
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p>
-                                <p className="text-xs text-slate-500 italic leading-relaxed">{bcv.Remarq}</p>
-                            </div>
-                        )}
+                        <div className="text-right flex flex-col items-end gap-0.5">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Propulsé par</span>
+                            <span className="text-xl font-black text-[#0062AF]">NEXUS</span>
+                            <span className="text-[9px] text-slate-400 tracking-widest">CRM Suite</span>
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Client</p>
-                        <div className="space-y-1">
-                            <h3 className="text-xl font-bold text-slate-900">{bcv.LibTiers}</h3>
-                            <div className="text-sm text-slate-500 leading-relaxed">
-                                <p>{bcv.Adresse}</p>
-                                <p className="font-semibold text-slate-700">{bcv.Ville}</p>
+                    {/* ── Titre document ── */}
+                    <div className="text-center mb-10">
+                        <h2 className="text-[22px] font-black text-slate-900 uppercase tracking-[0.3em]">Bon de Commande</h2>
+                        <div className="mt-2 mx-auto w-32 h-0.5 bg-gradient-to-r from-transparent via-[#0062AF] to-transparent" />
+                    </div>
+
+                    {/* ── Référence + Client côte à côte ── */}
+                    <div className="grid grid-cols-2 gap-12 mb-10 pb-10 border-b border-slate-100">
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Détails du document</p>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Référence</span>
+                                <span className="font-black text-[#0062AF] font-mono">{bcv.Prfx || 'BC'}{bcv.Nf}</span>
                             </div>
-                            {bcv.Cin && (
-                                <p className="text-[10px] font-mono text-slate-400 mt-2 italic">ID: {bcv.Cin}</p>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Date</span>
+                                <span className="font-semibold text-slate-700">{formatDate(bcv.DatUser) || '—'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Livraison prévue</span>
+                                <span className="font-semibold text-slate-700">{formatDate(bcv.DatLiv) || '—'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm items-center pt-1">
+                                <span className="text-slate-500">Statut</span>
+                                <StatusBadge bcv={bcv} />
+                            </div>
+                            {bcv.Remarq && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Remarques</p>
+                                    <p className="text-xs text-slate-500 italic leading-relaxed">{bcv.Remarq}</p>
+                                </div>
                             )}
                         </div>
-                    </div>
-                </div>
 
-                {/* Articles Table */}
-                <div className="mb-16">
-                    <table className="w-full text-left border-collapse">
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Destinataire</p>
+                            <h3 className="text-xl font-black text-slate-900 leading-tight mb-2">{bcv.LibTiers}</h3>
+                            {bcv.CodTiers && <span className="inline-block text-[9px] font-mono text-[#0062AF] bg-[#e0f0ff] px-2 py-0.5 rounded-md mb-2">{bcv.CodTiers}</span>}
+                            <div className="text-sm text-slate-500 space-y-0.5 leading-relaxed">
+                                {bcv.Adresse && <p>{bcv.Adresse}</p>}
+                                {bcv.Ville && <p className="font-semibold text-slate-700">{bcv.Ville}</p>}
+                                {bcv.Cin && <p className="font-mono text-slate-400 text-xs">ID : {bcv.Cin}</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Table articles ── */}
+                    <table className="w-full text-left mb-8">
                         <thead>
-                            <tr className="border-b border-slate-200">
-                                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-32">Article</th>
-                                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Désignation</th>
-                                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">P.U HT</th>
-                                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-24">Qté</th>
-                                <th className="py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-40">Total HT</th>
+                            <tr className="border-b-2 border-slate-200">
+                                <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest w-28">Code</th>
+                                <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Désignation</th>
+                                <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-32">P.U HT</th>
+                                <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-20">Qté</th>
+                                <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-36">Total HT</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                             {bcv.details?.map((item, idx) => (
-                                <tr key={idx} className="group">
-                                    <td className="py-5 font-mono text-[11px] text-slate-400 italic">#{item.CodArt}</td>
-                                    <td className="py-5">
-                                        <p className="text-sm font-bold text-slate-800 leading-none mb-1">{item.LibArt}</p>
-                                        <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg">{item.ExLibArt || '-'}</p>
+                                <tr key={idx} className="border-b border-slate-100 last:border-0">
+                                    <td className="py-4 pr-4">
+                                        <span className="text-xs font-mono font-bold text-slate-500">{item.CodArt || '—'}</span>
                                     </td>
-                                    <td className="py-5 text-sm font-medium text-slate-600 text-right tabular-nums">
-                                        {formatCurrency(item.PuHT || 0).replace(' TND', '')}
+                                    <td className="py-4 pr-4">
+                                        <p className="text-sm font-semibold text-slate-800">{item.LibArt}</p>
+                                        {item.ExLibArt && <p className="text-[11px] text-slate-400 mt-0.5">{item.ExLibArt}</p>}
                                     </td>
-                                    <td className="py-5 text-sm font-bold text-slate-800 text-center tabular-nums">
+                                    <td className="py-4 text-sm text-slate-600 text-right tabular-nums font-medium">
+                                        {fmt3(item.PuHT || 0)} DT
+                                    </td>
+                                    <td className="py-4 text-sm font-bold text-slate-800 text-center tabular-nums">
                                         {item.Qt}
                                     </td>
-                                    <td className="py-5 text-sm font-bold text-slate-900 text-right tabular-nums">
-                                        {formatCurrency((item.Qt * (item.PuHT || 0))).replace(' TND', '')}
+                                    <td className="py-4 text-sm font-bold text-slate-900 text-right tabular-nums">
+                                        {fmt3(item.MntHT || (item.Qt * (item.PuHT || 0)))} DT
                                     </td>
                                 </tr>
                             ))}
+                            {(!bcv.details || bcv.details.length === 0) && (
+                                <tr><td colSpan={5} className="py-12 text-center text-sm text-slate-400 italic">Aucun article.</td></tr>
+                            )}
                         </tbody>
                     </table>
-                    {(!bcv.details || bcv.details.length === 0) && (
-                        <div className="py-12 text-center text-slate-300 italic text-sm">
-                            Aucun article présent.
-                        </div>
-                    )}
-                </div>
 
-                {/* Financial Summary */}
-                <div className="flex justify-end pt-8">
-                    <div className="w-80 space-y-3">
-                        <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
-                            <span className="font-semibold text-slate-400 uppercase tracking-widest">Total Hors Taxe</span>
-                            <span className="font-bold text-slate-700 tabular-nums">
-                                {formatCurrency(bcv.TotHT || 0)}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
-                            <span className="font-semibold text-slate-400 uppercase tracking-widest">TVA</span>
-                            <span className="font-bold text-slate-700 tabular-nums">
-                                {formatCurrency(bcv.TotTva || 0)}
-                            </span>
-                        </div>
-                        {bcv.TotRem > 0 && (
-                            <div className="flex justify-between items-center text-xs py-1 border-b border-slate-50 text-rose-600">
-                                <span className="font-semibold uppercase tracking-widest">Remise</span>
-                                <span className="font-bold tabular-nums">
-                                    -{formatCurrency(bcv.TotRem || 0)}
-                                </span>
+                    {/* ── Récapitulatif financier (right-aligned, style screenshot) ── */}
+                    <div className="flex justify-end mb-12">
+                        <div className="w-72 space-y-2">
+                            <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
+                                <span className="font-semibold text-slate-400 uppercase tracking-widest text-[10px]">Sous-Total HT</span>
+                                <span className="font-bold text-slate-600 tabular-nums">{fmt3(bcv.TotHT || 0)} DT</span>
                             </div>
-                        )}
-                        <div className="pt-6 mt-4 border-t-2 border-slate-100">
-                            <div className="flex justify-between items-end">
-                                <span className="text-sm font-bold text-slate-900 uppercase tracking-widest">Total Net TTC</span>
-                                <div className="text-right">
-                                    <span className="text-4xl font-black text-blue-600 tabular-nums">
-                                        {formatCurrency(bcv.TotTTC || 0).replace(' TND', '')}
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-400 ml-2">TND</span>
+                            <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
+                                <span className="font-semibold text-slate-400 uppercase tracking-widest text-[10px]">
+                                    TVA ({bcv.details?.[0]?.Tva ?? 19}%)
+                                </span>
+                                <span className="font-bold text-slate-600 tabular-nums">{fmt3(bcv.TotTva || 0)} DT</span>
+                            </div>
+                            {(bcv.TotRem || 0) > 0 && (
+                                <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
+                                    <span className="font-semibold text-rose-400 uppercase tracking-widest text-[10px]">Remise</span>
+                                    <span className="font-bold text-rose-500 tabular-nums">− {fmt3(bcv.TotRem)} DT</span>
+                                </div>
+                            )}
+                            <div className="pt-4">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total TTC</p>
+                                        <p className="text-[9px] text-slate-400 mt-0.5">Toutes taxes comprises</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-3xl font-black text-[#0062AF] tabular-nums">{fmt3(bcv.TotTTC || 0)}</span>
+                                        <span className="text-sm font-bold text-slate-400 ml-1.5">TND</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Delivery details footer (Minimal) */}
-                <div className="mt-20 pt-10 border-t border-slate-50 grid grid-cols-3 gap-8">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Magasin</p>
-                        <p className="text-xs font-semibold text-slate-700">{bcv.DesMag || bcv.CodMag || 'Magasin Général'}</p>
+                    {/* ── Footer ── */}
+                    <div className="pt-8 border-t border-slate-100 grid grid-cols-3 gap-6">
+                        {[
+                            { icon: ArchiveBoxIcon, label: 'Magasin',    value: bcv.DesMag || bcv.CodMag || 'Magasin Général' },
+                            { icon: UserIcon,       label: 'Commercial', value: bcv.DesRepres || bcv.CodRepres || '—'          },
+                            { icon: TruckIcon,      label: 'Transport',  value: bcv.DesChauff || 'Non assigné'                 },
+                        ].map(({ icon: Icon, label, value }) => (
+                            <div key={label} className="flex items-start gap-3">
+                                <div className="h-8 w-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Icon className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                                    <p className="text-sm font-semibold text-slate-700">{value}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Représentant</p>
-                        <p className="text-xs font-semibold text-slate-700">{bcv.DesRepres || bcv.CodRepres || '—'}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Transport</p>
-                        <p className="text-xs font-semibold text-slate-700">{bcv.DesChauff || 'Non assigné'}</p>
-                    </div>
-                </div>
 
-                <div className="mt-20 border-t border-slate-50 italic text-[10px] text-slate-400 text-center uppercase tracking-widest">
-                    NexusCRM Suite — Document Officiel
-                </div>
+                    <p className="mt-10 pt-6 border-t border-slate-50 text-center text-[10px] text-slate-300 uppercase tracking-[0.2em]">
+                        NexusCRM Suite — Document Officiel
+                    </p>
                 </div>
             </div>
         </div>

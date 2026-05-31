@@ -87,6 +87,7 @@ const BcvForm = () => {
     const [expandedItems, setExpandedItems] = useState({});
     const [activeProductRowId, setActiveProductRowId] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
+    const [remisePct, setRemisePct] = useState(0);
     const [clientSearch, setClientSearch] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
     const clientDropdownRef = useRef(null);
@@ -563,6 +564,18 @@ const BcvForm = () => {
         fetchProjects();
     }, [formData.CodTiers, formData.CodProject]);
 
+    // Remise % → TotRem
+    useEffect(() => {
+        const pct = parseFloat(remisePct) || 0;
+        const base = items.reduce((sum, item) => {
+            const qt = toNonNegativeNumber(item.Qt, 0);
+            const puHT = toNonNegativeNumber(item.PuHT, 0);
+            return sum + qt * puHT;
+        }, 0);
+        const rem = Math.round((pct / 100) * base * 1000) / 1000;
+        setFormData(prev => ({ ...prev, TotRem: rem }));
+    }, [remisePct, items]);
+
     // Recalculate totals
     useEffect(() => {
         const subTotal = items.reduce((sum, item) => {
@@ -756,6 +769,13 @@ const BcvForm = () => {
             return;
         }
 
+        const articlesValides = items.filter(i => i.CodArt);
+        if (articlesValides.length === 0) {
+            toast.error('Veuillez sélectionner au moins un article avant de créer le bon de commande');
+            setCurrentStep(3);
+            return;
+        }
+
         setSaving(true);
 
         // Helper to serialize dates properly
@@ -870,243 +890,262 @@ const BcvForm = () => {
     const articlesTableJsx = (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+
+            {/* ── Header ── */}
+            <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <DocumentTextIcon className="h-4 w-4 text-blue-500" />
+                    <div className="h-9 w-9 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                        <DocumentTextIcon className="h-5 w-5 text-[#0062AF]" />
                     </div>
-                    <div>
-                        <h2 className="text-sm font-semibold text-slate-700">Articles</h2>
-                    </div>
+                    <h2 className="text-base font-bold text-slate-800">Articles</h2>
+                    {items.length > 0 && (
+                        <span className="h-6 min-w-[24px] px-2 rounded-full bg-[#e0f0ff] text-[#0062AF] text-xs font-bold flex items-center justify-center">
+                            {items.length}
+                        </span>
+                    )}
                 </div>
                 <button type="button" onClick={addItem}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 hover:border-blue-200 rounded-lg transition-all">
-                    <PlusIcon className="h-3.5 w-3.5" /> Ajouter un article
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                    <PlusIcon className="h-4 w-4 stroke-[2.5]" /> Ajouter un article
                 </button>
             </div>
 
-            {/* Article cards */}
+            {/* ── Lignes articles ── */}
             <div className="divide-y divide-slate-100">
                 {items.length === 0 && (
-                    <div className="py-16 text-center">
-                        <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                            <DocumentTextIcon className="h-7 w-7 text-slate-300" />
+                    <div className="py-24 flex flex-col items-center justify-center gap-4">
+                        <div className="h-20 w-20 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center">
+                            <DocumentTextIcon className="h-10 w-10 text-slate-300" />
                         </div>
-                        <p className="text-sm font-semibold text-slate-500 mb-1">Aucun article ajouté</p>
-                        <p className="text-xs text-slate-400">Cliquez sur "Ajouter un article" pour commencer</p>
+                        <div className="text-center">
+                            <p className="text-base font-semibold text-slate-500 mb-1">Aucun article ajouté</p>
+                            <p className="text-sm text-slate-400">Cliquez sur <strong className="text-[#0062AF] cursor-pointer" onClick={addItem}>+ Ajouter un article</strong> pour commencer</p>
+                        </div>
                     </div>
                 )}
+
                 {items.map((item, index) => (
-                    <div key={item.tempId} className="px-5 py-4 hover:bg-slate-50 transition-colors group">
+                    <div key={item.tempId} className="relative">
+                        {/* Accent gauche quand produit sélectionné */}
+                        {item.CodArt && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#0062AF] to-sky-400 rounded-r" />}
 
-                        {/* Row header: numéro + bouton supprimer */}
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                                <span className="h-5 w-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0 border border-slate-200">{index + 1}</span>
-                                <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Article</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${expandedItems[item.tempId] ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}>
-                                    <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
-                                    Options
-                                </button>
-                                <button type="button" onClick={() => removeItem(item.tempId)}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
-                                    <TrashIcon className="h-3.5 w-3.5" />
-                                    Supprimer
-                                </button>
-                            </div>
-                        </div>
+                        <div className={`px-7 py-7 transition-colors ${item.CodArt ? 'bg-white' : 'bg-slate-50/30'}`}>
 
-                        {/* Recherche produit — pleine largeur, très visible */}
-                        <div
-                            className="relative mb-3"
-                            ref={el => productDropdownRefs.current[item.tempId] = el}
-                        >
-                            <div className="relative">
-                                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input
-                                    type="text"
-                                    value={item.productSearch ?? (item.CodArt ? `${item.CodArt} — ${item.LibArt}` : '')}
-                                    onFocus={() => {
-                                        setActiveProductRowId(item.tempId);
-                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
-                                        if (!item.CodArt) setProductOptions(Object.values(productLookup));
-                                    }}
-                                    onChange={(e) => {
-                                        handleProductSearchChange(item.tempId, e.target.value);
-                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
-                                    }}
-                                    onPaste={(e) => {
-                                        setTimeout(() => setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true })), 10);
-                                    }}
-                                    placeholder="Taper ou coller le nom / code produit pour rechercher…"
-                                    className="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
-                                />
-                                {item.CodArt && (
-                                    <button type="button"
-                                        onClick={() => {
-                                            setItems(prev => prev.map(i => i.tempId === item.tempId ? { ...i, CodArt: '', LibArt: '', IDArt: null, productSearch: '', PuHT: 0, PuTTC: 0, Tva: 19 } : i));
-                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
-                                        }}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-all">
-                                        <XMarkIcon className="h-3.5 w-3.5" />
+                            {/* ── Row header ── */}
+                            <div className="flex items-center justify-between mb-5">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`h-7 w-7 rounded-full text-xs font-black flex items-center justify-center flex-shrink-0 transition-all ${item.CodArt ? 'bg-[#0062AF] text-white shadow-sm shadow-blue-500/30' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                                        {index + 1}
+                                    </span>
+                                    {item.CodArt ? (
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="text-[10px] font-mono font-bold text-[#0062AF] bg-[#e0f0ff] px-2 py-0.5 rounded-md flex-shrink-0">{item.CodArt}</span>
+                                            <span className="text-sm font-semibold text-slate-800 truncate">{item.LibArt}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-slate-400 font-medium">Sélectionnez un article</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                    <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
+                                        className={`h-8 px-2.5 flex items-center gap-1 rounded-lg text-xs font-semibold transition-all ${expandedItems[item.tempId] ? 'bg-[#e0f0ff] text-[#0062AF]' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}>
+                                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-200 ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
                                     </button>
+                                    <button type="button" onClick={() => removeItem(item.tempId)}
+                                        className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-300 hover:bg-rose-50 hover:text-rose-400 transition-all">
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* ── Recherche produit ── */}
+                            <div className="relative mb-5" ref={el => productDropdownRefs.current[item.tempId] = el}>
+                                <div className="relative">
+                                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        value={item.productSearch ?? (item.CodArt ? `${item.CodArt} — ${item.LibArt}` : '')}
+                                        onFocus={() => {
+                                            setActiveProductRowId(item.tempId);
+                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                            if (!item.CodArt) setProductOptions(Object.values(productLookup));
+                                        }}
+                                        onChange={(e) => {
+                                            handleProductSearchChange(item.tempId, e.target.value);
+                                            setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true }));
+                                        }}
+                                        onPaste={(e) => { setTimeout(() => setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: true })), 10); }}
+                                        placeholder="Rechercher par nom ou code produit…"
+                                        className={`w-full pl-12 pr-10 py-5 text-base font-medium rounded-2xl border-2 transition-all focus:outline-none focus:ring-4 ${
+                                            item.CodArt
+                                                ? 'border-[#0062AF]/30 bg-[#f0f7ff] text-[#0062AF] focus:border-[#0062AF]/60 focus:ring-[#0062AF]/10'
+                                                : 'border-slate-200 bg-white text-slate-700 placeholder-slate-400 focus:border-[#0062AF]/50 focus:ring-[#0062AF]/8'
+                                        }`}
+                                    />
+                                    {item.CodArt && (
+                                        <button type="button"
+                                            onClick={() => {
+                                                setItems(prev => prev.map(i => i.tempId === item.tempId ? { ...i, CodArt: '', LibArt: '', IDArt: null, productSearch: '', PuHT: 0, PuTTC: 0, Tva: 19 } : i));
+                                                setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
+                                            }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-500 transition-all">
+                                            <XMarkIcon className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Dropdown */}
+                                {productDropdownOpen[item.tempId] && (
+                                    <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                                        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 sticky top-0">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                {getFilteredProducts(item.productSearch).length} résultat{getFilteredProducts(item.productSearch).length !== 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                        {getFilteredProducts(item.productSearch).length === 0 ? (
+                                            <div className="px-4 py-10 text-sm text-slate-400 text-center">Aucun produit trouvé</div>
+                                        ) : (
+                                            getFilteredProducts(item.productSearch).map(p => (
+                                                <button key={p.IDArt} type="button"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        handleProductSelect(item.tempId, p.IDArt);
+                                                        setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
+                                                    }}
+                                                    className="w-full text-left px-4 py-3 hover:bg-[#f0f7ff] active:bg-[#e0f0ff] transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex-shrink-0">{p.CodArt}</span>
+                                                        <span className="text-sm font-medium text-slate-700 truncate">{getProductName(p)}</span>
+                                                    </div>
+                                                    <span className="text-sm font-bold text-[#0062AF] flex-shrink-0 tabular-nums">
+                                                        {(p.PrixVente || p.PuHT || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND
+                                                    </span>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
-                            {/* Dropdown résultats */}
-                            {productDropdownOpen[item.tempId] && (
-                                <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden"
-                                    style={{ maxHeight: '280px', overflowY: 'auto' }}>
-                                    {/* Compteur */}
-                                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                            {getFilteredProducts(item.productSearch).length} produit{getFilteredProducts(item.productSearch).length !== 1 ? 's' : ''}
-                                        </span>
-                                        {item.productSearch && (
-                                            <span className="text-[10px] text-blue-500 font-medium">"{item.productSearch}"</span>
-                                        )}
+                            {/* ── Qté · PU HT · TVA · Total ── */}
+                            <div className="grid grid-cols-4 gap-4">
+
+                                {/* Quantité */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quantité</label>
+                                    <div className="flex h-12 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                        <button type="button"
+                                            onClick={() => handleItemChange(item.tempId, 'Qt', Math.max(1, (parseFloat(item.Qt) || 1) - 1))}
+                                            className="w-10 flex items-center justify-center text-slate-400 hover:text-[#0062AF] hover:bg-[#f0f7ff] transition-colors font-bold text-xl border-r border-slate-200 flex-shrink-0">
+                                            −
+                                        </button>
+                                        <input type="number" min="1"
+                                            value={item.Qt}
+                                            onFocus={e => e.target.select()}
+                                            onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                                            onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
+                                            className="flex-1 h-full text-center text-base font-black text-[#0062AF] focus:outline-none bg-transparent min-w-0"
+                                        />
+                                        <button type="button"
+                                            onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
+                                            className="w-10 flex items-center justify-center text-slate-400 hover:text-[#0062AF] hover:bg-[#f0f7ff] transition-colors font-bold text-xl border-l border-slate-200 flex-shrink-0">
+                                            +
+                                        </button>
                                     </div>
-                                    {getFilteredProducts(item.productSearch).length === 0 ? (
-                                        <div className="px-4 py-6 text-sm text-slate-400 text-center">
-                                            Aucun produit trouvé pour "{item.productSearch}"
-                                        </div>
-                                    ) : (
-                                        getFilteredProducts(item.productSearch).map(p => (
-                                            <button
-                                                key={p.IDArt}
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                    e.preventDefault();
-                                                    handleProductSelect(item.tempId, p.IDArt);
-                                                    setProductDropdownOpen(prev => ({ ...prev, [item.tempId]: false }));
-                                                }}
-                                                className="w-full text-left px-4 py-3 hover:bg-blue-50 active:bg-blue-100 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between gap-4"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex-shrink-0">{p.CodArt}</span>
-                                                    <span className="text-sm font-semibold text-slate-800 truncate">{getProductName(p)}</span>
-                                                </div>
-                                                <span className="text-sm font-bold text-blue-600 flex-shrink-0">
-                                                    {(p.PrixVente || p.PuHT || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND
-                                                </span>
+                                </div>
+
+                                {/* PU HT */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Prix unitaire HT</label>
+                                    <div className="relative h-12">
+                                        <input type="number" min="0" step="0.001"
+                                            value={item.PuHT || 0}
+                                            onFocus={e => e.target.select()}
+                                            onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-full text-right pl-4 pr-12 bg-white border border-slate-200 rounded-xl text-base font-semibold text-slate-800 focus:border-[#0062AF]/50 focus:ring-2 focus:ring-[#0062AF]/8 focus:outline-none transition-all shadow-sm" />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">TND</span>
+                                    </div>
+                                </div>
+
+                                {/* TVA — pill buttons */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">TVA</label>
+                                    <div className="flex h-12 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                        {[19, 7, 0].map((t, ti) => (
+                                            <button key={t} type="button"
+                                                onClick={() => handleItemChange(item.tempId, 'Tva', t)}
+                                                className={`flex-1 text-sm font-bold transition-all ${ti > 0 ? 'border-l border-slate-200' : ''} ${
+                                                    (item.Tva ?? 19) === t
+                                                        ? 'bg-[#0062AF] text-white shadow-inner'
+                                                        : 'text-slate-500 hover:bg-[#f0f7ff] hover:text-[#0062AF]'
+                                                }`}>
+                                                {t}%
                                             </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Produit sélectionné — badge */}
-                        {item.CodArt && (
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold">
-                                    <CheckCircleIcon className="h-3.5 w-3.5" />
-                                    {item.CodArt} — {item.LibArt}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Qté + Prix + Total */}
-                        <div className="grid grid-cols-3 gap-3">
-                            {/* Quantité */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Quantité</label>
-                                <div className="flex items-center gap-1.5">
-                                    <button type="button"
-                                        onClick={() => handleItemChange(item.tempId, 'Qt', Math.max(1, (parseFloat(item.Qt) || 1) - 1))}
-                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
-                                        −
-                                    </button>
-                                    <input
-                                        type="number" min="1"
-                                        value={item.Qt}
-                                        onFocus={e => e.target.select()}
-                                        onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                                        onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
-                                        className="w-full h-10 text-center border-2 border-slate-200 rounded-xl text-base font-black text-blue-700 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all bg-blue-50/40"
-                                    />
-                                    <button type="button"
-                                        onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
-                                        className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 transition-all font-bold text-lg">
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-                            {/* Prix unitaire */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">P.U HT (TND)</label>
-                                <input type="number" min="0" step="0.001"
-                                    value={item.PuHT || 0}
-                                    onFocus={e => e.target.select()}
-                                    onChange={(e) => handleItemChange(item.tempId, 'PuHT', parseFloat(e.target.value) || 0)}
-                                    className="w-full h-10 text-right px-3 border-2 border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all" />
-                            </div>
-                            {/* Total HT */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total HT</label>
-                                <div className="h-10 flex items-center justify-end px-3 bg-blue-50/40 border-2 border-blue-100 rounded-xl">
-                                    <span className="text-base font-black text-blue-700">{fmt(item.MntHT)}</span>
-                                    <span className="text-[10px] text-blue-400 ml-1">TND</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Options avancées */}
-                        <AnimatePresence>
-                            {expandedItems[item.tempId] && (
-                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                    <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">TVA (%)</label>
-                                            <input type="number" value={item.Tva || 19}
-                                                onFocus={e => e.target.select()}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Tva', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remise (%)</label>
-                                            <input type="number" value={item.Remise || 0}
-                                                onFocus={e => e.target.select()}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Observation</label>
-                                            <input type="text" value={item.Observation || ''}
-                                                onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none" maxLength="255" />
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 col-span-2 md:col-span-4 flex gap-4">
-                                            <span>TVA : <strong className="text-slate-600">{fmt(item.MntTVA)}</strong> TND</span>
-                                            <span>TTC/u : <strong className="text-blue-600">{fmt(item.PuTTC)}</strong> TND</span>
-                                        </div>
+                                        ))}
                                     </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                </div>
+
+                                {/* Total HT */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Total HT</label>
+                                    <div className="h-12 flex items-center justify-end px-4 bg-[#f0f7ff] border border-[#0062AF]/20 rounded-xl shadow-sm gap-1.5">
+                                        <span className="text-base font-black text-[#0062AF] tabular-nums">{fmt(item.MntHT)}</span>
+                                        <span className="text-xs text-[#0062AF]/50 font-semibold">TND</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── Options avancées ── */}
+                            <AnimatePresence>
+                                {expandedItems[item.tempId] && (
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                        <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Remise (%)</label>
+                                                <input type="number" value={item.Remise || 0}
+                                                    onFocus={e => e.target.select()}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Remise', parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-[#0062AF]/50 focus:outline-none" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Observation</label>
+                                                <input type="text" value={item.Observation || ''}
+                                                    onChange={(e) => handleItemChange(item.tempId, 'Observation', e.target.value)}
+                                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-[#0062AF]/50 focus:outline-none" maxLength="255" />
+                                            </div>
+                                            <div className="col-span-2 flex gap-6 text-xs text-slate-400 pt-1">
+                                                <span>TVA : <strong className="text-slate-600 tabular-nums">{fmt(item.MntTVA)}</strong> TND</span>
+                                                <span>TTC/u : <strong className="text-[#0062AF] tabular-nums">{fmt(item.PuTTC)}</strong> TND</span>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 ))}
             </div>
 
+            {/* ── Footer totaux ── */}
             {items.length > 0 && (
-                <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <span className="text-xs text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
-                    <div className="flex items-center gap-6">
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total HT</p>
-                            <p className="text-base font-bold text-slate-700">{fmt(formData.TotHT)} <span className="text-[10px] text-slate-400">TND</span></p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TVA</p>
-                            <p className="text-base font-bold text-slate-600">{fmt(formData.TotTva)} <span className="text-[10px] text-slate-400">TND</span></p>
-                        </div>
-                        <div className="text-right pl-5 ml-1 border-l-2 border-blue-100 py-1">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Net TTC</p>
-                            <p className="text-2xl font-black text-blue-600 leading-tight">{fmt(formData.TotTTC)} <span className="text-xs font-bold text-blue-400">TND</span></p>
+                <div className="px-7 py-5 bg-slate-50/60 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-8">
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Base HT</p>
+                                <p className="text-base font-bold text-slate-700 tabular-nums">{fmt(formData.TotHT)} <span className="text-xs text-slate-400">TND</span></p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">TVA</p>
+                                <p className="text-base font-bold text-slate-600 tabular-nums">{fmt(formData.TotTva)} <span className="text-xs text-slate-400">TND</span></p>
+                            </div>
+                            <div className="text-right pl-8 border-l-2 border-[#0062AF]/20">
+                                <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest mb-0.5">Net TTC</p>
+                                <p className="text-2xl font-black text-[#0062AF] tabular-nums leading-tight">{fmt(formData.TotTTC)} <span className="text-sm font-bold text-[#0062AF]/60">TND</span></p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1115,7 +1154,7 @@ const BcvForm = () => {
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
+        <div className="min-h-screen bg-slate-50/70 pb-20">
 
             {/* Sticky Header */}
             <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
@@ -1158,9 +1197,9 @@ const BcvForm = () => {
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                <p className="text-xs text-slate-400">
-                                    {formData.LibTiers || 'Selectionnez un client pour commencer'}
-                                </p>
+                                {formData.LibTiers && (
+                                    <p className="text-xs font-medium text-slate-600 truncate max-w-[300px]">{formData.LibTiers}</p>
+                                )}
                                 {isEdit && formData.DatUser && (
                                     <>
                                         <span className="text-slate-200 text-xs">·</span>
@@ -1481,8 +1520,8 @@ const BcvForm = () => {
 
                                 {/* ── Colonne gauche : recherche client (2/3) ── */}
                                 <div className="lg:col-span-2 space-y-4">
-                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400 rounded-t-2xl" />
                                         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                                             <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                                                 <UserGroupIcon className="h-4 w-4 text-blue-500" />
@@ -1661,105 +1700,19 @@ const BcvForm = () => {
                 {/* STEP 2 — Articles */}
                 <AnimatePresence mode="wait">
                     {currentStep === 3 && (
-                        <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }}>
+                        <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+                            {articlesTableJsx}
 
-                                {/* ── Left column : articles (2/3) ── */}
-                                <div className="lg:col-span-2 space-y-4">
-                                    {articlesTableJsx}
-
-                                    {/* Nav bottom */}
-                                    <div className="flex justify-between pt-1">
-                                        <button type="button" onClick={() => setCurrentStep(1)}
-                                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all">
-                                            <ArrowLeftIcon className="h-4 w-4" /> Retour
-                                        </button>
-                                        <button type="button" onClick={() => setCurrentStep(4)}
-                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
-                                            Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* ── Right sidebar (1/3) ── */}
-                                <div className="lg:sticky lg:top-24 space-y-4">
-
-                                    {/* Client card */}
-                                    {formData.CodTiers && (
-                                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
-                                            <div className="px-5 py-4 flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
-                                                    <BuildingOfficeIcon className="h-5 w-5 text-[#0062AF]" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
-                                                    <p className="text-sm font-bold text-slate-800 truncate">{formData.LibTiers}</p>
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {formData.CodTiers && <span className="text-[9px] font-mono text-[#0062AF] bg-[#e0f0ff] px-1.5 py-0.5 rounded">{formData.CodTiers}</span>}
-                                                        {formData.Ville && <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{formData.Ville}</span>}
-                                                    </div>
-                                                </div>
-                                                <button type="button" onClick={() => setCurrentStep(1)}
-                                                    className="text-[10px] text-[#0062AF] hover:text-[#004a85] font-semibold flex-shrink-0">
-                                                    Modifier
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Live totals */}
-                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                                            <CalculatorIcon className="h-4 w-4 text-slate-400" />
-                                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Totaux en cours</h3>
-                                        </div>
-                                        <div className="px-5 py-4 space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-slate-500">Articles</span>
-                                                <span className="text-sm font-semibold text-slate-700">{items.length}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-slate-500">Base HT</span>
-                                                <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-slate-500">TVA</span>
-                                                <span className="text-sm font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-slate-500">Remise globale</span>
-                                                <div className="w-24">
-                                                    <input
-                                                        type="number" min="0"
-                                                        name="TotRem"
-                                                        value={formData.TotRem || 0}
-                                                        onChange={handleChange}
-                                                        className="w-full text-right px-2 py-1 border border-slate-200 rounded-lg text-sm font-semibold text-rose-600 focus:border-rose-300 focus:outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="pt-3 border-t border-dashed border-[#0062AF]/20">
-                                                <div className="flex justify-between items-end">
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest">Net TTC</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="text-xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
-                                                        <span className="ml-1 text-xs font-bold text-[#0062AF]/60">TND</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* CTA confirmer */}
-                                    <button type="button" onClick={() => setCurrentStep(4)}
-                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
-                                        Confirmer la commande <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-                                    </button>
-                                </div>
+                            <div className="flex justify-between pt-1">
+                                <button type="button" onClick={() => setCurrentStep(1)}
+                                    className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all">
+                                    <ArrowLeftIcon className="h-4 w-4" /> Retour
+                                </button>
+                                <button type="button" onClick={() => setCurrentStep(4)}
+                                    className="flex items-center gap-2 px-8 py-3 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                                    Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -1772,96 +1725,165 @@ const BcvForm = () => {
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-                                {/* Left — client + articles */}
-                                <div className="lg:col-span-2 space-y-4">
-
-                                    {/* Client recap */}
+                                {/* ── Left — table articles style facture ── */}
+                                <div className="lg:col-span-2">
                                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                         <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
-                                        <div className="px-6 py-4 flex items-center gap-4">
-                                            <div className="h-11 w-11 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
-                                                <BuildingOfficeIcon className="h-5 w-5 text-[#0062AF]" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
-                                                <p className="text-base font-bold text-slate-900 truncate">{formData.LibTiers || '—'}</p>
-                                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                                    {formData.CodTiers && <span className="text-[10px] font-mono text-[#0062AF] bg-[#e0f0ff] px-2 py-0.5 rounded-md">{formData.CodTiers}</span>}
-                                                    {formData.Ville && <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{formData.Ville}</span>}
+
+                                        {/* Header card */}
+                                        <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                                    <DocumentTextIcon className="h-5 w-5 text-[#0062AF]" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-slate-800">Détail des articles</h3>
+                                                    <p className="text-xs text-slate-400">{items.filter(i => i.CodArt).length} article{items.filter(i => i.CodArt).length !== 1 ? 's' : ''} sélectionné{items.filter(i => i.CodArt).length !== 1 ? 's' : ''}</p>
                                                 </div>
                                             </div>
-                                            <button type="button" onClick={() => setCurrentStep(1)} className="text-[11px] text-[#0062AF] hover:text-[#004a85] font-semibold flex-shrink-0">Modifier</button>
+                                            <button type="button" onClick={() => setCurrentStep(3)}
+                                                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#0062AF] bg-[#e0f0ff] hover:bg-[#d0e8ff] rounded-xl transition-all">
+                                                Modifier les articles
+                                            </button>
                                         </div>
-                                    </div>
 
-                                    {/* Articles recap */}
-                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Articles ({items.length})</span>
-                                            <button type="button" onClick={() => setCurrentStep(3)} className="text-[11px] text-[#0062AF] hover:text-[#004a85] font-semibold">Modifier</button>
+                                        {/* Table header */}
+                                        <div className="grid grid-cols-[auto_1fr_80px_100px_70px_110px] gap-0 px-7 py-3 bg-slate-50/60 border-b border-slate-100">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest w-8">#</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Désignation</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Qté</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">PU HT</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">TVA</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Total HT</span>
                                         </div>
+
+                                        {/* Rows */}
                                         <div className="divide-y divide-slate-50">
                                             {items.map((item, idx) => (
-                                                <div key={item.tempId} className="px-6 py-3 flex items-center justify-between gap-4">
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <span className="h-6 w-6 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-semibold text-slate-800 truncate">{item.LibArt || <span className="text-slate-400 italic">Article sans nom</span>}</p>
-                                                            {item.CodArt && <p className="text-[10px] font-mono text-slate-400">{item.CodArt}</p>}
-                                                        </div>
+                                                <div key={item.tempId}
+                                                    className="grid grid-cols-[auto_1fr_80px_100px_70px_110px] gap-0 px-7 py-5 items-center hover:bg-slate-50/50 transition-colors">
+                                                    {/* # */}
+                                                    <span className={`w-8 h-7 w-7 rounded-full text-xs font-black flex items-center justify-center flex-shrink-0 ${item.CodArt ? 'bg-[#0062AF] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                        {idx + 1}
+                                                    </span>
+                                                    {/* Désignation */}
+                                                    <div className="min-w-0 pr-4">
+                                                        {item.CodArt ? (
+                                                            <>
+                                                                <p className="text-sm font-semibold text-slate-800 truncate">{item.LibArt}</p>
+                                                                <span className="text-[10px] font-mono text-[#0062AF] bg-[#e0f0ff] px-1.5 py-0.5 rounded-md mt-1 inline-block">{item.CodArt}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400 italic">Aucun article sélectionné</span>
+                                                        )}
                                                     </div>
-                                                    <div className="text-right flex-shrink-0">
-                                                        <p className="text-sm font-bold text-slate-800 tabular-nums">{fmt(item.MntHT)} <span className="text-[10px] font-normal text-slate-400">TND HT</span></p>
-                                                        <p className="text-[10px] text-slate-400">Qté : {item.Qt}</p>
+                                                    {/* Qté */}
+                                                    <div className="text-center">
+                                                        <span className="text-sm font-bold text-slate-700 tabular-nums">{item.Qt}</span>
+                                                    </div>
+                                                    {/* PU HT */}
+                                                    <div className="text-right">
+                                                        <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(item.PuHT)}</span>
+                                                        <span className="text-[10px] text-slate-400 ml-1">TND</span>
+                                                    </div>
+                                                    {/* TVA */}
+                                                    <div className="text-center">
+                                                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-600">
+                                                            {item.Tva ?? 19}%
+                                                        </span>
+                                                    </div>
+                                                    {/* Total HT */}
+                                                    <div className="text-right">
+                                                        <span className="text-sm font-black text-[#0062AF] tabular-nums">{fmt(item.MntHT)}</span>
+                                                        <span className="text-[10px] text-[#0062AF]/60 ml-1">TND</span>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Footer sous-total */}
+                                        <div className="px-7 py-4 bg-slate-50/60 border-t border-slate-200 flex justify-end">
+                                            <div className="flex items-center gap-8">
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Base HT</p>
+                                                    <p className="text-base font-bold text-slate-700 tabular-nums">{fmt(formData.TotHT)} <span className="text-xs text-slate-400">TND</span></p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">TVA totale</p>
+                                                    <p className="text-base font-bold text-slate-600 tabular-nums">{fmt(formData.TotTva)} <span className="text-xs text-slate-400">TND</span></p>
+                                                </div>
+                                                <div className="text-right pl-8 border-l-2 border-[#0062AF]/20">
+                                                    <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest mb-0.5">Net TTC</p>
+                                                    <p className="text-2xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)} <span className="text-sm font-bold text-[#0062AF]/60">TND</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Right — financial summary + CTA */}
-                                <div>
-                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-24">
+                                {/* ── Right — récapitulatif + CTA ── */}
+                                <div className="lg:sticky lg:top-24">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                         <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
-                                        <div className="px-5 py-4 border-b border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Récapitulatif financier</p>
+
+                                        <div className="px-6 py-5 border-b border-slate-100">
+                                            <div className="flex items-center gap-2.5">
+                                                <CalculatorIcon className="h-5 w-5 text-[#0062AF]" />
+                                                <h3 className="text-sm font-bold text-slate-700">Récapitulatif</h3>
+                                            </div>
                                         </div>
-                                        <div className="px-5 py-4 space-y-3">
-                                            <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500">Base HT</span>
-                                                <span className="font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
+
+                                        <div className="px-6 py-5 space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Base HT</span>
+                                                <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
                                             </div>
-                                            <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500">TVA</span>
-                                                <span className="font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">TVA</span>
+                                                <span className="text-sm font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
                                             </div>
-                                            {Number(formData.TotRem) > 0 && (
-                                                <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-rose-500">Remise</span>
-                                                    <span className="font-semibold text-rose-600 tabular-nums">− {fmt(formData.TotRem)} TND</span>
-                                                </div>
-                                            )}
-                                            <div className="pt-3 mt-1 border-t border-dashed border-blue-100">
-                                                <div className="flex justify-between items-end">
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest">Net TTC</p>
+
+                                            {/* Remise % */}
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Remise</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative w-20">
+                                                        <input
+                                                            type="number" min="0" max="100" step="0.1"
+                                                            value={remisePct}
+                                                            onChange={e => setRemisePct(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                                                            onFocus={e => e.target.select()}
+                                                            onKeyDown={e => ['-', '+', 'e', 'E'].includes(e.key) && e.preventDefault()}
+                                                            className="w-full text-right pr-6 pl-2 py-1.5 border border-rose-200 rounded-xl text-sm font-bold text-rose-600 focus:border-rose-400 focus:outline-none bg-rose-50/50"
+                                                        />
+                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-400 pointer-events-none font-bold">%</span>
                                                     </div>
+                                                    {Number(formData.TotRem) > 0 && (
+                                                        <span className="text-xs text-rose-500 tabular-nums font-semibold whitespace-nowrap">− {fmt(formData.TotRem)} TND</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Net TTC */}
+                                            <div className="pt-4 border-t border-dashed border-[#0062AF]/20">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-sm font-bold text-[#0062AF] uppercase tracking-wide">Net TTC</p>
                                                     <div className="text-right">
-                                                        <span className="text-2xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
-                                                        <span className="ml-1 text-xs font-bold text-[#0062AF]/60">TND</span>
+                                                        <span className="text-3xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
+                                                        <span className="ml-1 text-sm font-bold text-[#0062AF]/60">TND</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="px-5 pb-5 space-y-2.5">
+
+                                        <div className="px-6 pb-6 space-y-3">
                                             <button type="submit" disabled={saving}
-                                                className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
+                                                className="w-full flex items-center justify-center gap-2 py-4 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
                                                 {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4 stroke-[2.5]" />}
                                                 Créer le bon de commande
                                             </button>
                                             <button type="button" onClick={() => setCurrentStep(3)}
-                                                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:text-[#0062AF] transition-all">
+                                                className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-slate-500 hover:text-[#0062AF] border border-slate-200 rounded-xl hover:border-[#0062AF]/30 transition-all bg-white">
                                                 <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
                                             </button>
                                         </div>

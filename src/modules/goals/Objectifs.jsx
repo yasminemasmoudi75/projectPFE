@@ -2,15 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     ChartBarIcon, ArrowUpIcon, ArrowDownIcon, TrophyIcon, FlagIcon,
-    UserGroupIcon, CalendarIcon, PlusIcon, SparklesIcon,
+    UserGroupIcon, CalendarIcon, PlusIcon,
     CheckCircleIcon, BriefcaseIcon, ArrowTrendingUpIcon, BanknotesIcon,
     UsersIcon, ArrowPathIcon, EyeIcon, TagIcon,
-    MagnifyingGlassIcon, XMarkIcon, AdjustmentsHorizontalIcon,
-    ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, ClockIcon, FunnelIcon
+    MagnifyingGlassIcon, XMarkIcon,
+    ChevronLeftIcon, ChevronRightIcon, FunnelIcon
 } from '@heroicons/react/24/outline';
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -48,14 +45,14 @@ const getObjectifRealised = (o) => { const d = parseMoney(o?.Montant_Realise_Act
 const getObjectifTarget   = (o) => { const v = parseMoney(o?.MontantCible); return v > 0 ? v : parseMoney(o?.autObj); };
 const getProgress  = (o) => { const t = getObjectifTarget(o); return t > 0 ? Math.min((getObjectifRealised(o)/t)*100, 100) : 0; };
 
-/* Status-based colors — rouge → jaune → vert */
-const progressColor   = (p) => p >= 100 ? '#10b981' : p >= 50 ? '#f59e0b' : '#ef4444';
-const progressBgClass = (p) => p >= 100 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-400' : 'bg-rose-500';
+/* Status-based colors — même palette que GestionProjets */
+const progressColor   = (p) => p >= 100 ? '#10b981' : p >= 50 ? '#3b82f6' : '#f87171';
+const progressBgClass = (p) => p >= 100 ? 'bg-emerald-500' : p >= 50 ? 'bg-blue-500' : 'bg-red-400';
 const progressLabel   = (p) => p >= 100
-    ? { bg: 'bg-emerald-50 text-emerald-600 border-emerald-200', dot: 'bg-emerald-500', label: 'Atteint'  }
+    ? { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Atteint'  }
     : p >= 50
-    ? { bg: 'bg-amber-50 text-amber-600 border-amber-200',       dot: 'bg-amber-400',   label: 'En cours' }
-    :   { bg: 'bg-rose-50 text-rose-600 border-rose-200',        dot: 'bg-rose-500',    label: 'À risque' };
+    ? { bg: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',    label: 'En cours' }
+    :   { bg: 'bg-red-50 text-red-700 border-red-200',           dot: 'bg-red-400',     label: 'À risque' };
 
 /* ─── CircleProgress SVG ────────────────────────────────────── */
 const CircleProgress = ({ progress, size = 56 }) => {
@@ -85,94 +82,86 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
     const { icon: Icon, unit, isCount } = getGoalMeta(goal);
     const pl = progressLabel(progress);
 
-    /* Only the accent (left border + bar + %) carries color — card stays white */
     const accent = progress >= 100
-        ? { leftBar: 'border-l-emerald-500', pct: 'text-emerald-600', iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
+        ? { border: 'border-l-emerald-500', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600' }
         : progress >= 50
-        ? { leftBar: 'border-l-amber-400',   pct: 'text-amber-600',   iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
-        : { leftBar: 'border-l-rose-500',    pct: 'text-rose-600',    iconBg: 'bg-slate-50', iconText: 'text-slate-400' };
+        ? { border: 'border-l-blue-500',    iconBg: 'bg-blue-50',    iconText: 'text-blue-600'    }
+        : { border: 'border-l-red-400',     iconBg: 'bg-red-50',     iconText: 'text-red-500'     };
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.06 }}
-            className={`group bg-white rounded-2xl border border-slate-200 border-l-[3px] ${accent.leftBar} shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden`}
+            transition={{ delay: index * 0.05 }}
+            className={`group bg-white rounded-2xl border border-slate-200 border-l-4 ${accent.border} shadow-sm hover:shadow-md transition-all duration-200 flex flex-col`}
         >
-            {/* ── Header : toujours blanc/neutre ── */}
-            <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-2 border-b border-slate-100">
+            {/* ── Header ── */}
+            <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3 border-b border-slate-100">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className={`h-10 w-10 rounded-xl ${accent.iconBg} border border-slate-200 flex items-center justify-center flex-none`}>
+                    <div className={`h-10 w-10 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0`}>
                         <Icon className={`h-5 w-5 ${accent.iconText}`} />
                     </div>
                     <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-slate-800 leading-snug truncate max-w-[160px]">{goal.TypeObjectif}</h4>
+                        <h4 className="text-sm font-semibold text-slate-800 truncate">{goal.TypeObjectif}</h4>
                         {goal.utilisateur && (
-                            <p className="text-xs text-slate-400 truncate max-w-[160px] mt-0.5">
+                            <p className="text-xs text-slate-400 truncate mt-0.5">
                                 {goal.utilisateur.FullName || goal.utilisateur.LoginName}
                             </p>
                         )}
                     </div>
                 </div>
-                {/* Actions on hover */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-none pt-0.5">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 pt-0.5">
                     {onEdit && (
-                        <button onClick={onEdit}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 border border-slate-200 transition-colors">
+                        <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
                             <EyeIcon className="h-3.5 w-3.5" />
                         </button>
                     )}
                     {isAdmin && onClose && (
-                        <button onClick={onClose}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-400 border border-slate-200 transition-colors">
+                        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
                             <XMarkIcon className="h-3.5 w-3.5" />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* ── Body ── */}
-            <div className="px-5 pt-4 pb-5 flex flex-col gap-4 flex-1">
-
-                {/* Status badge + pourcentage + barre */}
-                <div>
-                    <div className="flex items-center justify-between mb-2.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${pl.bg}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${pl.dot}`} />
-                            {pl.label}
-                        </span>
-                        <span className={`text-2xl font-black leading-none ${accent.pct}`}>{Math.round(progress)}%</span>
-                    </div>
+            {/* ── Body : cercle + barre ── */}
+            <div className="px-5 pt-4 pb-4 flex items-center gap-4">
+                <CircleProgress progress={progress} size={60} />
+                <div className="flex-1 min-w-0 space-y-2">
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                         <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${progress}%` }}
-                            transition={{ duration: 0.9, ease: 'easeOut', delay: index * 0.06 + 0.15 }}
+                            transition={{ duration: 0.8, ease: 'easeOut', delay: index * 0.05 + 0.1 }}
                             className={`h-full rounded-full ${progressBgClass(progress)}`}
                         />
                     </div>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${pl.bg}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${pl.dot}`} />
+                        {pl.label}
+                    </span>
                 </div>
+            </div>
 
-                {/* Stat tiles */}
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Réalisé</p>
-                        <p className="text-base font-black text-slate-800 leading-none">{formatValue(getObjectifRealised(goal), isCount)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{unit}</p>
+            {/* ── Stats ── */}
+            <div className="px-5 pb-5 border-t border-slate-100 pt-4 mt-auto">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                    <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Réalisé</p>
+                        <p className="text-lg font-bold text-slate-900 mt-0.5">{formatValue(getObjectifRealised(goal), isCount)}</p>
+                        <p className="text-[10px] text-slate-400">{unit}</p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Objectif</p>
-                        <p className="text-base font-black text-slate-800 leading-none">{formatValue(getObjectifTarget(goal), isCount)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{unit}</p>
+                    <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Objectif</p>
+                        <p className="text-lg font-bold text-slate-900 mt-0.5">{formatValue(getObjectifTarget(goal), isCount)}</p>
+                        <p className="text-[10px] text-slate-400">{unit}</p>
                     </div>
                 </div>
-
-                {/* Date range */}
                 {(goal.DateDebut || goal.DateFin) && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-auto pt-1">
-                        <CalendarIcon className="h-3 w-3 flex-none text-slate-300" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
+                        <CalendarIcon className="h-3 w-3 text-slate-300 flex-shrink-0" />
                         {goal.DateDebut ? new Date(goal.DateDebut).toLocaleDateString('fr') : '…'}
-                        <span className="text-slate-300 mx-0.5">→</span>
+                        <span className="text-slate-300 mx-1">→</span>
                         {goal.DateFin ? new Date(goal.DateFin).toLocaleDateString('fr') : '…'}
                     </div>
                 )}
@@ -187,7 +176,7 @@ const FilterPill = ({ active, onClick, children, color = 'indigo' }) => {
         indigo:  active ? 'bg-indigo-100 text-indigo-700 border-indigo-200 shadow-sm'  : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50',
         emerald: active ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-200 hover:text-emerald-600 hover:bg-emerald-50',
         amber:   active ? 'bg-amber-100 text-amber-700 border-amber-200 shadow-sm'    : 'bg-white text-slate-500 border-slate-200 hover:border-amber-200 hover:text-amber-600 hover:bg-amber-50',
-        rose:    active ? 'bg-rose-100 text-rose-600 border-rose-200 shadow-sm'       : 'bg-white text-slate-500 border-slate-200 hover:border-rose-200 hover:text-rose-500 hover:bg-rose-50',
+        rose:    active ? 'bg-red-50 text-red-600 border-red-200 shadow-sm'             : 'bg-white text-slate-500 border-slate-200 hover:border-red-200 hover:text-red-500 hover:bg-red-50',
     };
     return (
         <button onClick={onClick} className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border text-xs font-semibold transition-all duration-150 ${colors[color]}`}>
@@ -361,280 +350,152 @@ const Objectifs = () => {
             value: (totalTarget-totalRealised) >= 1000 ? `${((totalTarget-totalRealised)/1000).toFixed(1)}k` : Math.round(Math.max(0, totalTarget-totalRealised)).toLocaleString(),
             sub: 'TND à faire',
             icon: ArrowPathIcon,
-            border: 'border-l-amber-300',
-            bg: 'bg-amber-50',
-            text: 'text-amber-500',
-            ring: 'ring-amber-100',
+            border: 'border-l-orange-300',
+            bg: 'bg-orange-50',
+            text: 'text-orange-500',
+            ring: 'ring-orange-100',
         },
     ];
 
     return (
-        <div className="animate-fade-in space-y-5 pb-12">
+        <div className="space-y-5 pb-12">
 
-            {/* ── Hero header ─────────────────────────── */}
-            <div className="rounded-2xl relative overflow-hidden bg-white border border-slate-200/80 shadow-sm p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                {/* Subtle pastel gradient wash */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 via-white to-violet-50/30 pointer-events-none" />
-                <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-indigo-50/40 to-transparent pointer-events-none" />
-
-                <div className="relative">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-500 text-xs font-semibold mb-3">
-                        <SparklesIcon className="h-3.5 w-3.5" /> Performances commerciales
-                    </span>
-                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Objectifs Commerciaux</h1>
-                    <p className="text-slate-400 mt-1 text-sm">
-                        {isAdmin ? 'Pilotage des indicateurs clés — toutes les équipes' : 'Suivi de vos performances personnelles'}
-                    </p>
-                    <div className="flex items-center gap-2.5 mt-5 flex-wrap">
+            {/* ── Header — même pattern que GestionProduits / ActivitesListProMax ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-xl bg-[#0062AF] flex items-center justify-center flex-shrink-0">
+                            <TrophyIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-900">Objectifs Commerciaux</h1>
+                            <p className="text-sm text-slate-500">
+                                {isAdmin ? 'Pilotage des performances — toutes les équipes' : 'Suivi de vos performances personnelles'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
                         {isAdmin && (
                             <button onClick={() => setShowArchived(v => !v)}
-                                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-600 text-sm font-medium border border-slate-200 shadow-sm transition-all">
-                                <TagIcon className="h-4 w-4 text-slate-400" />
-                                {showArchived ? 'Masquer archivés' : 'Voir archivés'}
+                                className={`h-9 px-4 rounded-xl text-sm font-semibold border transition-all ${showArchived ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                                Archivés
                             </button>
                         )}
                         {canCreate && (
                             <button onClick={() => navToNew()}
-                                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold shadow-sm transition-all active:scale-95">
-                                <PlusIcon className="h-4 w-4" /> Nouvel Objectif
+                                className="flex items-center gap-2 px-4 py-2 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl text-sm font-medium transition-colors">
+                                <PlusIcon className="h-4 w-4" /> Nouvel objectif
                             </button>
                         )}
                     </div>
                 </div>
-
-                {/* Global progress ring */}
-                <div className="relative flex items-center gap-5 bg-slate-50/80 rounded-2xl px-6 py-4 border border-slate-200/80 flex-shrink-0">
-                    <div className="relative">
-                        <svg width="84" height="84" viewBox="0 0 84 84">
-                            <circle cx="42" cy="42" r="32" fill="none" stroke="#f1f5f9" strokeWidth="7" />
-                            <circle cx="42" cy="42" r="32" fill="none"
-                                stroke={progressColor(globalProgress)}
-                                strokeWidth="7"
-                                strokeDasharray={2 * Math.PI * 32}
-                                strokeDashoffset={2 * Math.PI * 32 - (Math.min(globalProgress,100)/100) * 2 * Math.PI * 32}
-                                strokeLinecap="round" transform="rotate(-90 42 42)"
-                                style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-                            <text x="42" y="44" textAnchor="middle" fontSize="13" fontWeight="900" fill={progressColor(globalProgress)} fontFamily="system-ui">
-                                {Math.round(globalProgress)}
-                            </text>
-                            <text x="42" y="55" textAnchor="middle" fontSize="8" fontWeight="700" fill="#94a3b8" fontFamily="system-ui">
-                                %
-                            </text>
-                        </svg>
-                    </div>
-                    <div>
-                        <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Progression</p>
-                        <p className="text-slate-700 font-bold text-lg leading-tight">{visibleObjectifs.length} objectif{visibleObjectifs.length !== 1 ? 's' : ''}</p>
-                        <p className="text-indigo-400 text-xs mt-0.5">{selectedYear}</p>
-                    </div>
-                </div>
             </div>
 
-            {/* ── KPI Cards ──────────────────────────── */}
+            {/* ── Stats — même pattern que GestionProjets ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {kpis.map((k, i) => (
-                    <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className={`bg-white rounded-2xl border border-slate-100 border-l-4 ${k.border} shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-all duration-200`}
-                    >
+                {[
+                    { label: 'Atteinte globale', value: `${Math.round(globalProgress)}%`,  sub: 'progression',   Icon: ArrowTrendingUpIcon },
+                    { label: 'Objectif total',   value: totalTarget   >= 1000 ? `${(totalTarget/1000).toFixed(1)}k TND`   : `${Math.round(totalTarget).toLocaleString()} TND`,   sub: `/ ${selectedYear}`, Icon: FlagIcon      },
+                    { label: 'Réalisé',          value: totalRealised >= 1000 ? `${(totalRealised/1000).toFixed(1)}k TND` : `${Math.round(totalRealised).toLocaleString()} TND`, sub: 'TND cumulés',    Icon: ChartBarIcon  },
+                    { label: 'Écart restant',    value: (totalTarget - totalRealised) >= 1000 ? `${((totalTarget-totalRealised)/1000).toFixed(1)}k TND` : `${Math.round(Math.max(0,totalTarget-totalRealised)).toLocaleString()} TND`, sub: 'TND à faire', Icon: ArrowPathIcon },
+                ].map((s, i) => (
+                    <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <div className="flex items-center justify-between">
-                            <div className={`h-10 w-10 rounded-xl ${k.bg} ring-4 ${k.ring} flex items-center justify-center`}>
-                                <k.icon className={`h-5 w-5 ${k.text}`} />
+                            <div>
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{s.label}</p>
+                                <p className="text-2xl font-bold text-slate-900 mt-1">{s.value}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">{s.sub}</p>
                             </div>
-                            {k.trend && (
-                                <span className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-lg ${k.bg} ${k.text}`}>
-                                    {k.trend === 'up' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
-                                </span>
-                            )}
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className={`text-2xl font-black ${k.text}`}>{k.value}</span>
-                                <span className="text-xs text-slate-400">{k.sub}</span>
+                            <div className="p-2.5 rounded-xl bg-slate-50 flex-shrink-0">
+                                <s.Icon className="w-5 h-5 text-[#0062AF]" />
                             </div>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
 
-            {/* ── Filters ────────────────────────────── */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                {/* Filter header */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
+            {/* ── Filters ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
                     <div className="flex items-center gap-2">
-                        <FunnelIcon className="h-4 w-4 text-indigo-500" />
-                        <span className="text-sm font-semibold text-slate-700">Filtres & Recherche</span>
+                        <FunnelIcon className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-semibold text-slate-700">Filtres</span>
                         {activeFiltersCount > 0 && (
-                            <span className="h-5 min-w-[1.25rem] px-1.5 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-bold flex items-center justify-center border border-indigo-200">
+                            <span className="h-5 min-w-[1.25rem] px-1.5 rounded-full bg-[#0062AF] text-white text-[10px] font-bold flex items-center justify-center">
                                 {activeFiltersCount}
                             </span>
                         )}
                     </div>
                     <div className="flex items-center gap-3">
-                        {/* Year nav */}
-                        <div className="flex items-center gap-0.5 bg-white rounded-xl border border-slate-200 px-1 py-1 shadow-sm">
-                            <button onClick={() => setSelectedYear(y => y - 1)} className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-                                <ChevronLeftIcon className="h-4 w-4" />
+                        <div className="flex items-center gap-0.5 bg-slate-50 rounded-lg border border-slate-200 px-1 py-1">
+                            <button onClick={() => setSelectedYear(y => y - 1)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-white text-slate-500 transition-colors">
+                                <ChevronLeftIcon className="h-3.5 w-3.5" />
                             </button>
-                            <span className="px-2.5 text-sm font-bold text-slate-700">{selectedYear}</span>
-                            <button onClick={() => setSelectedYear(y => y + 1)} className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
-                                <ChevronRightIcon className="h-4 w-4" />
+                            <span className="px-2 text-sm font-bold text-slate-700">{selectedYear}</span>
+                            <button onClick={() => setSelectedYear(y => y + 1)} className="h-6 w-6 flex items-center justify-center rounded hover:bg-white text-slate-500 transition-colors">
+                                <ChevronRightIcon className="h-3.5 w-3.5" />
                             </button>
                         </div>
                         <span className="text-xs text-slate-400 font-medium">{visibleObjectifs.length} objectif{visibleObjectifs.length!==1?'s':''}</span>
                         {activeFiltersCount > 0 && (
                             <button onClick={() => { setFilterType('all'); setFilterStatus('all'); setSearchTerm(''); setSelectedMonth('all'); }}
-                                className="text-xs text-slate-400 hover:text-slate-600 font-semibold flex items-center gap-1">
+                                className="text-xs text-slate-400 hover:text-rose-500 font-semibold flex items-center gap-1 transition-colors">
                                 <XMarkIcon className="h-3.5 w-3.5" /> Réinitialiser
                             </button>
                         )}
                     </div>
                 </div>
-
-                <div className="p-4 space-y-4">
-                    {/* Row 1: Search + user select + type */}
+                <div className="p-4 space-y-3">
+                    {/* Search + selects */}
                     <div className="flex flex-wrap gap-3">
-                        <div className="relative flex-1 min-w-[180px]">
+                        <div className="relative flex-1 min-w-[200px]">
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                 placeholder="Rechercher un objectif…"
-                                className="w-full pl-9 pr-4 h-9 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all" />
+                                className="w-full pl-9 pr-4 h-9 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-blue-100 transition-all" />
                         </div>
                         {isAdmin && (
                             <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}
-                                className="h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700 min-w-[180px]">
+                                className="h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#0062AF] text-slate-700 min-w-[180px] bg-white">
                                 <option value="all">Tous les commerciaux</option>
                                 {users.map((u,i) => <option key={u.UserID||u.userId||i} value={u.UserID||u.userId}>{u.FullName||u.fullName||u.LoginName||u.login}</option>)}
                             </select>
                         )}
                         {objectifTypes.length > 0 && (
                             <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                                className="h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700">
+                                className="h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#0062AF] text-slate-700 bg-white">
                                 <option value="all">Tous les types</option>
                                 {objectifTypes.map((t,i) => <option key={t||i} value={t}>{t}</option>)}
                             </select>
                         )}
                     </div>
-
-                    {/* Row 2: Month pills + Status pills */}
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Month filter */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mois :</span>
-                            <FilterPill active={selectedMonth === 'all'} onClick={() => setSelectedMonth('all')} color="indigo">Tous</FilterPill>
-                            {months.map(m => (
-                                <FilterPill key={m.id} active={String(selectedMonth) === String(m.id)} onClick={() => setSelectedMonth(m.id)} color="indigo">
-                                    {m.name}
-                                </FilterPill>
-                            ))}
-                        </div>
+                    {/* Month pills */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Mois :</span>
+                        <FilterPill active={selectedMonth === 'all'} onClick={() => setSelectedMonth('all')} color="indigo">Tous</FilterPill>
+                        {months.map(m => (
+                            <FilterPill key={m.id} active={String(selectedMonth) === String(m.id)} onClick={() => setSelectedMonth(m.id)} color="indigo">
+                                {m.name}
+                            </FilterPill>
+                        ))}
                     </div>
-
-                    {/* Row 3: Status pills */}
+                    {/* Status pills */}
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Statut :</span>
                         <FilterPill active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="indigo">Tous</FilterPill>
                         <FilterPill active={filterStatus === 'completed'} onClick={() => setFilterStatus('completed')} color="emerald">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            Atteints (≥ 100%)
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Atteints
                         </FilterPill>
                         <FilterPill active={filterStatus === 'in-progress'} onClick={() => setFilterStatus('in-progress')} color="amber">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                            En cours (50–99%)
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> En cours
                         </FilterPill>
                         <FilterPill active={filterStatus === 'at-risk'} onClick={() => setFilterStatus('at-risk')} color="rose">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-                            À risque (&lt; 50%)
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> À risque
                         </FilterPill>
                     </div>
                 </div>
             </div>
 
-            {/* ── Charts row ─────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Area chart */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <div className="flex items-center justify-between mb-5">
-                        <div>
-                            <h2 className="text-sm font-bold text-slate-800">Évolution CA réalisé</h2>
-                            <p className="text-xs text-slate-400">Par mois (somme des objectifs)</p>
-                        </div>
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                            <span className="h-2 w-2 rounded-full bg-emerald-300" /> Réalisé
-                        </span>
-                    </div>
-                    {chartData.length === 0 ? (
-                        <div className="h-52 flex flex-col items-center justify-center gap-2">
-                            <ChartBarIcon className="h-8 w-8 text-slate-200" />
-                            <p className="text-sm text-slate-400 italic">Aucune donnée pour cette période</p>
-                        </div>
-                    ) : (
-                        <div className="h-52">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData} margin={{ top:5, right:5, left:0, bottom:0 }}>
-                                    <defs>
-                                        <linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%"  stopColor="#10b981" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill:'#94a3b8', fontSize:11 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill:'#94a3b8', fontSize:11 }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                                    <Tooltip contentStyle={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:'0.75rem', fontSize:12 }}
-                                        formatter={v => [`${v.toLocaleString()} TND`]} />
-                                    <Area type="monotone" dataKey="sales" stroke="#10b981" strokeWidth={2.5} fill="url(#gradCA)" dot={{ r:3, fill:'#10b981' }} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </div>
-
-                {/* Ranking card */}
-                {isAdmin && (
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
-                                <TrophyIcon className="h-5 w-5 text-amber-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-sm font-bold text-slate-800">Top 5 — Classement Équipe</h2>
-                                <p className="text-xs text-slate-400">Par avancement des objectifs</p>
-                            </div>
-                        </div>
-                        {commercialRanking.length === 0 ? (
-                            <p className="text-sm text-slate-400 italic text-center py-8">Aucune donnée</p>
-                        ) : (
-                            <div className="space-y-1.5">
-                                {commercialRanking.slice(0, 5).map((item, i) => (
-                                    <div key={item.userId} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
-                                        <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-black flex-none"
-                                            style={{ background: medals[i] || '#f1f5f9', color: i < 3 ? '#fff' : '#64748b' }}>
-                                            {i+1}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-slate-800 truncate">{item.user?.FullName || `User #${item.userId}`}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2.5 flex-none">
-                                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full ${progressBgClass(item.progress)}`}
-                                                    style={{ width: `${Math.min(item.progress, 100)}%` }} />
-                                            </div>
-                                            <span className="text-sm font-black text-slate-700 min-w-[44px] text-right">
-                                                {Math.round(item.progress)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
 
             {/* ── Objectifs Mensuels ─────────────────── */}
             {(() => {
@@ -648,24 +509,24 @@ const Objectifs = () => {
                     {/* ── En-tête ── */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                                <CalendarIcon className="h-5 w-5 text-indigo-400" />
+                            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                <CalendarIcon className="h-5 w-5 text-[#0062AF]" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-base font-bold text-slate-800">Objectifs Mensuels</h2>
+                                    <h2 className="text-sm font-bold text-slate-800">Objectifs Mensuels</h2>
                                     {total > 0 && (
                                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
                                             {total}
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs text-slate-400 mt-0.5">Suivi de vos performances du mois</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Performances du mois en cours</p>
                             </div>
                         </div>
                         {canCreate && (
                             <button onClick={() => navToNew({ typePeriode: 'Mensuel' })}
-                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] text-white text-xs font-semibold hover:bg-indigo-600 transition-all shadow-sm active:scale-95">
+                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold transition-all shadow-sm">
                                 <PlusIcon className="h-3.5 w-3.5" /> Ajouter
                             </button>
                         )}
@@ -721,21 +582,21 @@ const Objectifs = () => {
                                 )}
                             </>
                         ) : (
-                            <div className="py-14 flex flex-col items-center text-center">
-                                <div className="h-16 w-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4">
-                                    <FlagIcon className="h-8 w-8 text-indigo-300" />
+                            <div className="py-12 flex flex-col items-center text-center">
+                                <div className="h-14 w-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3">
+                                    <FlagIcon className="h-7 w-7 text-[#0062AF]" />
                                 </div>
-                                <p className="text-sm font-semibold text-slate-600 mb-1">Aucun objectif mensuel</p>
-                                <p className="text-xs text-slate-400 mb-5 max-w-[200px]">Aucun résultat pour les filtres sélectionnés</p>
+                                <p className="text-sm font-bold text-slate-700 mb-1">Aucun objectif mensuel</p>
+                                <p className="text-xs text-slate-400 mb-5">Aucun résultat pour les filtres sélectionnés.</p>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => { setFilterType('all'); setFilterStatus('all'); setSearchTerm(''); setSelectedMonth('all'); }}
-                                        className="h-8 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 bg-white hover:bg-slate-50 transition-colors">
+                                        className="h-8 px-4 rounded-lg border border-slate-200 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors">
                                         Réinitialiser
                                     </button>
                                     {canCreate && (
                                         <button onClick={() => navToNew({ typePeriode: 'Mensuel' })}
-                                            className="h-8 px-4 rounded-xl bg-[#0062AF] text-white text-xs font-semibold hover:bg-indigo-600 transition-colors shadow-sm flex items-center gap-1.5">
-                                            <PlusIcon className="h-3.5 w-3.5" /> Créer
+                                            className="h-8 px-4 rounded-lg bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold transition-colors shadow-sm flex items-center gap-1.5">
+                                            <PlusIcon className="h-3.5 w-3.5" /> Créer un objectif
                                         </button>
                                     )}
                                 </div>
@@ -758,24 +619,24 @@ const Objectifs = () => {
                     {/* ── En-tête ── */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-                                <CalendarIcon className="h-5 w-5 text-violet-400" />
+                            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                <CalendarIcon className="h-5 w-5 text-[#0062AF]" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-base font-bold text-slate-800">Objectifs Hebdomadaires</h2>
+                                    <h2 className="text-sm font-bold text-slate-800">Objectifs Hebdomadaires</h2>
                                     {total > 0 && (
                                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
                                             {total}
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs text-slate-400 mt-0.5">Suivi de vos objectifs de la semaine</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Performances de la semaine en cours</p>
                             </div>
                         </div>
                         {canCreate && (
                             <button onClick={() => navToNew({ typePeriode: 'Hebdomadaire' })}
-                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-violet-400 text-white text-xs font-semibold hover:bg-violet-500 transition-all shadow-sm active:scale-95">
+                                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold transition-all shadow-sm">
                                 <PlusIcon className="h-3.5 w-3.5" /> Ajouter
                             </button>
                         )}
@@ -828,16 +689,16 @@ const Objectifs = () => {
                                 )}
                             </>
                         ) : (
-                            <div className="py-14 flex flex-col items-center text-center">
-                                <div className="h-16 w-16 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center mb-4">
-                                    <CalendarIcon className="h-8 w-8 text-violet-300" />
+                            <div className="py-12 flex flex-col items-center text-center">
+                                <div className="h-14 w-14 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center mb-3">
+                                    <CalendarIcon className="h-7 w-7 text-violet-500" />
                                 </div>
-                                <p className="text-sm font-semibold text-slate-600 mb-1">Aucun objectif hebdomadaire</p>
-                                <p className="text-xs text-slate-400 mb-5 max-w-[200px]">Aucun objectif défini pour cette semaine</p>
+                                <p className="text-sm font-bold text-slate-700 mb-1">Aucun objectif hebdomadaire</p>
+                                <p className="text-xs text-slate-400 mb-5">Aucun objectif défini pour cette période.</p>
                                 {canCreate && (
                                     <button onClick={() => navToNew({ typePeriode: 'Hebdomadaire' })}
-                                        className="inline-flex items-center gap-1.5 h-8 px-5 rounded-xl bg-violet-50 border border-violet-200 text-xs font-semibold text-violet-600 hover:bg-violet-100 transition-colors">
-                                        <PlusIcon className="h-3.5 w-3.5" /> Créer un objectif hebdomadaire
+                                        className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-xs font-semibold transition-colors shadow-sm">
+                                        <PlusIcon className="h-3.5 w-3.5" /> Créer un objectif
                                     </button>
                                 )}
                             </div>
@@ -910,15 +771,18 @@ const Objectifs = () => {
 
             {/* ── Full Ranking Table ─────────────────── */}
             {isAdmin && commercialRanking.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
-                        <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
-                            <TrophyIcon className="h-5 w-5 text-amber-500" />
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                                <TrophyIcon className="h-5 w-5 text-amber-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold text-slate-800">Classement de l'équipe</h2>
+                                <p className="text-xs text-slate-400">Commerciaux classés par avancement global</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-slate-800">Classement complet de l'équipe</h2>
-                            <p className="text-xs text-slate-400">Tous les commerciaux classés par avancement</p>
-                        </div>
+                        <span className="text-xs font-semibold text-slate-400">{commercialRanking.length} commercial{commercialRanking.length > 1 ? 'aux' : ''}</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">

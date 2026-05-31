@@ -33,6 +33,7 @@ import axios from '../../app/axios';
 import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
+import ActivitePanel from './ActivitePanel';
 
 const extractArrayPayload = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -53,6 +54,7 @@ const ActivitesList = () => {
   const [filterType, setFilterType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [panelActiviteId, setPanelActiviteId] = useState(null);
   const [tiers, setTiers] = useState([]);
   const [selectedTier, setSelectedTier] = useState('');
   const [projets, setProjets] = useState([]);
@@ -561,7 +563,7 @@ const ActivitesList = () => {
                         </button>
                       )}
                       <button
-                        onClick={() => navigate(`/activites/${activite.ID_Activite}`)}
+                        onClick={() => setPanelActiviteId(activite.ID_Activite)}
                         className="px-4 py-2 text-xs font-bold text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg border border-blue-200 transition-all"
                       >
                         Voir détails
@@ -574,6 +576,14 @@ const ActivitesList = () => {
           </div>
         </div>
       </div>
+
+      {/* Side panel */}
+      {panelActiviteId && (
+        <ActivitePanel
+          activiteId={panelActiviteId}
+          onClose={() => setPanelActiviteId(null)}
+        />
+      )}
 
       {/* Modal - New Activity */}
       {isAddModalOpen && (
