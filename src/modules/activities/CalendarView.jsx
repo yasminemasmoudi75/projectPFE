@@ -626,137 +626,132 @@ const CalendarView = () => {
                     {selectedEvent ? (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-6">
 
-                            {/* Accent top coloré selon le type */}
-                            <div className={`h-1 w-full ${
-                                selectedEvent.type === 'Appel'   ? 'bg-blue-500'   :
-                                selectedEvent.type === 'Email'   ? 'bg-amber-500'  :
-                                selectedEvent.type === 'Visite'  ? 'bg-purple-500' :
-                                selectedEvent.type === 'Réunion' ? 'bg-indigo-500' :
-                                selectedEvent.type === 'Note'    ? 'bg-emerald-500': 'bg-slate-400'
+                            {/* Gradient accent bar */}
+                            <div className={`h-1 w-full bg-gradient-to-r ${
+                                selectedEvent.type === 'Appel'   ? 'from-blue-500 to-sky-400'     :
+                                selectedEvent.type === 'Email'   ? 'from-amber-500 to-orange-400' :
+                                selectedEvent.type === 'Visite'  ? 'from-violet-500 to-purple-400':
+                                selectedEvent.type === 'Réunion' ? 'from-indigo-500 to-blue-400'  :
+                                selectedEvent.type === 'Note'    ? 'from-emerald-500 to-teal-400' :
+                                                                   'from-slate-400 to-slate-500'
                             }`} />
 
                             {/* Header */}
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-start justify-between px-5 py-4 border-b border-slate-100">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                                        selectedEvent.type === 'Appel'   ? 'bg-blue-50 text-blue-600 border-blue-200'    :
-                                        selectedEvent.type === 'Email'   ? 'bg-amber-50 text-amber-600 border-amber-200'  :
-                                        selectedEvent.type === 'Visite'  ? 'bg-purple-50 text-purple-600 border-purple-200':
-                                        selectedEvent.type === 'Réunion' ? 'bg-indigo-50 text-indigo-600 border-indigo-200':
-                                        selectedEvent.type === 'Note'    ? 'bg-emerald-50 text-emerald-600 border-emerald-200':'bg-slate-100 text-slate-500 border-slate-200'
+                                        selectedEvent.type === 'Appel'   ? 'bg-blue-50 text-blue-700 border-blue-200'      :
+                                        selectedEvent.type === 'Email'   ? 'bg-amber-50 text-amber-700 border-amber-200'    :
+                                        selectedEvent.type === 'Visite'  ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                        selectedEvent.type === 'Réunion' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                        selectedEvent.type === 'Note'    ? 'bg-emerald-50 text-emerald-700 border-emerald-200':
+                                                                           'bg-slate-100 text-slate-600 border-slate-200'
                                     }`}>
                                         {selectedEvent.type}
                                     </span>
                                     {selectedEvent.isMeetingInvite && (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">Invité</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">Invité</span>
                                     )}
                                     {selectedEvent.status === 'Reporté' && (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 line-through">Reporté</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200">Reporté</span>
+                                    )}
+                                    {selectedEvent.valide === 1 && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Validé</span>
                                     )}
                                 </div>
                                 <button onClick={() => setSelectedEvent(null)}
-                                    className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-400 flex items-center justify-center transition-colors text-lg leading-none">
-                                    ×
+                                    className="h-6 w-6 flex items-center justify-center rounded-full border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-all flex-shrink-0 mt-0.5">
+                                    <XMarkIcon className="h-3 w-3" />
                                 </button>
                             </div>
 
-                            {/* Title + desc */}
+                            {/* Title */}
                             <div className="px-5 pt-4 pb-3">
-                                <h2 className="text-lg font-bold text-slate-900 leading-tight">{selectedEvent.title}</h2>
-                                {selectedEvent.desc && (
-                                    <p className="text-xs text-slate-400 mt-1 italic line-clamp-2">"{selectedEvent.desc}"</p>
+                                <h2 className="text-[17px] font-black text-slate-900 leading-snug tracking-tight">{selectedEvent.title}</h2>
+                                {selectedEvent.desc && !selectedEvent.desc.includes('Participants :') && !selectedEvent.desc.startsWith('Réunion avec') && (
+                                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed line-clamp-2 italic">{selectedEvent.desc}</p>
                                 )}
                             </div>
 
                             {/* Info rows */}
-                            <div className="px-4 pb-4 space-y-2">
+                            <div className="px-5 pb-3 divide-y divide-slate-100">
 
-                                {/* Meeting organizer */}
                                 {selectedEvent.type === 'Réunion' && selectedEvent.isMeetingInvite && (
-                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-violet-50 border border-violet-100 rounded-xl">
+                                    <div className="flex items-center gap-3 py-2.5">
                                         <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
                                             <UserIcon className="h-3.5 w-3.5 text-violet-600"/>
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[9px] font-bold text-violet-400 uppercase tracking-widest">Organisé par</p>
-                                            <p className="text-sm font-semibold text-violet-800 truncate">
-                                                {String(selectedEvent.desc||'').replace('Réunion avec ','').split(' — ')[0]}
-                                            </p>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] mb-0.5">Organisé par</p>
+                                            <p className="text-sm font-medium text-slate-700 truncate">{String(selectedEvent.desc||'').replace('Réunion avec ','').split(' — ')[0]}</p>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Participants */}
                                 {selectedEvent.type === 'Réunion' && !selectedEvent.isMeetingInvite && selectedEvent.desc?.includes('Participants :') && (
-                                    <div className="flex items-start gap-3 px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
-                                        <div className="h-7 w-7 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <div className="flex items-center gap-3 py-2.5">
+                                        <div className="h-7 w-7 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
                                             <UserIcon className="h-3.5 w-3.5 text-indigo-600"/>
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Participants</p>
-                                            <p className="text-sm font-semibold text-indigo-800">
-                                                {String(selectedEvent.desc||'').split('Participants :')[1]?.trim()||'—'}
-                                            </p>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] mb-0.5">Participants</p>
+                                            <p className="text-sm font-medium text-slate-700">{String(selectedEvent.desc||'').split('Participants :')[1]?.trim()||'—'}</p>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Date & Heure */}
-                                <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                                <div className="flex items-center gap-3 py-2.5">
                                     <div className="h-7 w-7 rounded-lg bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
                                         <CalendarIcon className="h-3.5 w-3.5 text-[#0062AF]"/>
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date & Heure</p>
-                                        <p className="text-sm font-semibold text-slate-800">{selectedEvent.date} à {selectedEvent.time}</p>
+                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] mb-0.5">Date & heure</p>
+                                        <p className="text-sm font-medium text-slate-700">{selectedEvent.date} à {selectedEvent.time}</p>
                                     </div>
                                 </div>
 
-                                {/* Client */}
                                 {selectedEvent.company && (
-                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                                    <div className="flex items-center gap-3 py-2.5">
                                         <div className="h-7 w-7 rounded-lg bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
                                             <BuildingOfficeIcon className="h-3.5 w-3.5 text-[#0062AF]"/>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Client</p>
-                                            <p className="text-sm font-semibold text-slate-800 truncate">{selectedEvent.company}</p>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] mb-0.5">Client</p>
+                                            <p className="text-sm font-medium text-slate-700 truncate">{selectedEvent.company}</p>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Projet */}
                                 {selectedEvent.project && (
-                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
-                                        <div className="h-7 w-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                                    <div className="flex items-center gap-3 py-2.5">
+                                        <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
                                             <BriefcaseIcon className="h-3.5 w-3.5 text-violet-600"/>
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Projet</p>
-                                            <p className="text-sm font-semibold text-slate-800 truncate">{selectedEvent.project}</p>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em] mb-0.5">Projet</p>
+                                            <p className="text-sm font-medium text-slate-700 truncate">{selectedEvent.project}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
                             {/* Actions */}
-                            <div className="px-4 pb-4 space-y-2 border-t border-slate-100 pt-4">
+                            <div className="px-4 pb-4 pt-3 border-t border-slate-100 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                     {selectedEvent.status !== 'Reporté' && (
                                         <button onClick={() => handlePostpone(selectedEvent)}
-                                            className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors">
+                                            className="flex items-center justify-center gap-1.5 h-10 text-sm font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all active:scale-[0.97]">
                                             <ArrowPathIcon className="h-4 w-4"/> Reporter
                                         </button>
                                     )}
                                     <button
                                         onClick={() => navigate(`/activites/${selectedEvent.id}`, { state: { from: 'calendar' } })}
-                                        className={`flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl transition-colors ${selectedEvent.status === 'Reporté' ? 'col-span-2' : ''}`}>
+                                        className={`flex items-center justify-center gap-1.5 h-10 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl transition-all shadow-sm shadow-blue-500/20 active:scale-[0.97] ${selectedEvent.status === 'Reporté' ? 'col-span-2' : ''}`}>
                                         <EyeIcon className="h-4 w-4"/> Détails
                                     </button>
                                 </div>
                                 {selectedEvent.valide !== 1 && (
-                                    <button
-                                        disabled={validating}
+                                    <button disabled={validating}
                                         onClick={async () => {
                                             setValidating(true);
                                             try {
@@ -766,11 +761,9 @@ const CalendarView = () => {
                                                 toast.success('Activité validée');
                                             } catch {
                                                 toast.error('Erreur lors de la validation');
-                                            } finally {
-                                                setValidating(false);
-                                            }
+                                            } finally { setValidating(false); }
                                         }}
-                                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-colors disabled:opacity-60">
+                                        className="w-full flex items-center justify-center gap-2 h-10 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all shadow-sm shadow-emerald-500/20 disabled:opacity-60 active:scale-[0.97]">
                                         <CheckCircleIcon className="h-4 w-4"/>
                                         {validating ? 'Validation…' : 'Valider'}
                                     </button>

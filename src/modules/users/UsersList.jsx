@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, forwardRef } from 'react';
+import { useState, useEffect, useMemo, forwardRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from '../../app/axios';
@@ -6,10 +6,216 @@ import {
   UserPlusIcon, ShieldCheckIcon, PencilSquareIcon,
   EyeIcon, TrashIcon, MagnifyingGlassIcon,
   ArrowPathIcon, UsersIcon, CheckBadgeIcon,
-  ArrowDownTrayIcon, XMarkIcon,
+  ArrowDownTrayIcon, XMarkIcon, EnvelopeIcon,
+  KeyIcon, MapPinIcon, BriefcaseIcon, AtSymbolIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { getWhatsAppLink } from '../../utils/format';
+
+/* ── Role config for panel ── */
+const ROLE_CFG = {
+  'Administrateur': 'bg-violet-50 text-violet-700 border-violet-200',
+  'Admin':          'bg-violet-50 text-violet-700 border-violet-200',
+  'Commercial':     'bg-[#e0f0ff] text-[#0062AF] border-blue-200',
+  'Technicien':     'bg-amber-50 text-amber-700 border-amber-200',
+  'Agent':          'bg-teal-50 text-teal-700 border-teal-200',
+  'Client':         'bg-slate-100 text-slate-600 border-slate-200',
+};
+const getInitialsFull = (name = '') =>
+  name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+
+/* ── User Detail Modal (centered) ── */
+const UserDetailPanel = ({ userId, onClose, onEdit }) => {
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [resending, setResending] = useState(false);
+  const [imgError, setImgError]   = useState(false);
+  const [gouvernorats, setGouvernorats] = useState([]);
+  const navigate = useNavigate();
+
+  const fetchUser = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const [userRes, govRes] = await Promise.all([
+        axios.get(`/users/${userId}`),
+        axios.get('/tiers-gouvernorats').catch(() => ({ data: [] })),
+      ]);
+      if (userRes.status === 'success') setUser(userRes.data);
+      const govList = govRes.data?.data || govRes.data || [];
+      setGouvernorats(Array.isArray(govList) ? govList : []);
+    } catch { toast.error("Impossible de charger les détails"); }
+    finally { setLoading(false); }
+  }, [userId]);
+
+  useEffect(() => { fetchUser(); setImgError(false); }, [fetchUser]);
+
+  const getGouvernoratName = (id) => {
+    if (!id) return null;
+    const found = gouvernorats.find(g => String(g.id) === String(id) || String(g.ID) === String(id));
+    return found?.libelle || found?.Libelle || found?.nom || found?.Nom || null;
+  };
+
+  const handleResend = async () => {
+    if (!user?.EmailPro) return;
+    if (!window.confirm(`Générer un nouveau mot de passe et l'envoyer à ${user.EmailPro} ?`)) return;
+    setResending(true);
+    try {
+      await axios.post(`/users/${user.UserID}/resend-credentials`);
+      toast.success('Nouveaux identifiants envoyés par email');
+    } catch (err) { toast.error(err.response?.data?.message || "Erreur lors de l'envoi"); }
+    finally { setResending(false); }
+  };
+
+  const initials  = user ? getInitialsFull(user.FullName) : '?';
+  const isActive  = user?.IsActive;
+  const roleStyle = user ? (ROLE_CFG[user.UserRole] || 'bg-slate-100 text-slate-600 border-slate-200') : '';
+
+  const govName = user ? (getGouvernoratName(user.Gouvernorat) || user.Gouvernorat) : null;
+
+  const InfoRow = ({ label, value, accent = false, mono = false }) => (
+    <div className="py-3 border-b border-slate-100 last:border-0">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.1em] mb-1">{label}</p>
+      <p className={`text-[14px] font-medium leading-snug truncate ${accent ? 'text-[#0062AF]' : 'text-slate-700'} ${mono ? 'font-mono text-[13px]' : ''}`}>
+        {value || <span className="text-slate-300 font-normal font-sans">—</span>}
+      </p>
+    </div>
+  );
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30"
+        onClick={onClose}
+      />
+
+      <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+          className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm max-h-[92vh] overflow-hidden flex flex-col"
+        >
+
+          {/* ── Header ── */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 flex-none">
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-lg bg-[#e0f0ff] flex items-center justify-center">
+                <UsersIcon className="h-3.5 w-3.5 text-[#0062AF]" />
+              </div>
+              <span className="text-xs font-bold text-slate-700">Profil utilisateur</span>
+            </div>
+            <button onClick={onClose}
+              className="h-7 w-7 flex items-center justify-center rounded-full border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all">
+              <XMarkIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
+              <div className="relative h-9 w-9">
+                <div className="absolute inset-0 rounded-full border-[3px] border-slate-100" />
+                <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#0062AF] animate-spin" />
+              </div>
+              <p className="text-xs text-slate-400 font-medium">Chargement…</p>
+            </div>
+          ) : !user ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16">
+              <p className="text-sm text-slate-400">Utilisateur introuvable</p>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+
+              {/* ── Avatar + Identity ── */}
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative flex-shrink-0">
+                    {user.PhotoProfil && !imgError ? (
+                      <img src={user.PhotoProfil} alt={user.FullName} onError={() => setImgError(true)}
+                        className="h-16 w-16 rounded-2xl object-cover ring-2 ring-slate-100 shadow-sm" />
+                    ) : (
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#0062AF] to-sky-400 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                        <span className="text-xl font-black text-white select-none tracking-tight">{initials}</span>
+                      </div>
+                    )}
+                    <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white shadow ${isActive ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-[17px] font-black text-slate-900 truncate leading-tight">{user.FullName}</h2>
+                    {user.EmailPro && (
+                      <p className="text-xs text-slate-400 truncate mt-0.5">{user.EmailPro}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {user.UserRole && (
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${roleStyle}`}>
+                          {user.UserRole}
+                        </span>
+                      )}
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300'}`} />
+                        {isActive ? 'Actif' : 'Inactif'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modifier button */}
+                <button onClick={() => { onClose(); navigate(`/users/edit/${user.UserID}`); }}
+                  className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-bold transition-all shadow-md shadow-blue-500/25 active:scale-[0.98]">
+                  <PencilSquareIcon className="h-4 w-4" />
+                  Modifier le profil
+                </button>
+              </div>
+
+              {/* ── Info fields ── */}
+              <div className="px-5 py-1 border-t border-slate-100">
+                <InfoRow label="Email"       value={user.EmailPro}    accent />
+                <InfoRow label="Identifiant" value={user.LoginName ? `@${user.LoginName}` : null} mono />
+                <InfoRow label="Gouvernorat" value={govName} />
+                <div className="grid grid-cols-2 gap-x-4">
+                  <InfoRow label="Département" value={user.Departement} />
+                  <InfoRow label="Poste"       value={user.PosteOccupe} />
+                </div>
+              </div>
+
+              {/* ── Status + Actions ── */}
+              <div className="px-5 pt-3 pb-5 border-t border-slate-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${isActive ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300'}`} />
+                    {isActive ? 'Compte actif' : 'Compte inactif'}
+                  </div>
+                  {user.EmailPro && (
+                    <button onClick={handleResend} disabled={resending}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-500 text-xs font-semibold transition-all disabled:opacity-50 shadow-sm">
+                      {resending
+                        ? <div className="h-3.5 w-3.5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                        : <KeyIcon className="h-3.5 w-3.5" />}
+                      Renvoyer mdp
+                    </button>
+                  )}
+                </div>
+
+                {user.EmailPro && (
+                  <button onClick={() => { onClose(); navigate('/messages', { state: { composeTo: user.EmailPro } }); }}
+                    className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-all">
+                    <EnvelopeIcon className="h-4 w-4 text-slate-400" />
+                    Envoyer un email
+                  </button>
+                )}
+              </div>
+
+            </div>
+          )}
+        </motion.div>
+      </div>
+    </>
+  );
+};
 
 /* ── Role config ── */
 const ROLES = {
@@ -134,13 +340,14 @@ const UserRow = forwardRef(({ user, onView, onEdit, onDelete, index }, ref) => {
 /* ══ Main ══ */
 const UsersList = () => {
   const navigate = useNavigate();
-  const [loading, setLoading]       = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [users, setUsers]           = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [users, setUsers]               = useState([]);
+  const [searchTerm, setSearchTerm]     = useState('');
+  const [roleFilter, setRoleFilter]     = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage]   = useState(1);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const ITEMS = 12;
 
   const fetchUsers = async (showSpin = false) => {
@@ -403,7 +610,7 @@ const UsersList = () => {
                     key={user.id}
                     user={user}
                     index={idx}
-                    onView={id => navigate(`/users/${id}`)}
+                    onView={id => setSelectedUserId(id)}
                     onEdit={id => navigate(`/users/edit/${id}`)}
                     onDelete={handleDelete}
                   />
@@ -455,6 +662,16 @@ const UsersList = () => {
           Affichage de {paginated.length} sur {filteredUsers.length} utilisateurs filtrés ({users.length} au total)
         </div>
       </div>
+      {/* ── User Detail Side Panel ── */}
+      <AnimatePresence>
+        {selectedUserId && (
+          <UserDetailPanel
+            userId={selectedUserId}
+            onClose={() => setSelectedUserId(null)}
+            onEdit={id => navigate(`/users/edit/${id}`)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -366,21 +366,11 @@ const ClientDetail = () => {
                 {/* ══ Hero card ══ */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
-                    {/* ── Header section : fond dégradé subtil + barre brand ── */}
-                    <div className="relative overflow-hidden">
+                    {/* ── Header section ── */}
+                    <div className="relative">
+                        <div className="px-7 pt-6 pb-6 bg-white">
 
-                        {/* Barre brand top */}
-                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#0062AF] via-[#0284c7] to-[#38bdf8]" />
-
-                        {/* Fond très subtil bleu-blanc */}
-                        <div className="px-7 pt-7 pb-6"
-                            style={{ background: 'linear-gradient(145deg,#eef6ff 0%,#f5faff 40%,#ffffff 100%)' }}>
-
-                            {/* Orbe décoratif discret */}
-                            <div className="pointer-events-none absolute -top-10 right-0 h-48 w-48 rounded-full opacity-40"
-                                style={{ background: 'radial-gradient(circle,#dbeafe 0%,transparent 70%)' }} />
-
-                            <div className="flex items-start gap-6 relative z-10">
+                            <div className="flex items-start gap-6">
 
                                 {/* ── Avatar ── */}
                                 <div className="relative flex-shrink-0">
@@ -465,8 +455,8 @@ const ClientDetail = () => {
                         </div>
                     </div>
 
-                    {/* ── KPI bar — integrated strip, style Stripe ── */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 border-t border-slate-100">
+                    {/* ── KPI bar ── */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 border-t border-slate-100 bg-slate-50/30">
                         {[
                             {
                                 label: 'C.A Facturé',
@@ -542,9 +532,11 @@ const ClientDetail = () => {
 
                         {/* Quick actions */}
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-                                <div className="h-1.5 w-1.5 rounded-full bg-[#0062AF]" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Actions rapides</span>
+                            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                                    <ArrowPathIcon className="h-3.5 w-3.5 text-slate-400" />
+                                </div>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Actions rapides</span>
                             </div>
                             <div className="p-3 space-y-1.5">
                                 {[
@@ -590,9 +582,11 @@ const ClientDetail = () => {
 
                         {/* Coordonnées */}
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-                                <div className="h-1.5 w-1.5 rounded-full bg-[#0062AF]" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Coordonnées</span>
+                            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                                    <PhoneIcon className="h-3.5 w-3.5 text-slate-400" />
+                                </div>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Coordonnées</span>
                             </div>
                             <div className="divide-y divide-slate-50">
                                 {[
@@ -663,17 +657,17 @@ const ClientDetail = () => {
                     <div className="lg:col-span-8">
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
-                            {/* Pill tabs */}
-                            <div className="px-4 pt-4 border-b border-slate-100">
-                                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-4">
+                            {/* Tabs — style underline enterprise */}
+                            <div className="border-b border-slate-200">
+                                <div className="flex items-center gap-0 overflow-x-auto scrollbar-none px-1">
                                     {TABS.map((tab) => (
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
-                                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                                            className={`inline-flex items-center gap-1.5 px-4 py-3.5 text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 border-b-2 -mb-px ${
                                                 activeTab === tab.id
-                                                    ? 'bg-[#0062AF] text-white shadow-sm shadow-[#0062AF]/30'
-                                                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                                                    ? 'border-[#0062AF] text-[#0062AF]'
+                                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                                             }`}
                                         >
                                             <tab.icon className="h-3.5 w-3.5" />
@@ -688,51 +682,40 @@ const ClientDetail = () => {
 
                                 {/* ── Infos ── */}
                                 {activeTab === 'infos' && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-4">
                                         {infoSections.map((section) => {
-                                            const isExpanded = expandedSections[section.id];
-                                            const cm = sectionColorMap[section.color] || sectionColorMap.blue;
-                                            const filledCount = section.fields.filter(([, v]) => v !== null && v !== undefined && v !== '' && v !== false).length;
+                                            const filledFields = section.fields.filter(([, v]) => v !== null && v !== undefined && v !== '' && v !== false);
+                                            if (filledFields.length === 0) return null;
                                             return (
-                                                <div
-                                                    key={section.id}
-                                                    className={`rounded-xl overflow-hidden border transition-all duration-200 ${isExpanded ? `border-current ${cm.header.split(' ')[1]}` : 'border-slate-200'}`}
-                                                >
-                                                    <button
-                                                        onClick={() => setExpandedSections(prev => ({ ...prev, [section.id]: !isExpanded }))}
-                                                        className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${isExpanded ? cm.header : 'bg-slate-50 hover:bg-slate-100/70'}`}
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${isExpanded ? cm.icon : 'bg-white border border-slate-200 text-slate-400'}`}>
-                                                                <section.icon className="h-3.5 w-3.5" />
-                                                            </div>
-                                                            <span className={`text-sm font-bold transition-colors ${isExpanded ? cm.title : 'text-slate-700'}`}>
-                                                                {section.title}
-                                                            </span>
-                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${isExpanded ? cm.badge + ' border-transparent' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                                                {filledCount}/{section.fields.length}
-                                                            </span>
+                                                <div key={section.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                                                    {/* Section header — neutre, pas de couleur */}
+                                                    <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                                                        <div className="h-6 w-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                                            <section.icon className="h-3.5 w-3.5 text-slate-400" />
                                                         </div>
-                                                        <ChevronDownIcon className={`h-4 w-4 transition-all duration-200 ${isExpanded ? `rotate-180 ${cm.title}` : 'text-slate-300'}`} />
-                                                    </button>
-
-                                                    {isExpanded && (
-                                                        <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 border-t border-slate-100">
-                                                            {section.fields.map(([label, value]) => {
-                                                                const hasVal = value !== null && value !== undefined && value !== '' && value !== false;
-                                                                return (
-                                                                    <div key={label} className="bg-white px-4 py-3 hover:bg-slate-50/50 transition-colors">
-                                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-                                                                        <p className={`text-xs font-semibold ${hasVal ? 'text-slate-800' : 'text-slate-300 italic'}`}>
-                                                                            {['Téléphone', 'Mobile', 'Fax'].includes(label)
+                                                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{section.title}</span>
+                                                        <span className="ml-auto text-[9px] font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">
+                                                            {filledFields.length}
+                                                        </span>
+                                                    </div>
+                                                    {/* Grille de champs */}
+                                                    <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
+                                                        {section.fields.map(([label, value]) => {
+                                                            const hasVal = value !== null && value !== undefined && value !== '' && value !== false;
+                                                            return (
+                                                                <div key={label} className="px-4 py-3 bg-white hover:bg-slate-50/60 transition-colors">
+                                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+                                                                    <p className={`text-sm font-semibold ${hasVal ? 'text-slate-800' : 'text-slate-300'}`}>
+                                                                        {hasVal
+                                                                            ? (['Téléphone', 'Mobile', 'Fax'].includes(label)
                                                                                 ? renderWhatsAppField(value, 'font-semibold')
-                                                                                : formatFieldValue(value)}
-                                                                        </p>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
+                                                                                : formatFieldValue(value))
+                                                                            : '—'}
+                                                                    </p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             );
                                         })}

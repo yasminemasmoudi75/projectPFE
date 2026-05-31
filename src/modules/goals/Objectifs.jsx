@@ -56,20 +56,20 @@ const progressLabel   = (p) => p >= 100
 
 /* ─── CircleProgress SVG ────────────────────────────────────── */
 const CircleProgress = ({ progress, size = 56 }) => {
-    const r = size * 0.38;
+    const r = size * 0.37;
     const circ = 2 * Math.PI * r;
     const offset = circ - (Math.min(progress, 100) / 100) * circ;
     const color = progressColor(progress);
     const cx = size / 2, cy = size / 2;
     return (
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={size * 0.07} />
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={size * 0.07}
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={size * 0.065} />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={size * 0.065}
                 strokeDasharray={circ} strokeDashoffset={offset}
                 strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`}
                 style={{ transition: 'stroke-dashoffset 0.7s ease' }} />
-            <text x={cx} y={cy + 4} textAnchor="middle" fontSize={size * 0.18}
-                fontWeight="900" fill={color} fontFamily="system-ui, sans-serif">
+            <text x={cx} y={cy + 1} textAnchor="middle" fontSize={size * 0.19}
+                fontWeight="700" fill={color} fontFamily="system-ui, sans-serif">
                 {Math.round(progress)}%
             </text>
         </svg>
@@ -83,26 +83,29 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
     const pl = progressLabel(progress);
 
     const accent = progress >= 100
-        ? { border: 'border-l-emerald-500', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600' }
+        ? { border: 'border-l-emerald-300', iconBg: 'bg-emerald-50', iconText: 'text-emerald-500', stripe: 'linear-gradient(90deg,#6ee7b7,#a7f3d0)', valColor: '#10b981' }
         : progress >= 50
-        ? { border: 'border-l-blue-500',    iconBg: 'bg-blue-50',    iconText: 'text-blue-600'    }
-        : { border: 'border-l-red-400',     iconBg: 'bg-red-50',     iconText: 'text-red-500'     };
+        ? { border: 'border-l-blue-300',    iconBg: 'bg-blue-50',    iconText: 'text-blue-500',    stripe: 'linear-gradient(90deg,#93c5fd,#bfdbfe)', valColor: '#3b82f6' }
+        : { border: 'border-l-rose-300',    iconBg: 'bg-rose-50',    iconText: 'text-rose-400',    stripe: 'linear-gradient(90deg,#fca5a5,#fecdd3)', valColor: '#f87171' };
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className={`group bg-white rounded-2xl border border-slate-200 border-l-4 ${accent.border} shadow-sm hover:shadow-md transition-all duration-200 flex flex-col`}
+            className={`group bg-white rounded-2xl border border-slate-100 border-l-4 ${accent.border} shadow-sm hover:shadow-md transition-all duration-200 flex flex-col overflow-hidden`}
         >
+            {/* ── Bande colorée top ── */}
+            <div style={{ background: accent.stripe, height: 3 }} />
+
             {/* ── Header ── */}
-            <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3 border-b border-slate-100">
+            <div className="px-5 pt-4 pb-4 flex items-start justify-between gap-3 border-b border-slate-100">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className={`h-10 w-10 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0`}>
+                    <div className={`h-10 w-10 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm`}>
                         <Icon className={`h-5 w-5 ${accent.iconText}`} />
                     </div>
                     <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-slate-800 truncate">{goal.TypeObjectif}</h4>
+                        <h4 className="text-sm font-bold text-slate-800 truncate">{goal.TypeObjectif}</h4>
                         {goal.utilisateur && (
                             <p className="text-xs text-slate-400 truncate mt-0.5">
                                 {goal.utilisateur.FullName || goal.utilisateur.LoginName}
@@ -110,15 +113,15 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 pt-0.5">
+                <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
                     {onEdit && (
-                        <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                            <EyeIcon className="h-3.5 w-3.5" />
+                        <button onClick={onEdit} className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-500 hover:bg-blue-100 hover:text-blue-700 transition-colors shadow-sm">
+                            <EyeIcon className="h-4 w-4" />
                         </button>
                     )}
                     {isAdmin && onClose && (
-                        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
-                            <XMarkIcon className="h-3.5 w-3.5" />
+                        <button onClick={onClose} className="p-1.5 rounded-lg bg-red-50 border border-red-200 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm">
+                            <XMarkIcon className="h-4 w-4" />
                         </button>
                     )}
                 </div>
@@ -126,7 +129,7 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
 
             {/* ── Body : cercle + barre ── */}
             <div className="px-5 pt-4 pb-4 flex items-center gap-4">
-                <CircleProgress progress={progress} size={60} />
+                <CircleProgress progress={progress} size={66} />
                 <div className="flex-1 min-w-0 space-y-2">
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                         <motion.div
@@ -136,7 +139,7 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
                             className={`h-full rounded-full ${progressBgClass(progress)}`}
                         />
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${pl.bg}`}>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${pl.bg}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${pl.dot}`} />
                         {pl.label}
                     </span>
@@ -148,12 +151,12 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                     <div>
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Réalisé</p>
-                        <p className="text-lg font-bold text-slate-900 mt-0.5">{formatValue(getObjectifRealised(goal), isCount)}</p>
+                        <p className="text-lg font-semibold mt-0.5" style={{ color: accent.valColor }}>{formatValue(getObjectifRealised(goal), isCount)}</p>
                         <p className="text-[10px] text-slate-400">{unit}</p>
                     </div>
                     <div>
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Objectif</p>
-                        <p className="text-lg font-bold text-slate-900 mt-0.5">{formatValue(getObjectifTarget(goal), isCount)}</p>
+                        <p className="text-lg font-medium text-slate-400 mt-0.5">{formatValue(getObjectifTarget(goal), isCount)}</p>
                         <p className="text-[10px] text-slate-400">{unit}</p>
                     </div>
                 </div>
@@ -536,25 +539,22 @@ const Objectifs = () => {
                     {total > 0 && (
                         <div className="px-6 py-3 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between gap-6">
                             {/* Légende */}
-                            <div className="flex items-center gap-4 flex-wrap">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 flex-none" />
-                                    <span className="text-xs text-slate-500 font-medium">{atteints} atteint{atteints !== 1 ? 's' : ''}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400 flex-none" />
-                                    <span className="text-xs text-slate-500 font-medium">{enCours} en cours</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-slate-300 flex-none" />
-                                    <span className="text-xs text-slate-500 font-medium">{aRisque} à risque</span>
-                                </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-400 flex-none" />{atteints} atteint{atteints !== 1 ? 's' : ''}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    <span className="h-2 w-2 rounded-full bg-blue-400 flex-none" />{enCours} en cours
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                    <span className="h-2 w-2 rounded-full bg-slate-400 flex-none" />{aRisque} à risque
+                                </span>
                             </div>
                             {/* Mini barre de répartition */}
-                            <div className="flex h-2 w-40 rounded-full overflow-hidden gap-0.5 flex-none">
+                            <div className="flex h-2.5 w-40 rounded-full overflow-hidden gap-0.5 flex-none">
                                 {atteints  > 0 && <div className="bg-emerald-400 rounded-full transition-all" style={{ flex: atteints  }} />}
-                                {enCours   > 0 && <div className="bg-amber-400  rounded-full transition-all" style={{ flex: enCours   }} />}
-                                {aRisque   > 0 && <div className="bg-slate-200  rounded-full transition-all" style={{ flex: aRisque   }} />}
+                                {enCours   > 0 && <div className="bg-blue-400    rounded-full transition-all" style={{ flex: enCours   }} />}
+                                {aRisque   > 0 && <div className="bg-slate-300   rounded-full transition-all" style={{ flex: aRisque   }} />}
                             </div>
                         </div>
                     )}

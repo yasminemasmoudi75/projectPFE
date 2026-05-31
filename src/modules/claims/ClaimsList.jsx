@@ -272,155 +272,163 @@ const ClaimsList = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
       className="space-y-5 pb-12">
 
-      {/* ── Hero ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-        {/* Accent top */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sky-400 via-[#0062AF] to-sky-400" />
-        <div className="absolute top-0 right-0 w-72 h-full bg-gradient-to-l from-sky-50/50 to-transparent pointer-events-none" />
-        <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
-          <div className="flex items-start gap-4 flex-1">
-            <div className="h-11 w-11 rounded-xl bg-[#0062AF]/10 border border-[#0062AF]/20 flex items-center justify-center flex-none shadow-sm">
-              <LifebuoyIcon className="h-5 w-5 text-[#0062AF]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
-              <p className="text-sm text-slate-400 mt-0.5 font-medium">{pageDesc}</p>
-            </div>
+      {/* ── Header ── */}
+      <div className="bg-white border border-slate-200 rounded-2xl px-6 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-[#0062AF] flex items-center justify-center flex-shrink-0">
+            <LifebuoyIcon className="h-5 w-5 text-white" />
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => fetchClaims()}
-              className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-              title="Actualiser">
-              <ArrowPathIcon className="h-4 w-4" />
+          <div>
+            <h1 className="text-lg font-bold text-slate-900">{pageTitle}</h1>
+            <p className="text-xs text-slate-400 mt-0.5">{pageDesc}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => fetchClaims()}
+            className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
+            title="Actualiser">
+            <ArrowPathIcon className="h-4 w-4" />
+          </button>
+          {(isAdmin || isClient || canAddReclamation) && (
+            <button onClick={() => navigate('/claims/new')}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-sm shadow-[#0062AF]/20">
+              <PlusIcon className="h-4 w-4" />
+              {isAdmin ? 'Créer un ticket' : 'Signaler un problème'}
             </button>
-            {(isAdmin || isClient || canAddReclamation) && (
-              <button onClick={() => navigate('/claims/new')}
-                className="inline-flex items-center gap-2 h-10 px-5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold transition-all shadow-sm shadow-blue-500/20">
-                <PlusIcon className="h-4 w-4" />
-                {isAdmin ? 'Créer un ticket' : 'Signaler un problème'}
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Ouvertes',  count: stats.open,       icon: ExclamationCircleIcon, iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200' },
-          { label: 'En cours',  count: stats.inProgress, icon: WrenchScrewdriverIcon, iconCls: 'text-amber-500',   iconBg: 'bg-amber-50 border-amber-200' },
-          { label: 'Résolues',  count: stats.resolved,   icon: CheckCircleIcon,       iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
+          { label: 'Ouvertes',  count: stats.open,       icon: ExclamationCircleIcon, color: 'text-sky-600',     bg: 'bg-sky-50',     border: 'border-sky-200',     num: 'text-sky-700',     topBar: 'bg-sky-400'     },
+          { label: 'En cours',  count: stats.inProgress, icon: WrenchScrewdriverIcon, color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200',   num: 'text-amber-700',   topBar: 'bg-amber-400'   },
+          { label: 'Résolues',  count: stats.resolved,   icon: CheckCircleIcon,       color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', num: 'text-emerald-700', topBar: 'bg-emerald-400' },
         ].map((k, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.07 }}
-            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default">
-            <div className={`h-10 w-10 rounded-xl border flex items-center justify-center flex-none ${k.iconBg}`}>
-              <k.icon className={`h-5 w-5 ${k.iconCls}`} />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{k.label}</p>
-              <p className="text-2xl font-bold text-slate-700 leading-tight">{k.count}</p>
+            className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ${k.border}`}>
+            <div className={`h-1.5 w-full ${k.topBar}`} />
+            <div className="p-5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+                <p className={`text-3xl font-black leading-none ${k.num}`}>{k.count}</p>
+              </div>
+              <div className={`h-12 w-12 rounded-2xl ${k.bg} flex items-center justify-center flex-none`}>
+                <k.icon className={`h-6 w-6 ${k.color}`} />
+              </div>
             </div>
           </motion.div>
         ))}
       </div>
 
-      {/* ── Toolbar ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Rechercher par ticket, client, objet…"
-              className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300 focus:bg-white placeholder:text-slate-400 transition-all" />
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Status */}
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all">
-              <option value="all">Tous les statuts</option>
-              <option value="Ouvert">Ouvert</option>
-              <option value="En cours">En cours</option>
-              <option value="Résolu">Résolu</option>
-            </select>
-            {/* Date */}
-            <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-              className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all" />
-            {!isClient && (
-              <>
-                <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                  className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all">
-                  <option value="all">Toutes priorités</option>
-                  <option value="Urgente">Urgente</option>
-                  <option value="Haute">Haute</option>
-                  <option value="Normale">Normale</option>
-                  <option value="Basse">Basse</option>
-                </select>
-                {isAdmin && (
-                  <select value={technicianFilter} onChange={e => setTechnicianFilter(e.target.value)}
-                    className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all">
-                    <option value="all">Tous techniciens</option>
-                    {techniciens.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                )}
-                <select value={sortMode} onChange={e => setSortMode(e.target.value)}
-                  className="h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 text-slate-600 transition-all">
-                  <option value="recent">Plus récents</option>
-                  <option value="priority">Par priorité</option>
-                  <option value="status">Par statut</option>
-                </select>
-              </>
+      {/* ── Filtres ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <FunnelIcon className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-semibold text-slate-700">Filtres</span>
+            {hasFilters && (
+              <span className="h-5 min-w-[1.25rem] px-1.5 rounded-full bg-[#0062AF] text-white text-[10px] font-bold flex items-center justify-center">
+                {[searchTerm, statusFilter !== 'all', priorityFilter !== 'all', technicianFilter !== 'all', dateFilter].filter(Boolean).length}
+              </span>
             )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400">
+              <span className="font-semibold text-slate-600">{effectiveTotalItems}</span> ticket{effectiveTotalItems !== 1 ? 's' : ''}
+              {hasFilters && <span className="ml-1 text-[#0062AF] font-semibold">(filtrés)</span>}
+            </span>
             {hasFilters && (
               <button onClick={clearFilters}
-                className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-400 hover:border-rose-200 transition-all">
-                <XMarkIcon className="h-4 w-4" />
+                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 font-semibold transition-colors">
+                <XMarkIcon className="h-3.5 w-3.5" /> Réinitialiser
               </button>
             )}
           </div>
         </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-400">
-            <span className="font-semibold text-slate-600">{displayedClaims.length}</span>
-            {' / '}
-            <span className="font-semibold text-slate-600">{effectiveTotalItems}</span>
-            {' '}réclamation{effectiveTotalItems !== 1 ? 's' : ''}
-            {hasFilters && <span className="ml-1 text-sky-500 font-semibold">(filtrées)</span>}
-          </p>
+        <div className="p-4 space-y-3">
+          {/* Barre de recherche */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 pointer-events-none" />
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Rechercher par ticket, client, objet…"
+              className="w-full h-10 pl-10 pr-4 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 placeholder:text-slate-300 transition-all" />
+          </div>
+          {/* Grille de filtres */}
+          <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : !isClient ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Statut</p>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                className="w-full h-9 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 text-slate-700 transition-all">
+                <option value="all">Tous</option>
+                <option value="Ouvert">Ouvert</option>
+                <option value="En cours">En cours</option>
+                <option value="Résolu">Résolu</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date</p>
+              <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+                className="w-full h-9 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 text-slate-700 transition-all" />
+            </div>
+            {!isClient && (
+              <>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Priorité</p>
+                  <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
+                    className="w-full h-9 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 text-slate-700 transition-all">
+                    <option value="all">Toutes</option>
+                    <option value="Urgente">Urgente</option>
+                    <option value="Haute">Haute</option>
+                    <option value="Normale">Normale</option>
+                    <option value="Basse">Basse</option>
+                  </select>
+                </div>
+                {isAdmin && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Technicien</p>
+                    <select value={technicianFilter} onChange={e => setTechnicianFilter(e.target.value)}
+                      className="w-full h-9 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 text-slate-700 transition-all">
+                      <option value="all">Tous</option>
+                      {techniciens.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Trier par</p>
+                  <select value={sortMode} onChange={e => setSortMode(e.target.value)}
+                    className="w-full h-9 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 text-slate-700 transition-all">
+                    <option value="recent">Plus récents</option>
+                    <option value="priority">Priorité</option>
+                    <option value="status">Statut</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ── Table ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/40">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center">
-              <LifebuoyIcon className="h-4 w-4 text-sky-500" />
-            </div>
-            <span className="text-sm font-semibold text-slate-600">Tickets de support</span>
-          </div>
-          <span className="text-xs text-slate-400">
-            <span className="font-semibold text-slate-600">{effectiveTotalItems}</span> ticket{effectiveTotalItems !== 1 ? 's' : ''}
-          </span>
-        </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50/60 border-b border-slate-100">
-                <th className="px-5 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest">N° Ticket</th>
-                <th className="px-4 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Objet</th>
-                <th className="px-4 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Priorité</th>
-                {!isClient && <th className="px-4 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Technicien</th>}
-                <th className="px-4 py-3.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Statut</th>
-                <th className="px-4 py-3.5 text-right text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Date</th>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">N° Ticket</th>
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Objet</th>
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Priorité</th>
+                {!isClient && <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Technicien</th>}
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Statut</th>
+                <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest">Date</th>
                 {(isClient || isTechnicien || isAdmin) && (
-                  <th className="px-4 py-3.5 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Actions</th>
+                  <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actions</th>
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               <AnimatePresence>
                 {displayedClaims.length === 0 ? (
                   <tr key="empty">
@@ -429,10 +437,10 @@ const ClaimsList = () => {
                         <div className="h-14 w-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
                           <LifebuoyIcon className="h-7 w-7 text-slate-300" />
                         </div>
-                        <p className="text-sm font-semibold text-slate-500">Aucune réclamation trouvée</p>
+                        <p className="text-sm font-semibold text-slate-600">Aucune réclamation trouvée</p>
                         <p className="text-xs text-slate-400">Créez un ticket ou modifiez vos filtres.</p>
                         {hasFilters && (
-                          <button onClick={clearFilters} className="text-xs text-sky-500 font-semibold hover:underline underline-offset-2">
+                          <button onClick={clearFilters} className="text-xs text-[#0062AF] font-semibold hover:underline underline-offset-2">
                             Réinitialiser les filtres
                           </button>
                         )}
@@ -442,25 +450,29 @@ const ClaimsList = () => {
                 ) : displayedClaims.map((claim, idx) => {
                   const pCfg = getPriorityCfg(claim.priority);
                   const sCfg = getStatusCfg(claim.status);
+                  const rowAccent =
+                    claim.priority === 'Urgente' ? 'border-l-rose-400' :
+                    claim.priority === 'Haute'   ? 'border-l-amber-400' :
+                    claim.status   === 'Résolu'  ? 'border-l-emerald-400' :
+                    claim.status   === 'En cours'? 'border-l-amber-300' :
+                                                   'border-l-sky-300';
                   return (
                     <motion.tr key={claim.id}
                       initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }} transition={{ duration: 0.15, delay: idx * 0.025 }}
-                      className="group cursor-pointer transition-colors duration-150"
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = sCfg.row; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; }}
+                      className={`group cursor-pointer hover:bg-slate-50/80 transition-colors duration-150 border-l-[3px] ${rowAccent}`}
                       onClick={() => navigate(`/claims/${claim.id}`)}>
 
                       {/* Ticket */}
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className="font-mono text-[11px] font-bold bg-[#e8f1f9] text-[#0062AF] px-2.5 py-1 rounded-lg">
                           {claim.ticket}
                         </span>
                       </td>
 
                       {/* Objet */}
-                      <td className="px-4 py-4">
-                        <div className="text-xs font-semibold text-slate-700 truncate max-w-xs" title={claim.object}>
+                      <td className="px-4 py-3.5">
+                        <div className="text-sm font-semibold text-slate-800 truncate max-w-xs" title={claim.object}>
                           {claim.object}
                         </div>
                         {claim.client && !isClient && (

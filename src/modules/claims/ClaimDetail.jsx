@@ -52,11 +52,15 @@ const InfoRow = ({ icon: Icon, label, value, mono = false }) => (
 );
 
 /* ── SideCard ── */
-const SideCard = ({ icon: Icon, title, children, accent }) => (
+const SideCard = ({ icon: Icon, title, children }) => (
   <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-    <div className={`px-4 py-3 border-b flex items-center gap-2 ${accent ? 'bg-sky-50/40 border-sky-100' : 'bg-slate-50/40 border-slate-100'}`}>
-      {Icon && <Icon className={`h-3.5 w-3.5 ${accent ? 'text-sky-400' : 'text-slate-400'}`} />}
-      <p className={`text-xs font-semibold uppercase tracking-widest ${accent ? 'text-sky-500' : 'text-slate-500'}`}>{title}</p>
+    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40 flex items-center gap-2">
+      {Icon && (
+        <div className="h-6 w-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+          <Icon className="h-3.5 w-3.5 text-slate-400" />
+        </div>
+      )}
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>
     </div>
     <div className="p-4">{children}</div>
   </div>
@@ -169,20 +173,21 @@ const ClaimDetail = () => {
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between">
         <button onClick={() => navigate('/claims')}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-          <ArrowLeftIcon className="h-4 w-4" /> Réclamations
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#0062AF] transition-colors group">
+          <span className="h-8 w-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center group-hover:border-[#0062AF]/30 transition-all">
+            <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+          </span>
+          <span className="hidden sm:inline">Réclamations</span>
         </button>
         <div className="flex items-center gap-2">
           <button onClick={fetchClaim}
-            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-            title="Actualiser">
+            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
             <ArrowPathIcon className="h-4 w-4" />
           </button>
           {(isAdmin || isTechnicien) && !isClosed && (
             <button onClick={() => handleStatusUpdate('Résolu')}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition-all shadow-sm">
-              <CheckCircleIcon className="h-4 w-4" />
-              Marquer Résolu
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-sm shadow-emerald-500/20">
+              <CheckCircleIcon className="h-4 w-4" /> Marquer Résolu
             </button>
           )}
         </div>
@@ -190,71 +195,74 @@ const ClaimDetail = () => {
 
       {/* ── Hero card ── */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        {/* Sky accent bar */}
-        <div className="h-1 w-full bg-sky-400" />
-        <div className="p-5 sm:p-6">
-          {/* Chips row */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold font-mono border border-slate-200">
-              <HashtagIcon className="h-3 w-3" />
-              {claim.NumTicket || `RM${claim.ID}`}
-            </span>
-            {claim.TypeReclamation && (
-              <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
-                <TagIcon className="h-3 w-3" />
-                {claim.TypeReclamation}
+        <div className="p-6 flex flex-col lg:flex-row lg:items-start gap-5">
+
+          {/* Gauche : ticket + titre + dates */}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#e8f1f9] text-[#0062AF] text-xs font-bold font-mono border border-blue-200">
+                <HashtagIcon className="h-3.5 w-3.5" />
+                {claim.NumTicket || `RM${claim.ID}`}
               </span>
-            )}
-            <span className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[10px] font-semibold ${sCfg.badge}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${sCfg.dot}`} />
+              {claim.TypeReclamation && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
+                  <TagIcon className="h-3 w-3" /> {claim.TypeReclamation}
+                </span>
+              )}
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 leading-snug mb-3">
+              {claim.Objet || 'Sans objet'}
+            </h1>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <CalendarIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                Ouvert le <span className="font-semibold text-slate-600 ml-1">{formatDate(claim.DateOuverture)}</span>
+              </span>
+              {claim.DateModification && (
+                <span className="flex items-center gap-1.5">
+                  <ArrowPathIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                  MAJ le <span className="font-semibold text-slate-600 ml-1">{formatDate(claim.DateModification)}</span>
+                </span>
+              )}
+              {claim.LibTiers && (
+                <span className="flex items-center gap-1.5">
+                  <BuildingOfficeIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="font-semibold text-slate-600">{claim.LibTiers}</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Droite : badges statut + priorité */}
+          <div className="flex flex-col items-start lg:items-end gap-2 flex-shrink-0">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${sCfg.badge}`}>
+              <span className={`h-2 w-2 rounded-full ${sCfg.dot} animate-pulse`} />
               {claim.Statut || 'Ouvert'}
             </span>
-            <span className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[10px] font-semibold ${pCfg.badge}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${pCfg.dot}`} />
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${pCfg.badge}`}>
+              <span className={`h-2 w-2 rounded-full ${pCfg.dot}`} />
               {claim.Priorite || 'Normale'}
-            </span>
-          </div>
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-slate-800 leading-snug mb-2">
-            {claim.Objet || 'Sans objet'}
-          </h1>
-          {/* Dates */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              Ouvert le {formatDate(claim.DateOuverture)}
-            </span>
-            {claim.DateModification && (
-              <span className="flex items-center gap-1.5">
-                <ArrowPathIcon className="h-3.5 w-3.5" />
-                Modifié le {formatDate(claim.DateModification)}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-              <ClockIcon className="h-3.5 w-3.5 text-sky-400" />
-              {days} jour{days !== 1 ? 's' : ''} ouvert
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── KPI strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ── KPI strip — métriques uniques (jours + progression sont dans hero/sidebar) ── */}
+      <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Jours ouverts',  value: days,                         icon: ClockIcon,               iconCls: 'text-sky-500',     iconBg: 'bg-sky-50 border-sky-200'         },
-          { label: 'SLA restant',    value: claim.DelaiTraitement || '—', icon: ExclamationTriangleIcon, iconCls: 'text-amber-500',   iconBg: 'bg-amber-50 border-amber-200'     },
-          { label: 'Interventions',  value: interventions.length,         icon: WrenchScrewdriverIcon,   iconCls: 'text-violet-500',  iconBg: 'bg-violet-50 border-violet-200'   },
-          { label: 'Progression',    value: `${progress}%`,               icon: ChartBarIcon,            iconCls: 'text-emerald-500', iconBg: 'bg-emerald-50 border-emerald-200' },
+          { label: 'Jours ouverts', value: days,                         color: 'text-sky-700',    bg: 'bg-sky-50 border-sky-200',       icon: ClockIcon,             iconCls: 'text-sky-500'    },
+          { label: 'Interventions', value: interventions.length,         color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200', icon: WrenchScrewdriverIcon, iconCls: 'text-violet-500' },
+          { label: 'SLA / Délai',   value: claim.DelaiTraitement || '—', color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   icon: ExclamationTriangleIcon, iconCls: 'text-amber-500' },
         ].map((s, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06 }}
-            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-            <div className={`h-9 w-9 rounded-xl border flex items-center justify-center flex-none ${s.iconBg}`}>
-              <s.icon className={`h-4 w-4 ${s.iconCls}`} />
+            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl border flex items-center justify-center flex-none ${s.bg}`}>
+              <s.icon className={`h-5 w-5 ${s.iconCls}`} />
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{s.label}</p>
-              <p className="text-xl font-bold text-slate-700 leading-tight tabular-nums">{s.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</p>
+              <p className={`text-xl font-black leading-tight tabular-nums ${s.color}`}>{s.value}</p>
             </div>
           </motion.div>
         ))}
@@ -312,21 +320,18 @@ const ClaimDetail = () => {
                   </div>
                 </div>
 
-                {/* Info grid */}
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/40">
-                    <LifebuoyIcon className="h-4 w-4 text-slate-400" />
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Informations du ticket</span>
+                {/* Technicien assigné — unique info non présente ailleurs */}
+                {claim.NomTechnicien && (
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/40">
+                      <UserIcon className="h-4 w-4 text-slate-400" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Technicien assigné</span>
+                    </div>
+                    <div className="px-5 py-4">
+                      <PersonCard name={claim.NomTechnicien} role="Technicien" online={claim.Statut === 'En cours'} />
+                    </div>
                   </div>
-                  <div className="px-5 py-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-                    <InfoRow icon={HashtagIcon}  label="Numéro"            value={claim.NumTicket || `RM${claim.ID}`} mono />
-                    <InfoRow icon={TagIcon}       label="Type"              value={claim.TypeReclamation} />
-                    <InfoRow icon={CalendarIcon}  label="Date d'ouverture" value={formatDate(claim.DateOuverture)} />
-                    <InfoRow icon={CalendarIcon}  label="Dernière MAJ"     value={formatDate(claim.DateModification)} />
-                    <InfoRow icon={UserIcon}      label="Technicien"       value={claim.NomTechnicien || 'Non assigné'} />
-                    <InfoRow icon={BuildingOfficeIcon} label="Client"      value={claim.LibTiers || claim.CodTiers} />
-                  </div>
-                </div>
+                )}
               </motion.div>
             )}
 
@@ -349,7 +354,7 @@ const ClaimDetail = () => {
                     </div>
                     {(isAdmin || isTechnicien) && !isClosed && (
                       <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
+                        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-[#0062AF] text-white hover:bg-[#004a85] transition-all shadow-sm">
                         <PlusIcon className="h-3.5 w-3.5" /> Planifier
                       </button>
                     )}
@@ -364,7 +369,7 @@ const ClaimDetail = () => {
                       <p className="text-xs text-slate-400">Les interventions apparaîtront ici une fois planifiées.</p>
                       {(isAdmin || isTechnicien) && !isClosed && (
                         <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                          className="mt-1 inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
+                          className="mt-1 inline-flex items-center gap-1.5 h-8 px-4 rounded-xl bg-[#0062AF] text-white hover:bg-[#004a85] transition-all shadow-sm">
                           <PlusIcon className="h-3.5 w-3.5" /> Ajouter une intervention
                         </button>
                       )}
@@ -434,57 +439,24 @@ const ClaimDetail = () => {
         {/* ── Sidebar ── */}
         <div className="space-y-3 lg:sticky lg:top-6">
 
-          {/* Status card */}
-          <SideCard icon={ShieldCheckIcon} title="Statut du ticket" accent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">Statut actuel</span>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold ${sCfg.badge}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${sCfg.dot}`} />
-                  {claim.Statut || 'Ouvert'}
-                </span>
+          {/* Statut seul — badges déjà dans le hero, KPI a les métriques */}
+          <SideCard icon={ShieldCheckIcon} title="Statut">
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${sCfg.badge}`}>
+                <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${sCfg.dot} animate-pulse`} />
+                <span className="text-sm font-bold">{claim.Statut || 'Ouvert'}</span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest">Progression</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progression</span>
                   <span className="text-xs font-bold text-slate-600">{progress}%</span>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut' }}
                     className={`h-full rounded-full ${sCfg.bar}`} />
                 </div>
-                <p className="text-[10px] text-slate-400">
-                  {interventions.length} intervention{interventions.length !== 1 ? 's' : ''} · {days} jour{days !== 1 ? 's' : ''}
-                </p>
               </div>
-            </div>
-          </SideCard>
-
-          {/* Technicien */}
-          <SideCard icon={UserIcon} title="Technicien assigné">
-            <PersonCard
-              name={claim.NomTechnicien}
-              role="Technicien"
-              online={claim.Statut === 'En cours'}
-            />
-          </SideCard>
-
-          {/* Client */}
-          <SideCard icon={BuildingOfficeIcon} title="Client">
-            <PersonCard
-              name={claim.LibTiers || claim.CodTiers}
-              subtitle={claim.CodTiers}
-              role="Client"
-            />
-          </SideCard>
-
-          {/* Détails */}
-          <SideCard icon={CalendarIcon} title="Détails">
-            <div className="divide-y divide-slate-50">
-              <InfoRow icon={CalendarIcon}            label="Date d'ouverture" value={formatDate(claim.DateOuverture)} />
-              <InfoRow icon={ClockIcon}               label="Délai traitement" value={claim.DelaiTraitement || '—'} />
-              <InfoRow icon={ExclamationTriangleIcon} label="Priorité"         value={claim.Priorite || 'Normale'} />
             </div>
           </SideCard>
 
@@ -494,24 +466,24 @@ const ClaimDetail = () => {
               <div className="space-y-2">
                 {!isClosed && (
                   <button onClick={() => navigate(`/claims/${id}/intervention/new`)}
-                    className="w-full h-9 flex items-center gap-2 px-3 rounded-xl bg-[#0062AF] text-white hover:bg-[#004a8500 transition-all shadow-sm">
+                    className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white text-xs font-semibold transition-all shadow-sm shadow-[#0062AF]/20">
                     <WrenchScrewdriverIcon className="h-3.5 w-3.5" /> Nouvelle intervention
                   </button>
                 )}
                 {!isClosed && (
                   <button onClick={() => handleStatusUpdate('En cours')}
-                    className="w-full h-9 flex items-center gap-2 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-all">
+                    className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-all">
                     <ArrowPathIcon className="h-3.5 w-3.5" /> Mettre En cours
                   </button>
                 )}
                 {!isClosed && (
                   <button onClick={() => handleStatusUpdate('Résolu')}
-                    className="w-full h-9 flex items-center gap-2 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all">
+                    className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all">
                     <CheckCircleIcon className="h-3.5 w-3.5" /> Marquer Résolu
                   </button>
                 )}
                 <button onClick={() => navigate('/claims')}
-                  className="w-full h-9 flex items-center gap-2 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                  className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">
                   <ArrowLeftIcon className="h-3.5 w-3.5" /> Retour à la liste
                 </button>
               </div>

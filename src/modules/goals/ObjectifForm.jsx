@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { 
-    ArrowLeftIcon, 
-    CheckIcon, 
-    UserIcon, 
-    CalendarIcon, 
-    FlagIcon, 
-    ChartBarIcon, 
-    ArrowTrendingUpIcon, 
-    SparklesIcon,
+import {
+    ArrowLeftIcon,
+    CheckIcon,
+    UserIcon,
+    CalendarIcon,
+    FlagIcon,
+    ChartBarIcon,
+    TrophyIcon,
+    ExclamationTriangleIcon,
     IdentificationIcon,
     InformationCircleIcon
 } from '@heroicons/react/24/outline';
@@ -308,306 +308,282 @@ const ObjectifForm = () => {
 
     if (loading) return <LoadingSpinner />;
 
+    const selectedUser      = users.find(u => String(u.UserID) === String(formData.ID_Utilisateur));
+    const selectedIndicator = INDICATOR_TYPES.find(t => t.label === formData.TypeObjectif);
+    const INP = 'w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 focus:outline-none transition-all';
+
     return (
-        <div className="min-h-screen bg-slate-50/50 pb-20">
-            {/* Header Moderne */}
-            <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl">
-                <div className="mx-auto max-w-5xl flex h-16 items-center justify-between px-4 md:px-6">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="inline-flex items-center justify-center h-9 w-9 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all"
-                        >
-                            <ArrowLeftIcon className="h-5 w-5" />
-                        </button>
-                        <div className="hidden md:flex items-center gap-2 text-sm">
-                            <span className="text-slate-500 hover:text-slate-800 cursor-pointer" onClick={() => navigate('/objectifs')}>Objectifs</span>
-                            <span className="text-slate-300">/</span>
-                            <span className="font-semibold text-slate-800">{isEditMode ? 'Modifier' : 'Nouveau'}</span>
-                        </div>
-                    </div>
+        <div className="max-w-[1200px] mx-auto pb-16 space-y-5">
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => navigate(-1)}
-                            className="h-9 px-4 text-sm font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
-                        >
-                            Annuler
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={saving || !!conflictError}
-                            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={conflictError ? 'Résolvez le conflit d\'objectif pour continuer' : ''}
-                        >
-                            {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
-                            <span>{isEditMode ? 'Sauvegarder' : 'Créer'}</span>
-                        </button>
-                    </div>
+            {/* ── Top bar ── */}
+            <div className="flex items-center justify-between">
+                <button onClick={() => navigate(-1)}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#0062AF] transition-colors group">
+                    <span className="h-8 w-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center group-hover:border-[#0062AF]/30 transition-all">
+                        <ArrowLeftIcon className="h-4 w-4" />
+                    </span>
+                    <span className="hidden sm:inline">Retour aux objectifs</span>
+                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => navigate(-1)}
+                        className="h-9 px-4 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">
+                        Annuler
+                    </button>
+                    <button onClick={handleSubmit} disabled={saving || !!conflictError}
+                        className="inline-flex items-center gap-1.5 h-9 px-5 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-bold rounded-lg shadow-sm shadow-[#0062AF]/20 disabled:opacity-60 transition-all"
+                        title={conflictError ? 'Résolvez le conflit pour continuer' : ''}>
+                        {saving
+                            ? <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <CheckIcon className="h-4 w-4" />}
+                        {isEditMode ? 'Enregistrer' : "Créer l'objectif"}
+                    </button>
                 </div>
-            </header>
+            </div>
 
-            <main className="mx-auto max-w-4xl px-4 md:px-6 py-8 md:py-12">
-                <div className="mb-10">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold border border-blue-100">
-                            <SparklesIcon className="h-3 w-3" />
-                            {isEditMode ? 'Modification Objectif' : 'Nouvelle Performance'}
-                        </span>
-                    </div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">
-                        {isEditMode ? 'Modifier l\'Objectif' : 'Définir un Nouvel Objectif'}
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                        Configurez les cibles de performance pour booster l'activité commerciale
-                    </p>
-                </div>
+            <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-                {/* Message d'alerte - Conflit d'Objectif */}
-                {conflictError && (
-                    <div className="rounded-2xl border-l-4 border-l-amber-500 bg-amber-50 border border-amber-200 p-4 md:p-5 flex gap-4">
-                        <div className="flex-shrink-0 pt-0.5">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-                                <InformationCircleIcon className="h-5 w-5 text-amber-600" />
-                            </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-amber-900 mb-1">Indicateur déjà utilisé pour cette période</h3>
-                            <p className="text-sm text-amber-800 leading-relaxed">
-                                {conflictError}
-                            </p>
-                        </div>
-                    </div>
-                )}
+                    {/* ══ Colonne principale 8/12 ══ */}
+                    <div className="lg:col-span-8 space-y-5">
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Section 1: Type & Commercial */}
-                    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
-                        <div className="p-6 md:p-8">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="p-2 rounded-xl bg-blue-50 border border-blue-100">
-                                    <IdentificationIcon className="h-5 w-5 text-blue-600" />
+                        {/* ── Section 1 : Assignation ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                    <IdentificationIcon className="h-4 w-4 text-[#0062AF]" />
                                 </div>
+                                <span className="text-sm font-bold text-slate-800">Assignation</span>
+                            </div>
+                            <div className="px-6 py-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-slate-800">Configuration de base</h2>
-                                    <p className="text-sm text-slate-500">Type de période et assignation</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3">
-                                    <label className="block text-sm font-semibold text-slate-700">Type d'Objectif</label>
-                                    <div className="flex p-1 bg-slate-100 rounded-xl">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData(p => ({ ...p, TypePeriode: 'Mensuel' }))}
-                                            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${formData.TypePeriode === 'Mensuel' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                        >
-                                            Mensuel
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData(p => ({ ...p, TypePeriode: 'Hebdomadaire' }))}
-                                            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${formData.TypePeriode === 'Hebdomadaire' ? 'bg-green-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                        >
-                                            Hebdomadaire
-                                        </button>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                        Type de période <span className="text-rose-400">*</span>
+                                    </p>
+                                    <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+                                        {['Mensuel', 'Hebdomadaire'].map(t => (
+                                            <button key={t} type="button"
+                                                onClick={() => setFormData(p => ({ ...p, TypePeriode: t }))}
+                                                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${formData.TypePeriode === t ? 'bg-[#0062AF] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                {t}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-semibold text-slate-700">Assigné au Commercial</label>
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                        Commercial <span className="text-rose-400">*</span>
+                                    </p>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <UserIcon className="h-4 w-4 text-slate-400" />
                                         </div>
-                                        <select
-                                            name="ID_Utilisateur"
-                                            value={formData.ID_Utilisateur}
-                                            onChange={handleChange}
-                                            className="w-full h-11 pl-10 pr-10 text-sm rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                                            required
-                                        >
-                                            <option value="">--- Choisir un commercial ---</option>
-                                                                                        {users.map(u => (
-                                                                                            <option key={u.UserID || u.userId} value={u.UserID || u.userId}>
-                                                                                                {u.FullName || u.fullName || u.LoginName || u.login || u.label}
-                                                                                            </option>
-                                                                                        ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Section 2: Période */}
-                    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
-                        <div className="p-6 md:p-8">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100">
-                                    <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-slate-800">Calendrier</h2>
-                                    <p className="text-sm text-slate-500">Définition de la période cible</p>
-                                </div>
-                            </div>
-
-                            {formData.TypePeriode === 'Mensuel' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Mois</label>
-                                        <select name="Mois" value={formData.Mois} onChange={handleChange} className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all" required>
-                                            {Array.from({ length: 12 }, (_, i) => (
-                                                <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('fr', { month: 'long' })}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Année</label>
-                                        <input type="number" name="Annee" value={formData.Annee} onChange={handleChange} className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all" required />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Semaine</label>
-                                        <select
-                                            name="Numsem"
-                                            value={formData.Numsem}
-                                            onChange={handleChange}
-                                            className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
-                                            required
-                                        >
-                                            {Array.from({ length: 53 }, (_, i) => i + 1).map((week) => (
-                                                <option key={week} value={week}>
-                                                    Semaine {String(week).padStart(2, '0')}
+                                        <select name="ID_Utilisateur" value={formData.ID_Utilisateur} onChange={handleChange} required
+                                            className={`${INP} pl-9 appearance-none cursor-pointer`}>
+                                            <option value="">— Choisir —</option>
+                                            {users.map(u => (
+                                                <option key={u.UserID || u.userId} value={u.UserID || u.userId}>
+                                                    {u.FullName || u.fullName || u.LoginName || u.login || u.label}
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Année</label>
-                                        <input
-                                            type="number"
-                                            name="Annee"
-                                            value={formData.Annee}
-                                            onChange={handleChange}
-                                            className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Date de début</label>
-                                        <input
-                                            type="date"
-                                            name="DateDebut"
-                                            value={formData.DateDebut ? new Date(formData.DateDebut).toISOString().split('T')[0] : getISOWeekRange(formData.Numsem, formData.Annee).startDate}
-                                            readOnly
-                                            className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-600"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="block text-sm font-semibold text-slate-700">Date de fin</label>
-                                        <input
-                                            type="date"
-                                            name="DateFin"
-                                            value={formData.DateFin ? new Date(formData.DateFin).toISOString().split('T')[0] : getISOWeekRange(formData.Numsem, formData.Annee).endDate}
-                                            readOnly
-                                            className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-600"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Section 3: Cibles */}
-                    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
-                        <div className="p-6 md:p-8">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="p-2 rounded-xl bg-amber-50 border border-amber-100">
-                                    <FlagIcon className="h-5 w-5 text-amber-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-slate-800">Indicateurs de Performance</h2>
-                                    <p className="text-sm text-slate-500">Objectifs financiers et opérationnels</p>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-semibold text-slate-700">Type d'Indicateur</label>
-                                    <select
-                                        name="TypeObjectif"
-                                        value={formData.TypeObjectif}
-                                        onChange={(e) => {
-                                            const selected = INDICATOR_TYPES.find(t => t.label === e.target.value);
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                TypeObjectif: e.target.value,
-                                                nf: selected ? selected.nf : null
-                                            }));
-                                        }}
-                                        className="w-full h-11 px-4 text-sm rounded-xl border border-slate-200 bg-white focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all"
-                                        required
-                                    >
-                                        <option value="">--- Sélectionner un indicateur ---</option>
-                                        {INDICATOR_TYPES.map(t => (
-                                            <option key={t.label} value={t.label}>{t.label}</option>
-                                        ))}
-                                    </select>
-                                    {formData.TypeObjectif && (
-                                        <p className="text-xs text-slate-400 mt-1">
-                                            {INDICATOR_TYPES.find(t => t.label === formData.TypeObjectif)?.desc || ''}
-                                            {formData.nf !== null && formData.nf !== undefined
-                                                ? ` · Calcul : comptage (nf=${formData.nf})`
-                                                : ' · Calcul : montant financier (TabReg)'}
-                                        </p>
-                                    )}
+                        {/* ── Section 2 : Calendrier ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                                    <CalendarIcon className="h-4 w-4 text-emerald-600" />
                                 </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        {formData.nf !== null && formData.nf !== undefined
-                                            ? 'Valeur Cible (nombre)'
-                                            : 'Valeur Cible (TND)'}
-                                    </label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <ChartBarIcon className="h-4 w-4 text-slate-400" />
+                                <span className="text-sm font-bold text-slate-800">Calendrier</span>
+                                <span className="text-xs text-slate-400 ml-1">
+                                    — {formData.TypePeriode === 'Mensuel' ? 'Objectif mensuel' : 'Objectif hebdomadaire'}
+                                </span>
+                            </div>
+                            <div className="px-6 py-6">
+                                {formData.TypePeriode === 'Mensuel' ? (
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Mois <span className="text-rose-400">*</span></p>
+                                            <select name="Mois" value={formData.Mois} onChange={handleChange} required className={INP}>
+                                                {Array.from({ length: 12 }, (_, i) => (
+                                                    <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('fr', { month: 'long' })}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                        <input
-                                            type="number"
-                                            step={formData.nf !== null && formData.nf !== undefined ? '1' : '0.01'}
-                                            min="0"
-                                            name="MontantCible"
-                                            value={formData.MontantCible}
-                                            onChange={handleChange}
-                                            placeholder={formData.nf !== null && formData.nf !== undefined ? '0' : '0.00'}
-                                            className="w-full h-11 pl-10 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-mono"
-                                            required
-                                        />
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Année <span className="text-rose-400">*</span></p>
+                                            <input type="number" name="Annee" value={formData.Annee} onChange={handleChange} required className={INP} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Semaine <span className="text-rose-400">*</span></p>
+                                            <select name="Numsem" value={formData.Numsem} onChange={handleChange} required className={INP}>
+                                                {Array.from({ length: 53 }, (_, i) => i + 1).map(w => (
+                                                    <option key={w} value={w}>Semaine {String(w).padStart(2, '0')}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Année <span className="text-rose-400">*</span></p>
+                                            <input type="number" name="Annee" value={formData.Annee} onChange={handleChange} required className={INP} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Date de début</p>
+                                            <input type="date" readOnly
+                                                value={formData.DateDebut ? new Date(formData.DateDebut).toISOString().split('T')[0] : getISOWeekRange(formData.Numsem, formData.Annee).startDate}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-default" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Date de fin</p>
+                                            <input type="date" readOnly
+                                                value={formData.DateFin ? new Date(formData.DateFin).toISOString().split('T')[0] : getISOWeekRange(formData.Numsem, formData.Annee).endDate}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-default" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Section 3 : Indicateurs ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                    <FlagIcon className="h-4 w-4 text-amber-500" />
+                                </div>
+                                <span className="text-sm font-bold text-slate-800">Indicateur de performance</span>
+                            </div>
+                            <div className="px-6 py-6 space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                            Type d'indicateur <span className="text-rose-400">*</span>
+                                        </p>
+                                        <select name="TypeObjectif" value={formData.TypeObjectif} required
+                                            onChange={(e) => {
+                                                const selected = INDICATOR_TYPES.find(t => t.label === e.target.value);
+                                                setFormData(prev => ({ ...prev, TypeObjectif: e.target.value, nf: selected ? selected.nf : null }));
+                                            }}
+                                            className={INP}>
+                                            <option value="">— Sélectionner —</option>
+                                            {INDICATOR_TYPES.map(t => (
+                                                <option key={t.label} value={t.label}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                        {selectedIndicator && (
+                                            <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">{selectedIndicator.desc}</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                            Valeur cible {formData.nf !== null && formData.nf !== undefined ? '(nombre)' : '(TND)'} <span className="text-rose-400">*</span>
+                                        </p>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <ChartBarIcon className="h-4 w-4 text-slate-400" />
+                                            </div>
+                                            <input type="number" name="MontantCible" value={formData.MontantCible} onChange={handleChange} required
+                                                step={formData.nf !== null && formData.nf !== undefined ? '1' : '0.01'} min="0"
+                                                placeholder={formData.nf !== null && formData.nf !== undefined ? '0' : '0.00'}
+                                                className={`${INP} pl-9 font-mono`} />
+                                        </div>
                                     </div>
                                 </div>
-
-
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-semibold text-slate-700">Notes / Libellé</label>
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Notes / libellé</p>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <InformationCircleIcon className="h-4 w-4 text-slate-400" />
                                         </div>
-                                        <input type="text" name="Libelle_Indicateur" value={formData.Libelle_Indicateur} onChange={handleChange} placeholder="Précisions sur l'objectif..." className="w-full h-11 pl-10 px-4 text-sm rounded-xl border border-slate-200 focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all" />
+                                        <input type="text" name="Libelle_Indicateur" value={formData.Libelle_Indicateur} onChange={handleChange}
+                                            placeholder="Précisions optionnelles sur cet objectif…"
+                                            className={`${INP} pl-9`} />
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
-                </form>
-            </main>
+
+                    {/* ══ Sidebar 4/12 ══ */}
+                    <div className="lg:col-span-4 space-y-4">
+
+                        {/* Conflit */}
+                        {conflictError && (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
+                                <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs font-bold text-amber-800 mb-0.5">Conflit détecté</p>
+                                    <p className="text-xs text-amber-700 leading-relaxed">{conflictError}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Récapitulatif */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-6">
+                            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <TrophyIcon className="h-4 w-4 text-[#0062AF]" />
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Récapitulatif</span>
+                            </div>
+                            <div className="p-5 space-y-4">
+                                <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Cible</p>
+                                    <p className="text-3xl font-black text-[#0062AF]">
+                                        {formData.MontantCible || '—'}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        {formData.nf !== null && formData.nf !== undefined
+                                            ? (selectedIndicator?.unit || 'unités')
+                                            : 'TND'}
+                                    </p>
+                                </div>
+                                <div className="space-y-3 divide-y divide-slate-100">
+                                    <div className="flex items-start justify-between gap-2 pt-0">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pt-0.5 flex-shrink-0">Commercial</span>
+                                        <span className="text-xs font-semibold text-slate-700 text-right">
+                                            {selectedUser?.FullName || selectedUser?.LoginName || <span className="text-slate-300">—</span>}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start justify-between gap-2 pt-3">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pt-0.5 flex-shrink-0">Période</span>
+                                        <span className="text-xs font-semibold text-slate-700 text-right">
+                                            {formData.TypePeriode === 'Mensuel'
+                                                ? `${new Date(0, Number(formData.Mois) - 1).toLocaleString('fr', { month: 'long' })} ${formData.Annee}`
+                                                : `Sem. ${String(formData.Numsem).padStart(2, '0')} · ${formData.Annee}`}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start justify-between gap-2 pt-3">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pt-0.5 flex-shrink-0">Indicateur</span>
+                                        <span className="text-xs font-semibold text-slate-700 text-right">
+                                            {formData.TypeObjectif || <span className="text-slate-300">—</span>}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 pt-3">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex-shrink-0">Type</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${formData.TypePeriode === 'Mensuel' ? 'bg-blue-50 text-[#0062AF] border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                            {formData.TypePeriode}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-5 pb-5">
+                                <button onClick={handleSubmit} disabled={saving || !!conflictError}
+                                    className="w-full inline-flex items-center justify-center gap-2 h-10 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-bold rounded-xl shadow-sm shadow-[#0062AF]/20 disabled:opacity-60 transition-all">
+                                    {saving
+                                        ? <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        : <CheckIcon className="h-4 w-4" />}
+                                    {isEditMode ? 'Enregistrer' : "Créer l'objectif"}
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </form>
         </div>
     );
 };
