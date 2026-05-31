@@ -622,102 +622,138 @@ const CalendarView = () => {
                 </div>
 
                 {/* Right Side - Details Pane */}
-                <div className="xl:col-span-1 space-y-8">
+                <div className="xl:col-span-1">
                     {selectedEvent ? (
-                        <div className="bg-white rounded-[40px] shadow-2xl shadow-primary-100/50 p-8 border border-white sticky top-8 animate-in slide-in-from-right-4 duration-500">
-                            <div className="flex items-center justify-between mb-8">
-                                <span className={`px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-primary-50 text-primary-600`}>
-                                    {selectedEvent.type}
-                                </span>
-                                <button onClick={() => setSelectedEvent(null)} className="text-slate-300 hover:text-red-500 transition-colors"><AdjustmentsHorizontalIcon className="h-6 w-6" /></button>
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-6">
+
+                            {/* Accent top coloré selon le type */}
+                            <div className={`h-1 w-full ${
+                                selectedEvent.type === 'Appel'   ? 'bg-blue-500'   :
+                                selectedEvent.type === 'Email'   ? 'bg-amber-500'  :
+                                selectedEvent.type === 'Visite'  ? 'bg-purple-500' :
+                                selectedEvent.type === 'Réunion' ? 'bg-indigo-500' :
+                                selectedEvent.type === 'Note'    ? 'bg-emerald-500': 'bg-slate-400'
+                            }`} />
+
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                                        selectedEvent.type === 'Appel'   ? 'bg-blue-50 text-blue-600 border-blue-200'    :
+                                        selectedEvent.type === 'Email'   ? 'bg-amber-50 text-amber-600 border-amber-200'  :
+                                        selectedEvent.type === 'Visite'  ? 'bg-purple-50 text-purple-600 border-purple-200':
+                                        selectedEvent.type === 'Réunion' ? 'bg-indigo-50 text-indigo-600 border-indigo-200':
+                                        selectedEvent.type === 'Note'    ? 'bg-emerald-50 text-emerald-600 border-emerald-200':'bg-slate-100 text-slate-500 border-slate-200'
+                                    }`}>
+                                        {selectedEvent.type}
+                                    </span>
+                                    {selectedEvent.isMeetingInvite && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">Invité</span>
+                                    )}
+                                    {selectedEvent.status === 'Reporté' && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 line-through">Reporté</span>
+                                    )}
+                                </div>
+                                <button onClick={() => setSelectedEvent(null)}
+                                    className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-500 text-slate-400 flex items-center justify-center transition-colors text-lg leading-none">
+                                    ×
+                                </button>
                             </div>
 
-                            <div className="flex items-center gap-2 mb-2">
-                                <h2 className="text-2xl font-black text-blue-900 leading-tight">{selectedEvent.title}</h2>
-                                {selectedEvent.isMeetingInvite && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-100 text-violet-700 shrink-0">INVITÉ</span>
+                            {/* Title + desc */}
+                            <div className="px-5 pt-4 pb-3">
+                                <h2 className="text-lg font-bold text-slate-900 leading-tight">{selectedEvent.title}</h2>
+                                {selectedEvent.desc && (
+                                    <p className="text-xs text-slate-400 mt-1 italic line-clamp-2">"{selectedEvent.desc}"</p>
                                 )}
                             </div>
-                            {selectedEvent.desc && (
-                                <p className="text-xs font-bold text-slate-400 mb-6 italic">"{selectedEvent.desc}"</p>
-                            )}
 
-                            <div className="space-y-4 mb-8">
-                                {/* Meeting: organizer or participants info from description */}
+                            {/* Info rows */}
+                            <div className="px-4 pb-4 space-y-2">
+
+                                {/* Meeting organizer */}
                                 {selectedEvent.type === 'Réunion' && selectedEvent.isMeetingInvite && (
-                                    <div className="p-4 bg-violet-50 rounded-2xl border border-violet-100 flex items-start gap-3">
-                                        <div className="h-10 w-10 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600 shadow-sm shrink-0">
-                                            <UserIcon className="h-5 w-5" />
+                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-violet-50 border border-violet-100 rounded-xl">
+                                        <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                            <UserIcon className="h-3.5 w-3.5 text-violet-600"/>
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-0.5">ORGANISÉ PAR</p>
-                                            <p className="text-sm font-black text-violet-900">
-                                                {String(selectedEvent.desc || '').replace('Réunion avec ', '').split(' — ')[0]}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                                {selectedEvent.type === 'Réunion' && !selectedEvent.isMeetingInvite && selectedEvent.desc?.includes('Participants :') && (
-                                    <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-start gap-3">
-                                        <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
-                                            <UserIcon className="h-5 w-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">PARTICIPANTS</p>
-                                            <p className="text-sm font-black text-indigo-900 whitespace-pre-line">
-                                                {String(selectedEvent.desc || '').split('Participants :')[1]?.trim() || '—'}
+                                            <p className="text-[9px] font-bold text-violet-400 uppercase tracking-widest">Organisé par</p>
+                                            <p className="text-sm font-semibold text-violet-800 truncate">
+                                                {String(selectedEvent.desc||'').replace('Réunion avec ','').split(' — ')[0]}
                                             </p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
-                                    <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
-                                        <CalendarIcon className="h-5 w-5" />
+                                {/* Participants */}
+                                {selectedEvent.type === 'Réunion' && !selectedEvent.isMeetingInvite && selectedEvent.desc?.includes('Participants :') && (
+                                    <div className="flex items-start gap-3 px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                        <div className="h-7 w-7 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <UserIcon className="h-3.5 w-3.5 text-indigo-600"/>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Participants</p>
+                                            <p className="text-sm font-semibold text-indigo-800">
+                                                {String(selectedEvent.desc||'').split('Participants :')[1]?.trim()||'—'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">DATE & HEURE</p>
-                                        <p className="text-sm font-black text-blue-900">{selectedEvent.date} à {selectedEvent.time}</p>
+                                )}
+
+                                {/* Date & Heure */}
+                                <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                                    <div className="h-7 w-7 rounded-lg bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                        <CalendarIcon className="h-3.5 w-3.5 text-[#0062AF]"/>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Date & Heure</p>
+                                        <p className="text-sm font-semibold text-slate-800">{selectedEvent.date} à {selectedEvent.time}</p>
                                     </div>
                                 </div>
 
+                                {/* Client */}
                                 {selectedEvent.company && (
-                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
-                                        <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
-                                            <BuildingOfficeIcon className="h-5 w-5" />
+                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                                        <div className="h-7 w-7 rounded-lg bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                            <BuildingOfficeIcon className="h-3.5 w-3.5 text-[#0062AF]"/>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">CLIENT</p>
-                                            <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.company}</p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Client</p>
+                                            <p className="text-sm font-semibold text-slate-800 truncate">{selectedEvent.company}</p>
                                         </div>
                                     </div>
                                 )}
 
+                                {/* Projet */}
                                 {selectedEvent.project && (
-                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3 group">
-                                        <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-primary-600 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform shrink-0">
-                                            <BriefcaseIcon className="h-5 w-5" />
+                                    <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                                        <div className="h-7 w-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                                            <BriefcaseIcon className="h-3.5 w-3.5 text-violet-600"/>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-0.5">PROJET</p>
-                                            <p className="text-sm font-black text-blue-900 truncate">{selectedEvent.project}</p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Projet</p>
+                                            <p className="text-sm font-semibold text-slate-800 truncate">{selectedEvent.project}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 mt-8">
-                                {selectedEvent.status !== 'Reporté' && (
-                                    <button 
-                                        onClick={() => handlePostpone(selectedEvent)}
-                                        className="col-span-1 py-4 bg-white text-orange-600 border border-orange-200 rounded-2xl font-bold text-xs shadow-sm hover:bg-orange-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                        <ArrowPathIcon className="h-4 w-4" /> REPORTER
+                            {/* Actions */}
+                            <div className="px-4 pb-4 space-y-2 border-t border-slate-100 pt-4">
+                                <div className="grid grid-cols-2 gap-2">
+                                    {selectedEvent.status !== 'Reporté' && (
+                                        <button onClick={() => handlePostpone(selectedEvent)}
+                                            className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors">
+                                            <ArrowPathIcon className="h-4 w-4"/> Reporter
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => navigate(`/activites/${selectedEvent.id}`, { state: { from: 'calendar' } })}
+                                        className={`flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl transition-colors ${selectedEvent.status === 'Reporté' ? 'col-span-2' : ''}`}>
+                                        <EyeIcon className="h-4 w-4"/> Détails
                                     </button>
-                                )}
-                                <button onClick={() => navigate(`/activites/${selectedEvent.id}`, { state: { from: 'calendar' } })} className={`${selectedEvent.status !== 'Reporté' ? 'col-span-1' : 'col-span-2'} py-4 bg-blue-900 text-white rounded-2xl font-bold text-xs shadow-xl shadow-blue-200 hover:bg-blue-800 transition-all active:scale-95 flex items-center justify-center gap-2`}>
-                                    <EyeIcon className="h-4 w-4" /> DÉTAILS
-                                </button>
+                                </div>
                                 {selectedEvent.valide !== 1 && (
                                     <button
                                         disabled={validating}
@@ -734,20 +770,20 @@ const CalendarView = () => {
                                                 setValidating(false);
                                             }
                                         }}
-                                        className="col-span-2 py-4 bg-emerald-600 text-white rounded-2xl font-bold text-xs shadow-xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
-                                    >
-                                        <CheckCircleIcon className="h-4 w-4" /> {validating ? 'VALIDATION...' : 'VALIDER'}
+                                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-colors disabled:opacity-60">
+                                        <CheckCircleIcon className="h-4 w-4"/>
+                                        {validating ? 'Validation…' : 'Valider'}
                                     </button>
                                 )}
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full bg-white rounded-[40px] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-center p-12 ">
-                            <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                                <BellIcon className="h-10 w-10 text-slate-300" />
+                        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center p-10 sticky top-6 min-h-[280px]">
+                            <div className="h-14 w-14 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
+                                <BellIcon className="h-7 w-7 text-slate-200" />
                             </div>
-                            <h3 className="text-md font-black text-slate-400 uppercase">Aperçu rapide</h3>
-                            <p className="text-xs text-slate-300 mt-2 font-medium">Sélectionnez une activité pour voir les détails ici.</p>
+                            <p className="text-sm font-semibold text-slate-300">Sélectionnez une activité</p>
+                            <p className="text-xs text-slate-200 mt-1">Les détails s'afficheront ici</p>
                         </div>
                     )}
 

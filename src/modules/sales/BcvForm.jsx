@@ -869,20 +869,20 @@ const BcvForm = () => {
 
     const articlesTableJsx = (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-teal-50/30 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50">
-                        <DocumentTextIcon className="h-5 w-5 text-white" />
+                    <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <DocumentTextIcon className="h-4 w-4 text-blue-500" />
                     </div>
                     <div>
-                        <h2 className="text-sm font-bold text-slate-800">Articles du bon de commande</h2>
-                        <p className="text-[11px] text-slate-500">{items.length} article{items.length > 1 ? 's' : ''}</p>
+                        <h2 className="text-sm font-semibold text-slate-700">Articles</h2>
                     </div>
                 </div>
                 <button type="button" onClick={addItem}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition-all">
-                    <PlusIcon className="h-4 w-4" /> Ajouter un article
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 hover:border-blue-200 rounded-lg transition-all">
+                    <PlusIcon className="h-3.5 w-3.5" /> Ajouter un article
                 </button>
             </div>
 
@@ -890,24 +890,30 @@ const BcvForm = () => {
             <div className="divide-y divide-slate-100">
                 {items.length === 0 && (
                     <div className="py-16 text-center">
-                        <DocumentTextIcon className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm text-slate-400">Aucun article. Cliquez sur Ajouter.</p>
+                        <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                            <DocumentTextIcon className="h-7 w-7 text-slate-300" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-500 mb-1">Aucun article ajouté</p>
+                        <p className="text-xs text-slate-400">Cliquez sur "Ajouter un article" pour commencer</p>
                     </div>
                 )}
                 {items.map((item, index) => (
-                    <div key={item.tempId} className="px-5 py-4 hover:bg-slate-50/50 transition-colors">
+                    <div key={item.tempId} className="px-5 py-4 hover:bg-slate-50 transition-colors group">
 
                         {/* Row header: numéro + bouton supprimer */}
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Article {index + 1}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="h-5 w-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0 border border-slate-200">{index + 1}</span>
+                                <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Article</span>
+                            </div>
                             <div className="flex items-center gap-1">
                                 <button type="button" onClick={() => toggleItemExpanded(item.tempId)}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors ${expandedItems[item.tempId] ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-100'}`}>
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${expandedItems[item.tempId] ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}>
                                     <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expandedItems[item.tempId] ? 'rotate-180' : ''}`} />
                                     Options
                                 </button>
                                 <button type="button" onClick={() => removeItem(item.tempId)}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors">
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
                                     <TrashIcon className="h-3.5 w-3.5" />
                                     Supprimer
                                 </button>
@@ -1021,7 +1027,7 @@ const BcvForm = () => {
                                         onFocus={e => e.target.select()}
                                         onChange={(e) => handleItemChange(item.tempId, 'Qt', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                                         onBlur={(e) => handleItemChange(item.tempId, 'Qt', Math.max(1, parseFloat(e.target.value) || 1))}
-                                        className="w-full h-10 text-center border-2 border-slate-200 rounded-xl text-base font-black text-blue-600 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all"
+                                        className="w-full h-10 text-center border-2 border-slate-200 rounded-xl text-base font-black text-blue-700 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all bg-blue-50/40"
                                     />
                                     <button type="button"
                                         onClick={() => handleItemChange(item.tempId, 'Qt', (parseFloat(item.Qt) || 0) + 1)}
@@ -1042,9 +1048,9 @@ const BcvForm = () => {
                             {/* Total HT */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Total HT</label>
-                                <div className="h-10 flex items-center justify-end px-3 bg-slate-50 border-2 border-slate-100 rounded-xl">
-                                    <span className="text-base font-black text-slate-800">{fmt(item.MntHT)}</span>
-                                    <span className="text-[10px] text-slate-400 ml-1">TND</span>
+                                <div className="h-10 flex items-center justify-end px-3 bg-blue-50/40 border-2 border-blue-100 rounded-xl">
+                                    <span className="text-base font-black text-blue-700">{fmt(item.MntHT)}</span>
+                                    <span className="text-[10px] text-blue-400 ml-1">TND</span>
                                 </div>
                             </div>
                         </div>
@@ -1087,20 +1093,20 @@ const BcvForm = () => {
             </div>
 
             {items.length > 0 && (
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <span className="text-xs text-slate-400 font-medium">{items.length} article{items.length > 1 ? 's' : ''}</span>
-                    <div className="flex gap-6">
+                    <div className="flex items-center gap-6">
                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Total HT</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total HT</p>
                             <p className="text-base font-bold text-slate-700">{fmt(formData.TotHT)} <span className="text-[10px] text-slate-400">TND</span></p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">TVA</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TVA</p>
                             <p className="text-base font-bold text-slate-600">{fmt(formData.TotTva)} <span className="text-[10px] text-slate-400">TND</span></p>
                         </div>
-                        <div className="text-right pl-4 border-l border-slate-200">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase">Net TTC</p>
-                            <p className="text-xl font-black text-blue-600">{fmt(formData.TotTTC)} <span className="text-xs text-blue-400">TND</span></p>
+                        <div className="text-right pl-5 ml-1 border-l-2 border-blue-100 py-1">
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Net TTC</p>
+                            <p className="text-2xl font-black text-blue-600 leading-tight">{fmt(formData.TotTTC)} <span className="text-xs font-bold text-blue-400">TND</span></p>
                         </div>
                     </div>
                 </div>
@@ -1109,10 +1115,10 @@ const BcvForm = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/20 pb-16">
+        <div className="min-h-screen bg-slate-50 pb-20">
 
             {/* Sticky Header */}
-            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+            <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
                 <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <button
@@ -1121,8 +1127,8 @@ const BcvForm = () => {
                         >
                             <ArrowLeftIcon className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                         </button>
-                        <div className="h-9 w-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/60 flex-shrink-0">
-                            <DocumentTextIcon className="h-5 w-5 text-white" />
+                        <div className="h-8 w-8 bg-[#0062AF] rounded-xl flex items-center justify-center flex-shrink-0">
+                            <DocumentTextIcon className="h-4 w-4 text-white" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -1147,7 +1153,7 @@ const BcvForm = () => {
                                 )}
                                 {!isEdit && (
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                        Etape {displayStep}/3
+                                        Étape {displayStep}/3
                                     </span>
                                 )}
                             </div>
@@ -1185,7 +1191,7 @@ const BcvForm = () => {
                                 form="Bcv-form"
                                 type="submit"
                                 disabled={saving}
-                                className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all disabled:opacity-60"
+                                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95"
                             >
                                 {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
                                 {isEdit ? 'Sauvegarder' : 'Finaliser'}
@@ -1196,12 +1202,12 @@ const BcvForm = () => {
 
                 {/* Step progress bar — new BCV only */}
                 {!isEdit && (
-                    <div className="max-w-6xl mx-auto px-6 pb-3">
-                        <div className="flex items-center gap-0">
+                    <div className="max-w-6xl mx-auto px-6 pb-3.5">
+                        <div className="flex items-center">
                             {[
-                                { n: 1, label: 'Client', icon: UserGroupIcon, step: 1 },
-                                { n: 2, label: 'Articles', icon: DocumentTextIcon, step: 3 },
-                                { n: 3, label: 'Confirmation', icon: CalculatorIcon, step: 4 },
+                                { n: 1, label: 'Client', step: 1 },
+                                { n: 2, label: 'Articles', step: 3 },
+                                { n: 3, label: 'Confirmation', step: 4 },
                             ].map((s, i, arr) => {
                                 const done = displayStep > s.n;
                                 const active = displayStep === s.n;
@@ -1210,15 +1216,23 @@ const BcvForm = () => {
                                         <button
                                             type="button"
                                             onClick={() => done && setCurrentStep(s.step)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${active ? 'text-blue-700 bg-blue-50' : done ? 'text-emerald-600 cursor-pointer hover:bg-emerald-50' : 'text-slate-400 cursor-default'}`}
+                                            className={`flex items-center gap-2.5 transition-all ${done ? 'cursor-pointer' : 'cursor-default'}`}
                                         >
-                                            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 transition-all ${active ? 'bg-blue-600 border-blue-600 text-white' : done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 text-slate-400'}`}>
-                                                {done ? <CheckIcon className="h-3 w-3" /> : s.n}
+                                            <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all shadow-sm ${
+                                                active ? 'bg-[#0062AF] text-white shadow-blue-500/30' :
+                                                done  ? 'bg-emerald-500 text-white shadow-emerald-500/20' :
+                                                        'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {done ? <CheckIcon className="h-3.5 w-3.5 stroke-[2.5]" /> : s.n}
                                             </div>
-                                            {s.label}
+                                            <span className={`text-xs font-semibold transition-all ${
+                                                active ? 'text-[#0062AF]' :
+                                                done   ? 'text-emerald-600' :
+                                                         'text-slate-400'
+                                            }`}>{s.label}</span>
                                         </button>
                                         {i < arr.length - 1 && (
-                                            <div className={`flex-1 h-0.5 mx-1 rounded-full transition-all ${displayStep > s.n ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                            <div className={`flex-1 h-px mx-4 rounded-full transition-all duration-500 ${displayStep > s.n ? 'bg-emerald-400' : 'bg-slate-200'}`} />
                                         )}
                                     </React.Fragment>
                                 );
@@ -1238,13 +1252,13 @@ const BcvForm = () => {
 
                             {/* Client card */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
-                                        <BuildingOfficeIcon className="h-5 w-5 text-white" />
+                                <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                    <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                        <BuildingOfficeIcon className="h-4 w-4 text-blue-500" />
                                     </div>
                                     <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Client</h2>
-                                        <p className="text-[11px] text-slate-500">Informations du tiers</p>
+                                        <h2 className="text-sm font-semibold text-slate-700">Client</h2>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -1301,13 +1315,12 @@ const BcvForm = () => {
 
                             {/* Remarks */}
                             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-amber-50/60 to-yellow-50/20 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-amber-500 rounded-xl flex items-center justify-center shadow-md shadow-amber-200/50">
-                                        <SparklesIcon className="h-5 w-5 text-white" />
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                    <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                        <SparklesIcon className="h-4 w-4 text-slate-500" />
                                     </div>
                                     <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Remarques</h2>
-                                        <p className="text-[11px] text-slate-500">Notes internes sur ce bon de commande</p>
+                                        <h2 className="text-sm font-semibold text-slate-700">Remarques</h2>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -1317,7 +1330,7 @@ const BcvForm = () => {
                                         onChange={handleChange}
                                         rows={3}
                                         placeholder="Ajouter une remarque ou note..."
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 focus:outline-none transition-all resize-none"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all resize-none"
                                     />
                                 </div>
                             </div>
@@ -1329,13 +1342,12 @@ const BcvForm = () => {
 
                                 {/* Financial summary */}
                                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                    <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/70 to-indigo-50/30 flex items-center gap-3">
-                                        <div className="h-8 w-8 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
-                                            <CalculatorIcon className="h-4 w-4 text-white" />
+                                    <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                                        <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                            <CalculatorIcon className="h-4 w-4 text-blue-500" />
                                         </div>
                                         <div>
-                                            <h2 className="text-sm font-bold text-slate-800">Recapitulatif</h2>
-                                            <p className="text-[11px] text-slate-500">Totaux financiers</p>
+                                            <h2 className="text-sm font-semibold text-slate-700">Récapitulatif</h2>
                                         </div>
                                     </div>
                                     <div className="p-5 space-y-3">
@@ -1363,7 +1375,6 @@ const BcvForm = () => {
                                             <div className="flex justify-between items-center">
                                                 <div>
                                                     <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Net TTC</p>
-                                                    <p className="text-[11px] text-slate-400">Toutes taxes comprises</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="text-2xl font-black text-blue-600">{fmt(formData.TotTTC)}</span>
@@ -1374,7 +1385,7 @@ const BcvForm = () => {
                                     </div>
                                     <div className="px-5 pb-5">
                                         <button type="submit" form="Bcv-form" disabled={saving}
-                                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200/50 transition-all disabled:opacity-60">
+                                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
                                             {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
                                             Sauvegarder les modifications
                                         </button>
@@ -1383,7 +1394,7 @@ const BcvForm = () => {
 
                                 {/* Dates */}
                                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                    <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                                    <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
                                         <TagIcon className="h-4 w-4 text-slate-400" />
                                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dates</h3>
                                     </div>
@@ -1413,7 +1424,7 @@ const BcvForm = () => {
 
                                 {/* Commercial */}
                                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                    <div className="px-5 py-3.5 border-b border-slate-100 bg-gradient-to-r from-violet-50/60 to-purple-50/20 flex items-center gap-2">
+                                    <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
                                         <UserIcon className="h-4 w-4 text-violet-500" />
                                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Commercial</h3>
                                     </div>
@@ -1447,7 +1458,6 @@ const BcvForm = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
-                                                    <p className="text-[10px] text-slate-400">Commercial assigne</p>
                                                 </div>
                                             </div>
                                         )}
@@ -1461,186 +1471,188 @@ const BcvForm = () => {
             ) : (
 
             /* NEW BCV — step-by-step form */
-            <form id="Bcv-form" onSubmit={handleSubmit} className="max-w-5xl mx-auto px-6 pt-6 space-y-6">
+            <form id="Bcv-form" onSubmit={handleSubmit} className="max-w-6xl mx-auto px-6 pt-6 space-y-6">
 
                 {/* STEP 1 — Client */}
                 <AnimatePresence mode="wait">
                     {currentStep === 1 && (
-                        <motion.div key="step1" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
+                        <motion.div key="step1" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }}>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
-                                        <UserGroupIcon className="h-5 w-5 text-white" />
+                                {/* ── Colonne gauche : recherche client (2/3) ── */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                            <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                                <UserGroupIcon className="h-4 w-4 text-blue-500" />
+                                            </div>
+                                            <h2 className="text-sm font-semibold text-slate-700">Client</h2>
+                                        </div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="relative" ref={clientDropdownRef}>
+                                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
+                                                <div className="relative">
+                                                    <UserGroupIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                    <input
+                                                        type="text"
+                                                        value={clientSearch}
+                                                        onChange={(e) => {
+                                                            setClientSearch(e.target.value);
+                                                            setShowClientDropdown(true);
+                                                            if (formData.CodTiers && !clients.some(c => c.Raisoc === e.target.value || c.CodTiers === e.target.value)) {
+                                                                setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
+                                                            }
+                                                        }}
+                                                        onFocus={() => setShowClientDropdown(true)}
+                                                        placeholder={loadingClients ? 'Chargement des clients...' : 'Nom, code ou email du client...'}
+                                                        className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 ${formData.CodTiers ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800 focus:border-emerald-400' : 'border-slate-200 bg-white text-slate-700 focus:border-blue-400'}`}
+                                                        autoComplete="off"
+                                                    />
+                                                    {clientSearch && (
+                                                        <button type="button" onClick={() => { setClientSearch(''); setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); setShowClientDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {showClientDropdown && filteredClients.length > 0 && (
+                                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                                                        {filteredClients.slice(0, 50).map(client => (
+                                                            <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
+                                                                className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}>
+                                                                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                                    <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-semibold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
+                                                                    <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}{client.Ville ? ` · ${client.Ville}` : ''}</p>
+                                                                </div>
+                                                                {formData.CodTiers === client.CodTiers && <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {showClientDropdown && clientSearch && filteredClients.length === 0 && (
+                                                    <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-center">
+                                                        <p className="text-sm text-slate-400">Aucun client trouvé pour « {clientSearch} »</p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {formData.CodTiers && (
+                                                <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                                    <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                                        <BuildingOfficeIcon className="h-5 w-5 text-emerald-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-emerald-800">{formData.LibTiers}</p>
+                                                        <div className="flex flex-wrap gap-2 mt-1.5">
+                                                            {formData.CodTiers && <span className="text-[10px] font-mono bg-white text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>}
+                                                            {formData.Ville && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1"><MapPinIcon className="h-3 w-3" />{formData.Ville}</span>}
+                                                            {formData.Classe && <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">{formData.Classe}</span>}
+                                                            {formData.Tel && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>}
+                                                            {clientCin && <span className="text-[10px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{clientCin}</span>}
+                                                        </div>
+                                                        {formData.Adresse && <p className="text-[11px] text-slate-400 mt-1">{formData.Adresse}</p>}
+                                                    </div>
+                                                    <CheckCircleIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                                                </div>
+                                            )}
+
+                                            {formData.CodTiers && (
+                                                <div>
+                                                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Projet associé</label>
+                                                    <select
+                                                        value={selectedProjectId}
+                                                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
+                                                        disabled={loadingProjects}
+                                                    >
+                                                        <option value="">Sans projet lié</option>
+                                                        {projects.map((project) => (
+                                                            <option key={project.ID_Projet} value={project.ID_Projet}>
+                                                                {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
+                                                                {project.CodBc ? ` | BC ${project.CodBc}` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {loadingProjects && <p className="text-[11px] text-blue-500 mt-1 animate-pulse">Chargement des projets...</p>}
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Raison sociale facturation</label>
+                                                <input
+                                                    type="text"
+                                                    name="LibTiersA"
+                                                    value={formData.LibTiersA || ''}
+                                                    onChange={handleChange}
+                                                    placeholder="Si différente du client principal"
+                                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Selection du client</h2>
-                                        <p className="text-[11px] text-slate-500">Recherchez et selectionnez un client</p>
+
+                                    {/* Navigation */}
+                                    <div className="flex justify-end">
+                                        <button type="button" onClick={() => { if (!formData.CodTiers) { toast.error('Veuillez sélectionner un client'); return; } setCurrentStep(3); }}
+                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                                            Continuer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div className="p-6 space-y-4">
-                                    <div className="relative" ref={clientDropdownRef}>
-                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
-                                        <div className="relative">
-                                            <UserGroupIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                value={clientSearch}
-                                                onChange={(e) => {
-                                                    setClientSearch(e.target.value);
-                                                    setShowClientDropdown(true);
-                                                    if (formData.CodTiers && !clients.some(c => c.Raisoc === e.target.value || c.CodTiers === e.target.value)) {
-                                                        setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' }));
-                                                    }
-                                                }}
-                                                onFocus={() => setShowClientDropdown(true)}
-                                                placeholder={loadingClients ? 'Chargement des clients...' : 'Nom, code ou email du client...'}
-                                                className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 ${formData.CodTiers ? 'border-emerald-300 bg-emerald-50/30 text-emerald-800 focus:border-emerald-400' : 'border-slate-200 bg-white text-slate-700 focus:border-blue-400'}`}
-                                                autoComplete="off"
-                                            />
-                                            {clientSearch && (
-                                                <button type="button" onClick={() => { setClientSearch(''); setFormData(prev => ({ ...prev, CodTiers: '', LibTiers: '' })); setShowClientDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                    <XMarkIcon className="h-4 w-4 text-slate-400 hover:text-slate-600" />
-                                                </button>
+                                {/* ── Colonne droite : commercial (1/3) ── */}
+                                <div className="lg:sticky lg:top-24 space-y-4">
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                                            <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                                <UserIcon className="h-4 w-4 text-indigo-500" />
+                                            </div>
+                                            <h2 className="text-sm font-semibold text-slate-700">Commercial</h2>
+                                        </div>
+                                        <div className="p-5">
+                                            {isAdmin || isAgent ? (
+                                                <div>
+                                                    <div className="relative">
+                                                        <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                        <select
+                                                            name="CodRepres"
+                                                            value={formData.CodRepres || ''}
+                                                            onChange={(e) => {
+                                                                const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value);
+                                                                setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' }));
+                                                            }}
+                                                            className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
+                                                            disabled={loadingCommercials}
+                                                        >
+                                                            <option value="">— Sélectionner —</option>
+                                                            {commercials.map(comm => (
+                                                                <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
+                                                            ))}
+                                                        </select>
+                                                        {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                                                    <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                                                        <UserIcon className="h-4 w-4 text-violet-600" />
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
+                                                </div>
                                             )}
                                         </div>
-
-                                        {showClientDropdown && filteredClients.length > 0 && (
-                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto">
-                                                {filteredClients.slice(0, 50).map(client => (
-                                                    <button key={client.CodTiers} type="button" onClick={() => handleClientSelect(client.CodTiers)}
-                                                        className={`w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${formData.CodTiers === client.CodTiers ? 'bg-blue-50' : ''}`}>
-                                                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                            <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-semibold text-slate-800 truncate">{client.Raisoc || 'Sans nom'}</p>
-                                                            <p className="text-[10px] text-slate-400 font-mono">{client.CodTiers}{client.Ville ? ` · ${client.Ville}` : ''}</p>
-                                                        </div>
-                                                        {formData.CodTiers === client.CodTiers && <CheckCircleIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {showClientDropdown && clientSearch && filteredClients.length === 0 && (
-                                            <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-center">
-                                                <p className="text-sm text-slate-400">Aucun client trouve pour {clientSearch}</p>
-                                            </div>
-                                        )}
                                     </div>
 
-                                    {formData.CodTiers && (
-                                        <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                                            <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                                <BuildingOfficeIcon className="h-5 w-5 text-emerald-600" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-emerald-800">{formData.LibTiers}</p>
-                                                <div className="flex flex-wrap gap-2 mt-1.5">
-                                                    {formData.CodTiers && <span className="text-[10px] font-mono bg-white text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">{formData.CodTiers}</span>}
-                                                    {formData.Ville && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1"><MapPinIcon className="h-3 w-3" />{formData.Ville}</span>}
-                                                    {formData.Classe && <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">{formData.Classe}</span>}
-                                                    {formData.Tel && <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{formData.Tel}</span>}
-                                                    {clientCin && <span className="text-[10px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{clientCin}</span>}
-                                                </div>
-                                                {formData.Adresse && <p className="text-[11px] text-slate-400 mt-1">{formData.Adresse}</p>}
-                                            </div>
-                                            <CheckCircleIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                                        </div>
-                                    )}
-
-                                    {formData.CodTiers && (
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Projet associe <span className="normal-case font-normal text-slate-400">(optionnel)</span></label>
-                                            <select
-                                                value={selectedProjectId}
-                                                onChange={(e) => setSelectedProjectId(e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
-                                                disabled={loadingProjects}
-                                            >
-                                                <option value="">Sans projet lie</option>
-                                                {projects.map((project) => (
-                                                    <option key={project.ID_Projet} value={project.ID_Projet}>
-                                                        {project.Nom_Projet || project.Code_Pro || project.ID_Projet}
-                                                        {project.CodBc ? ` | BC ${project.CodBc}` : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {loadingProjects && <p className="text-[11px] text-blue-500 mt-1 animate-pulse">Chargement des projets...</p>}
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Raison sociale facturation <span className="normal-case font-normal text-slate-400">(optionnel)</span></label>
-                                        <input
-                                            type="text"
-                                            name="LibTiersA"
-                                            value={formData.LibTiersA || ''}
-                                            onChange={handleChange}
-                                            placeholder="Si differente du client principal..."
-                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
-                                        />
+                                    {/* Tip card */}
+                                    <div className="rounded-2xl bg-[#e0f0ff]/60 border border-[#0062AF]/15 p-4">
+                                        <p className="text-[11px] font-bold text-[#0062AF] uppercase tracking-wider mb-1.5">Étape 1 / 3</p>
+                                        <p className="text-xs text-slate-600 leading-relaxed">Sélectionnez le client destinataire de ce bon de commande, puis cliquez sur <strong>Continuer</strong> pour ajouter les articles.</p>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Commercial */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-50/60 to-purple-50/30 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-violet-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-200/50">
-                                        <UserIcon className="h-5 w-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Commercial assigne</h2>
-                                        <p className="text-[11px] text-slate-500">Representant commercial du bon de commande</p>
-                                    </div>
-                                </div>
-                                <div className="p-6">
-                                    {isAdmin || isAgent ? (
-                                        <div>
-                                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Choisir un commercial</label>
-                                            <div className="relative">
-                                                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                <select
-                                                    name="CodRepres"
-                                                    value={formData.CodRepres || ''}
-                                                    onChange={(e) => {
-                                                        const selectedComm = commercials.find(c => String(c.value || c.userId) === e.target.value);
-                                                        setFormData(prev => ({ ...prev, CodRepres: e.target.value, DesRepres: selectedComm ? selectedComm.label || selectedComm.fullName : '' }));
-                                                    }}
-                                                    className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none transition-all"
-                                                    disabled={loadingCommercials}
-                                                >
-                                                    <option value="">-- Selectionner un commercial --</option>
-                                                    {commercials.map(comm => (
-                                                        <option key={comm.value || comm.userId} value={comm.value || comm.userId}>{comm.label || comm.fullName}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            {loadingCommercials && <p className="text-[11px] text-violet-500 mt-1 animate-pulse">Chargement...</p>}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
-                                            <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
-                                                <UserIcon className="h-4 w-4 text-violet-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-700">{formData.DesRepres || '—'}</p>
-                                                <p className="text-[10px] text-slate-400">Commercial assigne</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Navigation */}
-                            <div className="flex justify-end pt-2">
-                                <button type="button" onClick={() => { if (!formData.CodTiers) { toast.error('Veuillez selectionner un client'); return; } setCurrentStep(3); }}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
-                                    Articles
-                                    <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -1649,32 +1661,105 @@ const BcvForm = () => {
                 {/* STEP 2 — Articles */}
                 <AnimatePresence mode="wait">
                     {currentStep === 3 && (
-                        <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-4">
+                        <motion.div key="step3" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }}>
 
-                            {formData.CodTiers && (
-                                <div className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200 shadow-sm">
-                                    <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                        <BuildingOfficeIcon className="h-4 w-4 text-blue-600" />
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+                                {/* ── Left column : articles (2/3) ── */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    {articlesTableJsx}
+
+                                    {/* Nav bottom */}
+                                    <div className="flex justify-between pt-1">
+                                        <button type="button" onClick={() => setCurrentStep(1)}
+                                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all">
+                                            <ArrowLeftIcon className="h-4 w-4" /> Retour
+                                        </button>
+                                        <button type="button" onClick={() => setCurrentStep(4)}
+                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                                            Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                        </button>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-slate-800 truncate">{formData.LibTiers}</p>
-                                        <p className="text-[10px] text-slate-400 font-mono">{formData.CodTiers}{formData.Ville ? ` · ${formData.Ville}` : ''}</p>
-                                    </div>
-                                    <button type="button" onClick={() => setCurrentStep(1)} className="text-[10px] text-blue-600 hover:underline font-semibold">Modifier</button>
                                 </div>
-                            )}
 
-                            {articlesTableJsx}
+                                {/* ── Right sidebar (1/3) ── */}
+                                <div className="lg:sticky lg:top-24 space-y-4">
 
-                            <div className="flex justify-between pt-2">
-                                <button type="button" onClick={() => setCurrentStep(1)}
-                                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
-                                    <ArrowLeftIcon className="h-4 w-4" /> Client
-                                </button>
-                                <button type="button" onClick={() => setCurrentStep(4)}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-200/50 transition-all">
-                                    Confirmer <ArrowLeftIcon className="h-4 w-4 rotate-180" />
-                                </button>
+                                    {/* Client card */}
+                                    {formData.CodTiers && (
+                                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                            <div className="px-5 py-4 flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                                    <BuildingOfficeIcon className="h-5 w-5 text-[#0062AF]" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
+                                                    <p className="text-sm font-bold text-slate-800 truncate">{formData.LibTiers}</p>
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {formData.CodTiers && <span className="text-[9px] font-mono text-[#0062AF] bg-[#e0f0ff] px-1.5 py-0.5 rounded">{formData.CodTiers}</span>}
+                                                        {formData.Ville && <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{formData.Ville}</span>}
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={() => setCurrentStep(1)}
+                                                    className="text-[10px] text-[#0062AF] hover:text-[#004a85] font-semibold flex-shrink-0">
+                                                    Modifier
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Live totals */}
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                            <CalculatorIcon className="h-4 w-4 text-slate-400" />
+                                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Totaux en cours</h3>
+                                        </div>
+                                        <div className="px-5 py-4 space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Articles</span>
+                                                <span className="text-sm font-semibold text-slate-700">{items.length}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Base HT</span>
+                                                <span className="text-sm font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">TVA</span>
+                                                <span className="text-sm font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm text-slate-500">Remise globale</span>
+                                                <div className="w-24">
+                                                    <input
+                                                        type="number" min="0"
+                                                        name="TotRem"
+                                                        value={formData.TotRem || 0}
+                                                        onChange={handleChange}
+                                                        className="w-full text-right px-2 py-1 border border-slate-200 rounded-lg text-sm font-semibold text-rose-600 focus:border-rose-300 focus:outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="pt-3 border-t border-dashed border-[#0062AF]/20">
+                                                <div className="flex justify-between items-end">
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest">Net TTC</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
+                                                        <span className="ml-1 text-xs font-bold text-[#0062AF]/60">TND</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* CTA confirmer */}
+                                    <button type="button" onClick={() => setCurrentStep(4)}
+                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all active:scale-95">
+                                        Confirmer la commande <ArrowLeftIcon className="h-4 w-4 rotate-180" />
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -1683,67 +1768,104 @@ const BcvForm = () => {
                 {/* STEP 3 — Recap & Confirmation */}
                 <AnimatePresence mode="wait">
                     {currentStep === 4 && (
-                        <motion.div key="step4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="max-w-lg mx-auto space-y-4">
+                        <motion.div key="step4" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }} className="space-y-5">
 
-                            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
-                                <div className="px-6 py-5 border-b border-blue-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/40 flex items-center gap-3">
-                                    <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200/50">
-                                        <CalculatorIcon className="h-5 w-5 text-white" />
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+                                {/* Left — client + articles */}
+                                <div className="lg:col-span-2 space-y-4">
+
+                                    {/* Client recap */}
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                        <div className="px-6 py-4 flex items-center gap-4">
+                                            <div className="h-11 w-11 rounded-xl bg-[#e0f0ff] flex items-center justify-center flex-shrink-0">
+                                                <BuildingOfficeIcon className="h-5 w-5 text-[#0062AF]" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
+                                                <p className="text-base font-bold text-slate-900 truncate">{formData.LibTiers || '—'}</p>
+                                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                                    {formData.CodTiers && <span className="text-[10px] font-mono text-[#0062AF] bg-[#e0f0ff] px-2 py-0.5 rounded-md">{formData.CodTiers}</span>}
+                                                    {formData.Ville && <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{formData.Ville}</span>}
+                                                </div>
+                                            </div>
+                                            <button type="button" onClick={() => setCurrentStep(1)} className="text-[11px] text-[#0062AF] hover:text-[#004a85] font-semibold flex-shrink-0">Modifier</button>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Recapitulatif financier</h2>
-                                        <p className="text-[11px] text-slate-500">Verification finale avant enregistrement</p>
+
+                                    {/* Articles recap */}
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Articles ({items.length})</span>
+                                            <button type="button" onClick={() => setCurrentStep(3)} className="text-[11px] text-[#0062AF] hover:text-[#004a85] font-semibold">Modifier</button>
+                                        </div>
+                                        <div className="divide-y divide-slate-50">
+                                            {items.map((item, idx) => (
+                                                <div key={item.tempId} className="px-6 py-3 flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <span className="h-6 w-6 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-800 truncate">{item.LibArt || <span className="text-slate-400 italic">Article sans nom</span>}</p>
+                                                            {item.CodArt && <p className="text-[10px] font-mono text-slate-400">{item.CodArt}</p>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className="text-sm font-bold text-slate-800 tabular-nums">{fmt(item.MntHT)} <span className="text-[10px] font-normal text-slate-400">TND HT</span></p>
+                                                        <p className="text-[10px] text-slate-400">Qté : {item.Qt}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                                    <div>
-                                        <p className="text-xs text-slate-400">Client</p>
-                                        <p className="text-sm font-bold text-slate-800">{formData.LibTiers || '—'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-slate-400">Articles</p>
-                                        <p className="text-sm font-bold text-slate-800">{items.length}</p>
-                                    </div>
-                                </div>
-
-                                <div className="px-6 py-5 space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500">Base HT</span>
-                                        <span className="font-semibold text-slate-700">{fmt(formData.TotHT)} TND</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500">TVA</span>
-                                        <span className="font-semibold text-slate-700">{fmt(formData.TotTva)} TND</span>
-                                    </div>
-                                    {formData.TotRem > 0 && (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-rose-500">Remise globale</span>
-                                            <span className="font-semibold text-rose-600">- {fmt(formData.TotRem)} TND</span>
+                                {/* Right — financial summary + CTA */}
+                                <div>
+                                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-24">
+                                        <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
+                                        <div className="px-5 py-4 border-b border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Récapitulatif financier</p>
                                         </div>
-                                    )}
-                                    <div className="border-t border-dashed border-blue-100 pt-3 flex justify-between items-center">
-                                        <div>
-                                            <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Net TTC</p>
-                                            <p className="text-[11px] text-slate-400">Toutes taxes comprises</p>
+                                        <div className="px-5 py-4 space-y-3">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-500">Base HT</span>
+                                                <span className="font-semibold text-slate-700 tabular-nums">{fmt(formData.TotHT)} TND</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-500">TVA</span>
+                                                <span className="font-semibold text-slate-600 tabular-nums">{fmt(formData.TotTva)} TND</span>
+                                            </div>
+                                            {Number(formData.TotRem) > 0 && (
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-rose-500">Remise</span>
+                                                    <span className="font-semibold text-rose-600 tabular-nums">− {fmt(formData.TotRem)} TND</span>
+                                                </div>
+                                            )}
+                                            <div className="pt-3 mt-1 border-t border-dashed border-blue-100">
+                                                <div className="flex justify-between items-end">
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-[#0062AF] uppercase tracking-widest">Net TTC</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-2xl font-black text-[#0062AF] tabular-nums">{fmt(formData.TotTTC)}</span>
+                                                        <span className="ml-1 text-xs font-bold text-[#0062AF]/60">TND</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-black text-blue-600">{fmt(formData.TotTTC)}</span>
-                                            <span className="ml-1 text-sm font-bold text-blue-400">TND</span>
+                                        <div className="px-5 pb-5 space-y-2.5">
+                                            <button type="submit" disabled={saving}
+                                                className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-semibold text-white bg-[#0062AF] hover:bg-[#004a85] rounded-xl shadow-sm shadow-blue-500/20 transition-all disabled:opacity-50 active:scale-95">
+                                                {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4 stroke-[2.5]" />}
+                                                Créer le bon de commande
+                                            </button>
+                                            <button type="button" onClick={() => setCurrentStep(3)}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:text-[#0062AF] transition-all">
+                                                <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div className="px-6 pb-6 space-y-3">
-                                    <button type="submit" disabled={saving}
-                                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200/50 transition-all disabled:opacity-60">
-                                        {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckIcon className="h-4 w-4" />}
-                                        Creer le bon de commande
-                                    </button>
-                                    <button type="button" onClick={() => setCurrentStep(3)}
-                                        className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:text-blue-600 transition-all">
-                                        <ArrowLeftIcon className="h-4 w-4" /> Modifier les articles
-                                    </button>
                                 </div>
                             </div>
                         </motion.div>

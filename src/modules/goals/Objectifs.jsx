@@ -48,14 +48,14 @@ const getObjectifRealised = (o) => { const d = parseMoney(o?.Montant_Realise_Act
 const getObjectifTarget   = (o) => { const v = parseMoney(o?.MontantCible); return v > 0 ? v : parseMoney(o?.autObj); };
 const getProgress  = (o) => { const t = getObjectifTarget(o); return t > 0 ? Math.min((getObjectifRealised(o)/t)*100, 100) : 0; };
 
-/* Status-based colors — soft pastels */
-const progressColor   = (p) => p >= 100 ? '#34d399' : p >= 50 ? '#fbbf24' : '#cbd5e1';
-const progressBgClass = (p) => p >= 100 ? 'bg-emerald-400' : p >= 50 ? 'bg-amber-400' : 'bg-slate-300';
+/* Status-based colors — rouge → jaune → vert */
+const progressColor   = (p) => p >= 100 ? '#10b981' : p >= 50 ? '#f59e0b' : '#ef4444';
+const progressBgClass = (p) => p >= 100 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-400' : 'bg-rose-500';
 const progressLabel   = (p) => p >= 100
-    ? { bg: 'bg-emerald-50 text-emerald-600 border-emerald-100', dot: 'bg-emerald-400', label: 'Atteint'  }
+    ? { bg: 'bg-emerald-50 text-emerald-600 border-emerald-200', dot: 'bg-emerald-500', label: 'Atteint'  }
     : p >= 50
-    ? { bg: 'bg-amber-50 text-amber-600 border-amber-100',       dot: 'bg-amber-400',   label: 'En cours' }
-    :   { bg: 'bg-slate-50 text-slate-500 border-slate-200',     dot: 'bg-slate-300',   label: 'À risque' };
+    ? { bg: 'bg-amber-50 text-amber-600 border-amber-200',       dot: 'bg-amber-400',   label: 'En cours' }
+    :   { bg: 'bg-rose-50 text-rose-600 border-rose-200',        dot: 'bg-rose-500',    label: 'À risque' };
 
 /* ─── CircleProgress SVG ────────────────────────────────────── */
 const CircleProgress = ({ progress, size = 56 }) => {
@@ -87,10 +87,10 @@ const ObjectifCard = ({ goal, onEdit, onClose, isAdmin, index = 0 }) => {
 
     /* Only the accent (left border + bar + %) carries color — card stays white */
     const accent = progress >= 100
-        ? { leftBar: 'border-l-emerald-400', pct: 'text-emerald-500', iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
+        ? { leftBar: 'border-l-emerald-500', pct: 'text-emerald-600', iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
         : progress >= 50
-        ? { leftBar: 'border-l-amber-400',   pct: 'text-amber-500',   iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
-        : { leftBar: 'border-l-slate-300',   pct: 'text-slate-500',   iconBg: 'bg-slate-50', iconText: 'text-slate-400' };
+        ? { leftBar: 'border-l-amber-400',   pct: 'text-amber-600',   iconBg: 'bg-slate-50', iconText: 'text-slate-500' }
+        : { leftBar: 'border-l-rose-500',    pct: 'text-rose-600',    iconBg: 'bg-slate-50', iconText: 'text-slate-400' };
 
     return (
         <motion.div
@@ -406,14 +406,19 @@ const Objectifs = () => {
                 <div className="relative flex items-center gap-5 bg-slate-50/80 rounded-2xl px-6 py-4 border border-slate-200/80 flex-shrink-0">
                     <div className="relative">
                         <svg width="84" height="84" viewBox="0 0 84 84">
-                            <circle cx="42" cy="42" r="32" fill="none" stroke="#e2e8f0" strokeWidth="7" />
-                            <circle cx="42" cy="42" r="32" fill="none" stroke="#a5b4fc" strokeWidth="7"
+                            <circle cx="42" cy="42" r="32" fill="none" stroke="#f1f5f9" strokeWidth="7" />
+                            <circle cx="42" cy="42" r="32" fill="none"
+                                stroke={progressColor(globalProgress)}
+                                strokeWidth="7"
                                 strokeDasharray={2 * Math.PI * 32}
                                 strokeDashoffset={2 * Math.PI * 32 - (Math.min(globalProgress,100)/100) * 2 * Math.PI * 32}
                                 strokeLinecap="round" transform="rotate(-90 42 42)"
                                 style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-                            <text x="42" y="47" textAnchor="middle" fontSize="14" fontWeight="900" fill="#6366f1" fontFamily="system-ui">
-                                {Math.round(globalProgress)}%
+                            <text x="42" y="44" textAnchor="middle" fontSize="13" fontWeight="900" fill={progressColor(globalProgress)} fontFamily="system-ui">
+                                {Math.round(globalProgress)}
+                            </text>
+                            <text x="42" y="55" textAnchor="middle" fontSize="8" fontWeight="700" fill="#94a3b8" fontFamily="system-ui">
+                                %
                             </text>
                         </svg>
                     </div>

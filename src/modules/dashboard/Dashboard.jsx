@@ -855,14 +855,19 @@ const Dashboard = () => {
             <div className="relative h-40 w-40">
               <svg className="w-full h-full -rotate-90">
                 <circle cx="80" cy="80" r="68" stroke="#f1f5f9" strokeWidth="10" fill="transparent" />
-                <circle cx="80" cy="80" r="68" stroke="#8b5cf6" strokeWidth="10" fill="transparent"
+                <circle cx="80" cy="80" r="68"
+                  stroke={Number(objectifStats?.achievementRate || 0) >= 100 ? '#10b981' : Number(objectifStats?.achievementRate || 0) >= 50 ? '#f59e0b' : '#ef4444'}
+                  strokeWidth="10" fill="transparent"
                   strokeDasharray={427}
                   strokeDashoffset={427 - (427 * Number(objectifStats?.achievementRate || 0)) / 100}
                   className="transition-all duration-1000" />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-slate-800">{objectifStats?.achievementRate || 0}%</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">atteints</span>
+                <span className="text-3xl font-black text-slate-800">{objectifStats?.achievementRate || 0}</span>
+                <span className="text-sm font-bold" style={{ color: Number(objectifStats?.achievementRate || 0) >= 100 ? '#10b981' : Number(objectifStats?.achievementRate || 0) >= 50 ? '#f59e0b' : '#ef4444' }}>%</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                  {Number(objectifStats?.achievementRate || 0) >= 100 ? 'Atteint' : Number(objectifStats?.achievementRate || 0) >= 50 ? 'En cours' : 'À risque'}
+                </span>
               </div>
             </div>
             <div className="w-full space-y-2">
@@ -1384,10 +1389,10 @@ const Dashboard = () => {
 
         {/* Compteurs recommandations commerciaux */}
         {isMLAvailable && (() => {
-          const getReco = r => (r.recommandation || '').toUpperCase();
+          const getReco = r => (r.recommandation || '').toUpperCase().replace(/[Éé]/g,'E');
           const augmenter = (regionalPredictions || []).filter(r => getReco(r) === 'AUGMENTER').length;
           const maintenir = (regionalPredictions || []).filter(r => getReco(r) === 'MAINTENIR').length;
-          const reduire   = (regionalPredictions || []).filter(r => getReco(r) === 'RÉDUIRE' || getReco(r) === 'REDUIRE').length;
+          const reduire   = (regionalPredictions || []).filter(r => getReco(r) === 'REDUIRE').length;
           return (
             <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3">
@@ -1419,7 +1424,7 @@ const Dashboard = () => {
           {GOUVERNORATS.map((g) => {
             const r         = (regionalPredictions || []).find(x => x.region === g.key);
             const prob      = r != null ? Math.round(r.probabilite_hausse ?? 0) : null;
-            const reco      = (r?.recommandation || '').toUpperCase().replace('É','E');
+            const reco      = (r?.recommandation || '').toUpperCase().replace(/[Éé]/g,'E');
             const confiance = r != null ? Math.round(r.confiance ?? 0) : null;
             const hasData   = !!r;
 

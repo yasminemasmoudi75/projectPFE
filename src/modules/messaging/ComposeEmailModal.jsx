@@ -1,29 +1,38 @@
 import { useRef, useState } from 'react';
-import { XMarkIcon, SparklesIcon, CheckIcon, ArrowPathIcon, PaperClipIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import {
+  XMarkIcon, SparklesIcon, CheckIcon, ArrowPathIcon,
+  PaperClipIcon, PaperAirplaneIcon, EnvelopeIcon,
+  TagIcon, TrashIcon,
+} from '@heroicons/react/24/outline';
 import axios from '../../app/axios';
 import { formatFileSize } from '../../utils/format';
 
-const InputField = ({ label, required, children }) => (
-  <div>
-    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-      {label} {required && <span className="text-red-400">*</span>}
+/* ── Field wrapper ───────────────────────────────────────────── */
+const Field = ({ label, required, icon: Icon, children, hint }) => (
+  <div className="space-y-1.5">
+    <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+      {Icon && <Icon className="h-3 w-3 text-slate-400" />}
+      {label}
+      {required && <span className="text-red-400 ml-0.5">*</span>}
     </label>
     {children}
+    {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
   </div>
 );
 
+/* ════════════════════════════════════════════════════════════════ */
 const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
-  const [formData, setFormData] = useState({ to: initialTo, subject: '', message: '' });
+  const [formData, setFormData]   = useState({ to: initialTo, subject: '', message: '' });
   const [attachment, setAttachment] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const attachmentInputRef = useRef(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState(null);
+  const attachmentInputRef        = useRef(null);
 
-  const [showAI, setShowAI] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
+  const [showAI, setShowAI]           = useState(false);
+  const [aiPrompt, setAiPrompt]       = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiError, setAiError] = useState(null);
-  const [aiResponse, setAiResponse] = useState(null);
+  const [aiError, setAiError]         = useState(null);
+  const [aiResponse, setAiResponse]   = useState(null);
   const [reformulating, setReformulating] = useState(false);
 
   const MAX_SIZE = 25 * 1024 * 1024;
@@ -36,6 +45,7 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
     setAiPrompt('');
     setAiResponse(null);
     setAiError(null);
+    setError(null);
   };
 
   const handleChange = (e) => {
@@ -110,216 +120,256 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
   if (!isOpen) return null;
 
   const inputClass =
-    'w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder:text-slate-400 transition-shadow';
+    'w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] placeholder:text-slate-300 transition-all text-slate-800';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center pt-16 pb-4 px-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={handleClose} />
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={handleClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-white/20">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 flex-none">
+      <div className="relative w-full max-w-4xl flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white border border-slate-200">
+
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-6 py-4 bg-[#0062AF] flex-none">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
               <PaperAirplaneIcon className="h-4 w-4 text-white" />
             </div>
-            <h2 className="text-base font-bold text-white">Nouveau message</h2>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-tight">Nouveau message</h2>
+              <p className="text-[10px] text-blue-200 font-medium">Composez et envoyez un email</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowAI(!showAI)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                 showAI
-                  ? 'bg-white text-blue-600 shadow-md'
-                  : 'bg-white/20 text-white hover:bg-white/30 border border-white/30'
+                  ? 'bg-white text-[#0062AF] border-white shadow-sm'
+                  : 'bg-white/10 text-white border-white/20 hover:bg-white/20'
               }`}
             >
-              <SparklesIcon className="h-4 w-4" />
-              Assistant IA ✨
+              <SparklesIcon className="h-3.5 w-3.5" />
+              Assistant IA
             </button>
             <button
               onClick={handleClose}
-              className="h-8 w-8 flex items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/30 transition-colors"
+              className="h-8 w-8 flex items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors"
             >
-              <XMarkIcon className="h-5 w-5" />
+              <XMarkIcon className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex flex-1 overflow-hidden bg-slate-50">
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-y-auto p-6 gap-4">
+        {/* thin accent line */}
+        <div className="h-px bg-slate-100 flex-none" />
+
+        {/* ── Body ───────────────────────────────────────────── */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* Form side */}
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 bg-slate-50/40">
+
+            {/* Error banner */}
             {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="mx-5 mt-4 flex items-center gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-2.5">
+                <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-red-500 text-xs font-black">!</span>
+                </div>
+                <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
             )}
 
-            <InputField label="À" required>
-              <input
-                type="email"
-                name="to"
-                value={formData.to}
-                onChange={handleChange}
-                placeholder="destinataire@example.com"
-                required
-                className={inputClass}
-              />
-            </InputField>
+            <div className="px-7 py-5 space-y-4">
 
-            <InputField label="Sujet" required>
-              <input
-                type="text"
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                placeholder="Objet de votre message"
-                required
-                className={inputClass}
-              />
-            </InputField>
-
-            <InputField label="Message" required>
-              <textarea
-                name="message"
-                value={formData.message}
-                onChange={handleChange}
-                placeholder="Écrivez votre message..."
-                rows={10}
-                required
-                className={`${inputClass} resize-none`}
-              />
-              <div className="flex items-center justify-between mt-1.5">
-                <span className="text-xs text-slate-400">{formData.message.length} caractères</span>
-                <button
-                  type="button"
-                  onClick={handleReformulate}
-                  disabled={reformulating || !formData.message.trim()}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors font-medium disabled:opacity-50"
-                >
-                  {reformulating ? (
-                    <><ArrowPathIcon className="h-3 w-3 animate-spin" /> Correction...</>
-                  ) : (
-                    <><SparklesIcon className="h-3 w-3" /> Corriger & Reformuler</>
-                  )}
-                </button>
-              </div>
-            </InputField>
-
-            {/* Attachment */}
-            <InputField label="Pièce jointe">
-              <label className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-cyan-400 hover:bg-cyan-50/30 transition-all group">
-                <div className="h-8 w-8 rounded-lg bg-slate-100 group-hover:bg-cyan-100 flex items-center justify-center transition-colors flex-none">
-                  <PaperClipIcon className="h-4 w-4 text-slate-500 group-hover:text-cyan-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  {attachment ? (
-                    <p className="text-sm font-medium text-slate-700 truncate">
-                      {attachment.name}
-                      <span className="ml-2 text-xs text-slate-400">({formatFileSize(attachment.size)})</span>
-                    </p>
-                  ) : (
-                    <p className="text-sm text-slate-400">Cliquer pour joindre un fichier <span className="text-xs">(max 25 Mo)</span></p>
-                  )}
-                </div>
+              {/* À */}
+              <Field label="À" required icon={EnvelopeIcon}>
                 <input
-                  type="file"
-                  ref={attachmentInputRef}
-                  onChange={handleAttachmentChange}
-                  className="hidden"
+                  type="email"
+                  name="to"
+                  value={formData.to}
+                  onChange={handleChange}
+                  placeholder="destinataire@example.com"
+                  required
+                  className={inputClass}
                 />
-              </label>
-            </InputField>
+              </Field>
 
-            {/* Footer actions */}
-            <div className="flex items-center justify-end gap-3 pt-2 mt-auto border-t border-slate-200">
+              {/* Sujet */}
+              <Field label="Sujet" required icon={TagIcon}>
+                <input
+                  type="text"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  placeholder="Objet de votre message"
+                  required
+                  className={inputClass}
+                />
+              </Field>
+
+              {/* Message */}
+              <Field label="Message" required>
+                <div className="relative">
+                  <textarea
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    placeholder="Écrivez votre message…"
+                    rows={8}
+                    required
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium tabular-nums">
+                    {formData.message.length} caractère{formData.message.length !== 1 ? 's' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReformulate}
+                    disabled={reformulating || !formData.message.trim()}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:border-[#0062AF] hover:text-[#0062AF] rounded-lg transition-all font-semibold disabled:opacity-40 shadow-sm"
+                  >
+                    {reformulating
+                      ? <><ArrowPathIcon className="h-3 w-3 animate-spin" /> Correction…</>
+                      : <><SparklesIcon className="h-3 w-3" /> Corriger & Reformuler</>
+                    }
+                  </button>
+                </div>
+              </Field>
+
+              {/* Pièce jointe */}
+              <Field label="Pièce jointe" icon={PaperClipIcon}>
+                <label className="flex items-center gap-3 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-[#0062AF] hover:bg-blue-50/30 transition-all group">
+                  <div className="h-8 w-8 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors flex-none">
+                    <PaperClipIcon className="h-4 w-4 text-slate-400 group-hover:text-[#0062AF]" />
+                  </div>
+                  {attachment ? (
+                    <div className="flex-1 flex items-center justify-between min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 truncate">{attachment.name}</p>
+                        <p className="text-[10px] text-slate-400">{formatFileSize(attachment.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setAttachment(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
+                        className="ml-3 h-6 w-6 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center hover:bg-red-100 transition-colors flex-none"
+                      >
+                        <TrashIcon className="h-3 w-3 text-red-500" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-400 group-hover:text-[#0062AF] transition-colors font-medium">
+                        Cliquer pour joindre un fichier
+                      </p>
+                      <p className="text-[10px] text-slate-300">max 25 Mo</p>
+                    </div>
+                  )}
+                  <input type="file" ref={attachmentInputRef} onChange={handleAttachmentChange} className="hidden" />
+                </label>
+              </Field>
+
+            </div>
+
+            {/* ── Footer ─────────────────────────────────────── */}
+            <div className="flex items-center justify-end gap-3 px-7 py-4 border-t border-slate-200 bg-white">
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 shadow-sm"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:from-blue-700 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? (
-                  <><ArrowPathIcon className="h-4 w-4 animate-spin" /> Envoi en cours...</>
-                ) : (
-                  <><PaperAirplaneIcon className="h-4 w-4" /> Envoyer</>
-                )}
+                {loading
+                  ? <><ArrowPathIcon className="h-4 w-4 animate-spin" /> Envoi en cours…</>
+                  : <><PaperAirplaneIcon className="h-4 w-4" /> Envoyer</>
+                }
               </button>
             </div>
           </form>
 
-          {/* AI panel */}
+          {/* ── AI side panel ──────────────────────────────────── */}
           {showAI && (
-            <div className="w-80 flex-none border-l border-slate-200 bg-white flex flex-col overflow-y-auto">
-              {/* AI panel header */}
-              <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-indigo-50">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+            <div className="w-72 flex-none border-l border-slate-100 bg-white flex flex-col overflow-hidden">
+
+              {/* AI header */}
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-xl bg-[#0062AF] flex items-center justify-center">
                     <SparklesIcon className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800">Assistant Rédaction IA</h3>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800">Assistant IA</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Génération automatique</p>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Décrivez l'email que vous souhaitez rédiger</p>
               </div>
 
-              <div className="flex-1 p-5 space-y-4">
-                <textarea
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="ex: relancer M. Ali concernant la facture impayée de 5000 DT..."
-                  rows={5}
-                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none placeholder:text-slate-400 bg-slate-50"
-                />
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                    Décrivez l'email
+                  </label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="ex : relancer M. Ali pour la facture impayée de 5 000 DT…"
+                    rows={5}
+                    className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] resize-none placeholder:text-slate-300 bg-slate-50 text-slate-700"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleGenerateAI}
                   disabled={aiGenerating || !aiPrompt.trim()}
-                  className="w-full flex justify-center items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50"
+                  className="w-full flex justify-center items-center gap-2 px-4 py-2.5 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-40"
                 >
-                  {aiGenerating ? (
-                    <><ArrowPathIcon className="h-4 w-4 animate-spin" /> Génération...</>
-                  ) : (
-                    <><SparklesIcon className="h-4 w-4" /> Générer</>
-                  )}
+                  {aiGenerating
+                    ? <><ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> Génération…</>
+                    : <><SparklesIcon className="h-3.5 w-3.5" /> Générer</>
+                  }
                 </button>
-                {aiError && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{aiError}</p>}
+
+                {aiError && (
+                  <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{aiError}</p>
+                )}
 
                 {aiResponse && !aiGenerating && (
                   <div className="space-y-3 pt-3 border-t border-slate-100">
-                    {/* Suggested subject */}
-                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-3">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Objet suggéré</p>
-                      <p className="text-sm text-slate-800 font-medium mb-3 leading-snug">{aiResponse.objet}</p>
+
+                    {/* Subject suggestion */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Objet suggéré</p>
+                      <p className="text-xs text-slate-700 font-semibold leading-snug mb-2.5">{aiResponse.objet}</p>
                       <button
                         type="button"
                         onClick={() => setFormData((p) => ({ ...p, subject: aiResponse.objet }))}
-                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 font-medium transition-colors"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 bg-[#0062AF] text-white rounded-lg hover:bg-[#004a85] transition-colors"
                       >
                         <CheckIcon className="h-3 w-3" /> Utiliser
                       </button>
                     </div>
 
-                    {/* Suggested body */}
-                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-3">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">Corps suggéré</p>
-                      <div className="text-xs text-slate-700 whitespace-pre-wrap max-h-40 overflow-y-auto mb-3 leading-relaxed">
+                    {/* Body suggestion */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Corps du message</p>
+                      <div className="text-[11px] text-slate-600 whitespace-pre-wrap max-h-36 overflow-y-auto mb-2.5 leading-relaxed">
                         {aiResponse.corps}
                       </div>
                       <button
                         type="button"
                         onClick={() => setFormData((p) => ({ ...p, message: aiResponse.corps }))}
-                        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 font-medium transition-colors"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 bg-[#0062AF] text-white rounded-lg hover:bg-[#004a85] transition-colors"
                       >
                         <CheckIcon className="h-3 w-3" /> Utiliser
                       </button>
@@ -328,7 +378,7 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
                     <button
                       type="button"
                       onClick={handleGenerateAI}
-                      className="w-full text-xs py-2 flex justify-center items-center gap-1.5 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors"
+                      className="w-full text-xs py-2 flex justify-center items-center gap-1.5 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-colors font-semibold"
                     >
                       <ArrowPathIcon className="h-3 w-3" /> Regénérer
                     </button>

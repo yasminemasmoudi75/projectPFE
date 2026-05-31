@@ -271,7 +271,7 @@ const BcvList = () => {
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               onClick={() => navigate('/bcv/new')}
-              className="flex items-center gap-2 h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm shadow-blue-500/20 transition-colors"
+              className="flex items-center gap-2 h-10 px-5 bg-[#0062AF] hover:bg-[#004a85] text-white rounded-xl text-sm font-semibold shadow-sm shadow-blue-500/20 transition-colors active:scale-95"
             >
               <PlusIcon className="h-4 w-4 stroke-[2.5]" />
               Nouvelle commande
@@ -355,7 +355,7 @@ const BcvList = () => {
             <FunnelIcon className="h-4 w-4" />
             Filtres
             {activeFiltersCount > 0 && (
-              <span className="h-5 w-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center">
+              <span className="h-5 w-5 rounded-full bg-[#0062AF] text-white text-[10px] flex items-center justify-center">
                 {activeFiltersCount}
               </span>
             )}
@@ -471,7 +471,7 @@ const BcvList = () => {
                           </p>
                         </div>
                         {(!bcv || bcv.length === 0) && canCreate && (
-                          <button onClick={() => navigate('/bcv/new')} className="mt-1 text-sm text-blue-600 font-semibold hover:text-blue-700 transition-colors">
+                          <button onClick={() => navigate('/bcv/new')} className="mt-1 text-sm text-[#0062AF] font-semibold hover:text-[#004a85] transition-colors">
                             + Créer une commande
                           </button>
                         )}
@@ -610,7 +610,7 @@ const BcvList = () => {
                       className={clsx(
                         'h-8 w-8 rounded-lg text-xs font-semibold transition-colors',
                         currentPage === p
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
+                          ? 'bg-[#0062AF] text-white shadow-sm shadow-blue-500/20'
                           : 'text-slate-500 hover:bg-slate-100'
                       )}
                     >

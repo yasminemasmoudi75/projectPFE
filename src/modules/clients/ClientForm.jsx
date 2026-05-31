@@ -29,9 +29,9 @@ const isPhoneValid = (value) => value === '' || /^\d{8}$/.test(value);
 
 const STEPS = [
     { id: 1, label: 'Identité', sublabel: 'Infos légales', icon: IdentificationIcon, color: 'sky' },
-    { id: 2, label: 'Localisation', sublabel: 'Adresse & région', icon: MapPinIcon, color: 'sky' },
-    { id: 3, label: 'Contacts', sublabel: 'Tél, email & responsables', icon: BuildingOffice2Icon, color: 'sky' },
-    { id: 4, label: 'Financier', sublabel: 'Conditions', icon: CreditCardIcon, color: 'sky' },
+    { id: 2, label: 'Localisation', sublabel: 'Adresse & région', icon: MapPinIcon, color: 'emerald' },
+    { id: 3, label: 'Contacts', sublabel: 'Tél, email & responsables', icon: BuildingOffice2Icon, color: 'violet' },
+    { id: 4, label: 'Financier', sublabel: 'Conditions', icon: CreditCardIcon, color: 'amber' },
 ];
 
 const STEP_COLORS = {
@@ -55,6 +55,59 @@ const InputField = ({ label, required, error, children, hint }) => (
 const inputBase = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 placeholder-slate-400 focus:outline-none transition-all text-sm";
 const inputClass = `${inputBase} focus:border-sky-400 focus:ring-2 focus:ring-sky-100`;
 const ic = (color) => `${inputBase} ${STEP_COLORS[color].inputFocus}`;
+
+const SectionLabel = ({ icon: Icon, color, children }) => {
+    const c = STEP_COLORS[color] || STEP_COLORS.sky;
+    return (
+        <div className="flex items-center gap-2 mb-3">
+            <div className={`h-5 w-5 rounded-md flex items-center justify-center flex-shrink-0 ${c.light} border ${c.border}`}>
+                <Icon className={`h-2.5 w-2.5 ${c.text}`} />
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${c.h3}`}>{children}</span>
+            <div className={`flex-1 h-px border-t border-dashed ${c.divider}`} />
+        </div>
+    );
+};
+
+const StepBar = ({ steps, current, onGo, isCompleted }) => (
+    <div className="flex items-center w-full">
+        {steps.map((step, idx) => {
+            const isActive = current === step.id;
+            const isDone = step.id < current;
+            const c = STEP_COLORS[step.color] || STEP_COLORS.sky;
+            return (
+                <div key={step.id} className={`flex items-center ${idx < steps.length - 1 ? 'flex-1' : ''}`}>
+                    <button
+                        type="button"
+                        onClick={() => isCompleted(step.id) && onGo(step.id)}
+                        className="flex items-center gap-2.5 flex-none disabled:cursor-default"
+                        disabled={!isCompleted(step.id)}
+                    >
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 flex-shrink-0 ${
+                            isActive ? `${c.bg} ${c.border} shadow-md ${c.shadow}` :
+                            isDone  ? 'bg-[#0062AF] border-[#0062AF]' :
+                            'bg-white border-slate-200'
+                        }`}>
+                            {isDone
+                                ? <CheckIcon className="h-3.5 w-3.5 text-white" />
+                                : <span className={`text-[11px] font-bold ${isActive ? 'text-white' : 'text-slate-400'}`}>{step.id}</span>
+                            }
+                        </div>
+                        <div className="hidden sm:block text-left">
+                            <p className={`text-[11px] font-semibold leading-tight transition-colors ${isActive ? c.text : isDone ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {step.label}
+                            </p>
+                            <p className="text-[9px] text-slate-400 leading-tight mt-0.5">{step.sublabel}</p>
+                        </div>
+                    </button>
+                    {idx < steps.length - 1 && (
+                        <div className={`flex-1 h-px mx-3 rounded-full transition-all duration-500 ${isDone ? 'bg-[#0062AF]/40' : 'bg-slate-200'}`} />
+                    )}
+                </div>
+            );
+        })}
+    </div>
+);
 
 const ClientForm = () => {
     const { id } = useParams();
@@ -516,7 +569,9 @@ const ClientForm = () => {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100/50 pb-16">
 
             {/* ── Header ── */}
-            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm relative overflow-hidden">
+                {/* Top accent gradient */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
                 <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <button
@@ -575,10 +630,31 @@ const ClientForm = () => {
                         )}
                     </div>
                 </div>
+                {/* Bottom progress bar */}
+                {!isEdit && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-100">
+                        <div
+                            className="h-full bg-gradient-to-r from-[#0062AF] to-sky-400 transition-all duration-500 ease-out"
+                            style={{ width: `${progressPct}%` }}
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="max-w-5xl mx-auto px-6 pt-8 space-y-6">
 
+
+                {/* ── Step navigator (creation mode only) ── */}
+                {!isEdit && (
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4">
+                        <StepBar
+                            steps={STEPS}
+                            current={currentStep}
+                            onGo={goToStep}
+                            isCompleted={(s) => completedSteps.has(s) || s <= currentStep}
+                        />
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -588,7 +664,7 @@ const ClientForm = () => {
                     {(currentStep === 1 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
+                                <div className="h-9 w-9 bg-[#0062AF] rounded-xl flex items-center justify-center shadow-md shadow-blue-500/30">
                                     <IdentificationIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
@@ -694,7 +770,7 @@ const ClientForm = () => {
                                         type="button"
                                         onClick={handleNextStep}
                                         disabled={!validateStep1()}
-                                        className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${STEP_COLORS.sky.bg} ${STEP_COLORS.sky.shadow} hover:opacity-90`}
+                                        className="px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md shadow-blue-500/20 bg-[#0062AF] hover:bg-[#004a85] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Suivant
                                         <span>→</span>
@@ -710,7 +786,7 @@ const ClientForm = () => {
                     {(currentStep === 2 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
+                                <div className="h-9 w-9 bg-[#0062AF] rounded-xl flex items-center justify-center shadow-md shadow-blue-500/30">
                                     <MapPinIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
@@ -721,11 +797,8 @@ const ClientForm = () => {
                             </div>
 
                             <div className="p-6 space-y-5">
-                                {/* Adresse */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <MapPinIcon className="h-3.5 w-3.5" /> Adresse principale
-                                    </h3>
+                                    <SectionLabel icon={MapPinIcon} color="sky">Adresse principale</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
                                             <InputField label="Adresse">
@@ -743,11 +816,8 @@ const ClientForm = () => {
 
                                 <div className={`border-t border-dashed ${STEP_COLORS.sky.divider}`} />
 
-                                {/* Gouvernorat + Pays */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <MapPinIcon className="h-3.5 w-3.5" /> Région
-                                    </h3>
+                                    <SectionLabel icon={MapPinIcon} color="sky">Région</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Gouvernorat" required>
                                             <select name="gouvernorat" value={formData.gouvernorat} onChange={handleChange} className={ic('sky')} required>
@@ -765,9 +835,9 @@ const ClientForm = () => {
                             </div>
 
                             {!isEdit && (
-                                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between">
+                                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
                                     <button type="button" onClick={handlePreviousStep} className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">← Précédent</button>
-                                    <button type="button" onClick={handleNextStep} disabled={!validateStep2()} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${STEP_COLORS.sky.bg} ${STEP_COLORS.sky.shadow} hover:opacity-90`}>
+                                    <button type="button" onClick={handleNextStep} disabled={!validateStep2()} className="px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md shadow-blue-500/20 bg-[#0062AF] hover:bg-[#004a85] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         Suivant →
                                     </button>
                                 </div>
@@ -781,7 +851,7 @@ const ClientForm = () => {
                     {(currentStep === 3 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
+                                <div className="h-9 w-9 bg-[#0062AF] rounded-xl flex items-center justify-center shadow-md shadow-blue-500/30">
                                     <UserIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
@@ -794,10 +864,7 @@ const ClientForm = () => {
                             <div className="p-6 space-y-6">
                                 {/* Email + Site web */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <EnvelopeIcon className="h-3.5 w-3.5" />
-                                        Coordonnées électroniques
-                                    </h3>
+                                    <SectionLabel icon={EnvelopeIcon} color="sky">Coordonnées électroniques</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField
                                             label="Email professionnel"
@@ -831,10 +898,7 @@ const ClientForm = () => {
 
                                 {/* Tel + Mobile + Fax */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <PhoneIcon className="h-3.5 w-3.5" />
-                                        Numéros de téléphone
-                                    </h3>
+                                    <SectionLabel icon={PhoneIcon} color="sky">Numéros de téléphone</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Téléphone fixe" hint="8 chiffres">
                                             <div className="relative">
@@ -848,7 +912,6 @@ const ClientForm = () => {
                                                 <input type="text" name="Gsm" value={formData.Gsm} onChange={handleChange} inputMode="numeric" maxLength={8} placeholder="XXXXXXXX" className={`${ic('sky')} pl-10`} />
                                             </div>
                                         </InputField>
-                                        {/* Fax — optionnel, affiché en discret */}
                                         <InputField label="Fax" hint="Optionnel — 8 chiffres">
                                             <div className="relative">
                                                 <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
@@ -957,7 +1020,7 @@ const ClientForm = () => {
                             {!isEdit && (
                                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between">
                                     <button type="button" onClick={handlePreviousStep} className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">← Précédent</button>
-                                    <button type="button" onClick={handleNextStep} className={`px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md transition-all ${STEP_COLORS.sky.bg} ${STEP_COLORS.sky.shadow} hover:opacity-90`}>
+                                    <button type="button" onClick={handleNextStep} className="px-6 py-2 text-sm font-bold text-white rounded-xl shadow-md shadow-blue-500/20 bg-[#0062AF] hover:bg-[#004a85] transition-all">
                                         Suivant →
                                     </button>
                                 </div>
@@ -971,7 +1034,7 @@ const ClientForm = () => {
                     {(currentStep === 4 || isEdit) && (
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className={`px-6 py-4 border-b border-slate-100 bg-gradient-to-r ${STEP_COLORS.sky.gradient} flex items-center gap-3`}>
-                                <div className={`h-9 w-9 ${STEP_COLORS.sky.bg} rounded-xl flex items-center justify-center shadow-md ${STEP_COLORS.sky.shadow}`}>
+                                <div className="h-9 w-9 bg-[#0062AF] rounded-xl flex items-center justify-center shadow-md shadow-blue-500/30">
                                     <BanknotesIcon className="h-5 w-5 text-white" />
                                 </div>
                                 <div>
@@ -985,10 +1048,7 @@ const ClientForm = () => {
 
                                 {/* Identifiants légaux */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <IdentificationIcon className="h-3.5 w-3.5" />
-                                        Identifiants légaux
-                                    </h3>
+                                    <SectionLabel icon={IdentificationIcon} color="sky">Identifiants légaux</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Matricule fiscale">
                                             <input type="text" name="MatriculeFiscale" value={formData.MatriculeFiscale} onChange={handleChange} placeholder="Ex: 123456A" className={ic('sky')} />
@@ -1005,7 +1065,7 @@ const ClientForm = () => {
                                                 disabled={loadingBanques}
                                             >
                                                 <option value="">-- Choisir --</option>
-                                                <option value="AUTRE" className="font-bold text-sky-600">+ Ajouter une nouvelle banque</option>
+                                                <option value="AUTRE" className="font-bold text-amber-600">+ Ajouter une nouvelle banque</option>
                                                 {formData.Banque && formData.Banque !== 'AUTRE' && !banques.some((b) => String(b.banque || '').trim() === String(formData.Banque || '').trim()) && (
                                                     <option value={formData.Banque}>{formData.Banque}</option>
                                                 )}
@@ -1052,10 +1112,7 @@ const ClientForm = () => {
 
                                 {/* Conditions financières */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <CreditCardIcon className="h-3.5 w-3.5" />
-                                        Conditions financières
-                                    </h3>
+                                    <SectionLabel icon={CreditCardIcon} color="sky">Conditions financières</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <InputField label="Remise (%)">
                                             <input type="number" min="0" step="0.001" name="Remise" value={formData.Remise} onChange={handleChange} placeholder="0.000" className={ic('sky')} />
@@ -1070,7 +1127,7 @@ const ClientForm = () => {
 
                                 {/* Options booléennes */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${STEP_COLORS.sky.h3}`}>Options & statuts</h3>
+                                    <SectionLabel icon={SparklesIcon} color="sky">Options & statuts</SectionLabel>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         {[
                                             { key: 'Actif', label: 'Actif', color: 'emerald' },
@@ -1107,10 +1164,7 @@ const ClientForm = () => {
 
                                 {/* Paramètres commerciaux */}
                                 <div>
-                                    <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${STEP_COLORS.sky.h3}`}>
-                                        <SparklesIcon className="h-3.5 w-3.5" />
-                                        Paramètres commerciaux
-                                    </h3>
+                                    <SectionLabel icon={SparklesIcon} color="sky">Paramètres commerciaux</SectionLabel>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <InputField label={`Représentant commercial ${isCommercial ? '*' : '(optionnel)'}`}>

@@ -3,510 +3,368 @@ import axios from '../../app/axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    ArrowLeftIcon,
-    CheckIcon,
-    BriefcaseIcon,
-    CalendarIcon,
-    CurrencyDollarIcon,
-    ChartBarIcon,
-    SparklesIcon,
-    DocumentTextIcon
+    ArrowLeftIcon, CheckIcon, BriefcaseIcon, CalendarIcon,
+    CurrencyDollarIcon, ChartBarIcon, DocumentTextIcon,
+    UserIcon, MagnifyingGlassIcon, ClockIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { fetchProjetById, createProjet, updateProjet } from './projetSlice';
 
-const normalizeRole = (role) => String(role || '').trim().toLowerCase();
-const isAdminRole = (role) => ['admin', 'administrateur'].includes(normalizeRole(role));
-
-const filterTiersLocally = (tiersList, { q, codRepres, prospectOnly }) => {
-  const normalizedQ = String(q || '').trim().toLowerCase();
-  const normalizedRepres = String(codRepres || '').trim();
-
-  return (tiersList || []).filter((tier) => {
-    const matchesQ = !normalizedQ || [tier?.Raisoc, tier?.CodTiers, tier?.Email, tier?.Tel]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(normalizedQ));
-
-    const matchesRepres = !normalizedRepres || String(tier?.codRepresTiers || '') === normalizedRepres;
-    const isProspect = Boolean(tier?.Fictif) || Number(tier?.Niveau || 0) > 0;
-    const matchesProspect = !prospectOnly || isProspect;
-
-    return matchesQ && matchesRepres && matchesProspect;
-  });
+const normalizeRole = r => String(r || '').trim().toLowerCase();
+const isAdminRole   = r => ['admin','administrateur'].includes(normalizeRole(r));
+const extractArr    = r => Array.isArray(r) ? r : Array.isArray(r?.data) ? r.data : [];
+const filterLocal   = (list, { q, rep }) => {
+    const nq = (q||'').toLowerCase(), nr = String(rep||'');
+    return (list||[]).filter(t =>
+        (!nq || [t.Raisoc,t.CodTiers,t.Email,t.Tel].filter(Boolean).some(v=>String(v).toLowerCase().includes(nq))) &&
+        (!nr  || String(t.codRepresTiers||'')===nr)
+    );
 };
 
-const extractArrayPayload = (response) => {
-    // L'intercepteur axios retourne déjà response.data, donc traiter directement
-    if (Array.isArray(response)) return response;
-    if (Array.isArray(response?.data)) return response.data;
-    if (response?.pagination && Array.isArray(response?.data)) return response.data;
-    return [];
-};
+const pctC = v => v>=50 ? { arc:'#10b981', bar:'bg-emerald-500', text:'text-emerald-600', label:'En bonne voie' }
+                : v>=30 ? { arc:'#f59e0b', bar:'bg-amber-400',   text:'text-amber-600',   label:'En progression' }
+                :         { arc:'#ef4444', bar:'bg-red-400',     text:'text-red-500',     label:'Critique' };
+
+const Field = ({ label, req, children, hint }) => (
+    <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+            {label}{req && <span className="text-red-400 ml-0.5">*</span>}
+        </p>
+        {children}
+        {hint && <p className="text-[10px] text-slate-400 mt-1">{hint}</p>}
+    </div>
+);
+
+const inp = 'w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-300 focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 focus:outline-none transition-all';
+
+const PHASES = ['Nouveau','Analyse','Conception','Exécution','Tests','Clôture'];
+const PRIOS  = [
+    { v:'Basse',   active:'border-slate-500 bg-slate-50 text-slate-700',    def:'border-slate-200 text-slate-400' },
+    { v:'Normale', active:'border-[#0062AF] bg-[#e0f0ff] text-[#0062AF]',   def:'border-slate-200 text-slate-400' },
+    { v:'Haute',   active:'border-red-400   bg-red-50    text-red-600',      def:'border-slate-200 text-slate-400' },
+];
 
 const ProjetForm = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const dispatch = useDispatch();
-    const isEdit = Boolean(id);
-    const { currentProjet, loading: reduxLoading } = useSelector((state) => state.projets);
+    const { id }    = useParams();
+    const navigate  = useNavigate();
+    const dispatch  = useDispatch();
+    const isEdit    = Boolean(id);
+    const { currentProjet, loading: rl } = useSelector(s => s.projets);
+    const { user }  = useSelector(s => s.auth);
+    const isAdmin   = isAdminRole(user?.UserRole);
 
-    const { user } = useSelector((state) => state.auth);
-    const isAdminUser = isAdminRole(user?.UserRole);
+    const [loading, setLoading]   = useState(isEdit);
+    const [saving,  setSaving]    = useState(false);
+    const [tiers,   setTiers]     = useState([]);
+    const [comms,   setComms]     = useState([]);
+    const [q,       setQ]         = useState('');
+    const [rep,     setRep]       = useState('');
+    const [tiersL,  setTiersL]    = useState(false);
+    const [snap,    setSnap]      = useState(null);
 
-    const [loading, setLoading] = useState(isEdit);
-    const [saving, setSaving] = useState(false);
-    const [tiers, setTiers] = useState([]);
-    const [commercials, setCommercials] = useState([]);
-    const [commercialsLoading, setCommercialsLoading] = useState(false);
-    const [clientSearchTerm, setClientSearchTerm] = useState('');
-    const [representativeCode, setRepresentativeCode] = useState('');
-    const [tiersLoading, setTiersLoading] = useState(false);
-    const [selectedTierSnapshot, setSelectedTierSnapshot] = useState(null);
-
-    const [formData, setFormData] = useState({
-        Nom_Projet: '',
-        IDTiers: '',
-        Budget_Alloue: 0,
-        Avancement: 0,
-        Date_Echeance: '',
-        Priorite: 'Normale',
-        Phase: 'Nouveau',
-        Note_Privee: '',
-        Alerte_IA_Risque: false
+    const [form, setForm] = useState({
+        Nom_Projet:'', IDTiers:'', Budget_Alloue:0, Avancement:0,
+        Date_Echeance:'', Priorite:'Normale', Phase:'Nouveau',
+        Note_Privee:'', Alerte_IA_Risque:false,
     });
 
-    // Fetch commercials on mount
-    useEffect(() => {
-        const fetchCommercials = async () => {
-            try {
-                setCommercialsLoading(true);
-                const response = await axios.get('/users/commercials/activites-filter', {
-                    params: {
-                        moduleCode: 46,
-                        includeAll: isAdminUser ? 1 : undefined
-                    }
-                });
+    useEffect(()=>{
+        (async()=>{
+            try{
+                const res  = await axios.get('/users/commercials/activites-filter',{params:{moduleCode:46,includeAll:isAdmin?1:undefined}});
+                const rows = extractArr(res).map(r=>({id:String(r.userId||r.UserID||r.value||''),label:r.label||r.fullName||r.FullName||'Commercial'})).filter(r=>r.id);
+                setComms(rows);
+                if(['commercial','commerciale'].includes(normalizeRole(user?.UserRole))&&user?.UserID) setRep(String(user.UserID));
+            }catch{}
+        })();
+    },[isAdmin,user?.UserID,user?.UserRole]);
 
-                const rows = extractArrayPayload(response);
-                const mapped = rows.map((row) => ({
-                    userId: String(row.userId || row.UserID || row.value || ''),
-                    label: row.label || row.fullName || row.FullName || row.login || row.LoginName || 'Commercial'
-                })).filter((row) => row.userId);
+    useEffect(()=>{
+        const t=setTimeout(async()=>{
+            setTiersL(true);
+            try{
+                const res=await axios.get('/projets/tiers-lookup',{params:{q:q||undefined,codRepres:rep||undefined,limit:80}});
+                const d=extractArr(res);
+                if(d.length){setTiers(d);return;}
+                const fb=await axios.get('/tiers',{params:{page:1,limit:200}});
+                setTiers(filterLocal(extractArr(fb),{q,rep}).slice(0,80));
+            }catch{}finally{setTiersL(false);}
+        },250);
+        return()=>clearTimeout(t);
+    },[q,rep]);
 
-                setCommercials(mapped);
+    const options=useMemo(()=>{
+        if(!snap)return tiers;
+        const has=tiers.some(t=>String(t.IDTiers||t.CodTiers)===String(snap.IDTiers||snap.CodTiers));
+        return has?tiers:[snap,...tiers];
+    },[tiers,snap]);
 
-                const isCommercialUser = normalizeRole(user?.UserRole) === 'commercial' || normalizeRole(user?.UserRole) === 'commerciale';
-                if (isCommercialUser && user?.UserID) {
-                    setRepresentativeCode(String(user.UserID));
-                }
-            } catch (error) {
-                console.error('Error fetching commercials for projets:', error);
-            } finally {
-                setCommercialsLoading(false);
-            }
-        };
-
-        fetchCommercials();
-    }, [isAdminUser, user?.UserID, user?.UserRole]);
-
-    // Fetch clients with search and commercial filter
-    useEffect(() => {
-        const timeoutId = setTimeout(async () => {
-            try {
-                setTiersLoading(true);
-                const response = await axios.get('/projets/tiers-lookup', {
-                    params: {
-                        q: clientSearchTerm || undefined,
-                        codRepres: representativeCode || undefined,
-                        limit: 80
-                    }
-                });
-                const lookupData = extractArrayPayload(response);
-
-                if (Array.isArray(lookupData) && lookupData.length > 0) {
-                    setTiers(lookupData);
-                    return;
-                }
-
-                // Fallback when endpoint is unavailable
-                const fallbackRes = await axios.get('/tiers', { params: { page: 1, limit: 200 } });
-                const fallbackList = extractArrayPayload(fallbackRes);
-                const filteredFallback = filterTiersLocally(fallbackList, {
-                    q: clientSearchTerm,
-                    codRepres: representativeCode
-                }).slice(0, 80);
-
-                setTiers(filteredFallback);
-            } catch (error) {
-                console.error('Error fetching tiers lookup for projets:', error);
-            } finally {
-                setTiersLoading(false);
-            }
-        }, 250);
-
-        return () => clearTimeout(timeoutId);
-    }, [clientSearchTerm, representativeCode]);
-
-    const handleCommercialChange = (value) => {
-        setRepresentativeCode(value);
-        setSelectedTierSnapshot(null);
-        setFormData((prev) => ({
-            ...prev,
-            IDTiers: ''
-        }));
-    };
-
-    const tierOptions = useMemo(() => {
-        if (!selectedTierSnapshot) return tiers;
-        const hasSelected = tiers.some((item) => String(item.IDTiers || item.CodTiers) === String(selectedTierSnapshot.IDTiers || selectedTierSnapshot.CodTiers));
-        return hasSelected ? tiers : [selectedTierSnapshot, ...tiers];
-    }, [tiers, selectedTierSnapshot]);
-
-    useEffect(() => {
-        if (isEdit) {
-            dispatch(fetchProjetById(id));
-        }
-    }, [id, isEdit, dispatch]);
-
-    useEffect(() => {
-        if (isEdit && currentProjet) {
-            setFormData({
-                Nom_Projet: currentProjet.Nom_Projet || '',
-                IDTiers: currentProjet.IDTiers || '',
-                Budget_Alloue: currentProjet.Budget_Alloue || 0,
-                Avancement: currentProjet.Avancement || 0,
-                Date_Echeance: currentProjet.Date_Echeance ? new Date(currentProjet.Date_Echeance).toISOString().split('T')[0] : '',
-                Priorite: currentProjet.Priorite || 'Normale',
-                Phase: currentProjet.Phase || 'Nouveau',
-                Note_Privee: currentProjet.Note_Privee || '',
-                Alerte_IA_Risque: currentProjet.Alerte_IA_Risque || false
+    useEffect(()=>{if(isEdit)dispatch(fetchProjetById(id));},[id,isEdit,dispatch]);
+    useEffect(()=>{
+        if(isEdit&&currentProjet){
+            setForm({
+                Nom_Projet:     currentProjet.Nom_Projet||'',
+                IDTiers:        currentProjet.IDTiers||'',
+                Budget_Alloue:  currentProjet.Budget_Alloue||0,
+                Avancement:     currentProjet.Avancement||0,
+                Date_Echeance:  currentProjet.Date_Echeance?new Date(currentProjet.Date_Echeance).toISOString().split('T')[0]:'',
+                Priorite:       currentProjet.Priorite||'Normale',
+                Phase:          currentProjet.Phase||'Nouveau',
+                Note_Privee:    currentProjet.Note_Privee||'',
+                Alerte_IA_Risque:currentProjet.Alerte_IA_Risque||false,
             });
             setLoading(false);
         }
-    }, [currentProjet, isEdit]);
+    },[currentProjet,isEdit]);
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        let finalValue = value;
-
-        if (type === 'checkbox') {
-            finalValue = checked;
-        } else if (type === 'number') {
-            finalValue = value === '' ? 0 : parseFloat(value);
-            if (name === 'Budget_Alloue') {
-                finalValue = Math.max(0, finalValue || 0);
-            }
-        }
-
-        setFormData(prev => ({
-            ...prev,
-            [name]: finalValue
-        }));
+    const set=e=>{
+        const{name,value,type,checked}=e.target;
+        const v=type==='checkbox'?checked:type==='number'?Math.max(0,parseFloat(value)||0):value;
+        setForm(p=>({...p,[name]:v}));
     };
-
-    const preventNegativeInput = (e) => {
-        if (e.key === '-' || e.key === 'Minus') {
-            e.preventDefault();
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const normalizedBudget = Number(formData.Budget_Alloue || 0);
-        if (normalizedBudget < 0) {
-            toast.error('Le budget alloué ne peut pas être négatif');
-            return;
-        }
-
-        setSaving(true);
-        try {
-            const payload = {
-                ...formData,
-                Budget_Alloue: Math.max(0, normalizedBudget)
-            };
-
-            if (isEdit) {
-                await dispatch(updateProjet({ id, data: payload })).unwrap();
-                toast.success('Projet mis à jour');
-            } else {
-                await dispatch(createProjet(payload)).unwrap();
-                toast.success('Projet créé avec succès');
-            }
+    const submit=async e=>{
+        e.preventDefault();setSaving(true);
+        try{
+            const payload={...form,Budget_Alloue:Math.max(0,Number(form.Budget_Alloue||0))};
+            if(isEdit){await dispatch(updateProjet({id,data:payload})).unwrap();toast.success('Projet mis à jour');}
+            else{await dispatch(createProjet(payload)).unwrap();toast.success('Projet créé');}
             navigate('/projets');
-        } catch (error) {
-            toast.error(error.message || "Erreur lors de l'enregistrement");
-        } finally {
-            setSaving(false);
-        }
+        }catch(err){toast.error(err.message||'Erreur');}finally{setSaving(false);}
     };
 
-    if (loading || (isEdit && reduxLoading)) return <LoadingSpinner />;
+    if(loading||(isEdit&&rl))return<LoadingSpinner/>;
+
+    const pct    = Number(form.Avancement)||0;
+    const colors = pctC(pct);
+    const initials = (form.Nom_Projet||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
+
+    /* Circle SVG for preview */
+    const r=40, circ=2*Math.PI*r, offset=circ*(1-pct/100);
 
     return (
-        <div className="animate-fade-in space-y-6 pb-12">
-            {/* Header - Inspired Design */}
-            <div className="card-luxury p-8 bg-gradient-to-r from-sky-50 via-white to-violet-50 border-none">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="h-11 w-11 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center"
-                        >
-                            <ArrowLeftIcon className="h-5 w-5" />
-                        </button>
-                        <div>
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 text-sky-600 text-xs font-medium mb-3">
-                                <SparklesIcon className="h-3 w-3" />
-                                Gestion Projets
-                            </div>
-                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
-                                {isEdit ? 'Modifier le Projet' : 'Nouvelle Initiative'}
-                            </h1>
-                            <p className="text-slate-600 mt-1 text-sm">
-                                Renseignez les informations du projet pour un suivi optimal.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/projets')}
-                            className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-all"
-                        >
-                            Annuler
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={saving}
-                            className="px-6 py-2.5 rounded-xl bg-[#0062AF] hover:bg-[#004a85] text-white font-medium shadow-md shadow-blue-500/20 transition-all disabled:opacity-60 flex items-center gap-2"
-                        >
-                            {saving ? (
-                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : (
-                                <CheckIcon className="h-4 w-4" />
-                            )}
-                            <span>{isEdit ? 'Enregistrer' : 'Lancer le Projet'}</span>
-                        </button>
-                    </div>
+        <div className="max-w-[1400px] mx-auto pb-16 space-y-5">
+
+            {/* ── Top bar ── */}
+            <div className="flex items-center justify-between">
+                <button onClick={()=>navigate(-1)}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#0062AF] transition-colors group">
+                    <span className="h-8 w-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center group-hover:border-[#0062AF]/30 transition-all">
+                        <ArrowLeftIcon className="h-4 w-4"/>
+                    </span>
+                    Retour
+                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={()=>navigate('/projets')}
+                        className="h-9 px-4 bg-white border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-colors">
+                        Annuler
+                    </button>
+                    <button onClick={submit} disabled={saving}
+                        className="inline-flex items-center gap-1.5 h-9 px-6 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-bold rounded-lg shadow-sm shadow-[#0062AF]/20 disabled:opacity-60 transition-all">
+                        {saving
+                            ?<div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+                            :<CheckIcon className="h-4 w-4"/>}
+                        {isEdit?'Enregistrer':'Créer le projet'}
+                    </button>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-8 space-y-6">
-                    {/* Informations Clés */}
-                    <div className="card-luxury shadow-sm">
-                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-sky-500 text-white flex items-center justify-center">
-                                    <BriefcaseIcon className="h-6 w-6" />
+            <form onSubmit={submit}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+                    {/* ══ Colonne principale 8/12 ══ */}
+                    <div className="lg:col-span-8 space-y-5">
+
+                        {/* ── Hero titre ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400"/>
+                            <div className="px-8 py-7">
+                                <div className="flex items-center gap-4 mb-6">
+                                    {/* Avatar live */}
+                                    <div className="h-14 w-14 rounded-2xl flex items-center justify-center text-white text-xl font-black flex-shrink-0 shadow-md select-none"
+                                        style={{background:'linear-gradient(135deg,#0062AF 0%,#003d8c 100%)'}}>
+                                        {initials}
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">
+                                            {isEdit?'Modifier le projet':'Nouveau projet'}
+                                        </p>
+                                        <p className="text-sm text-slate-500">
+                                            {form.Nom_Projet||'Saisissez le nom ci-dessous'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-slate-800">Informations Clés</h2>
-                                    <p className="text-sm text-slate-600">Définition et client rattaché</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-6 space-y-6">
-                            <div>
-                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                    Nom du Projet *
-                                </label>
                                 <input
-                                    type="text"
-                                    name="Nom_Projet"
-                                    value={formData.Nom_Projet}
-                                    onChange={handleChange}
-                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-lg font-semibold text-slate-800 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-                                    placeholder="Ex: Refonte Site E-commerce"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                    {isAdminUser ? 'Filtre par Commercial' : 'Client'}
-                                </label>
-                                {isAdminUser && !isEdit && (
-                                    <select
-                                        value={representativeCode}
-                                        onChange={(e) => handleCommercialChange(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
-                                    >
-                                        <option value="">Tous les commerciaux</option>
-                                        {commercials.map((item) => (
-                                            <option key={item.userId} value={item.userId}>
-                                                {item.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                                {commercialsLoading && isAdminUser && (
-                                    <p className="text-xs text-slate-500 mb-2">Chargement des commerciaux...</p>
-                                )}
-                                {!isEdit ? (
-                                    <input
-                                        type="text"
-                                        value={clientSearchTerm}
-                                        onChange={(e) => setClientSearchTerm(e.target.value)}
-                                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none mb-3"
-                                    />
-                                ) : (
-                                    <div className="mb-3 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-slate-500 italic text-sm">
-                                        <CheckIcon className="h-4 w-4 text-emerald-500" />
-                                        Client rattaché au projet
-                                    </div>
-                                )}
-                                <select
-                                    name="IDTiers"
-                                    value={formData.IDTiers}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        handleChange(e);
-                                        if (value) {
-                                            const selected = tierOptions.find(t => (t.CodTiers || t.IDTiers) === value);
-                                            if (selected) {
-                                                setSelectedTierSnapshot({
-                                                    IDTiers: selected.IDTiers,
-                                                    CodTiers: selected.CodTiers,
-                                                    Raisoc: selected.Raisoc,
-                                                    codRepresTiers: selected.codRepresTiers
-                                                });
-                                            }
-                                        }
-                                    }}
-                                    disabled={isEdit}
-                                    className={`w-full px-3 py-2.5 border rounded-xl text-sm transition-all focus:outline-none ${isEdit ? 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed font-medium' : 'bg-white border-slate-200 text-slate-700 focus:border-sky-400'}`}
-                                    required
-                                >
-                                    <option value="">Sélectionner un client...</option>
-                                    {tierOptions.map(t => (
-                                        <option key={t.IDTiers || t.CodTiers} value={t.CodTiers || t.IDTiers}>
-                                            {(t.Raisoc || t.NomTiers || t.CodTiers || t.IDTiers)
-                                                + (t.CodTiers ? ` (${t.CodTiers})` : '')}
-                                        </option>
-                                    ))}
-                                </select>
-                                {tiersLoading && (
-                                    <p className="text-xs text-slate-500 mt-2">Recherche clients en cours...</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                    Budget Alloué (TND)
-                                </label>
-                                <div className="relative">
-                                    <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                    <input
-                                        type="number" min="0"
-                                        name="Budget_Alloue"
-                                        value={formData.Budget_Alloue}
-                                        onChange={handleChange}
-                                        onKeyDown={preventNegativeInput}
-                                        className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-                                        placeholder="0.00"
-                                    />
-                                </div>
+                                    type="text" name="Nom_Projet"
+                                    value={form.Nom_Projet} onChange={set} required
+                                    placeholder="Nom du projet…"
+                                    className="w-full text-3xl font-bold text-slate-900 placeholder:text-slate-200 bg-transparent border-none outline-none pb-2 border-b-2 border-slate-100 focus:border-[#0062AF] transition-colors"/>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Suivi et Avancement */}
-                    <div className="card-luxury shadow-sm">
-                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-violet-500 text-white flex items-center justify-center">
-                                    <ChartBarIcon className="h-6 w-6" />
+                        {/* ── Client ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                        <UserIcon className="h-4 w-4 text-[#0062AF]"/>
+                                    </div>
+                                    <span className="text-sm font-bold text-slate-800">Client associé</span>
                                 </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-slate-800">Suivi et Avancement</h2>
-                                    <p className="text-sm text-slate-600">Statut et progression du projet</p>
-                                </div>
+                                {form.IDTiers&&<span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Sélectionné ✓</span>}
+                            </div>
+                            <div className="px-6 py-6 space-y-5">
+                                {isAdmin&&!isEdit&&(
+                                    <Field label="Commercial">
+                                        <select value={rep} onChange={e=>{setRep(e.target.value);setSnap(null);setForm(p=>({...p,IDTiers:''}));}} className={inp+' cursor-pointer'}>
+                                            <option value="">Tous les commerciaux</option>
+                                            {comms.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                                        </select>
+                                    </Field>
+                                )}
+                                {!isEdit&&(
+                                    <Field label="Rechercher un client">
+                                        <div className="relative">
+                                            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 pointer-events-none"/>
+                                            <input type="text" value={q} onChange={e=>setQ(e.target.value)}
+                                                placeholder="Nom, code, email…"
+                                                className={inp+' pl-11'}/>
+                                            {tiersL&&<span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Chargement…</span>}
+                                        </div>
+                                    </Field>
+                                )}
+                                <Field label="Client" req>
+                                    {isEdit?(
+                                        <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-medium text-emerald-700">
+                                            <CheckIcon className="h-4 w-4 flex-shrink-0"/>
+                                            Client rattaché — non modifiable
+                                        </div>
+                                    ):(
+                                        <select name="IDTiers" value={form.IDTiers} required
+                                            onChange={e=>{
+                                                set(e);
+                                                const s=options.find(t=>(t.CodTiers||t.IDTiers)===e.target.value);
+                                                if(s)setSnap({IDTiers:s.IDTiers,CodTiers:s.CodTiers,Raisoc:s.Raisoc,codRepresTiers:s.codRepresTiers});
+                                            }}
+                                            className={inp+' cursor-pointer'}>
+                                            <option value="">Sélectionner un client…</option>
+                                            {options.map(t=>(
+                                                <option key={t.IDTiers||t.CodTiers} value={t.CodTiers||t.IDTiers}>
+                                                    {(t.Raisoc||t.NomTiers||t.CodTiers)+(t.CodTiers?` (${t.CodTiers})`:'')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </Field>
                             </div>
                         </div>
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                        Phase Actuelle
-                                    </label>
-                                    <select name="Phase" value={formData.Phase} onChange={handleChange} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none">
-                                        <option>Nouveau</option>
-                                        <option>Analyse</option>
-                                        <option>Conception</option>
-                                        <option>Exécution</option>
-                                        <option>Tests</option>
-                                        <option>Clôture</option>
-                                    </select>
+
+                        {/* ── Paramètres ── */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
+                                <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                                    <ChartBarIcon className="h-4 w-4 text-violet-600"/>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                        Avancement (%)
-                                    </label>
-                                    <input
-                                        type="range"
-                                        name="Avancement"
-                                        value={formData.Avancement}
-                                        onChange={handleChange}
-                                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-500 mt-4"
-                                    />
-                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
-                                        <span>0%</span>
-                                        <span className="text-sky-600 font-semibold">{formData.Avancement}%</span>
-                                        <span>100%</span>
-                                    </div>
+                                <span className="text-sm font-bold text-slate-800">Paramètres du projet</span>
+                            </div>
+                            <div className="px-6 py-6 space-y-6">
+
+                                {/* Phase + Échéance + Budget */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <Field label="Phase">
+                                        <select name="Phase" value={form.Phase} onChange={set} className={inp+' cursor-pointer'}>
+                                            {PHASES.map(p=><option key={p}>{p}</option>)}
+                                        </select>
+                                    </Field>
+                                    <Field label="Échéance">
+                                        <div className="relative">
+                                            <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 pointer-events-none"/>
+                                            <input type="date" name="Date_Echeance" value={form.Date_Echeance} onChange={set} className={inp+' pl-11'}/>
+                                        </div>
+                                    </Field>
+                                    <Field label="Budget (TND)">
+                                        <div className="relative">
+                                            <CurrencyDollarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 pointer-events-none"/>
+                                            <input type="number" min="0" name="Budget_Alloue" value={form.Budget_Alloue} onChange={set}
+                                                onKeyDown={e=>e.key==='-'&&e.preventDefault()}
+                                                placeholder="0.000" className={inp+' pl-11'}/>
+                                        </div>
+                                    </Field>
                                 </div>
-                                <div>
-                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                        Priorité
-                                    </label>
-                                    <div className="flex gap-3 mt-2">
-                                        {['Basse', 'Normale', 'Haute'].map(p => (
-                                            <label key={p} className={`flex-1 flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.Priorite === p ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                                                <input type="radio" name="Priorite" value={p} checked={formData.Priorite === p} onChange={handleChange} className="hidden" />
-                                                <span className="text-xs font-semibold uppercase tracking-wider">{p}</span>
+
+                                {/* Priorité */}
+                                <Field label="Priorité">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {PRIOS.map(p=>(
+                                            <label key={p.v} className={`flex items-center justify-center py-3 rounded-xl border-2 cursor-pointer transition-all text-sm font-bold select-none ${form.Priorite===p.v?p.active:p.def+' hover:border-slate-300'}`}>
+                                                <input type="radio" name="Priorite" value={p.v} checked={form.Priorite===p.v} onChange={set} className="hidden"/>
+                                                {p.v}
                                             </label>
                                         ))}
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-500 uppercase tracking-wider mb-2 block">
-                                        Date d'échéance
-                                    </label>
-                                    <div className="relative">
-                                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                                        <input
-                                            type="date"
-                                            name="Date_Echeance"
-                                            value={formData.Date_Echeance}
-                                            onChange={handleChange}
-                                            className="w-full pl-11 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:border-sky-400 focus:outline-none"
-                                        />
-                                    </div>
-                                </div>
+                                </Field>
+
+
+                                {/* Note privée — intégrée ici aussi */}
+                                <Field label="Note interne">
+                                    <textarea name="Note_Privee" value={form.Note_Privee} onChange={set}
+                                        rows={4} placeholder="Contexte, instructions, détails techniques…"
+                                        className={inp+' resize-none'}/>
+                                </Field>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 self-start">
-                    <div className="card-luxury shadow-sm">
-                        <div className="border-b border-slate-200 bg-slate-50/50 py-4 px-6">
-                            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-                                Note Privée
-                            </h2>
+                    {/* ══ Sidebar 4/12 ══ */}
+                    <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-5 self-start">
+
+                        {/* Preview live */}
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400"/>
+                            <div className="px-6 py-6">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-5">Aperçu du projet</p>
+
+                                {/* Cercle SVG */}
+                                <div className="flex flex-col items-center gap-4 pb-5 border-b border-slate-100">
+                                    <div className="relative h-32 w-32">
+                                        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                                            <circle cx="50" cy="50" r={r} fill="none" stroke="#f1f5f9" strokeWidth="8"/>
+                                            <circle cx="50" cy="50" r={r} fill="none" stroke={colors.arc}
+                                                strokeWidth="8" strokeLinecap="round"
+                                                strokeDasharray={circ} strokeDashoffset={offset}
+                                                style={{transition:'stroke-dashoffset 0.5s ease-out, stroke 0.4s ease'}}/>
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className={`text-2xl font-black tabular-nums leading-none ${colors.text}`}>{pct}</span>
+                                            <span className="text-[10px] font-semibold text-slate-400 mt-0.5">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-base font-bold text-slate-800">{form.Nom_Projet||'—'}</p>
+                                        <p className={`text-xs font-semibold mt-0.5 ${colors.text}`}>{colors.label}</p>
+                                    </div>
+                                </div>
+
+                                {/* Résumé des champs */}
+                                <div className="pt-5 space-y-3">
+                                    {[
+                                        {k:'Phase',    v:form.Phase,                          dot:'bg-[#0062AF]'},
+                                        {k:'Priorité', v:form.Priorite,                       dot:form.Priorite==='Haute'?'bg-red-400':form.Priorite==='Normale'?'bg-[#0062AF]':'bg-slate-400'},
+                                        {k:'Échéance', v:form.Date_Echeance||'Non définie',   dot:'bg-teal-400'},
+                                        {k:'Budget',   v:form.Budget_Alloue>0?`${Number(form.Budget_Alloue).toLocaleString('fr-TN',{minimumFractionDigits:3})} TND`:'—', dot:'bg-violet-400'},
+                                    ].map(r=>(
+                                        <div key={r.k} className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${r.dot}`}/>
+                                                <span className="text-xs text-slate-400">{r.k}</span>
+                                            </div>
+                                            <span className="text-xs font-semibold text-slate-700 truncate text-right max-w-[120px]">{r.v}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-6">
-                            <textarea
-                                name="Note_Privee"
-                                value={formData.Note_Privee}
-                                onChange={handleChange}
-                                rows="8"
-                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none resize-none"
-                                placeholder="Instructions internes, détails techniques..."
-                            ></textarea>
-                        </div>
+
                     </div>
                 </div>
             </form>
