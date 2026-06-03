@@ -10,8 +10,6 @@ import toast from 'react-hot-toast';
 import usePrediction from '../../hooks/usePrediction';
 
 const SalesPredictionDashboard = () => {
-  console.log('[SalesPredictionDashboard] MOUNTING');
-  
   const {
     predictions,
     regions,
@@ -22,8 +20,6 @@ const SalesPredictionDashboard = () => {
     predictAll,
     clearError,
   } = usePrediction();
-  
-  console.log('[SalesPredictionDashboard] State:', { predictions: predictions?.length, regions: regions?.length, loading, isServiceAvailable });
 
   const [localFilters, setLocalFilters] = useState({
     trimestre: 3,
@@ -32,18 +28,14 @@ const SalesPredictionDashboard = () => {
   });
 
   const handlePredictAll = useCallback(async () => {
-    console.log('[SalesPredictionDashboard] handlePredictAll called with:', localFilters);
     try {
-      const result = await predictAll(localFilters.trimestre, localFilters.year);
-      console.log('[SalesPredictionDashboard] predictAll result:', result);
+      await predictAll(localFilters.trimestre, localFilters.year);
     } catch (err) {
-      console.error('Prediction error:', err);
+      // errors handled by Redux slice
     }
   }, [predictAll, localFilters]);
 
-  // Load predictions on mount or filter change
   useEffect(() => {
-    console.log('[SalesPredictionDashboard] useEffect triggered with filters:', localFilters);
     handlePredictAll();
   }, [handlePredictAll]);
 

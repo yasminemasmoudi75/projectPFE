@@ -99,7 +99,7 @@ const FavList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -134,7 +134,7 @@ const FavList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
+    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ const FavList = () => {
 
   useEffect(() => {
     refreshData();
-  }, [filters.commercial, isModuleActive]);
+  }, [filters.commercial, isModuleActive, isClientUser]);
 
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;
@@ -368,7 +368,7 @@ const FavList = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="mine">Mes factures</option>
+                        {!isAgentUser && <option value="mine">Mes factures</option>}
                         <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
@@ -410,7 +410,7 @@ const FavList = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
-                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', ''].map((h, i) => (
+                {['Document', 'Client', 'Région', 'Catégorie', 'Montant TTC', ''].map((h, i) => (
                   <th
                     key={i}
                     className={clsx(
@@ -495,13 +495,6 @@ const FavList = () => {
                               {item?.client?.MapsRegion || item.MapsRegion || item.Gouvernorat}
                             </span>
                           ) : <span className="text-slate-200">—</span>}
-                        </td>
-
-                        {/* Type */}
-                        <td className="px-5 py-3.5">
-                          <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                            {item.TypeFav || 'Standard'}
-                          </span>
                         </td>
 
                         {/* Catégorie */}

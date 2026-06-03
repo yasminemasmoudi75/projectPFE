@@ -180,6 +180,8 @@ const ClientForm = () => {
     const otherBanquePhotoInputRef = useRef(null);
     const [emailCheckMessage, setEmailCheckMessage] = useState('');
     const [emailChecking, setEmailChecking] = useState(false);
+    const [originalCommercial, setOriginalCommercial] = useState('');
+    const [originalEmail, setOriginalEmail] = useState('');
 
     const [currentStep, setCurrentStep] = useState(1);
     const [completedSteps, setCompletedSteps] = useState(new Set([1]));
@@ -357,7 +359,7 @@ const ClientForm = () => {
                         MatriculeFiscale: data.CodTva || '',
                         Cin: data.Cin || '',
                         RC: data.RC || '',
-                        ConditionPaiement: '',
+                        ConditionPaiement: data.ConditionPaiement || data.conditionPaiement || '',
                         Commercial: data.codRepresTiers || '',
                         Remise: data.Remise ?? '',
                         NbrCreditJour: data.NbrCreditJour ?? '',
@@ -384,6 +386,9 @@ const ClientForm = () => {
                         Pub: Boolean(data.Pub),
                         Actif: data.Actif !== false
                     });
+
+                    setOriginalCommercial(String(data.codRepresTiers || ''));
+                    setOriginalEmail(String(data.Email || '').toLowerCase().trim());
 
                     setContacts(
                         Array.isArray(data.contacts) && data.contacts.length > 0
@@ -476,8 +481,10 @@ const ClientForm = () => {
     };
 
     const checkEmailUniqueness = async () => {
-        const email = String(formData.Email || '').trim();
+        const email = String(formData.Email || '').toLowerCase().trim();
         if (!email) { setEmailCheckMessage(''); return true; }
+        // En mode édition, si l'email n'a pas changé, pas besoin de vérifier
+        if (isEdit && email === originalEmail) { setEmailCheckMessage(''); return true; }
         setEmailChecking(true);
         try {
             const response = await axios.get('/tiers/check-email', { params: { email, excludeId: isEdit ? id : undefined } });
@@ -516,8 +523,14 @@ const ClientForm = () => {
             toast.error("L'affectation commerciale (Représentant) est obligatoire.");
             return;
         }
-        if (isEdit && String(formData.Commercial || '').trim() && !canAssignCommercial) {
+        const commercialChanged = String(formData.Commercial || '') !== String(originalCommercial || '');
+        if (isEdit && commercialChanged && String(formData.Commercial || '').trim() && !canAssignCommercial) {
             toast.error('Seuls les clients de classe Prospect peuvent être affectés à un commercial.');
+            return;
+        }
+
+        if (formData.Cin && formData.Cin.length > 0 && formData.Cin.length !== 8) {
+            toast.error('Le CIN doit contenir exactement 8 chiffres.');
             return;
         }
 
@@ -720,8 +733,24 @@ const ClientForm = () => {
                                     <InputField label="Nom du responsable">
                                         <input type="text" name="Nom" value={formData.Nom} onChange={handleChange} placeholder="Nom de famille" className={ic('sky')} />
                                     </InputField>
-                                    <InputField label="CIN / Identifiant">
-                                        <input type="text" name="Cin" value={formData.Cin} onChange={handleChange} placeholder="N° CIN" className={ic('sky')} />
+                                    <InputField
+                                        label="CIN / Identifiant"
+                                        error={formData.Cin && formData.Cin.length > 0 && formData.Cin.length !== 8 ? '8 chiffres requis' : ''}
+                                        hint="Exactement 8 chiffres"
+                                    >
+                                        <input
+                                            type="text"
+                                            name="Cin"
+                                            value={formData.Cin}
+                                            onChange={(e) => {
+                                                const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+                                                setFormData(prev => ({ ...prev, Cin: digits }));
+                                            }}
+                                            placeholder="00000000"
+                                            maxLength={8}
+                                            inputMode="numeric"
+                                            className={`${ic('sky')} ${formData.Cin && formData.Cin.length > 0 && formData.Cin.length !== 8 ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100' : ''}`}
+                                        />
                                     </InputField>
                                 </div>
 

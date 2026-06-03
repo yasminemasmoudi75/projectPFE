@@ -42,21 +42,21 @@ const menuItems = [
   { type: 'section', name: 'CRM & Ventes' },
   { name: 'Utilisateurs', href: '/users', icon: UsersIcon, moduleCode: MODULE_CODES.USERS, color: 'indigo' },
   { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.MESSAGES, color: 'cyan' },
-  { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS, color: 'emerald' },
+  { name: 'Clients', href: '/clients', icon: UserGroupIcon, moduleCode: MODULE_CODES.CLIENTS, color: 'emerald', noClient: true },
   { name: 'Devis', href: '/devis', icon: DocumentTextIcon, moduleCode: MODULE_CODES.DEVIS, color: 'sky' },
   { name: 'Bons de Commande', href: '/bcv', icon: ShoppingBagIcon, moduleCode: MODULE_CODES.COMMANDES, color: 'amber' },
   { name: 'Livraisons', href: '/blv', icon: TruckIcon, moduleCode: MODULE_CODES.LIVRAISONS, color: 'orange' },
   { name: 'Factures', href: '/fav', icon: BanknotesIcon, moduleCode: MODULE_CODES.FACTURES, color: 'green' },
   { name: 'Paiements', href: '/reglements', icon: BanknotesIcon, moduleCode: MODULE_CODES.REGLEMENT, color: 'emerald' },
   { name: 'Mouvements', href: '/mouvements', icon: ArrowPathIcon, moduleCode: null, color: 'teal', adminOnly: true },
-  { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet' },
+  { name: 'Projets', href: '/projets', icon: BriefcaseIcon, moduleCode: MODULE_CODES.PROJETS, color: 'violet', noClient: true },
   { type: 'section', name: 'Operations' },
-  { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES, color: 'rose' },
+  { name: 'Activites', href: '/activites', icon: CalendarIcon, moduleCode: MODULE_CODES.ACTIVITES, color: 'rose', noClient: true },
   { name: 'Calendrier', href: '/calendar', icon: CalendarIcon, moduleCode: MODULE_CODES.CALENDRIER, color: 'pink' },
   { name: 'Produits', href: '/products', icon: CubeIcon, moduleCode: MODULE_CODES.STOCK, color: 'slate' },
   { name: 'SAV', href: '/claims', icon: LifebuoyIcon, moduleCode: MODULE_CODES.SAV, color: 'red' },
   { type: 'section', name: 'Intelligence' },
-  { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS, color: 'emerald' },
+  { name: 'Objectifs', href: '/objectifs', icon: ChartBarIcon, moduleCode: MODULE_CODES.OBJECTIFS, color: 'emerald', noClient: true },
   { name: 'Recap', href: null, icon: SparklesIcon, moduleCode: MODULE_CODES.RECAP, color: 'violet' },
   { name: 'Chargement', href: null, icon: TruckIcon, moduleCode: MODULE_CODES.CHARGEMENT, color: 'orange' },
   { name: 'Relevé', href: null, icon: ChatBubbleLeftRightIcon, moduleCode: MODULE_CODES.RELEVE, color: 'cyan' },
@@ -173,6 +173,9 @@ const SidebarContent = () => {
 
     // 2. User management is security-restricted to admins regardless of DB
     if (item.name === 'Utilisateurs' && role !== 'admin') return false;
+
+    // 2b. Items explicitly hidden from client role
+    if (item.noClient && role === 'client') return false;
 
     // 3. Public modules without a DB module code (Dashboard, etc.)
     if (item.moduleCode == null) return true;

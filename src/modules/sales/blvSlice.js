@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../app/axios';
+import { logout } from '../../auth/authSlice';
 
 const initialState = {
     blvList: [],
@@ -72,6 +73,8 @@ const blvSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(logout.fulfilled, () => initialState)
+            .addCase(logout.rejected, () => initialState)
             .addCase(fetchBlv.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchBlv.fulfilled, (state, action) => {
                 state.loading = false;

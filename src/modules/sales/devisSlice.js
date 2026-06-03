@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../app/axios';
+import { logout } from '../../auth/authSlice';
 
 // État initial
 const initialState = {
@@ -87,6 +88,10 @@ const devisSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Reset state on logout to prevent stale data leaking across user sessions
+      .addCase(logout.fulfilled, () => initialState)
+      .addCase(logout.rejected, () => initialState)
+
       // Fetch Devis
       .addCase(fetchDevis.pending, (state) => {
         state.loading = true;
@@ -155,12 +160,16 @@ const devisSlice = createSlice({
       // Validate Devis
       .addCase(validateDevis.fulfilled, (state, action) => {
         if (!action.payload) return;
+        // Preserve existing details if the response doesn't include them
+        const withDetails = action.payload.details?.length
+          ? action.payload
+          : { ...action.payload, details: state.currentDevis?.details ?? [] };
         const index = state.devis.findIndex((d) => d.Guid === action.payload.Guid);
         if (index !== -1) {
-          state.devis[index] = action.payload;
+          state.devis[index] = withDetails;
         }
         if (state.currentDevis?.Guid === action.payload.Guid) {
-          state.currentDevis = action.payload;
+          state.currentDevis = withDetails;
         }
       })
 

@@ -26,6 +26,7 @@ import usePermission from '../../hooks/usePermission';
 import useAuth from '../../hooks/useAuth';
 import { MODULE_CODES } from '../../utils/constants';
 import axios from '../../app/axios';
+import toast from 'react-hot-toast';
 
 // ─── Animation Variants ───────────────────────────────────────────────────────
 const pageVariants = {
@@ -84,6 +85,8 @@ const BcvList = () => {
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
   const adminId = currentUser?.UserID?.toString();
   const { bcvList: bcv, loading } = useSelector((state) => state.bcv);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting]     = useState(false);
 
   const normalizedUserRole = String(currentUser?.UserRole || '').trim().toLowerCase();
   const isCommercialUser = ['commercial', 'commerciale'].includes(normalizedUserRole);
@@ -96,7 +99,7 @@ const BcvList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -130,7 +133,7 @@ const BcvList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
@@ -222,7 +225,7 @@ const BcvList = () => {
 
   useEffect(() => {
     refreshData();
-  }, [filters.status, filters.commercial, isModuleActive]);
+  }, [filters.status, filters.commercial, isModuleActive, isClientUser]);
 
   useEffect(() => {
     if (permissionLoading || authLoading || !isAuthenticated) return;
@@ -233,6 +236,21 @@ const BcvList = () => {
   useEffect(() => {
     if (!isFilterRepresEnabled) setAllClients(clientsFromVisibleBcv);
   }, [isFilterRepresEnabled, clientsFromVisibleBcv]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      await axios.delete(`/bcv/${deleteTarget.Guid}`);
+      toast.success('Bon de commande supprimé');
+      setDeleteTarget(null);
+      refreshData();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (loading) return <LoadingSpinner />;
 
@@ -246,6 +264,52 @@ const BcvList = () => {
 
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible" className="space-y-6 pb-12">
+
+      {/* ── Confirm Delete Modal ── */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setDeleteTarget(null)}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center flex-none">
+                    <TrashIcon className="h-5 w-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Supprimer ce bon de commande ?</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Cette action est irréversible.</p>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-5">
+                  Le bon <span className="font-bold text-slate-700">{deleteTarget.Prfx}{deleteTarget.Nf}</span>
+                  {deleteTarget.LibTiers && <> — <span className="text-slate-600">{deleteTarget.LibTiers}</span></>} sera définitivement supprimé.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteTarget(null)} disabled={isDeleting}
+                    className="flex-1 h-10 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all disabled:opacity-50">
+                    Annuler
+                  </button>
+                  <button onClick={handleDelete} disabled={isDeleting}
+                    className="flex-1 h-10 bg-rose-500 text-white rounded-xl text-sm font-semibold hover:bg-rose-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isDeleting
+                      ? <><ArrowPathIcon className="h-4 w-4 animate-spin" /> Suppression…</>
+                      : <><TrashIcon className="h-4 w-4" /> Supprimer</>}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Header ── */}
       <motion.div variants={fadeUp} className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -398,7 +462,7 @@ const BcvList = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="mine">Mes commandes</option>
+                        {!isAgentUser && <option value="mine">Mes commandes</option>}
                         <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
@@ -440,7 +504,7 @@ const BcvList = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
-                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
+                {['Document', 'Client', 'Région', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
                   <th
                     key={i}
                     className={clsx(
@@ -527,13 +591,6 @@ const BcvList = () => {
                           ) : <span className="text-slate-200">—</span>}
                         </td>
 
-                        {/* Type */}
-                        <td className="px-5 py-3.5">
-                          <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                            {item.TypeBcv || 'Standard'}
-                          </span>
-                        </td>
-
                         {/* Catégorie */}
                         <td className="px-5 py-3.5">
                           {(item?.client?.tiersCategorieObj?.libelle || item.Categorie) ? (
@@ -575,6 +632,15 @@ const BcvList = () => {
                             >
                               <ArrowUpRightIcon className="h-3.5 w-3.5" />
                             </button>
+                            {isAdminUser && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }}
+                                title="Supprimer"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </motion.tr>

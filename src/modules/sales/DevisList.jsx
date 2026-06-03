@@ -96,8 +96,8 @@ const DevisList = () => {
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    search: '', status: 'all', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: isClientUser ? 'all' : 'mine',
+    search: '', status: 'all', amount: '',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -131,8 +131,8 @@ const DevisList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'mine' });
-  const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
+    setFilters({ search: '', status: 'all', amount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
+  const activeFiltersCount = [filters.search, filters.status !== 'all', filters.amount, filters.dateFrom, filters.dateTo].filter(Boolean).length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filteredDevis = useMemo(() => (devis || []).filter((item) => {
@@ -147,8 +147,10 @@ const DevisList = () => {
       if (filters.status === 'valid' && itemStatus !== 'valid') return false;
     }
     const amount = item.TotTTC || 0;
-    if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
-    if (filters.maxAmount && amount > parseFloat(filters.maxAmount)) return false;
+    if (filters.amount) {
+      const target = parseFloat(filters.amount);
+      if (!isNaN(target) && Math.abs(amount - target) > 0.5) return false;
+    }
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(item.DatUser) > new Date(filters.dateTo)) return false;
@@ -194,7 +196,7 @@ const refreshData = () => {
 
   useEffect(() => {
     refreshData();
-  }, [filters.status, filters.commercial]);
+  }, [filters.status, filters.commercial, isClientUser]);
 
   const handleDeleteDevis = async (guid) => {
     const confirmed = window.confirm('Voulez-vous vraiment supprimer ce devis ?');
@@ -376,12 +378,11 @@ const refreshData = () => {
               className="overflow-hidden"
             >
               <div className="px-5 pb-5 pt-4 border-t border-slate-100 bg-slate-50/60">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
-                    { key: 'minAmount', label: 'Montant min (TND)', type: 'number', placeholder: '1 000' },
-                    { key: 'maxAmount', label: 'Montant max (TND)', type: 'number', placeholder: '50 000' },
-                    { key: 'dateFrom', label: 'Créé après le', type: 'date', placeholder: '' },
-                    { key: 'dateTo', label: 'Créé avant le', type: 'date', placeholder: '' },
+                    { key: 'amount',   label: 'Montant (TND)',  type: 'number', placeholder: 'Ex : 5000' },
+                    { key: 'dateFrom', label: 'Créé après le',  type: 'date',   placeholder: '' },
+                    { key: 'dateTo',   label: 'Créé avant le',  type: 'date',   placeholder: '' },
                   ].map(({ key, label, type, placeholder }) => (
                     <div key={key}>
                       <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">{label}</label>
@@ -401,7 +402,7 @@ const refreshData = () => {
                         onChange={(e) => handleFilterChange('commercial', e.target.value)}
                         className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 outline-none transition-all"
                       >
-                        <option value="mine">Mes devis</option>
+                        {!isAgentUser && <option value="mine">Mes devis</option>}
                         <option value="all">Tous</option>
                         {filteredCommercials.map((c) => (
                           <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
@@ -443,7 +444,7 @@ const refreshData = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
-                {['Document', 'Client', 'Région', 'Type', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
+                {['Document', 'Client', 'Région', 'Catégorie', 'Montant TTC', 'Statut', ''].map((h, i) => (
                   <th
                     key={i}
                     className={clsx(
@@ -528,13 +529,6 @@ const refreshData = () => {
                               {item?.tiers?.region?.libelle || item?.tiers?.MapsRegion || item?.tiers?.Ville || item?.tiers?.Gouvernorat || item?.tiers?.gouvernorat || item.MapsRegion || item.Gouvernorat}
                             </span>
                           ) : <span className="text-slate-200">—</span>}
-                        </td>
-
-                        {/* Type */}
-                        <td className="px-5 py-3.5">
-                          <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                            {item.TypeDevis || 'Standard'}
-                          </span>
                         </td>
 
                         {/* Catégorie */}

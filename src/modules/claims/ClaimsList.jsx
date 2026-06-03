@@ -66,10 +66,12 @@ const ClaimsList = () => {
       if (statusFilter !== 'all')    params.append('Statut', statusFilter);
       if (priorityFilter !== 'all')  params.append('Priorite', priorityFilter);
       if (technicianFilter !== 'all') params.append('TechnicienID', technicianFilter);
-      
-      params.append('selectedCommercial', 'all');
-      params.append('includeAll', 'true');
-      
+
+      if (!isClient) {
+        params.append('selectedCommercial', 'all');
+        params.append('includeAll', 'true');
+      }
+
       if (dateFilter)                params.append('Date', dateFilter);
 
       const response = await axios.get(`/reclamations?${params.toString()}`);

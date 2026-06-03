@@ -260,7 +260,7 @@ const BcvDetail = () => {
                         )}
 
                         {/* Commercial: request actions */}
-                        {!alreadyTransferred && isCommercial && bcv?.CodDev && (
+                        {!alreadyTransferred && isCommercial && (
                             <div className="flex items-center gap-2">
                                 <button onClick={() => handleRequestTransfer('BL')} disabled={isRequesting}
                                     className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all disabled:opacity-50">

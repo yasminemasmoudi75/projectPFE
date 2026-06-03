@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../app/axios';
+import { logout } from '../../auth/authSlice';
 
 const initialState = {
     favList: [],
@@ -72,6 +73,8 @@ const favSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(logout.fulfilled, () => initialState)
+            .addCase(logout.rejected, () => initialState)
             .addCase(fetchFav.pending, (state) => { state.loading = true; state.error = null; })
             .addCase(fetchFav.fulfilled, (state, action) => {
                 state.loading = false;

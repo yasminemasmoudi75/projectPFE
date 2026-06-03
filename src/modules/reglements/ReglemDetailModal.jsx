@@ -67,9 +67,24 @@ const ReglemDetailModal = ({ isOpen, onClose, reglementId }) => {
 
   if (!isOpen) return null;
 
-  const cfg = reglement ? getCfg(reglement.paymentStatus) : null;
-  const pct = reglement && reglement.totalAmount > 0
-    ? Math.min(100, Math.round((reglement.paidAmount / reglement.totalAmount) * 100)) : 0;
+  // Restant = somme des Solde des pièces liées (reste à payer sur les factures)
+  // Si aucune pièce liée, utiliser remainingAmount du backend
+  const restant = reglement
+    ? (reglement.pieces?.length > 0
+        ? reglement.pieces.reduce((s, p) => s + (Number(p.Solde) || 0), 0)
+        : (reglement.remainingAmount || 0))
+    : 0;
+
+  const paymentStatusCalc = reglement
+    ? (restant <= 0 ? 'Payé' : reglement.paidAmount > 0 ? 'Partiellement payé' : 'Non payé')
+    : null;
+
+  const cfg = reglement ? getCfg(paymentStatusCalc || reglement.paymentStatus) : null;
+  // Progression = (MntPiece - Solde) / MntPiece  (% payé sur la facture)
+  const totalMntPiece = reglement?.pieces?.reduce((s, p) => s + (Number(p.MntPiece) || 0), 0) || 0;
+  const pct = totalMntPiece > 0
+    ? Math.min(100, Math.round(((totalMntPiece - restant) / totalMntPiece) * 100))
+    : (restant <= 0 && (reglement?.paidAmount || 0) > 0 ? 100 : 0);
 
   return (
     <AnimatePresence>
@@ -136,7 +151,7 @@ const ReglemDetailModal = ({ isOpen, onClose, reglementId }) => {
                         {cfg && (
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${cfg.badge}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-                            {reglement.paymentStatus || (reglement.isPayed ? 'Payé' : 'Non payé')}
+                            {paymentStatusCalc || reglement.paymentStatus || (reglement.isPayed ? 'Payé' : 'Non payé')}
                           </span>
                         )}
                       </div>
@@ -157,7 +172,7 @@ const ReglemDetailModal = ({ isOpen, onClose, reglementId }) => {
                       </div>
                       <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
                         <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-1">Restant</p>
-                        <p className="text-base font-black text-amber-500 tabular-nums">{fmt(reglement.remainingAmount)}</p>
+                        <p className="text-base font-black text-amber-500 tabular-nums">{fmt(restant)}</p>
                       </div>
                     </div>
 

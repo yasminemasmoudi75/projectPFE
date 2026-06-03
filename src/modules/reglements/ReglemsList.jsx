@@ -87,8 +87,9 @@ const ReglemsList = () => {
       if (f.codTiers)  p.set('codTiers', f.codTiers);
       if (f.codRepres) p.set('codRepres', f.codRepres);
       const res = await axios.get(`/reglements?${p}`);
-      setReglements(res.data?.data || res.data || []);
-      setPagination(res.data?.pagination || { total: 0, page: 1, limit: 10, totalPages: 0 });
+      // axios interceptor returns response.data directly, so res = { status, data:[], pagination:{} }
+      setReglements(res?.data || []);
+      setPagination(res?.pagination || { total: 0, page: 1, limit: 10, totalPages: 0 });
     } catch { setReglements([]); }
     finally  { setLoading(false); }
   };
@@ -129,26 +130,25 @@ const ReglemsList = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 flex flex-col lg:flex-row lg:items-center gap-5">
 
-          {/* Left: identity */}
           <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#0062AF] to-sky-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#0062AF] to-sky-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
               <BanknotesIcon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">Réglements</h1>
-              <p className="text-xs text-slate-400 mt-0.5">Suivi des paiements clients et versements</p>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                {isClient ? 'Mes Paiements' : 'Réglements'}
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {isClient ? 'Votre situation financière' : 'Suivi des paiements clients et versements'}
+              </p>
             </div>
           </div>
-
-          {/* Center: collection ring */}
-          {stats && (
+          {stats && !isClient && (
             <div className="hidden lg:flex flex-col items-center gap-1.5">
               <CollectionRing rate={collectionRate} />
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Taux de recouvrement</p>
             </div>
           )}
-
-          {/* Right: actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={fetchStats}
               className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all">
@@ -165,8 +165,52 @@ const ReglemsList = () => {
         </div>
       </div>
 
-      {/* ── KPI Cards ─────────────────────────────────────────── */}
-      {stats && (
+      {/* ── Bandeau Client ────────────────────────────────────── */}
+      {isClient && stats && (
+        <div className="bg-gradient-to-r from-[#0062AF] to-sky-500 rounded-2xl p-6 text-white shadow-lg shadow-blue-500/20">
+          <p className="text-blue-200/80 text-[10px] font-bold uppercase tracking-widest mb-4">Votre situation financière</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+            <div className="bg-white/10 rounded-xl p-4 border border-white/20">
+              <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Montant total</p>
+              <p className="text-2xl font-black tabular-nums">{formatCurrency(stats.totalAmount)}</p>
+              <p className="text-blue-200 text-[11px] mt-0.5">Total de vos factures</p>
+            </div>
+            <div className="bg-emerald-400/20 rounded-xl p-4 border border-emerald-300/30">
+              <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-widest mb-1">Montant réglé</p>
+              <p className="text-2xl font-black tabular-nums text-emerald-100">{formatCurrency(stats.totalPaid)}</p>
+              <p className="text-emerald-200 text-[11px] mt-0.5">{collectionRate}% de vos factures</p>
+            </div>
+            <div className={`rounded-xl p-4 border ${(stats.totalRemaining || 0) > 0 ? 'bg-amber-400/20 border-amber-300/30' : 'bg-emerald-400/20 border-emerald-300/30'}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${(stats.totalRemaining || 0) > 0 ? 'text-amber-200' : 'text-emerald-200'}`}>
+                Montant restant
+              </p>
+              <p className={`text-2xl font-black tabular-nums ${(stats.totalRemaining || 0) > 0 ? 'text-amber-100' : 'text-emerald-100'}`}>
+                {formatCurrency(stats.totalRemaining || 0)}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${(stats.totalRemaining || 0) > 0 ? 'text-amber-200' : 'text-emerald-200'}`}>
+                {(stats.totalRemaining || 0) > 0 ? `${100 - collectionRate}% restant à régler` : 'Tout est réglé ✓'}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[10px] font-bold text-blue-200/80 uppercase tracking-widest">
+              <span>Progression du paiement</span>
+              <span className="text-white font-black">{collectionRate}%</span>
+            </div>
+            <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${collectionRate}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+                className="h-full rounded-full bg-emerald-400"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KPI Cards (admin/commercial only) ─────────────────── */}
+      {stats && !isClient && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
@@ -437,7 +481,9 @@ const ReglemsList = () => {
                           <span className="text-xs font-bold text-emerald-600 tabular-nums">{formatCurrency(reg.paidAmount)}</span>
                         </td>
                         <td className="px-5 py-4 text-right whitespace-nowrap">
-                          <span className="text-xs font-semibold text-slate-500 tabular-nums">{formatCurrency(reg.remainingAmount)}</span>
+                          <span className={`text-xs font-semibold tabular-nums ${(reg.remainingAmount || 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                            {formatCurrency(reg.remainingAmount || 0)}
+                          </span>
                         </td>
 
                         {/* Progress */}
@@ -484,17 +530,32 @@ const ReglemsList = () => {
       </div>
 
       {/* ── Pagination ────────────────────────────────────────── */}
-      {totalPages > 1 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3.5 flex items-center justify-between">
-          <p className="text-xs text-slate-400">
-            <span className="font-bold text-slate-700">{(currentPage - 1) * (pagination?.limit || 10) + 1}</span>
-            {' – '}
-            <span className="font-bold text-slate-700">{Math.min(currentPage * (pagination?.limit || 10), pagination?.total || 0)}</span>
-            {' sur '}
-            <span className="font-bold text-slate-700">{pagination?.total || 0}</span>
-          </p>
+      {(pagination?.total || 0) > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap">
+          {/* Info + per-page */}
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-slate-400">
+              <span className="font-bold text-slate-700">{(currentPage - 1) * (pagination?.limit || 10) + 1}</span>
+              {' – '}
+              <span className="font-bold text-slate-700">{Math.min(currentPage * (pagination?.limit || 10), pagination?.total || 0)}</span>
+              {' sur '}
+              <span className="font-bold text-slate-700">{pagination?.total || 0}</span>
+              {' réglements'}
+            </p>
+            <select
+              value={filters.limit}
+              onChange={e => setFilters(f => ({ ...f, limit: Number(e.target.value), page: 1 }))}
+              className="h-7 px-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 transition-all"
+            >
+              {[10, 20, 50, 100].map(n => (
+                <option key={n} value={n}>{n} / page</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Page buttons */}
           <div className="flex items-center gap-1">
-            <button disabled={currentPage === 1} onClick={() => handlePage(currentPage - 1)}
+            <button disabled={currentPage <= 1} onClick={() => handlePage(currentPage - 1)}
               className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
@@ -509,7 +570,7 @@ const ReglemsList = () => {
                   }`}>{p}</button>
               </span>
             ))}
-            <button disabled={currentPage === totalPages} onClick={() => handlePage(currentPage + 1)}
+            <button disabled={currentPage >= totalPages} onClick={() => handlePage(currentPage + 1)}
               className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
               <ChevronRightIcon className="h-4 w-4" />
             </button>

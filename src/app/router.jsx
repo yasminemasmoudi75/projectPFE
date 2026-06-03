@@ -137,33 +137,41 @@ const routes = [
       {
         path: 'clients',
         element: (
-          <SuspenseWrapper>
-            <ClientsList />
-          </SuspenseWrapper>
+          <NoClientRoute>
+            <SuspenseWrapper>
+              <ClientsList />
+            </SuspenseWrapper>
+          </NoClientRoute>
         ),
       },
       {
         path: 'clients/new',
         element: (
-          <SuspenseWrapper>
-            <ClientForm />
-          </SuspenseWrapper>
+          <NoClientRoute>
+            <SuspenseWrapper>
+              <ClientForm />
+            </SuspenseWrapper>
+          </NoClientRoute>
         ),
       },
       {
         path: 'clients/edit/:id',
         element: (
-          <SuspenseWrapper>
-            <ClientForm />
-          </SuspenseWrapper>
+          <NoClientRoute>
+            <SuspenseWrapper>
+              <ClientForm />
+            </SuspenseWrapper>
+          </NoClientRoute>
         ),
       },
       {
         path: 'clients/:id',
         element: (
-          <SuspenseWrapper>
-            <ClientDetail />
-          </SuspenseWrapper>
+          <NoClientRoute>
+            <SuspenseWrapper>
+              <ClientDetail />
+            </SuspenseWrapper>
+          </NoClientRoute>
         ),
       },
       {

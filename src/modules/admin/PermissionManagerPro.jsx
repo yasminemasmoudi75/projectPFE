@@ -89,7 +89,7 @@ const PermissionManagerPro = () => {
         return;
       }
 
-      /* ── Rôles depuis DB (excl. Admin) ── */
+      /* ── Rôles depuis DB (Admin exclu — accès complet géré dans le backend) ── */
       const dbRoles = [...new Set(
         rows.map(r => r.role ?? r.ProfileUser ?? '').filter(v => v && v.toLowerCase() !== 'admin')
       )].sort();

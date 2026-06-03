@@ -28,7 +28,8 @@ import {
     BellIcon,
     AdjustmentsHorizontalIcon,
     FunnelIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
