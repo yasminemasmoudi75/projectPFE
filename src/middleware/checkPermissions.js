@@ -61,13 +61,6 @@ const checkPermission = (codMod, action) => {
         return next();
       }
 
-      // Admins have full access to all modules
-      if (access.isAdmin || userRole === 'admin') {
-        req.grantedModule = codMods[0];
-        req.permissions = { canAdd: true, canEdit: true, canDelt: true, Actif: true };
-        return next();
-      }
-
       const aliases = roleAliases(userRole);
       let granted = false;
       let lastErrorMessage = 'Accès refusé au module';

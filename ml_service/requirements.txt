@@ -1,30 +1,29 @@
 # REQUIREMENTS - DÉPENDANCES PYTHON
 # ==================================
 
-# Core
-pandas==2.3.2
+# ── Core ML ──────────────────────────────────────────────
+pandas>=2.3.0
 numpy==2.3.3
 scikit-learn>=1.3.0
-
-# ML Model Serialization
 joblib==1.4.2
 
-# Database
+# ── Base de données ───────────────────────────────────────
 pyodbc>=5.1.0,<6
 
-# API & Web Framework
+# ── API & Web Framework ───────────────────────────────────
 Flask==3.0.0
 Flask-CORS==4.0.0
 
-# Environment Variables
-python-dotenv==1.0.0
-
-# Logging & Monitoring
+# ── Logging ───────────────────────────────────────────────
 python-json-logger==2.0.7
 
-# Testing
-pytest==7.4.3
-pytest-cov==4.1.0
+# ── Variables d'environnement (optionnel) ─────────────────
+# python-dotenv==1.0.0   # décommenter si usage de fichier .env
 
-# Production Server (optionnel)
-Gunicorn==21.2.0
+# ── Tests (développement uniquement) ─────────────────────
+# pytest==7.4.3          # décommenter pour lancer les tests
+# pytest-cov==4.1.0      # décommenter pour la couverture de tests
+
+# ── Serveur de production (Linux uniquement) ──────────────
+# Gunicorn==21.2.0       # non compatible Windows — utiliser waitress sur Windows
+# waitress>=2.1.0        # alternative Windows : pip install waitress

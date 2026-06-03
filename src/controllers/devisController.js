@@ -806,10 +806,18 @@ exports.validateDevis = async (req, res, next) => {
 
     await devis.update({ Valid: true });
 
+    const updated = await DevisMaster.findOne({
+      where: { Guid: devis.Guid },
+      include: [
+        { model: DevisDetail, as: 'details' },
+        { model: Tiers, as: 'tiers' }
+      ],
+    });
+
     res.status(200).json({
       status: 'success',
       message: 'Devis validé avec succès',
-      data: devis
+      data: updated ?? devis
     });
   } catch (error) {
     console.error('❌ Error validateDevis:', error);

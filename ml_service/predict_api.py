@@ -6,12 +6,11 @@ Service production-ready pour prédire les ventes et générer
 des recommandations commerciales par région.
 
 Auteur: Système ML
-Version: 1.3.0
-Date: Mai 2026
+Version: 1.4.0
+Date: Juin 2026
 Status: Production-Ready ✅
 """
 
-import os
 import json
 import logging
 import io
@@ -19,7 +18,6 @@ import sys
 from typing import Dict, Optional, Tuple
 from datetime import datetime
 import joblib
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -95,8 +93,8 @@ class PredictionException(Exception):
 
 class InputValidator:
     """Valide les inputs de prédiction"""
-    
-    # Listes valides
+
+    # Noms canoniques (format API)
     VALID_REGIONS = [
         'ARIANA', 'BEJA', 'BEN_AROUS', 'BIZERTE', 'GABES',
         'GAFSA', 'JENDOUBA', 'KAIROUAN', 'KASSERINE', 'KEBILI',
@@ -104,26 +102,69 @@ class InputValidator:
         'NABEUL', 'SFAX', 'SIDI_BOUZID', 'SILIANA', 'SOUSSE',
         'TATAOUINE', 'TOZEUR', 'TUNIS', 'ZAGHOUAN'
     ]
-    
+
+    # Alias : noms alternatifs envoyés par le frontend (avec accents, espaces, etc.)
+    # Clés en MAJUSCULES sans accents pour la comparaison
+    REGION_ALIASES = {
+        'BEN AROUS':   'BEN_AROUS',
+        'BEN-AROUS':   'BEN_AROUS',
+        'LE KEF':      'LE_KEF',
+        'LE-KEF':      'LE_KEF',
+        'SIDI BOUZID': 'SIDI_BOUZID',
+        'SIDI-BOUZID': 'SIDI_BOUZID',
+        'BEJA':        'BEJA',
+        'MEDENINE':    'MEDENINE',
+        'KEBILI':      'KEBILI',
+        'GABES':       'GABES',
+        'MONASTIR':    'MONASTIR',
+    }
+
+    # Table de suppression des accents pour la normalisation (dict explicite)
+    _ACCENT_MAP = str.maketrans({
+        'à':'a','á':'a','â':'a','ä':'a','ã':'a','å':'a',
+        'è':'e','é':'e','ê':'e','ë':'e',
+        'ì':'i','í':'i','î':'i','ï':'i',
+        'ò':'o','ó':'o','ô':'o','ö':'o','õ':'o',
+        'ù':'u','ú':'u','û':'u','ü':'u',
+        'ý':'y','ÿ':'y','ñ':'n','ç':'c',
+        'À':'A','Á':'A','Â':'A','Ä':'A','Ã':'A','Å':'A',
+        'È':'E','É':'E','Ê':'E','Ë':'E',
+        'Ì':'I','Í':'I','Î':'I','Ï':'I',
+        'Ò':'O','Ó':'O','Ô':'O','Ö':'O','Õ':'O',
+        'Ù':'U','Ú':'U','Û':'U','Ü':'U',
+        'Ý':'Y','Ÿ':'Y','Ñ':'N','Ç':'C',
+    })
+
     VALID_TRIMESTRES = [1, 2, 3, 4]
     MIN_YEAR = 2020
     MAX_YEAR = 2030
-    
+
     @staticmethod
     def validate_region(region: str) -> str:
-        """Valide le nom de la région"""
+        """Valide le nom de la région — accepte les variantes frontend (accents, espaces)"""
         if not region:
             raise PredictionException("Region ne peut pas être vide")
-        
-        region_upper = region.upper().strip()
-        
-        if region_upper not in InputValidator.VALID_REGIONS:
-            raise PredictionException(
-                f"Region invalide: '{region}'. "
-                f"Régions valides: {', '.join(InputValidator.VALID_REGIONS)}"
-            )
-        
-        return region_upper
+
+        # Normalisation : majuscules + suppression accents + trim
+        region_norm = str(region).upper().strip().translate(InputValidator._ACCENT_MAP)
+
+        # 1. Match direct sur le nom canonique
+        if region_norm in InputValidator.VALID_REGIONS:
+            return region_norm
+
+        # 2. Chercher dans les alias (Ben Arous, Le Kef, etc.)
+        if region_norm in InputValidator.REGION_ALIASES:
+            return InputValidator.REGION_ALIASES[region_norm]
+
+        # 3. Essai avec remplacement espace → underscore
+        region_underscore = region_norm.replace(' ', '_').replace('-', '_')
+        if region_underscore in InputValidator.VALID_REGIONS:
+            return region_underscore
+
+        raise PredictionException(
+            f"Region invalide: '{region}'. "
+            f"Régions valides: {', '.join(InputValidator.VALID_REGIONS)}"
+        )
     
     @staticmethod
     def validate_trimestre(trimestre: int) -> int:
@@ -142,19 +183,21 @@ class InputValidator:
         return tri
     
     @staticmethod
-    def validate_year(year: int) -> int:
-        """Valide l'année"""
+    def validate_year(year) -> int:
+        """Valide l'année — None ou absent utilise le défaut 2026"""
+        if year is None:
+            return 2026
         try:
             y = int(year)
         except (ValueError, TypeError):
             raise PredictionException(f"Year doit être un nombre, reçu: {year}")
-        
+
         if not (InputValidator.MIN_YEAR <= y <= InputValidator.MAX_YEAR):
             raise PredictionException(
                 f"Year invalide: {y}. "
                 f"Intervalle accepté: {InputValidator.MIN_YEAR}-{InputValidator.MAX_YEAR}"
             )
-        
+
         return y
     
     @staticmethod
@@ -201,6 +244,10 @@ class DataCache:
         self.cache[key] = (value, datetime.now())
         self.logger.debug(f"Cache SET: {key}")
     
+    def size(self) -> int:
+        """Retourne le nombre d'entrées actives dans le cache"""
+        return len(self.cache)
+
     def clear(self) -> None:
         """Vide le cache"""
         self.cache.clear()
@@ -244,58 +291,20 @@ class RegionalDataManager:
         self._load_reference_data()
     
     def _load_reference_data(self) -> None:
-        """Charge les données de référence des régions"""
+        """Charge les données régionales INS 2023 depuis DEFAULT_REGIONAL_DATA.
+
+        Les fichiers CSV du dossier data/ contiennent des valeurs Indice_Achat
+        normalisées (1.2, 1.5...) incompatibles avec la distribution d'entraînement
+        du modèle (mean=102.48, scale=19.46). On utilise exclusivement les valeurs
+        codées en dur qui correspondent aux indices INS 2023 réels (83–135).
+        """
         try:
-            base_dir = Path(__file__).resolve().parent
-            candidates = [
-                Path(self.ref_data_path),
-                base_dir / 'model' / 'gouvernorats_reference.csv',
-                base_dir / 'data' / 'dataset_ia_final.csv',
-                base_dir / 'data' / 'external' / 'data_gouvernorats.csv',
-            ]
-
-            selected_path = next((p for p in candidates if p.exists()), None)
-            if selected_path is None:
-                raise FileNotFoundError(self.ref_data_path)
-
-            raw_df = pd.read_csv(selected_path)
-
-            if 'Region' not in raw_df.columns and 'Gouvernorat' in raw_df.columns:
-                raw_df['Region'] = raw_df['Gouvernorat']
-
-            for col in ['Nb_Hopitaux', 'Nb_Laboratoires']:
-                if col not in raw_df.columns:
-                    raw_df[col] = 0
-
-            required_columns = ['Region', 'Population', 'Indice_Achat', 'Nb_Hopitaux', 'Nb_Laboratoires']
-            missing = [c for c in required_columns if c not in raw_df.columns]
-            if missing:
-                raise PredictionException(f"Colonnes manquantes dans les données régionales: {missing}")
-
-            merged_df = (
-                raw_df[required_columns]
-                .dropna(subset=['Region'])
-                .groupby('Region', as_index=False)
-                .agg({
-                    'Population': 'mean',
-                    'Indice_Achat': 'mean',
-                    'Nb_Hopitaux': 'mean',
-                    'Nb_Laboratoires': 'mean',
-                })
-            )
-
-            # Compléter les régions manquantes avec des valeurs de secours pour garantir 24 cartes.
-            existing_regions = {str(region).upper() for region in merged_df['Region'].tolist()}
-            fallback_rows = []
-            for idx, region in enumerate(InputValidator.VALID_REGIONS):
-                if region in existing_regions:
-                    continue
-
+            rows = []
+            for region in InputValidator.VALID_REGIONS:
                 population, indice_achat, nb_hopitaux, nb_laboratoires = self.DEFAULT_REGIONAL_DATA.get(
-                    region,
-                    (250000 + idx * 10000, 90.0 + idx, 3, 10),
+                    region, (250000, 90.0, 3, 10)
                 )
-                fallback_rows.append({
+                rows.append({
                     'Region': region,
                     'Population': float(population),
                     'Indice_Achat': float(indice_achat),
@@ -303,26 +312,12 @@ class RegionalDataManager:
                     'Nb_Laboratoires': float(nb_laboratoires),
                 })
 
-            if fallback_rows:
-                merged_df = pd.concat([merged_df, pd.DataFrame(fallback_rows)], ignore_index=True)
-
-            self.ref_data = merged_df
+            self.ref_data = pd.DataFrame(rows)
             self.logger.info(f"[OK] Données régionales chargées: {len(self.ref_data)} régions")
-            self.logger.info(f"[OK] Source données régionales: {selected_path}")
-            
-            # Valider
-            if len(self.ref_data) != 24:
-                self.logger.warning(f"⚠️  Attendu 24 régions, trouvé {len(self.ref_data)}")
-            
-            if self.ref_data.isnull().sum().sum() > 0:
-                self.logger.warning("⚠️  NULLs détectés dans les données régionales")
-        
-        except FileNotFoundError:
-            self.logger.error(f"[FILE_ERROR] Fichier non trouvé: {self.ref_data_path}")
-            raise PredictionException(f"Impossible de charger les données régionales: {self.ref_data_path}")
-        
+            self.logger.info("[OK] Source: DEFAULT_REGIONAL_DATA (indices INS 2023, cohérents avec l'entraînement)")
+
         except Exception as e:
-            self.logger.error(f"[ERROR] Erreur lors du chargement des données: {e}")
+            self.logger.error(f"[ERROR] Erreur chargement données régionales: {e}")
             raise PredictionException(f"Erreur chargement données régionales: {str(e)}")
     
     def get_region_data(self, region_name: str) -> Dict:
@@ -366,8 +361,8 @@ class PredictionService:
     ):
         self.logger = logger
         base_dir = Path(__file__).resolve().parent
-        self.model_path = model_path or str(base_dir / 'model' / 'predict_ventes_regions_v1.3.pkl')
-        self.metadata_path = metadata_path or str(base_dir / 'model' / 'metadata_v1.3.json')
+        self.model_path = model_path or str(base_dir / 'model' / 'predict_ventes_regions_v1.4.pkl')
+        self.metadata_path = metadata_path or str(base_dir / 'model' / 'metadata_v1.4.json')
         self.recommendations_path = recommendations_path or str(base_dir / 'model' / 'regional_recommendations.json')
         self.historical_path = str(base_dir / 'model' / 'historical_variations.json')
 
@@ -404,7 +399,7 @@ class PredictionService:
     def _load_metadata(self) -> None:
         """Charge les métadonnées du modèle"""
         try:
-            with open(self.metadata_path, 'r') as f:
+            with open(self.metadata_path, 'r', encoding='utf-8') as f:
                 self.metadata = json.load(f)
             self.logger.info(f"[OK] Métadonnées chargées (v{self.metadata.get('version')})")
         except FileNotFoundError:
@@ -469,28 +464,47 @@ class PredictionService:
             self.logger.warning(f"⚠️  Erreur chargement recommandations: {e}")
             self.recommendations = {}
     
-    def predict(self, region: str, trimestre: int, year: int = 2026) -> Dict:
+    # Médiane du Prix calculée sur les données d'entraînement (post-clampage IQR à 100 DT)
+    PRIX_MEDIAN_ENTRAINEMENT = 10.44
+
+    def predict(self, region: str, trimestre: int, year: int = 2026, prix: float = None) -> Dict:
         """
         Prédit le résultat commercial pour une région/trimestre
-        
+
         Args:
-            region: Nom de la région (ex: 'SOUSSE')
+            region:    Nom de la région (ex: 'SOUSSE')
             trimestre: Trimestre (1-4)
-            year: Année (par défaut 2026)
-        
+            year:      Année (par défaut 2026)
+            prix:      Prix unitaire DT (optionnel — médiane d'entraînement si absent)
+
         Returns:
             Dict avec prediction, confiance, recommandation, etc.
-        
+
         Raises:
             PredictionException: Si erreur de validation ou prédiction
         """
-        
+
         try:
             # ===== ÉTAPE 1: Validation =====
             region, trimestre, year = InputValidator.validate_input(region, trimestre, year)
+
+            # Valider prix si fourni
+            if prix is not None:
+                try:
+                    prix = float(prix)
+                    if not (0 <= prix <= 100):
+                        self.logger.warning(
+                            f"Prix {prix} hors plage d'entraînement [0-100 DT] — "
+                            f"utilisation de la médiane ({self.PRIX_MEDIAN_ENTRAINEMENT})"
+                        )
+                        prix = self.PRIX_MEDIAN_ENTRAINEMENT
+                except (ValueError, TypeError):
+                    prix = self.PRIX_MEDIAN_ENTRAINEMENT
+            else:
+                prix = self.PRIX_MEDIAN_ENTRAINEMENT
             
             # ===== ÉTAPE 2: Vérifier le cache =====
-            cache_key = f"{region}_{trimestre}_{year}"
+            cache_key = f"{region}_{trimestre}_{year}_{prix}"
             cached = self.cache.get(cache_key)
             if cached:
                 self.logger.info(f"[CACHE] Prédiction de cache: {cache_key}")
@@ -501,17 +515,22 @@ class PredictionService:
             region_data = self.data_manager.get_region_data(region)
             
             # ===== ÉTAPE 4: Préparer features =====
-            mois = trimestre * 3 - 1  # Q1→3, Q2→6, Q3→9, Q4→12
-            features = np.array([[
-                region_data['population'],
-                region_data['indice_achat'],
-                region_data['nb_hopitaux'],
-                region_data['nb_laboratoires'],
-                mois,
-                year,
-                trimestre,
-                500.0  # Prix moyen par défaut (peut être personnalisé)
-            ]])
+            # Ordre et noms de colonnes identiques à l'entraînement :
+            # ['Population','Indice_Achat','Nb_Hopitaux','Nb_Laboratoires','Mois','Année','Trimestre','Prix']
+            # Mois représentatif du trimestre (milieu de trimestre = plus représentatif)
+            # Q1→2 (fév), Q2→5 (mai), Q3→8 (août), Q4→11 (nov)
+            # Cohérent avec la distribution réelle : dt.month donne 1-3 pour Q1, 4-6 pour Q2, etc.
+            mois = trimestre * 3 - 1
+            features = pd.DataFrame([{
+                'Population':       region_data['population'],
+                'Indice_Achat':     region_data['indice_achat'],
+                'Nb_Hopitaux':      region_data['nb_hopitaux'],
+                'Nb_Laboratoires':  region_data['nb_laboratoires'],
+                'Mois':             mois,
+                'Année':            year,
+                'Trimestre':        trimestre,
+                'Prix':             prix,
+            }])
             
             self.logger.debug(f"[OK] Features préparées: {features.shape}")
             
@@ -634,17 +653,17 @@ class PredictionService:
             self.logger.warning(f"Erreur recommandation: {e}")
             return 'MAINTENIR'
     
-    def predict_batch(self, regions: list, trimestre: int, year: int = 2026) -> Dict:
+    def predict_batch(self, regions: list, trimestre: int, year: int = 2026, prix: float = None) -> Dict:
         """Prédit pour plusieurs régions"""
         results = []
         errors = []
-        
+
         self.logger.info(f"📊 Prédictions batch: {len(regions)} régions")
-        
+
         for region in regions:
             try:
-                result = self.predict(region, trimestre, year)
-                if result.get('success', True):
+                result = self.predict(region, trimestre, year, prix=prix)
+                if result.get('success', False):
                     results.append(result)
                 else:
                     errors.append({'region': region, 'error': result.get('error')})
@@ -669,7 +688,7 @@ class PredictionService:
             'model_type': type(self.model).__name__ if self.model else None,
             'metadata_loaded': self.metadata is not None,
             'recommendations_loaded': len(self.recommendations) > 0,
-            'cache_size': len(self.cache.cache),
+            'cache_size': self.cache.size(),
             'timestamp': datetime.now().isoformat()
         }
 

@@ -16,15 +16,23 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(message)s')
 logger = logging.getLogger('AutoRetrain')
 
+# Quality Gate : suivi de la qualité géographique ERP
+try:
+    from data_quality import measure_geo_quality, log_quality_history, get_quality_summary
+    _HAS_QUALITY_MODULE = True
+except ImportError:
+    _HAS_QUALITY_MODULE = False
+
 MODEL_DIR   = Path(__file__).parent / 'model'
 BACKUP_DIR  = Path(__file__).parent / 'model_backup'
-META_FILE   = MODEL_DIR / 'metadata_v1.3.json'
-MODEL_FILE  = MODEL_DIR / 'predict_ventes_regions_v1.3.pkl'
+META_FILE   = MODEL_DIR / 'metadata_v1.4.json'
+MODEL_FILE  = MODEL_DIR / 'predict_ventes_regions_v1.4.pkl'
 
 def get_current_f1() -> float:
     """Lit le F1-Score du modèle actuellement en production."""
     try:
-        meta = json.load(open(META_FILE, encoding='utf-8'))
+        with open(META_FILE, encoding='utf-8') as f:
+            meta = json.load(f)
         return float(meta.get('f1_score', 0))
     except Exception:
         return 0.0
@@ -41,14 +49,19 @@ def backup_current_model():
 
 def restore_backup():
     """Restaure le dernier backup si le nouveau modèle est moins bon."""
-    backups = sorted(BACKUP_DIR.glob('predict_ventes_regions_v1.3_*.pkl'))
+    backups = sorted(BACKUP_DIR.glob('predict_ventes_regions_v1.4_*.pkl'))
     if not backups:
         logger.error('Aucun backup trouvé — impossible de restaurer')
         return
-    latest_ts = backups[-1].stem.split('_')[-1]
+    # Le timestamp occupe les deux derniers segments : <stem>_YYYYMMDD_HHMMSS.pkl
+    stem_parts = backups[-1].stem.split('_')
+    latest_ts = stem_parts[-2] + '_' + stem_parts[-1]   # ex: 20260531_020002
     for bf in BACKUP_DIR.glob(f'*_{latest_ts}.*'):
-        original_name = '_'.join(bf.stem.split('_')[:-1]) + bf.suffix
+        # Reconstruit le nom original en supprimant les deux derniers segments
+        orig_parts = bf.stem.split('_')[:-2]
+        original_name = '_'.join(orig_parts) + bf.suffix
         shutil.copy2(bf, MODEL_DIR / original_name)
+        logger.info(f'  Restauré: {bf.name} → {original_name}')
     logger.info('Ancien modèle restauré depuis le backup')
 
 def run_notebook_training() -> float:
@@ -57,7 +70,7 @@ def run_notebook_training() -> float:
     Utilise nbconvert pour exécuter le notebook Jupyter.
     """
     import subprocess
-    notebook = Path(__file__).parent.parent / 'ML_VENTES_PREDICTION_REGIONS_PRO_V1.4.ipynb'
+    notebook = Path(__file__).resolve().parent.parent / 'ML_VENTES_PREDICTION_REGIONS_PRO_V1.4.ipynb'
 
     if not notebook.exists():
         logger.error(f'Notebook introuvable : {notebook}')
@@ -77,17 +90,38 @@ def run_notebook_training() -> float:
 
     logger.info('Réentraînement terminé — lecture des nouvelles métriques...')
     try:
-        new_meta = json.load(open(META_FILE, encoding='utf-8'))
+        with open(META_FILE, encoding='utf-8') as f:
+            new_meta = json.load(f)
         return float(new_meta.get('f1_score', 0))
     except Exception as e:
         logger.error(f'Impossible de lire les nouvelles métriques: {e}')
         return 0.0
 
 def auto_retrain():
-    """Pipeline complet de réentraînement sécurisé."""
+    """Pipeline complet de réentraînement sécurisé avec Quality Gate."""
     logger.info('=' * 60)
     logger.info('DÉMARRAGE AUTO-RETRAIN')
     logger.info('=' * 60)
+
+    # 0. Mesurer la qualité géographique ERP avant retraining
+    if _HAS_QUALITY_MODULE:
+        logger.info('--- Quality Gate ---')
+        try:
+            geo_quality = measure_geo_quality()
+            score  = geo_quality['quality_score']
+            augm   = geo_quality['apply_augmentation']
+            source = geo_quality['coverage_source']
+            logger.info(f'  Couverture géo ERP : {score:.1%} (source: {source})')
+            logger.info(f'  Augmentation       : {"ACTIVE" if augm else "DESACTIVEE"}')
+            if score >= 0.50:
+                logger.info('  ✅ Données géographiques fiables — retraining sur données réelles')
+            else:
+                logger.info('  ⚠️  Données insuffisantes — augmentation pondérée activée')
+            log_quality_history(geo_quality, model_version='v1.4')
+        except Exception as e:
+            logger.warning(f'Quality Gate non disponible: {e}')
+    else:
+        logger.warning('Module data_quality non disponible — Quality Gate ignoré')
 
     # 1. Lire les métriques actuelles
     current_f1 = get_current_f1()
@@ -109,6 +143,13 @@ def auto_retrain():
         logger.warning('   Restauration de l\'ancien modèle...')
         restore_backup()
         logger.info('   Ancien modèle restauré — aucune perte.')
+
+    # 5. Résumé qualité (si disponible)
+    if _HAS_QUALITY_MODULE:
+        try:
+            logger.info(get_quality_summary())
+        except Exception:
+            pass
 
     logger.info('=' * 60)
     logger.info('AUTO-RETRAIN TERMINÉ')

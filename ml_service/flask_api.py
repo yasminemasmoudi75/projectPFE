@@ -28,7 +28,6 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuration
-app.config['JSON_SORT_KEYS'] = False
 app.config['JSON_AS_ASCII'] = False
 
 # Initialiser le service
@@ -130,28 +129,30 @@ def predict():
     {
         "region": "SOUSSE",      (requis)
         "trimestre": 3,          (requis, 1-4)
-        "year": 2026             (optionnel, défaut 2026)
+        "year": 2026,            (optionnel, défaut 2026)
+        "prix": 10.44            (optionnel, DT — médiane d'entraînement si absent)
     }
-    
+
     Returns:
         200: Prédiction réussie
         400: Erreur validation
         503: Service indisponible
     """
-    
+
     if prediction_service is None:
         logger.error("Service non initialise")
         return jsonify({
             'success': False,
             'error': 'Service indisponible'
         }), 503
-    
+
     try:
         # Récupérer les paramètres (GET ou POST JSON)
         if request.method == 'GET':
             region = request.args.get('region')
             trimestre = request.args.get('trimestre', 3, type=int)
             year = request.args.get('year', 2026, type=int)
+            prix = request.args.get('prix', None, type=float)
         else:
             # POST JSON
             if not request.is_json:
@@ -159,9 +160,18 @@ def predict():
                     'success': False,
                     'error': 'Content-Type doit être application/json'
                 }), 400
-            
-            data = request.get_json()
-            
+
+            # silent=True : retourne None si body vide/malformé (au lieu de lever BadRequest)
+            data = request.get_json(silent=True)
+
+            # Valider que le body n'est pas vide ou None
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'Body JSON vide ou invalide',
+                    'example': {'region': 'SOUSSE', 'trimestre': 3, 'year': 2026}
+                }), 400
+
             # Valider les champs requis
             if 'region' not in data or 'trimestre' not in data:
                 return jsonify({
@@ -170,21 +180,23 @@ def predict():
                     'example': {
                         'region': 'SOUSSE',
                         'trimestre': 3,
-                        'year': 2026
+                        'year': 2026,
+                        'prix': 10.44
                     }
                 }), 400
-            
+
             # Récupérer les paramètres
             region = data['region']
             trimestre = data['trimestre']
             year = data.get('year', 2026)
-        
-        logger.info(f"Prediction: {region} Q{trimestre}/{year}")
-        
+            prix = data.get('prix', None)
+
+        logger.info(f"Prediction: {region} Q{trimestre}/{year} prix={prix}")
+
         # Appeler le service
-        result = prediction_service.predict(region, trimestre, year)
-        
-        if not result.get('success', True):
+        result = prediction_service.predict(region, trimestre, year, prix=prix)
+
+        if not result.get('success', False):
             return jsonify(result), 400
         
         return jsonify(result), 200
@@ -239,22 +251,23 @@ def batch_predict():
         regions = data['regions']
         trimestre = data['trimestre']
         year = data.get('year', 2026)
-        
+        prix = data.get('prix', None)
+
         if not isinstance(regions, list):
             return jsonify({
                 'success': False,
                 'error': 'regions doit être une liste'
             }), 400
-        
+
         if len(regions) > 24:
             return jsonify({
                 'success': False,
                 'error': 'Maximum 24 régions à la fois'
             }), 400
-        
-        logger.info(f"Predictions batch: {len(regions)} regions")
-        
-        result = prediction_service.predict_batch(regions, trimestre, year)
+
+        logger.info(f"Predictions batch: {len(regions)} regions prix={prix}")
+
+        result = prediction_service.predict_batch(regions, trimestre, year, prix=prix)
         
         return jsonify(result), 200
     
@@ -276,7 +289,7 @@ def stats():
     
     return jsonify({
         'success': True,
-        'cache_size': len(prediction_service.cache.cache),
+        'cache_size': prediction_service.cache.size(),
         'model_type': type(prediction_service.model).__name__,
         'model_accuracy': prediction_service.metadata.get('accuracy'),
         'model_f1_score': prediction_service.metadata.get('f1_score'),
@@ -294,7 +307,7 @@ def root():
     """Endpoint racine - Documentation API"""
     return jsonify({
         'name': 'ML Prediction API',
-        'version': '1.3.0',
+        'version': '1.4.0',
         'description': 'Service de prédiction commerciale par région',
         'endpoints': {
             'GET /': 'Cette page',
@@ -310,7 +323,8 @@ def root():
             'body': {
                 'region': 'SOUSSE',
                 'trimestre': 3,
-                'year': 2026
+                'year': 2026,
+                'prix': 10.44
             }
         },
         'example_batch': {

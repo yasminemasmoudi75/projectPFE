@@ -565,47 +565,32 @@ exports.getAllReglements = async (req, res, next) => {
                 model: TabRegD,
                 as: 'details',
                 attributes: ['ID', 'Montant', 'MntDebit', 'MntCredit', 'ModReg', 'DatValeur'],
-                required: false,  // LEFT JOIN - don't exclude records without details
+                required: false,
             }],
             order: [['DatReg', 'DESC'], ['DatUser', 'DESC']],
-            subQuery: false,  // Prevent Sequelize subquery issues
+            subQuery: false,
         });
 
-        console.log(`✅ Query WHERE clause (final):`, JSON.stringify(where));
-        console.log(`✅ Found ${reglements.length} reglements`);
-        if (reglements.length === 0) {
-            console.log('⚠️ NO REGLEMENTS FOUND - Checking if table has data...');
-            const totalCount = await TabReg.count();
-            const countWithoutInclude = await TabReg.count({ where });
-            console.log(`📊 Total records in TabReg table: ${totalCount}`);
-            console.log(`📊 Records matching WHERE clause: ${countWithoutInclude}`);
-
-            // Try without include to debug
-            const testReglements = await TabReg.findAll({
-                where,
-                limit: 3,
-                attributes: ['IDReg', 'CodTiers', 'LibTiers'],
-            });
-            console.log(`🧪 Test query without include - Found ${testReglements.length} records:`, JSON.stringify(testReglements));
-        }
-
-        // Transform data
+        // Transform data — MntTotPieces = total des factures AVANT ce paiement (déjà dans TabReg)
         const transformedReglements = reglements.map(reg => {
-            // Calculate total paid and remaining
-            const actualTotal = toMoney(reg.MntReg || 0);
+            const actualTotal   = toMoney(reg.MntReg       || 0);
+            const mntTotPieces  = toMoney(reg.MntTotPieces || 0);
+            const paidAmount    = actualTotal; // Le règlement est entièrement encaissé
 
-            // Calculate paid amount
-            const paidAmount = reg.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
+            // Restant = ce qui reste à payer sur les factures après ce règlement
+            const remainingAmount = mntTotPieces > 0
+                ? Math.max(0, mntTotPieces - actualTotal)
+                : 0;
 
-            // Calculate remaining
-            const remainingAmount = actualTotal - paidAmount;
+            // Progression = % de la facture qui a été payé
+            const paymentPercentage = mntTotPieces > 0
+                ? Math.min(100, Math.round((actualTotal / mntTotPieces) * 100))
+                : (reg.Payed ? 100 : 0);
 
-            // Determine status
             let paymentStatus = 'Non payé';
-            if (actualTotal === 0) paymentStatus = 'Aucun montant';
-            else if (remainingAmount <= 0) paymentStatus = 'Payé';
-            else if (paidAmount > 0 && remainingAmount < actualTotal * 0.25) paymentStatus = 'Presque payé';
-            else if (paidAmount > 0) paymentStatus = 'Partiellement payé';
+            if (remainingAmount <= 0 && (actualTotal > 0 || reg.Payed)) paymentStatus = 'Payé';
+            else if (paymentPercentage >= 75) paymentStatus = 'Presque payé';
+            else if (actualTotal > 0) paymentStatus = 'Partiellement payé';
 
             return {
                 id: reg.IDReg,
@@ -616,7 +601,7 @@ exports.getAllReglements = async (req, res, next) => {
                 paidAmount,
                 remainingAmount,
                 paymentStatus,
-                paymentPercentage: actualTotal > 0 ? Math.round((paidAmount / actualTotal) * 100) : 0,
+                paymentPercentage,
                 isPayed: reg.Payed,
                 createdBy: reg.CUser,
                 createdDate: reg.DatUser,
@@ -709,7 +694,10 @@ exports.getReglemById = async (req, res, next) => {
         // Calculate totals
         const totalAmount = reglement.MntReg || 0;
         const paidAmount = reglement.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
-        const remainingAmount = totalAmount - paidAmount;
+        const pieces = reglement.pieces || [];
+        const allocatedTotal = pieces.reduce((s, p) => s + toMoney(p.MntReg || 0), 0);
+        const soldeTotal = pieces.reduce((s, p) => s + toMoney(p.Solde || 0), 0);
+        const remainingAmount = pieces.length > 0 ? soldeTotal : Math.max(0, totalAmount - allocatedTotal);
 
         const result = {
             id: reglement.IDReg,
@@ -740,20 +728,42 @@ exports.getReglemStats = async (req, res, next) => {
         const access = await resolveUserAccess(userId, req.user?.UserRole);
         const isClient = access?.normalizedRole === 'client';
 
-        console.log(`📊 getReglemStats - User: ${req.user?.LoginName}, Role: ${access?.normalizedRole}, isClient: ${isClient}`);
-
-        let where = {};
+        // ── CLIENT : calcul basé sur les factures (FAV) ──────────────────────
         if (isClient === true) {
-            console.log('🔐 CLIENT filtering for stats');
             const clientFilter = await buildClientFilter(req.user);
-            console.log(`📌 Client filter for stats:`, JSON.stringify(clientFilter, null, 2));
-            where = clientFilter;
-        } else {
-            console.log(`👨‍💼 NOT A CLIENT - ADMIN sees all stats`);
+            // Récupérer le CodTiers du client depuis le filtre
+            const codTiersCondition = clientFilter?.CodTiers;
+
+            const favWhere = codTiersCondition ? { CodTiers: codTiersCondition } : {};
+
+            const factures = await FavMaster.findAll({
+                where: favWhere,
+                attributes: ['Nf', 'TotTTC', 'MntDebit', 'MntCredit'],
+            });
+
+            let totalAmount = 0;
+            let totalPaid   = 0;
+
+            factures.forEach(fav => {
+                const ttc    = toMoney(fav.TotTTC);
+                const credit = toMoney(fav.MntCredit); // montant payé sur cette facture
+                totalAmount += ttc;
+                totalPaid   += credit;
+            });
+
+            const totalRemaining = Math.max(0, totalAmount - totalPaid);
+            const stats = {
+                totalDocuments: factures.length,
+                totalAmount,
+                totalPaid,
+                totalRemaining,
+                paymentPercentage: totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0,
+            };
+            return res.json({ status: 'success', data: stats });
         }
 
+        // ── ADMIN / COMMERCIAL : calcul basé sur les règlements ──────────────
         const reglements = await TabReg.findAll({
-            where,
             attributes: ['IDReg', 'MntReg'],
             include: [{
                 model: TabRegD,
@@ -762,22 +772,16 @@ exports.getReglemStats = async (req, res, next) => {
             }],
         });
 
-        console.log(`✅ Found ${reglements.length} reglements for stats`);
-
-        // Calculate stats
         let totalAmount = 0;
-        let totalPaid = 0;
+        let totalPaid   = 0;
 
         reglements.forEach(reg => {
-            const amount = reg.MntReg || 0;
-            totalAmount += amount;
-
-            const paid = reg.details?.reduce((sum, d) => sum + (d.MntCredit || 0), 0) || 0;
+            totalAmount += toMoney(reg.MntReg);
+            const paid = reg.details?.reduce((sum, d) => sum + toMoney(d.MntCredit), 0) || 0;
             totalPaid += paid;
         });
 
-        const remainingAmount = totalAmount - totalPaid;
-
+        const remainingAmount = Math.max(0, totalAmount - totalPaid);
         const stats = {
             totalDocuments: reglements.length,
             totalAmount,
@@ -786,7 +790,6 @@ exports.getReglemStats = async (req, res, next) => {
             paymentPercentage: totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0,
         };
 
-        console.log(`💾 Stats calculated:`, JSON.stringify(stats));
         res.json({ status: 'success', data: stats });
     } catch (err) {
         console.error('❌ getReglemStats:', err);

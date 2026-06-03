@@ -4,13 +4,8 @@ const { Op } = require('sequelize');
 
 exports.forecast = async (req, res) => {
   try {
-    const limit = Number(req.query.limit || 200);
-    const data = await getForecast(limit);
-
-    return res.json({
-      status: 'success',
-      data,
-    });
+    const data = await getForecast();
+    return res.json({ status: 'success', data });
   } catch (error) {
     console.error('[IA PROXY ERROR]:', error.message);
     return res.status(500).json({

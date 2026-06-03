@@ -89,9 +89,13 @@ const findTiersByEmail = async ({ email, excludeTiersId = null, transaction = nu
     if (!normalizedEmail) return null;
 
     const replacements = { email: normalizedEmail };
-    const excludeClause = excludeTiersId ? ' AND IDTiers <> :excludeTiersId' : '';
+    // Exclude by both IDTiers (numeric) and CodTiers (string) so editing works
+    // regardless of which id format is passed from the frontend
+    const excludeClause = excludeTiersId
+        ? ' AND NOT (IDTiers = TRY_CONVERT(INT, :excludeTiersId) OR CodTiers = :excludeTiersId)'
+        : '';
     if (excludeTiersId) {
-        replacements.excludeTiersId = excludeTiersId;
+        replacements.excludeTiersId = String(excludeTiersId);
     }
 
     const rows = await sequelize.query(`
@@ -929,11 +933,32 @@ exports.checkTierEmailUnique = async (req, res, next) => {
         // Vérifier aussi dans la table User (cas d'un User orphelin après suppression incomplète)
         const existingUser = await User.findOne({ where: { EmailPro: email } });
         if (existingUser) {
-            return res.status(200).json({
-                status: 'success',
-                unique: false,
-                message: 'Cet email est déjà associé à un compte utilisateur'
-            });
+            // En mode édition, si l'utilisateur trouvé est déjà lié au tiers en cours
+            // de modification (même email), ce n'est pas un conflit
+            if (excludeId) {
+                const { QueryTypes: QT } = require('sequelize');
+                const linkedTier = await sequelize.query(
+                    `SELECT TOP 1 Email FROM TabTiers
+                     WHERE (IDTiers = TRY_CONVERT(INT, :id) OR CodTiers = :id)`,
+                    { replacements: { id: String(excludeId) }, type: QT.SELECT }
+                );
+                const currentEmail = normalizeEmailValue(linkedTier[0]?.Email);
+                if (currentEmail && currentEmail === email) {
+                    // Same email as the tier being edited — not a conflict
+                } else {
+                    return res.status(200).json({
+                        status: 'success',
+                        unique: false,
+                        message: 'Cet email est déjà associé à un compte utilisateur'
+                    });
+                }
+            } else {
+                return res.status(200).json({
+                    status: 'success',
+                    unique: false,
+                    message: 'Cet email est déjà associé à un compte utilisateur'
+                });
+            }
         }
 
         return res.status(200).json({
@@ -966,6 +991,14 @@ exports.updateTiers = async (req, res, next) => {
         Object.keys(allowedUpdates).forEach((key) => {
             if (allowedUpdates[key] === undefined) {
                 delete allowedUpdates[key];
+                return;
+            }
+            // Don't overwrite a non-null DB value with null unless the frontend
+            // explicitly provided an empty value (meaning the user cleared the field)
+            // AND the original DB value was also null (i.e., field was never set).
+            // If the DB has data and the payload is null, preserve the DB value.
+            if (allowedUpdates[key] === null && tiers.getDataValue(key) !== null && tiers.getDataValue(key) !== undefined) {
+                delete allowedUpdates[key];
             }
         });
 
@@ -993,7 +1026,9 @@ exports.updateTiers = async (req, res, next) => {
         
         allowedUpdates.codRepresTiers = requestedCommercial ?? tiers.codRepresTiers;
 
-        if (updatedPhone) {
+        // Vérifier l'unicité du téléphone seulement si le numéro a réellement changé
+        const currentStoredPhone = normalizeComparablePhone(tiers.Tel);
+        if (updatedPhone && updatedPhone !== currentStoredPhone) {
             const duplicatePhone = await findTiersByPhone({
                 phone: updatedPhone,
                 excludeTiersId: tiers.IDTiers,

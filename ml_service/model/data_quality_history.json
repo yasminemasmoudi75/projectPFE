@@ -1,0 +1,10 @@
+[
+  {
+    "timestamp": "2026-06-01T11:57:45.090984",
+    "model_version": "v1.4",
+    "quality_score": 0.1149,
+    "coverage_source": "tabBlvm_ville",
+    "apply_augmentation": true,
+    "threshold": 0.5
+  }
+]
