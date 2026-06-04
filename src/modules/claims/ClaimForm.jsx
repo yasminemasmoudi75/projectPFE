@@ -76,16 +76,16 @@ const ClaimForm = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [clients, setClients] = useState([]);
-  const [step, setStep]       = useState(1);
-  const [searchClient, setSearchClient] = useState('');
   const isClientUser = user?.UserRole?.toLowerCase() === 'client';
+  const [step, setStep]       = useState(isClientUser ? 2 : 1);
+  const [searchClient, setSearchClient] = useState('');
 
   const [formData, setFormData] = useState({
     CodTiers: '', LibTiers: '', Objet: '',
     Description: '', Priorite: 'Normale', TypeReclamation: 'Technique',
   });
 
-  const isStep1Complete = !!(formData.CodTiers && formData.LibTiers);
+  const isStep1Complete = isClientUser || !!(formData.CodTiers && formData.LibTiers);
   const isStep2Complete = !!(formData.Objet && formData.TypeReclamation && formData.Priorite);
   const isStep3Complete = !!(formData.Description.trim());
 
@@ -93,22 +93,28 @@ const ClaimForm = () => {
     const fetchClients = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/tiers?limit=10000');
-        const list = response?.data?.data ?? response?.data ?? [];
-        const normalized = (Array.isArray(list) ? list : []).map(c => ({
-          ...c, LibTiers: c.LibTiers || c.Raisoc || c.CodTiers,
-        }));
-        setClients(normalized);
 
         if (isClientUser) {
-          const userCode  = String(user?.CodTiers || user?.codTiers || '').trim().toLowerCase();
-          const userEmail = String(user?.EmailPro || user?.LoginName || '').trim().toLowerCase();
-          const match = normalized.find(c => {
-            const cc = String(c.CodTiers || '').trim().toLowerCase();
-            const ce = String(c.Email || c.email || '').trim().toLowerCase();
-            return (userCode && cc === userCode) || (userEmail && ce === userEmail);
-          }) || normalized[0] || null;
-          if (match) setFormData(p => ({ ...p, CodTiers: match.CodTiers, LibTiers: match.LibTiers || match.Raisoc || match.CodTiers }));
+          try {
+            const res = await axios.get('/tiers/me');
+            const tiers = res?.data?.data;
+            if (tiers?.CodTiers) {
+              const lib = tiers.Raisoc || tiers.LibTiers || tiers.CodTiers;
+              setClients([{ CodTiers: tiers.CodTiers, LibTiers: lib, Raisoc: tiers.Raisoc }]);
+              setFormData(p => ({ ...p, CodTiers: tiers.CodTiers, LibTiers: lib }));
+            } else {
+              setFormData(p => ({ ...p, LibTiers: user?.FullName || user?.EmailPro || '' }));
+            }
+          } catch {
+            setFormData(p => ({ ...p, LibTiers: user?.FullName || user?.EmailPro || '' }));
+          }
+        } else {
+          const response = await axios.get('/tiers?limit=10000');
+          const list = response?.data?.data ?? response?.data ?? [];
+          const normalized = (Array.isArray(list) ? list : []).map(c => ({
+            ...c, LibTiers: c.LibTiers || c.Raisoc || c.CodTiers,
+          }));
+          setClients(normalized);
         }
       } catch {
         toast.error('Impossible de charger la liste des clients');
@@ -117,7 +123,7 @@ const ClaimForm = () => {
       }
     };
     fetchClients();
-  }, [isClientUser, user?.CodTiers, user?.EmailPro, user?.LoginName]);
+  }, [isClientUser, user?.FullName, user?.EmailPro]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -180,16 +186,20 @@ const ClaimForm = () => {
           <div>
             <h1 className="text-xl font-bold text-slate-800">Créer une réclamation</h1>
             <p className="text-sm text-slate-400 mt-0.5">
-              Trois étapes simples : client, qualification, description.
+              {isClientUser ? 'Deux étapes simples : qualification, description.' : 'Trois étapes simples : client, qualification, description.'}
             </p>
           </div>
           {/* Step dots */}
           <div className="flex items-center gap-4">
-            <StepDot num={1} label="Client"      active={step >= 1} done={step > 1} />
+            {!isClientUser && (
+              <>
+                <StepDot num={1} label="Client" active={step >= 1} done={step > 1} />
+                <div className="h-px w-6 bg-slate-200 flex-none" />
+              </>
+            )}
+            <StepDot num={isClientUser ? 1 : 2} label="Détails"     active={step >= 2} done={step > 2} />
             <div className="h-px w-6 bg-slate-200 flex-none" />
-            <StepDot num={2} label="Détails"     active={step >= 2} done={step > 2} />
-            <div className="h-px w-6 bg-slate-200 flex-none" />
-            <StepDot num={3} label="Description" active={step >= 3} done={step > 3} />
+            <StepDot num={isClientUser ? 2 : 3} label="Description" active={step >= 3} done={step > 3} />
           </div>
         </div>
       </div>
@@ -316,9 +326,9 @@ const ClaimForm = () => {
           {/* Navigation buttons */}
           <div className="flex items-center justify-between pt-1">
             <button type="button"
-              onClick={() => step > 1 ? setStep(step - 1) : navigate(-1)}
+              onClick={() => (step > 1 && (!isClientUser || step > 2)) ? setStep(step - 1) : navigate(-1)}
               className="h-10 px-5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
-              {step > 1 ? '← Précédent' : 'Annuler'}
+              {(step > 1 && (!isClientUser || step > 2)) ? '← Précédent' : 'Annuler'}
             </button>
 
             {step < 3 ? (
@@ -348,11 +358,17 @@ const ClaimForm = () => {
           {/* Progression */}
           <GuidanceCard icon={ShieldCheckIcon} iconCls="text-sky-500" iconBg="bg-sky-50 border-sky-200" title="Progression">
             <div className="space-y-2.5">
-              {[
-                { num: 1, label: 'Client',      done: isStep1Complete },
-                { num: 2, label: 'Détails',     done: isStep2Complete },
-                { num: 3, label: 'Description', done: isStep3Complete },
-              ].map(s => (
+              {(isClientUser
+                ? [
+                    { num: 1, label: 'Détails',     done: isStep2Complete },
+                    { num: 2, label: 'Description', done: isStep3Complete },
+                  ]
+                : [
+                    { num: 1, label: 'Client',      done: isStep1Complete },
+                    { num: 2, label: 'Détails',     done: isStep2Complete },
+                    { num: 3, label: 'Description', done: isStep3Complete },
+                  ]
+              ).map(s => (
                 <div key={s.num} className={`flex items-center justify-between px-3 py-2 rounded-xl border ${s.done ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
                   <span className="text-xs font-medium text-slate-600">{s.num}. {s.label}</span>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.done ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>

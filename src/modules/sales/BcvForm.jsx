@@ -386,8 +386,8 @@ const BcvForm = () => {
 
     // Initialiser le commercial pour les nouveaux BCV
     useEffect(() => {
-        if (!isEdit && !formData.CodRepres) {
-            if (isCommercial && user) {
+        if (!isEdit && !formData.CodRepres && user) {
+            if (isCommercial || isAdmin || isAgent) {
                 setFormData(prev => ({
                     ...prev,
                     CodRepres: String(user.id || user.UserID || ''),
@@ -395,7 +395,7 @@ const BcvForm = () => {
                 }));
             }
         }
-    }, [isEdit, isCommercial, user, formData.CodRepres]);
+    }, [isEdit, isCommercial, isAdmin, isAgent, user, formData.CodRepres]);
 
     // Fetch clients from database
     useEffect(() => {

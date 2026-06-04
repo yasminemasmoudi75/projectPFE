@@ -392,8 +392,8 @@ const DevisForm = () => {
 
     // Initialiser le commercial pour les nouveaux devis
     useEffect(() => {
-        if (!isEdit && !formData.CodRepres) {
-            if (isCommercial && user) {
+        if (!isEdit && !formData.CodRepres && user) {
+            if (isCommercial || isAdmin || isAgent) {
                 setFormData(prev => ({
                     ...prev,
                     CodRepres: String(user.id || user.UserID || ''),
@@ -401,7 +401,7 @@ const DevisForm = () => {
                 }));
             }
         }
-    }, [isEdit, isCommercial, user, formData.CodRepres]);
+    }, [isEdit, isCommercial, isAdmin, isAgent, user, formData.CodRepres]);
 
     // Fetch clients from database
     useEffect(() => {
