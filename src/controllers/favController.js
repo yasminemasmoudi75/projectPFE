@@ -283,13 +283,20 @@ exports.createFav = async (req, res, next) => {
 
         if (shouldDecrementStock && details && details.length > 0) {
             const pathMod = require('path');
-            const fs = require('fs').promises;
-            const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
-            let config = { autoriserVenteHorsStock: false };
-            try {
-                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
-                config = { ...config, ...JSON.parse(raw) };
-            } catch { /* use defaults */ }
+            const fsSync = require('fs').promises;
+            const CFG = pathMod.join(__dirname, '../../data/stockConfig.json');
+            let jsonCfg = { decrementationSur: { factureDirecte: true } };
+            try { jsonCfg = { ...jsonCfg, ...JSON.parse(await fsSync.readFile(CFG, 'utf-8')) }; } catch {}
+
+            if (jsonCfg.decrementationSur?.factureDirecte === false && !sourceBlvGuid) {
+                shouldDecrementStock = false; // Facture directe — décrémentation désactivée
+            }
+        }
+
+        if (shouldDecrementStock && details && details.length > 0) {
+            const { getStockControlForRole } = require('../services/stockConfigService');
+            const ctrlStk = await getStockControlForRole(req.user?.UserRole, 7, transaction);
+            const config = { autoriserVenteHorsStock: !ctrlStk };
 
             const stockUpdates = [];
             const insuffisants = [];
@@ -439,12 +446,64 @@ exports.updateFav = async (req, res, next) => {
         }
 
         const masterData = sanitizeMasterData(master);
-
-        // Mettre à jour le master avec date
         masterData.DatUser = sequelize.literal('GETDATE()');
         await fav.update(masterData, { transaction });
 
         if (details && Array.isArray(details)) {
+            // ── Ajustement stock si déjà décrémenté ──
+            if (fav.StockDecremente) {
+                const { getStockControlForRole } = require('../services/stockConfigService');
+                const ctrlStk = await getStockControlForRole(req.user?.UserRole, 7, transaction);
+                const config = { autoriserVenteHorsStock: !ctrlStk };
+
+                // 1. Restaurer l'ancien stock (ajouter les anciennes quantités dans TabStock)
+                const oldDetails = await FavDetail.findAll({ where: { NF: fav.Nf }, transaction });
+                for (const old of oldDetails) {
+                    const qteOld = parseFloat(old.Qt) || 0;
+                    if (!old.CodArt || qteOld <= 0) continue;
+                    await sequelize.query(
+                        'UPDATE TabStock SET Qte = Qte + :qte WHERE CodArt = :codArt',
+                        { replacements: { qte: qteOld, codArt: old.CodArt }, transaction }
+                    );
+                }
+
+                // 2. Vérifier et appliquer les nouvelles quantités
+                const insuffisants = [];
+                const stockUpdates = [];
+                for (const detail of details) {
+                    const codArt = detail.CodArt;
+                    const qteDemandee = parseFloat(detail.Qt) || 0;
+                    if (!codArt || qteDemandee <= 0) continue;
+                    const [stockRow] = await sequelize.query(
+                        'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                        { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+                    );
+                    const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+                    if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                        insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                    } else {
+                        stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                    }
+                }
+
+                if (insuffisants.length > 0) {
+                    await transaction.rollback();
+                    return res.status(409).json({
+                        status: 'error',
+                        code: 'STOCK_INSUFFISANT',
+                        message: 'Stock insuffisant pour mettre à jour cette facture.',
+                        insuffisants,
+                    });
+                }
+
+                for (const upd of stockUpdates) {
+                    await sequelize.query(
+                        'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                        { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+                    );
+                }
+            }
+
             await FavDetail.destroy({ where: { NF: fav.Nf }, transaction });
             if (details.length > 0) {
                 const detailsWithNf = details.map((d) => ({
@@ -481,11 +540,28 @@ exports.deleteFav = async (req, res, next) => {
         transaction = await sequelize.transaction();
         const { id } = req.params;
         const favWhere = await buildFavSecurityWhere(id, req.user, transaction);
-        const fav = await FavMaster.findOne({ where: favWhere, transaction });
+        const fav = await FavMaster.findOne({
+            where: favWhere,
+            include: [{ model: FavDetail, as: 'details' }],
+            transaction
+        });
 
         if (!fav) {
             await transaction.rollback();
             return res.status(404).json({ status: 'error', message: 'Facture non trouvée' });
+        }
+
+        // ── Restaurer le stock si déjà décrémenté (TabStock.Qte + quantités facturées)
+        if (fav.StockDecremente) {
+            const details = fav.details || [];
+            for (const detail of details) {
+                const qte = parseFloat(detail.Qt) || 0;
+                if (!detail.CodArt || qte <= 0) continue;
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = Qte + :qte WHERE CodArt = :codArt',
+                    { replacements: { qte, codArt: detail.CodArt }, transaction }
+                );
+            }
         }
 
         await FavDetail.destroy({ where: { NF: fav.Nf }, transaction });
@@ -544,15 +620,9 @@ exports.validateFav = async (req, res, next) => {
         }
 
         if (stockDecrement) {
-            // Charger la configuration stock
-            const path = require('path');
-            const fs = require('fs').promises;
-            const CONFIG_FILE = path.join(__dirname, '../../data/stockConfig.json');
-            let config = { autoriserVenteHorsStock: false };
-            try {
-                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
-                config = { ...config, ...JSON.parse(raw) };
-            } catch { /* utilise les défauts */ }
+            const { getStockControlForRole } = require('../services/stockConfigService');
+            const ctrlStk = await getStockControlForRole(req.user?.UserRole, 7, transaction);
+            const config = { autoriserVenteHorsStock: !ctrlStk };
 
             const details = fav.details || [];
             const stockUpdates = [];

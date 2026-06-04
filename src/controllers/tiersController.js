@@ -746,6 +746,41 @@ exports.createTiers = async (req, res, next) => {
 };
 
 /**
+ * Récupérer les infos Tiers du client connecté (matching par email)
+ */
+exports.getMyTiers = async (req, res, next) => {
+    try {
+        const identities = [
+            String(req.user?.EmailPro || '').trim(),
+            String(req.user?.LoginName || '').trim(),
+        ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+
+        if (!identities.length) {
+            return res.status(400).json({ status: 'error', message: 'Email utilisateur introuvable' });
+        }
+
+        const tiers = await sequelize.query(
+            `SELECT TOP 1 IDTiers, CodTiers, Raisoc, Email
+             FROM TabTiers
+             WHERE LOWER(Email) IN (:identities)`,
+            {
+                replacements: { identities: identities.map(v => v.toLowerCase()) },
+                type: QueryTypes.SELECT,
+            }
+        );
+
+        const row = tiers[0] || null;
+        if (!row) {
+            return res.status(404).json({ status: 'error', message: 'Aucun client associé à cet email' });
+        }
+
+        res.json({ status: 'success', data: row });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Récupérer tous les clients
  */
 exports.getAllTiers = async (req, res, next) => {

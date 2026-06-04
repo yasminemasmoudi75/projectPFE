@@ -225,9 +225,9 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
     let targetId = null;
     let isAll = false;
 
-    if (selectedCommercialId === 'all' || includeAll) {
+    if (selectedCommercialId === 'all' || includeAll || !selectedCommercialId) {
       isAll = true;
-    } else if (selectedCommercialId === 'mine' || !selectedCommercialId) {
+    } else if (selectedCommercialId === 'mine') {
       targetId = user?.UserID || user?.id || user?.USER_ID;
       console.log(`🔍 [filterHelper] Admin viewing OWN records (Resolved ID: ${targetId})`);
     } else {

@@ -51,10 +51,10 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// Limiteur spécifique pour la connexion (plus restrictif)
+// Limiteur spécifique pour la connexion (désactivé en mode test)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10, // Max 10 tentatives en 15 minutes
+  max: process.env.NODE_ENV === 'test' ? 1000 : 10,
   message: 'Trop de tentatives de connexion, réessayez dans 15 minutes.'
 });
 app.use('/api/auth/login', loginLimiter);

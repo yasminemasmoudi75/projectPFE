@@ -7,18 +7,14 @@ const DEFAULT_CONFIG = {
     autoriserVenteHorsStock: false,
     stockMinimumAlerte: 5,
     notificationsRupture: true,
-    decrementationSur: {
-        blv: true,
-        factureDirecte: true,
-    },
+    decrementationSur: { blv: true, factureDirecte: true },
 };
 
 async function ensureConfigFile() {
     try {
         await fs.access(CONFIG_FILE);
     } catch {
-        const dir = path.dirname(CONFIG_FILE);
-        await fs.mkdir(dir, { recursive: true });
+        await fs.mkdir(path.dirname(CONFIG_FILE), { recursive: true });
         await fs.writeFile(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf-8');
     }
 }

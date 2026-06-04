@@ -8,6 +8,7 @@ const { checkPermission, MODULES } = require('../middleware/checkPermissions');
 router.use(protect);
 
 // Routes statiques d'abord
+router.get('/me', tiersController.getMyTiers);
 router.get('/regions/list', checkPermission(MODULES.TIERS, 'read'), tiersController.getVilles);
 router.get('/available-commercials', checkPermission(MODULES.TIERS, 'read'), tiersController.getAvailableCommercials);
 router.get('/check-email', checkPermission(MODULES.TIERS, 'read'), tiersController.checkTierEmailUnique);

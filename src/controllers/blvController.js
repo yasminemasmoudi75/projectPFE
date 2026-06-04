@@ -244,13 +244,17 @@ exports.createBlv = async (req, res, next) => {
         // ── Décrémentation automatique du stock à la création ──
         if (details && details.length > 0) {
             const pathMod = require('path');
-            const fs = require('fs').promises;
-            const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
-            let config = { autoriserVenteHorsStock: false };
-            try {
-                const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
-                config = { ...config, ...JSON.parse(raw) };
-            } catch { /* use defaults */ }
+            const fsSync = require('fs').promises;
+            const CFG = pathMod.join(__dirname, '../../data/stockConfig.json');
+            let jsonCfg = { decrementationSur: { blv: true } };
+            try { jsonCfg = { ...jsonCfg, ...JSON.parse(await fsSync.readFile(CFG, 'utf-8')) }; } catch {}
+
+            if (jsonCfg.decrementationSur?.blv === false) {
+                // Décrémentation BLV désactivée dans la config stock — skip
+            } else {
+            const { getStockControlForRole } = require('../services/stockConfigService');
+            const ctrlStk = await getStockControlForRole(req.user?.UserRole, 6, transaction);
+            const config = { autoriserVenteHorsStock: !ctrlStk };
 
             const stockUpdates = [];
             const insuffisants = [];
@@ -294,6 +298,7 @@ exports.createBlv = async (req, res, next) => {
                 'UPDATE TabBlvm SET StockDecremente = 1 WHERE Guid = :guid',
                 { replacements: { guid: newBlv.Guid }, transaction }
             );
+            } // fin else decrementationSur.blv
         }
 
         await transaction.commit();
@@ -374,13 +379,64 @@ exports.updateBlv = async (req, res, next) => {
             masterData.CodRepres = codRepres;
         }
 
-        // Ajouter DatUser avec GETDATE() SQL (bypass Sequelize timezone)
         masterData.DatUser = sequelize.literal('GETDATE()');
-
-        // Mettre à jour le master
         await blv.update(masterData, { transaction });
 
         if (details && Array.isArray(details)) {
+            // ── Ajustement stock si déjà décrémenté ──
+            if (blv.StockDecremente) {
+                const { getStockControlForRole } = require('../services/stockConfigService');
+                const ctrlStk = await getStockControlForRole(req.user?.UserRole, 6, transaction);
+                const config = { autoriserVenteHorsStock: !ctrlStk };
+
+                // 1. Restaurer l'ancien stock (ajouter les anciennes quantités dans TabStock)
+                const oldDetails = await BlvDetail.findAll({ where: { NF: blv.Nf }, transaction });
+                for (const old of oldDetails) {
+                    const qteOld = parseFloat(old.Qt) || 0;
+                    if (!old.CodArt || qteOld <= 0) continue;
+                    await sequelize.query(
+                        'UPDATE TabStock SET Qte = Qte + :qte WHERE CodArt = :codArt',
+                        { replacements: { qte: qteOld, codArt: old.CodArt }, transaction }
+                    );
+                }
+
+                // 2. Vérifier et appliquer les nouvelles quantités
+                const insuffisants = [];
+                const stockUpdates = [];
+                for (const detail of details) {
+                    const codArt = detail.CodArt;
+                    const qteDemandee = parseFloat(detail.Qt) || 0;
+                    if (!codArt || qteDemandee <= 0) continue;
+                    const [stockRow] = await sequelize.query(
+                        'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                        { replacements: { codArt }, type: QueryTypes.SELECT, transaction }
+                    );
+                    const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+                    if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                        insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                    } else {
+                        stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                    }
+                }
+
+                if (insuffisants.length > 0) {
+                    await transaction.rollback();
+                    return res.status(409).json({
+                        status: 'error',
+                        code: 'STOCK_INSUFFISANT',
+                        message: 'Stock insuffisant pour mettre à jour ce bon de livraison.',
+                        insuffisants,
+                    });
+                }
+
+                for (const upd of stockUpdates) {
+                    await sequelize.query(
+                        'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                        { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction }
+                    );
+                }
+            }
+
             await BlvDetail.destroy({ where: { NF: blv.Nf }, transaction });
             if (details.length > 0) {
                 const detailsWithNf = details.map((d) => ({
@@ -419,11 +475,28 @@ exports.deleteBlv = async (req, res, next) => {
         const blvWhere = isCommercialRole(req.user?.UserRole)
             ? { [Op.and]: [{ Guid: id }, buildCommercialCodRepresFilter(req.user)] }
             : { Guid: id };
-        const blv = await BlvMaster.findOne({ where: blvWhere, transaction });
+        const blv = await BlvMaster.findOne({
+            where: blvWhere,
+            include: [{ model: BlvDetail, as: 'details' }],
+            transaction
+        });
 
         if (!blv) {
             await transaction.rollback();
             return res.status(404).json({ status: 'error', message: 'Bon de livraison non trouvé' });
+        }
+
+        // ── Restaurer le stock si déjà décrémenté (TabStock.Qte + quantités livrées)
+        if (blv.StockDecremente) {
+            const details = blv.details || [];
+            for (const detail of details) {
+                const qte = parseFloat(detail.Qt) || 0;
+                if (!detail.CodArt || qte <= 0) continue;
+                await sequelize.query(
+                    'UPDATE TabStock SET Qte = Qte + :qte WHERE CodArt = :codArt',
+                    { replacements: { qte, codArt: detail.CodArt }, transaction }
+                );
+            }
         }
 
         await BlvDetail.destroy({ where: { NF: blv.Nf }, transaction });
@@ -467,15 +540,9 @@ exports.validateBlv = async (req, res, next) => {
             return res.status(400).json({ status: 'error', message: 'Le stock a déjà été décrémenté pour ce BLV' });
         }
 
-        // Charger la configuration stock
-        const path = require('path');
-        const fs = require('fs').promises;
-        const CONFIG_FILE = path.join(__dirname, '../../data/stockConfig.json');
-        let config = { autoriserVenteHorsStock: false };
-        try {
-            const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
-            config = { ...config, ...JSON.parse(raw) };
-        } catch { /* utilise les défauts */ }
+        const { getStockControlForRole } = require('../services/stockConfigService');
+        const ctrlStk = await getStockControlForRole(req.user?.UserRole, 6, transaction);
+        const config = { autoriserVenteHorsStock: !ctrlStk };
 
         const details = blv.details || [];
         const stockUpdates = [];

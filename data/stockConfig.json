@@ -1,5 +1,5 @@
 {
-  "autoriserVenteHorsStock": true,
+  "autoriserVenteHorsStock": false,
   "stockMinimumAlerte": 5,
   "notificationsRupture": true,
   "decrementationSur": {

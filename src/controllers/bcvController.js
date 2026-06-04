@@ -528,55 +528,71 @@ exports.transferBcv = async (req, res, next) => {
             const pathMod = require('path');
             const fs = require('fs').promises;
             const CONFIG_FILE = pathMod.join(__dirname, '../../data/stockConfig.json');
-            let config = { autoriserVenteHorsStock: false };
+            let jsonConfig = { decrementationSur: { blv: true, factureDirecte: true } };
             try {
                 const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
-                config = { ...config, ...JSON.parse(raw) };
+                jsonConfig = { ...jsonConfig, ...JSON.parse(raw) };
             } catch { /* use defaults */ }
 
-            const stockUpdates = [];
-            const insuffisants = [];
+            // Vérifier si la décrémentation est activée pour ce type de document
+            const decrEnabled = targetType === 'BL'
+                ? jsonConfig.decrementationSur?.blv !== false
+                : jsonConfig.decrementationSur?.factureDirecte !== false;
 
-            for (const detail of sanitizedDetails) {
-                const codArt = detail.CodArt;
-                const qteDemandee = parseFloat(detail.Qt) || 0;
-                if (!codArt || qteDemandee <= 0) continue;
+            if (!decrEnabled) {
+                // Décrémentation désactivée pour ce type dans la config stock — on skip
+                console.log(`⚠️ [transferBcv] Décrémentation désactivée pour ${targetType} selon stockConfig`);
+            } else {
+                // Module cible : BL=6, FAC=7
+                const targetModule = targetType === 'BL' ? 6 : 7;
+                const { getStockControlForRole } = require('../services/stockConfigService');
+                const ctrlStk = await getStockControlForRole(req.user?.UserRole, targetModule, t);
+                const config = { autoriserVenteHorsStock: !ctrlStk };
 
-                const [stockRow] = await sequelize.query(
-                    'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
-                    { replacements: { codArt }, type: QueryTypes.SELECT, transaction: t }
-                );
-                const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+                const stockUpdates = [];
+                const insuffisants = [];
 
-                if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
-                    insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
-                } else {
-                    stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                for (const detail of sanitizedDetails) {
+                    const codArt = detail.CodArt;
+                    const qteDemandee = parseFloat(detail.Qt) || 0;
+                    if (!codArt || qteDemandee <= 0) continue;
+
+                    const [stockRow] = await sequelize.query(
+                        'SELECT Qte FROM TabStock WHERE CodArt = :codArt',
+                        { replacements: { codArt }, type: QueryTypes.SELECT, transaction: t }
+                    );
+                    const qteActuelle = parseFloat(stockRow?.Qte) || 0;
+
+                    if (!config.autoriserVenteHorsStock && qteDemandee > qteActuelle) {
+                        insuffisants.push({ codArt, libArt: detail.LibArt || codArt, stockActuel: qteActuelle, qteDemandee });
+                    } else {
+                        stockUpdates.push({ codArt, qteApres: qteActuelle - qteDemandee });
+                    }
                 }
-            }
 
-            if (insuffisants.length > 0) {
-                await t.rollback();
-                return res.status(409).json({
-                    status: 'error',
-                    code: 'STOCK_INSUFFISANT',
-                    message: 'Stock insuffisant pour cette transformation.',
-                    insuffisants,
-                });
-            }
+                if (insuffisants.length > 0) {
+                    await t.rollback();
+                    return res.status(409).json({
+                        status: 'error',
+                        code: 'STOCK_INSUFFISANT',
+                        message: 'Stock insuffisant pour cette transformation.',
+                        insuffisants,
+                    });
+                }
 
-            for (const upd of stockUpdates) {
+                for (const upd of stockUpdates) {
+                    await sequelize.query(
+                        'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
+                        { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction: t }
+                    );
+                }
+
+                const tableName = targetType === 'BL' ? 'TabBlvm' : 'TabFavm';
                 await sequelize.query(
-                    'UPDATE TabStock SET Qte = :qteApres WHERE CodArt = :codArt',
-                    { replacements: { qteApres: upd.qteApres, codArt: upd.codArt }, transaction: t }
+                    `UPDATE ${tableName} SET StockDecremente = 1 WHERE Guid = :guid`,
+                    { replacements: { guid: newGuid }, transaction: t }
                 );
             }
-
-            const tableName = targetType === 'BL' ? 'TabBlvm' : 'TabFavm';
-            await sequelize.query(
-                `UPDATE ${tableName} SET StockDecremente = 1 WHERE Guid = :guid`,
-                { replacements: { guid: newGuid }, transaction: t }
-            );
         }
 
         // 5. Marquer le BC source comme transféré + livré si BL
