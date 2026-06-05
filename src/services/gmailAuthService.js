@@ -113,16 +113,16 @@ const handleAuthorizationCallback = async (code, userId) => {
       console.log(`🔄 Création du token pour UserID: ${userId}`);
       const refreshTokenSQL = refreshToken ? `'${refreshToken.replace(/'/g, "''")}'` : 'NULL';
       
-      // Désactiver/Réactiver la contrainte autour de l'INSERT
-      await sequelize.query(`ALTER TABLE GmailOAuthTokens NOCHECK CONSTRAINT "FK__GmailOAut__UserI__4F5F684B"`, { raw: true }).catch(() => {});
-      
+      // Désactiver la FK temporairement (nom réel dans la base AA)
+      await sequelize.query(`ALTER TABLE GmailOAuthTokens NOCHECK CONSTRAINT "FK__GmailOAut__UserI__75851133"`, { raw: true }).catch(() => {});
+
       await sequelize.query(
         `INSERT INTO GmailOAuthTokens (UserID, AccessToken, RefreshToken, IsActive, GmailEmail, LastHistoryId, LastSyncAt, CreatedAt, UpdatedAt)
          VALUES (${userId}, '${accessToken.replace(/'/g, "''")}', ${refreshTokenSQL}, 1, ${gmailEmail ? `'${gmailEmail.replace(/'/g, "''")}'` : 'NULL'}, NULL, GETDATE(), GETDATE(), GETDATE())`,
         { raw: true }
       );
-      
-      await sequelize.query(`ALTER TABLE GmailOAuthTokens WITH CHECK CHECK CONSTRAINT "FK__GmailOAut__UserI__4F5F684B"`, { raw: true }).catch(() => {});
+
+      await sequelize.query(`ALTER TABLE GmailOAuthTokens WITH CHECK CHECK CONSTRAINT "FK__GmailOAut__UserI__75851133"`, { raw: true }).catch(() => {});
       
       console.log(`✅ Token créé pour UserID: ${userId}`);
     }

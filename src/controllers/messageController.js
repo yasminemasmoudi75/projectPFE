@@ -259,8 +259,8 @@ exports.sendMessage = async (req, res, next) => {
 
     res.status(201).json({
       status: 'success',
-      message: gmailSynced 
-        ? 'Message envoyé (local + Gmail)' 
+      message: gmailSynced
+        ? 'Message envoyé (local + Gmail)'
         : 'Message créé (local)',
       data: fullMessage
     });

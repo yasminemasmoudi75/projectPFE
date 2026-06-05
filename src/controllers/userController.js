@@ -273,6 +273,20 @@ exports.getAllUsers = async (req, res, next) => {
       typeof value === 'symbol' ? value.toString() : value
     , 2));
 
+    // Filtre de recherche par nom ou email
+    const searchTerm = req.query.search || req.query.q;
+    if (searchTerm && searchTerm.trim()) {
+      const { Op } = require('sequelize');
+      const like = `%${searchTerm.trim()}%`;
+      where[Op.and] = where[Op.and] || [];
+      where[Op.and].push({
+        [Op.or]: [
+          { FullName: { [Op.like]: like } },
+          { EmailPro: { [Op.like]: like } },
+        ]
+      });
+    }
+
     const { count, rows } = await User.findAndCountAll({
       where,
       limit,
