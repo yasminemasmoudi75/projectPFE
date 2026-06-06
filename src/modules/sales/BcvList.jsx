@@ -81,7 +81,7 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent, iconBg, valueColor }) 
 const BcvList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate, canEdit, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.COMMANDES);
+  const { canCreate, canEdit, canDelete, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.COMMANDES);
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
   const adminId = currentUser?.UserID?.toString();
   const { bcvList: bcv, loading } = useSelector((state) => state.bcv);
@@ -632,7 +632,7 @@ const BcvList = () => {
                             >
                               <ArrowUpRightIcon className="h-3.5 w-3.5" />
                             </button>
-                            {isAdminUser && (
+                            {canDelete && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }}
                                 title="Supprimer"

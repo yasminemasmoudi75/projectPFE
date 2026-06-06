@@ -3,7 +3,7 @@ import {
   PlusIcon, ExclamationCircleIcon, CheckCircleIcon,
   WrenchScrewdriverIcon, ArrowPathIcon, EyeIcon, LifebuoyIcon,
   TrashIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon,
-  FunnelIcon, XMarkIcon,
+  FunnelIcon, XMarkIcon, PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,8 +33,8 @@ const getStatusCfg = (s) => STATUS_CFG[s] || { badge: 'bg-slate-50 text-slate-50
 /* ─── ClaimsList ─────────────────────────────────────────────── */
 const ClaimsList = () => {
   const navigate = useNavigate();
-  const { user, isClient, isTechnicien, isAdmin } = useAuth();
-  const { canCreate: canAddReclamation, isFilterRepresEnabled } = usePermission(31);
+  const { user, isClient, isTechnicien, isAdmin, isAgent } = useAuth();
+  const { canCreate: canAddReclamation, canEdit: canEditClaim, canDelete: canDeleteClaim, isFilterRepresEnabled } = usePermission(31);
 
   const [loading, setLoading]                   = useState(true);
   const [claims, setClaims]                     = useState([]);
@@ -117,7 +117,7 @@ const ClaimsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, user?.UserID]);
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, isClient, user?.UserID]);
 
   const fetchTechniciens = useCallback(async () => {
     try {
@@ -195,24 +195,26 @@ const ClaimsList = () => {
     } finally { setDeletingId(null); }
   };
 
+  // Load technicians once (admin / agent only)
   useEffect(() => {
-    fetchClaims();
-    if (isAdmin) fetchTechniciens();
-    const role = String(user?.UserRole || '').trim().toLowerCase();
-    
-    let interval;
-    if (isTechnicien) interval = setInterval(() => fetchClaims(currentPage, itemsPerPage), 5000);
-    return () => { if (interval) clearInterval(interval); };
-  }, [fetchClaims, fetchTechniciens, isAdmin, isClient, isTechnicien, currentPage, itemsPerPage, user?.UserRole]);
+    if (isAdmin || isAgent) fetchTechniciens();
+  }, [fetchTechniciens, isAdmin, isAgent]);
 
-  const handleFilterChange = useCallback(() => {
-    setCurrentPage(1); fetchClaims(1, itemsPerPage);
-  }, [fetchClaims, itemsPerPage]);
-
+  // Polling interval for technicians view
   useEffect(() => {
-    const id = setTimeout(handleFilterChange, 300);
+    if (!isTechnicien) return;
+    const interval = setInterval(() => fetchClaims(currentPage, itemsPerPage), 5000);
+    return () => clearInterval(interval);
+  }, [isTechnicien, fetchClaims, currentPage, itemsPerPage]);
+
+  // Debounced re-fetch on any filter change (also fires on mount for initial load)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setCurrentPage(1);
+      fetchClaims(1, itemsPerPage);
+    }, 300);
     return () => clearTimeout(id);
-  }, [searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, handleFilterChange]);
+  }, [searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, itemsPerPage, fetchClaims]);
 
   const filteredClaims = useMemo(() => [...claims].sort((a, b) => {
     if (sortMode === 'priority') {
@@ -359,7 +361,7 @@ const ClaimsList = () => {
               className="w-full h-10 pl-10 pr-4 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0062AF] focus:ring-2 focus:ring-[#0062AF]/10 placeholder:text-slate-300 transition-all" />
           </div>
           {/* Grille de filtres */}
-          <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : !isClient ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
+          <div className={`grid gap-3 ${(isAdmin || isAgent) ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' : !isClient ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Statut</p>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -388,7 +390,7 @@ const ClaimsList = () => {
                     <option value="Basse">Basse</option>
                   </select>
                 </div>
-                {isAdmin && (
+                {(isAdmin || isAgent) && (
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Technicien</p>
                     <select value={technicianFilter} onChange={e => setTechnicianFilter(e.target.value)}
@@ -425,7 +427,7 @@ const ClaimsList = () => {
                 {!isClient && <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Technicien</th>}
                 <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest">Statut</th>
                 <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest">Date</th>
-                {(isClient || isTechnicien || isAdmin) && (
+                {(isClient || isTechnicien || isAdmin || isAgent) && (
                   <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actions</th>
                 )}
               </tr>
@@ -531,7 +533,7 @@ const ClaimsList = () => {
                       </td>
 
                       {/* Actions */}
-                      {(isClient || isTechnicien || isAdmin) && (
+                      {(isClient || isTechnicien || isAdmin || isAgent) && (
                         <td className="px-4 py-4 text-center" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <button onClick={() => navigate(`/claims/${claim.id}`)}
@@ -576,7 +578,15 @@ const ClaimsList = () => {
                                 Résolue
                               </button>
                             )}
-                            {isAdmin && (
+                            {(isAdmin || canEditClaim) && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
+                              <button
+                                onClick={() => navigate(`/claims/${claim.id}/edit`)}
+                                className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-all shadow-sm"
+                                title="Modifier">
+                                <PencilSquareIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {(isAdmin || canDeleteClaim) && !claim.assignedToId && !['résolu', 'resolu', 'fermé', 'ferme'].includes(String(claim.status || '').toLowerCase()) && (
                               <button onClick={() => setDeleteConfirm(claim.id)} disabled={deletingId === claim.id}
                                 className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-all shadow-sm disabled:opacity-40"
                                 title="Supprimer">

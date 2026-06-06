@@ -156,12 +156,21 @@ const PermissionManager = () => {
   const savePermissions = async () => {
     try {
       setSaving(true);
-      // In a real implementation, this would save to the backend
-      // await axios.post('/permissions/bulk-update', permissions);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const rolePerms = permissions[selectedRole] || {};
+      const updates = Object.entries(rolePerms).map(([moduleCode, perm]) =>
+        axios.put('/permissions/update', {
+          role: selectedRole,
+          moduleCode: Number(moduleCode),
+          isActive:     perm.isActive,
+          canAdd:       perm.canAdd,
+          canEdit:      perm.canEdit,
+          canDelete:    perm.canDelete,
+          canValid:     perm.canValid,
+          canExport:    perm.canExport,
+          filtreRepres: perm.filtreRepres ?? false,
+        })
+      );
+      await Promise.all(updates);
       toast.success('Permissions sauvegardées avec succès');
       setHasChanges(false);
     } catch (err) {

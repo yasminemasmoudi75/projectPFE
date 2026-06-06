@@ -5,6 +5,7 @@ import AuthLayout from '../layouts/AuthLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import LoadingSpinner from '../components/feedback/LoadingSpinner';
 import useAuth from '../hooks/useAuth';
+import usePermission from '../hooks/usePermission';
 
 // Role-based route guards
 const AdminRoute = ({ children }) => {
@@ -18,6 +19,24 @@ const NoClientRoute = ({ children }) => {
   const { isClient, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
   if (isClient) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
+const MessagesRoute = ({ children }) => {
+  const { isClient, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+  if (isClient) return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
+/* Guard basé sur la permission d'un module (CodMod) — Admin toujours autorisé */
+const ModuleRoute = ({ children, moduleCode }) => {
+  const { isAdmin, isAuthenticated } = useAuth();
+  const { isModuleActive, loading } = usePermission(moduleCode);
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+  if (isAdmin) return children;
+  if (loading) return <LoadingSpinner fullScreen />;
+  if (!isModuleActive) return <Navigate to="/dashboard" replace />;
   return children;
 };
 
@@ -72,7 +91,6 @@ const ErrorElement = lazy(() => import('../components/feedback/ErrorElement'));
 
 
 // Admin modules
-const AdminDashboard = lazy(() => import('../modules/admin/AdminDashboard'));
 const JournalConnexions = lazy(() => import('../modules/admin/JournalConnexions'));
 const PermissionManager = lazy(() => import('../modules/admin/PermissionManagerPro'));
 const StockConfigPage = lazy(() => import('../modules/admin/StockConfigPage'));
@@ -463,6 +481,14 @@ const routes = [
             ),
           },
           {
+            path: ':id/edit',
+            element: (
+              <SuspenseWrapper>
+                <ClaimForm />
+              </SuspenseWrapper>
+            ),
+          },
+          {
             path: ':id/intervention/new',
             element: (
               <SuspenseWrapper>
@@ -519,11 +545,12 @@ const routes = [
       },
       {
         path: 'messages',
-
         element: (
-          <SuspenseWrapper>
-            <MessageInbox />
-          </SuspenseWrapper>
+          <MessagesRoute>
+            <SuspenseWrapper>
+              <MessageInbox />
+            </SuspenseWrapper>
+          </MessagesRoute>
         ),
       },
       {
@@ -540,9 +567,7 @@ const routes = [
         path: 'admin',
         element: (
           <AdminRoute>
-            <SuspenseWrapper>
-              <AdminDashboard />
-            </SuspenseWrapper>
+            <Navigate to="/dashboard" replace />
           </AdminRoute>
         ),
       },
@@ -579,11 +604,11 @@ const routes = [
       {
         path: 'users',
         element: (
-          <AdminRoute>
+          <ModuleRoute moduleCode={1}>
             <SuspenseWrapper>
               <UsersList />
             </SuspenseWrapper>
-          </AdminRoute>
+          </ModuleRoute>
         ),
       },
       {
@@ -609,11 +634,11 @@ const routes = [
       {
         path: 'users/:id',
         element: (
-          <AdminRoute>
+          <ModuleRoute moduleCode={1}>
             <SuspenseWrapper>
               <UserDetail />
             </SuspenseWrapper>
-          </AdminRoute>
+          </ModuleRoute>
         ),
       },
 

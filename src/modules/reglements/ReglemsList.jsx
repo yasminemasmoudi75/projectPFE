@@ -364,12 +364,24 @@ const ReglemsList = () => {
                 )}
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Du</label>
-                  <input type="date" value={filters.dateFrom} onChange={e => setFilter('dateFrom', e.target.value)}
+                  <input type="date" value={filters.dateFrom}
+                    max={filters.dateTo || undefined}
+                    onChange={e => {
+                      const newFrom = e.target.value;
+                      setFilters(f => ({
+                        ...f,
+                        dateFrom: newFrom,
+                        dateTo: f.dateTo && newFrom > f.dateTo ? '' : f.dateTo,
+                        page: 1,
+                      }));
+                    }}
                     className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/10 focus:border-[#0062AF]/40 text-slate-600 transition-all" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">Au</label>
-                  <input type="date" value={filters.dateTo} onChange={e => setFilter('dateTo', e.target.value)}
+                  <input type="date" value={filters.dateTo}
+                    min={filters.dateFrom || undefined}
+                    onChange={e => setFilter('dateTo', e.target.value)}
                     className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/10 focus:border-[#0062AF]/40 text-slate-600 transition-all" />
                 </div>
               </div>

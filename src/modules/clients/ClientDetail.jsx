@@ -68,7 +68,7 @@ const ClientDetail = () => {
                     Type: 'Client Professionnel',
                     CodePostal: realData.Cp || '',
                     MatriculeFiscale: realData.CodTva || '',
-                    Commercial: realData.codRepresTiers || '',
+                    Commercial: realData.commercialObj?.FullName || realData.codRepresTiers || '',
                     Solde: 0,
                     ChiffreAffairesTotal: 0,
                     NombreDevis: 0,
@@ -285,7 +285,7 @@ const ClientDetail = () => {
                 ['Remise (%)', client.Remise],
                 ['Plafond crédit', client.Plafondcredit],
                 ['Conditions paiement', client.ConditionPaiement],
-                ['Commercial', client.codRepresTiers || client.Commercial],
+                ['Commercial', client.commercialObj?.FullName || client.codRepresTiers || client.Commercial],
             ]
         },
         {
@@ -440,7 +440,7 @@ const ClientDetail = () => {
                                         {client.codRepresTiers && (
                                             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 shadow-sm px-2.5 py-1 rounded-lg">
                                                 <UserCircleIcon className="h-3 w-3 text-[#0062AF] flex-shrink-0" />
-                                                Rep. {client.codRepresTiers}
+                                                {client.commercialObj?.FullName || client.codRepresTiers}
                                             </span>
                                         )}
                                         {(client.tiersCategorieObj?.libelle || client.Categorie) && (
@@ -594,7 +594,7 @@ const ClientDetail = () => {
                                     { icon: EnvelopeIcon,       label: 'Email',        value: client.Email,                                                                                  isPhone: false, accent: 'bg-[#e0f0ff] text-[#0062AF]' },
                                     { icon: MapPinIcon,         label: 'Adresse',      value: [client.Adresse, client.region?.libelle || client.Ville].filter(Boolean).join(' · ') || null, isPhone: false, accent: 'bg-rose-50 text-rose-500' },
                                     { icon: IdentificationIcon, label: 'Mat. Fiscale', value: client.CodTva || client.MatriculeFiscale,                                                      isPhone: false, accent: 'bg-amber-50 text-amber-600' },
-                                    { icon: UserCircleIcon,     label: 'Commercial',   value: client.codRepresTiers || client.Commercial,                                                    isPhone: false, accent: 'bg-violet-50 text-violet-600' },
+                                    { icon: UserCircleIcon,     label: 'Commercial',   value: client.commercialObj?.FullName || client.codRepresTiers || client.Commercial,              isPhone: false, accent: 'bg-violet-50 text-violet-600' },
                                 ].map((row, i) => (
                                     <div key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/70 transition-colors">
                                         <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${row.accent}`}>

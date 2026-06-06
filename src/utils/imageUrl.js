@@ -8,19 +8,23 @@ export const getImageUrl = (imagePath) => {
         return null;
     }
 
-    // Si c'est déjà une URL complète (commence par http), la retourner telle quelle
     if (imagePath.startsWith('http')) {
         return imagePath;
     }
 
-    // Récupérer la base URL du serveur depuis l'environnement
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    
-    // Extraire le protocole et le domaine (enlever /api)
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3066/api';
     const baseUrl = apiUrl.replace('/api', '');
 
-    // Nettoyer le chemin de l'image (enlever les / en double)
-    const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    // Normalise les backslashes Windows et extrait la partie /uploads/...
+    let normalized = imagePath.replace(/\\/g, '/');
+
+    // Si c'est un chemin absolu Windows (ex: C:/...uploads/products/file.jpg)
+    const uploadsIdx = normalized.indexOf('/uploads/');
+    if (uploadsIdx > 0) {
+        normalized = normalized.slice(uploadsIdx);
+    }
+
+    const cleanPath = normalized.startsWith('/') ? normalized : `/${normalized}`;
 
     return `${baseUrl}${cleanPath}`;
 };

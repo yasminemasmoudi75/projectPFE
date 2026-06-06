@@ -35,7 +35,6 @@ import { MODULE_CODES } from '../utils/constants';
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, moduleCode: MODULE_CODES.DASHBOARD, color: 'sky' },
   { type: 'section', name: 'Administration' },
-  { name: 'Tableau de bord Admin', href: '/admin', icon: ChartBarIcon, moduleCode: null, color: 'purple', adminOnly: true },
   { name: 'Rôles & Permissions', href: '/admin/permissions', icon: KeyIcon, moduleCode: null, color: 'violet', adminOnly: true },
   { name: 'Journal Connexions', href: '/admin/journal', icon: ClipboardDocumentListIcon, moduleCode: null, color: 'indigo', adminOnly: true },
   { name: 'Paramètres Stock', href: '/admin/stock-config', icon: Cog6ToothIcon, moduleCode: null, color: 'orange', adminOnly: true },

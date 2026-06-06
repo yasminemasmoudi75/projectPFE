@@ -751,6 +751,13 @@ const CalendarView = () => {
                                         <EyeIcon className="h-4 w-4"/> Détails
                                     </button>
                                 </div>
+                                {canEdit && selectedEvent.valide !== 1 && (
+                                    <button
+                                        onClick={() => navigate(`/activites/edit/${selectedEvent.id}`, { state: { from: 'calendar' } })}
+                                        className="w-full flex items-center justify-center gap-1.5 h-10 text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-all active:scale-[0.97]">
+                                        <PencilIcon className="h-4 w-4"/> Modifier
+                                    </button>
+                                )}
                                 {selectedEvent.valide !== 1 && (
                                     <button disabled={validating}
                                         onClick={async () => {

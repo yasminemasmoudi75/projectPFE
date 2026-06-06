@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeftIcon, CheckIcon, ChatBubbleLeftEllipsisIcon,
   UserCircleIcon, ExclamationTriangleIcon, TagIcon,
@@ -71,8 +71,10 @@ const GuidanceCard = ({ icon: Icon, iconCls, iconBg, title, children }) => (
 
 /* ── Main component ── */
 const ClaimForm = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const navigate     = useNavigate();
+  const { id }       = useParams();
+  const isEditMode   = !!id;
+  const { user }     = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [clients, setClients] = useState([]);
@@ -88,6 +90,32 @@ const ClaimForm = () => {
   const isStep1Complete = isClientUser || !!(formData.CodTiers && formData.LibTiers);
   const isStep2Complete = !!(formData.Objet && formData.TypeReclamation && formData.Priorite);
   const isStep3Complete = !!(formData.Description.trim());
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    const fetchClaim = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(`/reclamations/${id}`);
+        const rec = res?.data?.data ?? res?.data ?? res;
+        setFormData({
+          CodTiers:         rec.CodTiers        || '',
+          LibTiers:         rec.LibTiers         || rec.CodTiers || '',
+          Objet:            rec.Objet            || '',
+          Description:      rec.Description      || '',
+          Priorite:         rec.Priorite         || 'Normale',
+          TypeReclamation:  rec.TypeReclamation  || 'Technique',
+        });
+        if (rec.CodTiers) setStep(isClientUser ? 2 : 2);
+      } catch {
+        toast.error('Impossible de charger la réclamation');
+        navigate('/claims');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaim();
+  }, [id, isEditMode, isClientUser, navigate]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -139,11 +167,16 @@ const ClaimForm = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await axios.post('/reclamations', formData);
-      toast.success('Réclamation enregistrée avec succès');
+      if (isEditMode) {
+        await axios.patch(`/reclamations/${id}`, formData);
+        toast.success('Réclamation modifiée avec succès');
+      } else {
+        await axios.post('/reclamations', formData);
+        toast.success('Réclamation enregistrée avec succès');
+      }
       navigate('/claims');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Erreur lors de la création de la réclamation');
+      toast.error(error.response?.data?.message || (isEditMode ? 'Erreur lors de la modification' : 'Erreur lors de la création de la réclamation'));
     } finally {
       setSaving(false);
     }
@@ -175,7 +208,7 @@ const ClaimForm = () => {
           <ArrowLeftIcon className="h-4 w-4" /> Retour
         </button>
         <div className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-sky-50 border border-sky-200 text-sm font-semibold text-sky-600">
-          <LifebuoyIcon className="h-4 w-4" /> Nouveau ticket
+          <LifebuoyIcon className="h-4 w-4" /> {isEditMode ? 'Modifier le ticket' : 'Nouveau ticket'}
         </div>
         <div className="w-24" />
       </div>
@@ -184,7 +217,7 @@ const ClaimForm = () => {
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Créer une réclamation</h1>
+            <h1 className="text-xl font-bold text-slate-800">{isEditMode ? 'Modifier la réclamation' : 'Créer une réclamation'}</h1>
             <p className="text-sm text-slate-400 mt-0.5">
               {isClientUser ? 'Deux étapes simples : qualification, description.' : 'Trois étapes simples : client, qualification, description.'}
             </p>
@@ -344,8 +377,8 @@ const ClaimForm = () => {
               <button type="submit" disabled={saving || !isStep3Complete}
                 className="h-10 px-6 rounded-xl bg-[#0062AF] text-white text-sm font-semibold hover:bg-[#004a85] transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-blue-500/20 flex items-center gap-2">
                 {saving
-                  ? <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Création…</>
-                  : <><CheckIcon className="h-4 w-4" /> Ouvrir le ticket</>
+                  ? <><div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> {isEditMode ? 'Modification…' : 'Création…'}</>
+                  : <><CheckIcon className="h-4 w-4" /> {isEditMode ? 'Enregistrer les modifications' : 'Ouvrir le ticket'}</>
                 }
               </button>
             )}

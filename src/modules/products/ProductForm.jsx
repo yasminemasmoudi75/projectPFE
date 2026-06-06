@@ -6,6 +6,7 @@ import {
     ChevronDownIcon, SparklesIcon, PlusIcon, TrashIcon,
     CubeIcon, ExclamationTriangleIcon, BuildingStorefrontIcon,
     ScaleIcon, HashtagIcon, SwatchIcon, PencilSquareIcon,
+    LinkIcon, ArrowUpTrayIcon, XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -65,6 +66,8 @@ const ProductForm = () => {
     const [collections, setCollections] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [imageMode, setImageMode] = useState('file');
+    const [urlInput, setUrlInput] = useState('');
     const [showVariants, setShowVariants] = useState(false);
     const [variants, setVariants] = useState([]);
     const [imgZoom, setImgZoom] = useState(false);
@@ -75,6 +78,15 @@ const ProductForm = () => {
         Tva: '19', Description: '', Unite: 'UNI',
         LibFam: '', LibFour: '', urlimg: '', imgArt: ''
     });
+
+    // Auto-generate unique code on create
+    useEffect(() => {
+        if (!isEdit) {
+            const ts = Date.now().toString().slice(-6);
+            const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
+            setFormData(p => ({ ...p, CodArt: `ART-${ts}-${rand}` }));
+        }
+    }, [isEdit]);
 
     useEffect(() => {
         const fetchCollections = async () => {
@@ -105,6 +117,10 @@ const ProductForm = () => {
                         Unite: p.Unite || 'UNI', LibFam: p.LibFam || '',
                         LibFour: p.LibFour || '', urlimg: p.urlimg || '', imgArt: p.imgArt || ''
                     });
+                    if (p.urlimg?.startsWith('http')) {
+                        setImageMode('url');
+                        setUrlInput(p.urlimg);
+                    }
                     const rows = vRes?.data || vRes || [];
                     const varList = Array.isArray(rows) ? rows : [];
                     if (varList.length > 0) {
@@ -163,8 +179,13 @@ const ProductForm = () => {
             LibFour: formData.LibFour, Description: formData.Description,
         }).forEach(([k, v]) => fData.append(k, v));
 
-        if (selectedFile) fData.append('image', selectedFile);
-        else fData.append('urlimg', formData.urlimg || '');
+        if (imageMode === 'url' && urlInput.trim()) {
+            fData.append('urlimg', urlInput);
+        } else if (selectedFile) {
+            fData.append('image', selectedFile);
+        } else {
+            fData.append('urlimg', formData.urlimg || '');
+        }
 
         try {
             let savedId = id;
@@ -191,7 +212,8 @@ const ProductForm = () => {
 
     if (loading) return <LoadingSpinner />;
 
-    const imgSrc   = previewUrl || (formData.urlimg ? getImageUrl(formData.urlimg) : null);
+    const imgSrc   = previewUrl
+        || (imageMode === 'file' && formData.urlimg ? getImageUrl(formData.urlimg) : null);
     const prixTTC  = Number(formData.PrixVente) > 0
         ? (Number(formData.PrixVente) * (1 + Number(formData.Tva) / 100)).toFixed(3) : null;
     const isLowStock = Number(formData.Qte) > 0 && Number(formData.MinStk) > 0
@@ -263,42 +285,106 @@ const ProductForm = () => {
                     <div className="h-0.5 bg-gradient-to-r from-[#0062AF] via-sky-400 to-teal-400" />
                     <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
 
-                        {/* ─ Image upload ─ */}
-                        <div className="relative flex flex-col items-center justify-center min-h-[300px] border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-br from-blue-50/40 via-slate-50 to-teal-50/20 overflow-hidden">
+                        {/* ─ Image ─ */}
+                        <div className="relative flex flex-col border-b lg:border-b-0 lg:border-r border-slate-100 bg-gradient-to-br from-blue-50/40 via-slate-50 to-teal-50/20 overflow-hidden">
                             <div className="absolute inset-0 opacity-[0.03]"
                                 style={{ backgroundImage: 'radial-gradient(circle,#94a3b8 1px,transparent 1px)', backgroundSize: '20px 20px' }} />
 
-                            {imgSrc ? (
-                                <>
-                                    <motion.img
-                                        key={imgSrc}
-                                        initial={{ scale: 0.95, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ duration: 0.3 }}
-                                        src={imgSrc} alt={formData.LibArt}
-                                        onClick={() => setImgZoom(true)}
-                                        className="relative z-10 w-60 h-60 object-contain hover:scale-105 transition-transform duration-500 drop-shadow-md cursor-zoom-in"
-                                    />
-                                    <label className="relative z-10 mt-4 cursor-pointer">
-                                        <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white/90 border border-slate-200 rounded-full text-xs font-semibold text-slate-600 hover:border-[#0062AF]/30 hover:text-[#0062AF] transition-all shadow-sm">
-                                            <PencilSquareIcon className="h-3.5 w-3.5" />
-                                            Changer l'image
-                                        </span>
-                                        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                    </label>
-                                </>
-                            ) : (
-                                <label className="relative z-10 flex flex-col items-center gap-4 cursor-pointer group p-8 text-center">
-                                    <div className="h-20 w-20 rounded-2xl bg-white border-2 border-dashed border-slate-200 group-hover:border-[#0062AF]/40 group-hover:bg-blue-50/50 flex items-center justify-center transition-all shadow-sm">
-                                        <PhotoIcon className="h-10 w-10 text-slate-300 group-hover:text-[#0062AF]/50 transition-colors" />
+                            {/* Tabs */}
+                            <div className="relative z-10 flex items-center gap-1 p-3 pb-0">
+                                <button type="button"
+                                    onClick={() => { setImageMode('file'); setUrlInput(''); }}
+                                    className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all ${imageMode === 'file' ? 'bg-white border border-slate-200 text-[#0062AF] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                                    <ArrowUpTrayIcon className="h-3.5 w-3.5" /> Fichier
+                                </button>
+                                <button type="button"
+                                    onClick={() => { setImageMode('url'); setSelectedFile(null); setPreviewUrl(null); }}
+                                    className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold transition-all ${imageMode === 'url' ? 'bg-white border border-slate-200 text-[#0062AF] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                                    <LinkIcon className="h-3.5 w-3.5" /> URL internet
+                                </button>
+                            </div>
+
+                            {/* URL input */}
+                            {imageMode === 'url' && (
+                                <div className="relative z-10 px-4 pt-3 pb-1 space-y-2">
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={urlInput}
+                                                onChange={e => { setUrlInput(e.target.value); }}
+                                                placeholder="https://exemple.com/image.jpg"
+                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0062AF]/10 focus:border-[#0062AF]/50 transition-all"
+                                            />
+                                        </div>
+                                        {urlInput && (
+                                            <button type="button" onClick={() => { setUrlInput(''); }}
+                                                className="h-9 w-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-all">
+                                                <XMarkIcon className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-500 group-hover:text-[#0062AF] transition-colors">Ajouter une image</p>
-                                        <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 Mo</p>
-                                    </div>
-                                    <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                </label>
+                                    <p className="text-[11px] text-slate-400">
+                                        Clic-droit sur une image → <span className="font-semibold text-slate-500">"Copier l'adresse de l'image"</span> → coller ici.
+                                    </p>
+                                </div>
                             )}
+
+                            {/* Preview zone */}
+                            <div className="relative z-10 flex flex-col items-center justify-center flex-1 min-h-[220px] p-4">
+                                {imgSrc ? (
+                                    <>
+                                        <motion.img
+                                            key={imgSrc}
+                                            initial={{ scale: 0.95, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            transition={{ duration: 0.3 }}
+                                            src={imgSrc} alt={formData.LibArt}
+                                            onClick={() => setImgZoom(true)}
+                                            className="w-48 h-48 object-contain hover:scale-105 transition-transform duration-500 drop-shadow-md cursor-zoom-in"
+                                        />
+                                        {imageMode === 'file' && (
+                                            <label className="mt-4 cursor-pointer">
+                                                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white/90 border border-slate-200 rounded-full text-xs font-semibold text-slate-600 hover:border-[#0062AF]/30 hover:text-[#0062AF] transition-all shadow-sm">
+                                                    <PencilSquareIcon className="h-3.5 w-3.5" /> Changer l'image
+                                                </span>
+                                                <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer w-0 h-0" />
+                                            </label>
+                                        )}
+                                    </>
+                                ) : imageMode === 'url' && urlInput ? (
+                                    <div className="flex flex-col items-center gap-3 text-center px-4">
+                                        <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                                            <LinkIcon className="h-7 w-7 text-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-700">URL prête</p>
+                                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                                L'image sera téléchargée automatiquement<br/>lors de la sauvegarde du produit.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : imageMode === 'file' ? (
+                                    <label className="flex flex-col items-center gap-4 cursor-pointer group text-center">
+                                        <div className="h-20 w-20 rounded-2xl bg-white border-2 border-dashed border-slate-200 group-hover:border-[#0062AF]/40 group-hover:bg-blue-50/50 flex items-center justify-center transition-all shadow-sm">
+                                            <PhotoIcon className="h-10 w-10 text-slate-300 group-hover:text-[#0062AF]/50 transition-colors" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-500 group-hover:text-[#0062AF] transition-colors">Ajouter une image</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">JPG, PNG · max 5 Mo</p>
+                                        </div>
+                                        <input type="file" accept="image/*" onChange={handleChange} className="absolute inset-0 opacity-0 cursor-pointer w-0 h-0" />
+                                    </label>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-3 text-center">
+                                        <div className="h-16 w-16 rounded-2xl bg-white border-2 border-dashed border-slate-200 flex items-center justify-center">
+                                            <LinkIcon className="h-8 w-8 text-slate-300" />
+                                        </div>
+                                        <p className="text-xs text-slate-400">Collez une URL ci-dessus<br/>pour prévisualiser l'image</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* ─ Form fields (right) ─ */}

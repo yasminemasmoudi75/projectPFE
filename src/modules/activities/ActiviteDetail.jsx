@@ -11,6 +11,9 @@ import { CheckCircleIcon as CheckSolid } from '@heroicons/react/24/solid';
 import axios from '../../app/axios';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import toast from 'react-hot-toast';
+import usePermission from '../../hooks/usePermission';
+import useAuth from '../../hooks/useAuth';
+import { MODULE_CODES } from '../../utils/constants';
 
 const TYPE_CFG = {
   appel:   { Icon: PhoneIcon,                  color: '#10b981', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
@@ -40,6 +43,8 @@ const ActiviteDetail = () => {
   const { id }   = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useAuth();
+  const { canEdit } = usePermission(MODULE_CODES.CALENDRIER);
   const [activite,      setActivite]      = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [validating,    setValidating]    = useState(false);
@@ -126,11 +131,13 @@ const ActiviteDetail = () => {
               Projet
             </button>
           )}
-          <button onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`, { state: location.state })}
-            className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-            <PencilSquareIcon className="h-4 w-4" />
-            Modifier
-          </button>
+          {(isAdmin || canEdit) && !isValidated && (
+            <button onClick={() => navigate(`/activites/edit/${activite.ID_Activite}`, { state: location.state })}
+              className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#0062AF] hover:bg-[#004a85] text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+              <PencilSquareIcon className="h-4 w-4" />
+              Modifier
+            </button>
+          )}
         </div>
       </div>
 

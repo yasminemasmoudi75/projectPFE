@@ -12,6 +12,8 @@ import {
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import axios from '../../app/axios';
+import usePermission from '../../hooks/usePermission';
+import { MODULE_CODES } from '../../utils/constants';
 
 const extractArrayPayload = (response) => {
   // L'intercepteur axios retourne déjà response.data, donc traiter directement
@@ -70,6 +72,14 @@ const ActiviteForm = () => {
   const defaultTierId = !isEdit ? location.state?.defaultTierId : null;
   const { user } = useSelector((state) => state.auth);
   const isAdminUser = isAdminRole(user?.UserRole);
+  const { canEdit: canEditCalendrier, loading: permLoading } = usePermission(MODULE_CODES.CALENDRIER);
+
+  useEffect(() => {
+    if (isEdit && !isAdminUser && !permLoading && !canEditCalendrier) {
+      toast.error('Vous n\'avez pas la permission de modifier cette activité');
+      navigate('/calendar', { replace: true });
+    }
+  }, [isEdit, isAdminUser, permLoading, canEditCalendrier, navigate]);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   PlusIcon,
   PencilSquareIcon,
+  TrashIcon,
   MagnifyingGlassIcon,
   SparklesIcon,
   DocumentTextIcon,
@@ -18,7 +19,7 @@ import {
   ChartBarIcon,
   ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
-import { fetchMyFav, fetchFav } from './favSlice';
+import { fetchMyFav, fetchFav, deleteFav } from './favSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate, formatCurrency } from '../../utils/format';
 import clsx from 'clsx';
@@ -83,7 +84,7 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent, iconBg, valueColor }) 
 const FavList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { canCreate, canEdit, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.FACTURES);
+  const { canCreate, canEdit, canDelete, isModuleActive, isFilterRepresEnabled, loading: permissionLoading } = usePermission(MODULE_CODES.FACTURES);
   const { isClient, isAuthenticated, loading: authLoading, user: currentUser } = useAuth();
   const { favList: fav, loading } = useSelector((state) => state.fav);
 
@@ -105,6 +106,8 @@ const FavList = () => {
   const [commercials, setCommercials] = useState([]);
   const [allClients, setAllClients] = useState([]);
   const [historyTarget, setHistoryTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget]   = useState(null);
+  const [isDeleting, setIsDeleting]       = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
@@ -198,6 +201,21 @@ const FavList = () => {
       : dispatch(fetchFav(params));
   };
 
+  const handleDeleteFav = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      await dispatch(deleteFav(deleteTarget.Guid)).unwrap();
+      toast.success('Facture supprimée');
+      setDeleteTarget(null);
+      refreshData();
+    } catch (error) {
+      toast.error(error?.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const fetchCommercials = async () => {
     try {
       const res = await axios.get('/users/commercials/devis-filter', {
@@ -234,6 +252,52 @@ const FavList = () => {
 
   return (
     <motion.div variants={pageVariants} initial="hidden" animate="visible" className="space-y-6 pb-12">
+
+      {/* ── Confirm Delete Modal ── */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setDeleteTarget(null)}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center flex-none">
+                    <TrashIcon className="h-5 w-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Supprimer cette facture ?</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Cette action est irréversible.</p>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-5">
+                  La facture <span className="font-bold text-slate-700">{deleteTarget.Prfx}{deleteTarget.Nf}</span>
+                  {deleteTarget.LibTiers && <> — <span className="text-slate-600">{deleteTarget.LibTiers}</span></>} sera définitivement supprimée.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteTarget(null)} disabled={isDeleting}
+                    className="flex-1 h-10 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all disabled:opacity-50">
+                    Annuler
+                  </button>
+                  <button onClick={handleDeleteFav} disabled={isDeleting}
+                    className="flex-1 h-10 bg-rose-500 text-white rounded-xl text-sm font-semibold hover:bg-rose-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isDeleting
+                      ? <><ArrowPathIcon className="h-4 w-4 animate-spin" /> Suppression…</>
+                      : <><TrashIcon className="h-4 w-4" /> Supprimer</>}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Header ── */}
       <motion.div variants={fadeUp} className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -514,13 +578,22 @@ const FavList = () => {
                         {/* Actions */}
                         <td className="px-5 py-3.5">
                           <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {canEdit && (
+                            {(isAdminUser || canEdit) && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/fav/edit/${item.Guid}`); }}
                                 title="Modifier"
                                 className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-amber-600 hover:border-amber-200 hover:bg-amber-50 transition-all"
                               >
                                 <PencilSquareIcon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {(isAdminUser || canDelete) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(item); }}
+                                title="Supprimer"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all"
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
                               </button>
                             )}
                             <button

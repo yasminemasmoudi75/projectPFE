@@ -197,9 +197,11 @@ const ClientsList = () => {
             const selectedClasse = String(filters.classe || '').trim();
             const clientClasseId = String(c.tiersClasse?.id ?? c.Classe ?? '').trim();
             const clientClasseLabel = String(c.tiersClasse?.libelle || '').trim().toLowerCase();
+            const clientClasseAutoLabel = String(c.classeAuto?.ClasseCalculee || '').trim().toLowerCase();
             const matchesClasse = !selectedClasse
                 || clientClasseId === selectedClasse
-                || clientClasseLabel === selectedClasse.toLowerCase();
+                || clientClasseLabel === selectedClasse.toLowerCase()
+                || clientClasseAutoLabel === selectedClasse.toLowerCase();
 
             const matchesCommercial = !filters.commercial ||
                 (filters.commercial === '__UNASSIGNED__'
@@ -349,9 +351,15 @@ const ClientsList = () => {
             if (!id || !libelle || byId.has(id)) return;
             byId.set(id, { id, libelle });
         });
-
+        // Also include auto-calculated classes from clients data
+        clients.forEach(c => {
+            const autoLabel = (c.classeAuto?.ClasseCalculee || '').trim();
+            if (autoLabel && !byId.has(autoLabel)) {
+                byId.set(autoLabel, { id: autoLabel, libelle: autoLabel });
+            }
+        });
         return Array.from(byId.values()).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
-    }, [tiersClasses]);
+    }, [tiersClasses, clients]);
 
     // Use backend-fetched commercials (filtered by filtrerepres) if available,
     // fallback to extracting from loaded clients

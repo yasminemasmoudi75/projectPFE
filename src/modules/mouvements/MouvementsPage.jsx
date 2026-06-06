@@ -158,12 +158,23 @@ const MouvementsPage = () => {
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date début</p>
             <input type="date" value={filters.dateDebut}
-              onChange={e => setFilter('dateDebut', e.target.value)} className={INP} />
+              max={filters.dateFin || undefined}
+              onChange={e => {
+                const newDebut = e.target.value;
+                setFilters(prev => ({
+                  ...prev,
+                  dateDebut: newDebut,
+                  dateFin: prev.dateFin && newDebut > prev.dateFin ? '' : prev.dateFin,
+                }));
+                setPagination(prev => ({ ...prev, page: 1 }));
+              }}
+              className={INP} />
           </div>
           {/* Date fin */}
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date fin</p>
             <input type="date" value={filters.dateFin}
+              min={filters.dateDebut || undefined}
               onChange={e => setFilter('dateFin', e.target.value)} className={INP} />
           </div>
           {/* Type doc */}

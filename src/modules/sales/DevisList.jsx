@@ -96,7 +96,7 @@ const DevisList = () => {
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    search: '', status: 'all', amount: '',
+    search: '', status: 'all', minAmount: '', maxAmount: '',
     minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
   });
   const [showFilters, setShowFilters] = useState(false);
@@ -131,8 +131,8 @@ const DevisList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', status: 'all', amount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
-  const activeFiltersCount = [filters.search, filters.status !== 'all', filters.amount, filters.dateFrom, filters.dateTo].filter(Boolean).length;
+    setFilters({ search: '', status: 'all', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
+  const activeFiltersCount = [filters.search, filters.status !== 'all', filters.minAmount, filters.maxAmount, filters.dateFrom, filters.dateTo].filter(Boolean).length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filteredDevis = useMemo(() => (devis || []).filter((item) => {
@@ -147,9 +147,13 @@ const DevisList = () => {
       if (filters.status === 'valid' && itemStatus !== 'valid') return false;
     }
     const amount = item.TotTTC || 0;
-    if (filters.amount) {
-      const target = parseFloat(filters.amount);
-      if (!isNaN(target) && Math.abs(amount - target) > 0.5) return false;
+    if (filters.minAmount) {
+      const min = parseFloat(filters.minAmount);
+      if (!isNaN(min) && amount < min) return false;
+    }
+    if (filters.maxAmount) {
+      const max = parseFloat(filters.maxAmount);
+      if (!isNaN(max) && amount > max) return false;
     }
     if (filters.minProbability && (item.IA_Probabilite || 0) < parseFloat(filters.minProbability)) return false;
     if (filters.dateFrom && new Date(item.DatUser) < new Date(filters.dateFrom)) return false;
@@ -380,9 +384,10 @@ const refreshData = () => {
               <div className="px-5 pb-5 pt-4 border-t border-slate-100 bg-slate-50/60">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
-                    { key: 'amount',   label: 'Montant (TND)',  type: 'number', placeholder: 'Ex : 5000' },
-                    { key: 'dateFrom', label: 'Créé après le',  type: 'date',   placeholder: '' },
-                    { key: 'dateTo',   label: 'Créé avant le',  type: 'date',   placeholder: '' },
+                    { key: 'minAmount', label: 'Montant min (TND)', type: 'number', placeholder: 'Ex : 1 000' },
+                    { key: 'maxAmount', label: 'Montant max (TND)', type: 'number', placeholder: 'Ex : 50 000' },
+                    { key: 'dateFrom',  label: 'Créé après le',     type: 'date',   placeholder: '' },
+                    { key: 'dateTo',    label: 'Créé avant le',     type: 'date',   placeholder: '' },
                   ].map(({ key, label, type, placeholder }) => (
                     <div key={key}>
                       <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">{label}</label>

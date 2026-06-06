@@ -25,13 +25,14 @@ const toBool = (value) => value === true || value === 1 || value === '1';
 const usePermission = (moduleCode = null) => {
   const { user, accessToken, isAuthenticated } = useAuth();
   const [dbPermissions, setDbPermissions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // ✅ Charger les permissions depuis la base de données
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       setDbPermissions([]);
+      setLoading(false);
       return;
     }
 

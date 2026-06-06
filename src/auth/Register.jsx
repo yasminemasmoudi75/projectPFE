@@ -7,13 +7,25 @@ import {
   LockClosedIcon, UserIcon, EnvelopeIcon,
   ArrowRightIcon, EyeIcon, EyeSlashIcon,
   ShieldCheckIcon, CheckCircleIcon,
+  PhoneIcon, MapPinIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import authService from './authService';
 
+const GOUVERNORATS = [
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa',
+  'Jendouba', 'Kairouan', 'Kasserine', 'Kébili', 'Kef', 'Mahdia',
+  'Manouba', 'Médenine', 'Monastir', 'Nabeul', 'Sfax', 'Sidi Bouzid',
+  'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan',
+];
+
 const registerSchema = z.object({
   fullName: z.string().min(3, 'Le nom complet doit avoir au moins 3 caractères'),
   email: z.string().email('Email invalide'),
+  telephone: z.string()
+    .min(8, 'Numéro invalide')
+    .regex(/^[0-9+\s\-()]{8,15}$/, 'Numéro de téléphone invalide'),
+  gouvernorat: z.string().min(1, 'Veuillez sélectionner un gouvernorat'),
   password: z.string().min(6, 'Le mot de passe doit avoir au moins 6 caractères'),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -40,6 +52,8 @@ const Register = () => {
         Password: data.password,
         FullName: data.fullName,
         EmailPro: data.email,
+        Telephone: data.telephone,
+        Gouvernorat: data.gouvernorat,
         UserRole: 'User',
         DateNaissance: '1990-01-01',
       });
@@ -107,6 +121,45 @@ const Register = () => {
             />
           </div>
           <FieldError msg={errors.email?.message} />
+        </div>
+
+        {/* Téléphone + Gouvernorat */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] mb-2">
+              Téléphone <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <PhoneIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[17px] w-[17px] text-slate-400 pointer-events-none" />
+              <input
+                {...register('telephone')}
+                type="tel"
+                autoComplete="tel"
+                placeholder="+216 XX XXX XXX"
+                className={inputCls(errors.telephone)}
+              />
+            </div>
+            <FieldError msg={errors.telephone?.message} />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-[0.12em] mb-2">
+              Gouvernorat <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <MapPinIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[17px] w-[17px] text-slate-400 pointer-events-none z-10" />
+              <select
+                {...register('gouvernorat')}
+                className={`${inputCls(errors.gouvernorat)} appearance-none`}
+              >
+                <option value="">Sélectionner...</option>
+                {GOUVERNORATS.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+            <FieldError msg={errors.gouvernorat?.message} />
+          </div>
         </div>
 
         {/* Passwords */}

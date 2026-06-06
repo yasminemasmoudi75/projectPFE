@@ -75,6 +75,17 @@ const JournalConnexions = () => {
 
     useEffect(() => { fetchLogs(1); }, [dateFrom, dateTo, actionFilter]);
 
+    const handleDateFrom = (e) => {
+        const val = e.target.value;
+        setDateFrom(val);
+        if (dateTo && val > dateTo) setDateTo(val);
+    };
+    const handleDateTo = (e) => {
+        const val = e.target.value;
+        if (dateFrom && val < dateFrom) return;
+        setDateTo(val);
+    };
+
     const handleSearch = (e) => { e.preventDefault(); fetchLogs(1); };
     const handleReset  = () => {
         setSearch(''); setDateFrom(''); setDateTo(''); setActionFilter('ALL');
@@ -141,10 +152,12 @@ const JournalConnexions = () => {
 
                         <div className="flex items-center gap-2">
                             <CalendarDaysIcon className="h-4 w-4 text-slate-400 flex-none" />
-                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                            <input type="date" value={dateFrom} onChange={handleDateFrom}
+                                max={dateTo || undefined}
                                 className="h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-all" />
                             <span className="text-slate-300 text-xs">→</span>
-                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                            <input type="date" value={dateTo} onChange={handleDateTo}
+                                min={dateFrom || undefined}
                                 className="h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-all" />
                         </div>
 

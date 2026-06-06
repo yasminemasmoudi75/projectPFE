@@ -9,7 +9,33 @@ import {
 import toast from 'react-hot-toast';
 
 /* modules exclus de l'interface (codes API) */
-const EXCLUDED_CODES = new Set([40, 41, 43, 44, 45, 47, 52]);
+const EXCLUDED_CODES = new Set([1, 32, 40, 41, 43, 44, 47, 52]);
+
+/* renommages affichés (code → label custom) */
+const MODULE_LABELS = { 45: 'Activité' };
+
+/* modules exclus du toggle "Ma région / Tous" pour le rôle Agent */
+const EXCLUDED_FILTRE_REP = new Set([46]);
+
+/* permissions verrouillées (toujours faux, non modifiables) par module */
+const LOCKED_PERMS = {
+  6:  new Set(['canEdit']),
+  7:  new Set(['canEdit']),
+  8:  new Set(['canDelete']),
+  45: new Set(['canDelete', 'canEdit']),
+  51: new Set(['canDelete', 'canEdit']),
+};
+
+/* permissions verrouillées par rôle + module */
+const ROLE_LOCKED_PERMS = {
+  'Client': {
+    46: new Set(['canAdd', 'canEdit', 'canDelete']),
+  },
+};
+
+const isLocked = (moduleCode, field, currentRole) =>
+  !!LOCKED_PERMS[moduleCode]?.has(field) ||
+  !!ROLE_LOCKED_PERMS[currentRole]?.[moduleCode]?.has(field);
 
 /* colonnes permission affichées */
 const PERMS = [
@@ -37,13 +63,16 @@ const PALETTE_IDLE = [
 ];
 
 /* ── Checkbox ── */
-const Cell = ({ checked, onChange }) => (
+const Cell = ({ checked, onChange, locked }) => (
   <td className="px-3 py-2.5 text-center">
-    <button onClick={onChange}
+    <button onClick={locked ? undefined : onChange} disabled={locked}
+      title={locked ? 'Permission non modifiable pour ce module' : undefined}
       className={`h-5 w-5 mx-auto rounded flex items-center justify-center border transition-all ${
-        checked ? 'bg-indigo-500 border-indigo-500' : 'bg-white border-slate-300 hover:border-indigo-400'
+        locked
+          ? 'bg-slate-100 border-slate-200 cursor-not-allowed opacity-50'
+          : checked ? 'bg-indigo-500 border-indigo-500' : 'bg-white border-slate-300 hover:border-indigo-400'
       }`}>
-      {checked && <CheckIcon className="h-3 w-3 text-white stroke-[3]" />}
+      {checked && !locked && <CheckIcon className="h-3 w-3 text-white stroke-[3]" />}
     </button>
   </td>
 );
@@ -65,6 +94,22 @@ const PermissionManagerPro = () => {
   const [search, setSearch]       = useState('');
   const [pending, setPending]     = useState([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [filtreRep, setFiltreRep] = useState({});
+
+  const isAgentRole = role?.toLowerCase() === 'agent';
+  const getFiltreRep = (code) => filtreRep[code] ?? 'region';
+  const toggleFiltreRep = (code) => {
+    const newVal = filtreRep[code] === 'tous' ? 'region' : 'tous';
+    setFiltreRep(prev => ({ ...prev, [code]: newVal }));
+    const filtreRepresVal = newVal === 'region';
+    setPending(prev => {
+      const idx = prev.findIndex(c => c.role === role && c.moduleCode === code);
+      return idx >= 0
+        ? prev.map((c, i) => i === idx ? { ...c, filtreRepres: filtreRepresVal } : c)
+        : [...prev, { role, moduleCode: code, ...perms[role][code], filtreRepres: filtreRepresVal }];
+    });
+    setHasChanges(true);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -81,8 +126,6 @@ const PermissionManagerPro = () => {
       // Accepter les deux structures possibles
       const payload = res.data?.data ?? res.data ?? {};
       const rows    = payload.permissions ?? (Array.isArray(payload) ? payload : []);
-
-      console.log('[Permissions] rows reçus:', rows.length, rows[0]);
 
       if (rows.length === 0) {
         setError('Aucune donnée reçue depuis TabAWProfileAccess.');
@@ -102,7 +145,7 @@ const PermissionManagerPro = () => {
         modMap[code] = r.moduleName ?? r.LibMod ?? `Module ${code}`;
       });
       const dbModules = Object.entries(modMap)
-        .map(([c, n]) => ({ code: Number(c), name: n }))
+        .map(([c, n]) => ({ code: Number(c), name: MODULE_LABELS[Number(c)] ?? n }))
         .filter(m => !EXCLUDED_CODES.has(m.code))
         .sort((a, b) => a.code - b.code);
 
@@ -128,9 +171,20 @@ const PermissionManagerPro = () => {
         };
       });
 
+      /* ── Build filtreRep initial depuis DB ── */
+      const initFiltreRep = {};
+      rows.forEach(r => {
+        const rl   = r.role ?? r.ProfileUser;
+        const code = Number(r.moduleCode ?? r.CodMod ?? 0);
+        if (rl?.toLowerCase() === 'agent' && code) {
+          initFiltreRep[code] = bool(r.filtreRepres ?? r.FiltreRepres) ? 'region' : 'tous';
+        }
+      });
+
       setRoles(dbRoles);
       setModules(dbModules);
       setPerms(base);
+      setFiltreRep(initFiltreRep);
       setRole(prev => dbRoles.includes(prev) ? prev : dbRoles[0] ?? '');
       setPending([]);
       setHasChanges(false);
@@ -145,6 +199,7 @@ const PermissionManagerPro = () => {
 
   /* toggle une cellule */
   const toggle = (code, field) => {
+    if (isLocked(code, field, role)) return;
     const newVal = !perms[role][code][field];
     setPerms(prev => ({
       ...prev,
@@ -162,8 +217,9 @@ const PermissionManagerPro = () => {
   /* tout cocher/décocher sur une ligne */
   const toggleRow = (code) => {
     const cur    = perms[role][code];
-    const allOn  = PERMS.every(p => cur[p.key]);
-    const toggled = Object.fromEntries(PERMS.map(p => [p.key, !allOn]));
+    const unlockedPerms = PERMS.filter(p => !isLocked(code, p.key, role));
+    const allOn  = unlockedPerms.every(p => cur[p.key]);
+    const toggled = Object.fromEntries(unlockedPerms.map(p => [p.key, !allOn]));
     const next   = { ...cur, ...toggled }; // preserve canValid, canExport, etc.
     setPerms(prev => ({ ...prev, [role]: { ...prev[role], [code]: next } }));
     setPending(prev => {
@@ -177,7 +233,8 @@ const PermissionManagerPro = () => {
 
   /* tout cocher/décocher sur une colonne */
   const toggleCol = (field) => {
-    const vis   = filtered;
+    const vis   = filtered.filter(m => !isLocked(m.code, field, role));
+    if (vis.length === 0) return;
     const allOn = vis.every(m => perms[role][m.code]?.[field]);
     setPerms(prev => {
       const updated = { ...prev[role] };
@@ -201,8 +258,7 @@ const PermissionManagerPro = () => {
     try {
       await Promise.all(pending.map(c => axios.put('/permissions/update', c)));
       toast.success('Permissions sauvegardées !');
-      setHasChanges(false);
-      setPending([]);
+      await load();
     } catch {
       toast.error('Erreur lors de la sauvegarde');
     } finally {
@@ -326,12 +382,22 @@ const PermissionManagerPro = () => {
                         </button>
                       </th>
                     ))}
+                    {isAgentRole && (
+                      <th className="px-4 py-3 text-center text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-sky-500">
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 0C5.2 0 3 2.2 3 5c0 3.5 5 11 5 11s5-7.5 5-11c0-2.8-2.2-5-5-5zm0 7.5C6.6 7.5 5.5 6.4 5.5 5S6.6 2.5 8 2.5 10.5 3.6 10.5 5 9.4 7.5 8 7.5z"/>
+                          </svg>
+                          Visibilité données
+                        </span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={PERMS.length + 2} className="px-5 py-10 text-center text-xs text-slate-400">
+                      <td colSpan={PERMS.length + 2 + (isAgentRole ? 1 : 0)} className="px-5 py-10 text-center text-xs text-slate-400">
                         Aucun module trouvé
                       </td>
                     </tr>
@@ -355,8 +421,47 @@ const PermissionManagerPro = () => {
                           </button>
                         </td>
                         {PERMS.map(p => (
-                          <Cell key={p.key} checked={!!row[p.key]} onChange={() => toggle(mod.code, p.key)} />
+                          <Cell key={p.key} checked={!!row[p.key]} onChange={() => toggle(mod.code, p.key)} locked={isLocked(mod.code, p.key, role)} />
                         ))}
+                        {isAgentRole && (
+                          <td className="px-4 py-2 text-center">
+                            {EXCLUDED_FILTRE_REP.has(mod.code) ? (
+                              <span className="text-[10px] text-slate-300">—</span>
+                            ) : (
+                              <div className="inline-flex items-center bg-slate-100 rounded-full p-0.5 gap-0.5">
+                                <button
+                                  onClick={() => getFiltreRep(mod.code) !== 'region' && toggleFiltreRep(mod.code)}
+                                  title="Filtrer par région de l'agent"
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                    getFiltreRep(mod.code) === 'region'
+                                      ? 'bg-white shadow-sm text-sky-600'
+                                      : 'text-slate-400 hover:text-slate-600'
+                                  }`}
+                                >
+                                  <svg className="w-3 h-3 flex-none" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 0C5.2 0 3 2.2 3 5c0 3.5 5 11 5 11s5-7.5 5-11c0-2.8-2.2-5-5-5zm0 7.5C6.6 7.5 5.5 6.4 5.5 5S6.6 2.5 8 2.5 10.5 3.6 10.5 5 9.4 7.5 8 7.5z"/>
+                                  </svg>
+                                  Ma région
+                                </button>
+                                <button
+                                  onClick={() => getFiltreRep(mod.code) !== 'tous' && toggleFiltreRep(mod.code)}
+                                  title="Tous les commerciaux"
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                    getFiltreRep(mod.code) === 'tous'
+                                      ? 'bg-white shadow-sm text-indigo-600'
+                                      : 'text-slate-400 hover:text-slate-600'
+                                  }`}
+                                >
+                                  <svg className="w-3 h-3 flex-none" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
+                                    <circle cx="6" cy="5" r="2.5"/><path d="M1 13c0-2.5 2-4.5 5-4.5s5 2 5 4.5"/>
+                                    <circle cx="12" cy="5" r="2"/><path d="M12 9.5c1.5 0 3 1 3 3.5"/>
+                                  </svg>
+                                  Tous
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

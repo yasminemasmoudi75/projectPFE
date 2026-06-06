@@ -268,7 +268,16 @@ const ProjetsList = () => {
     axios.get('/users/commercials/projets-filter')
       .then(r => {
         const raw = Array.isArray(r.data) ? r.data : (r.data?.data || []);
-        setCommerciaux(raw.map(c => ({ value: String(c.userId||c.value||c.UserID), label: c.fullName||c.label||c.login||`Commercial ${c.userId}` })));
+        const mapped = raw.map(c => ({ value: String(c.userId||c.value||c.UserID), label: (c.fullName||c.label||c.login||`Commercial ${c.userId}`).trim() }));
+        const seenValues = new Set();
+        const seenLabels = new Set();
+        const unique = mapped.filter(c => {
+          if (seenValues.has(c.value) || seenLabels.has(c.label)) return false;
+          seenValues.add(c.value);
+          seenLabels.add(c.label);
+          return true;
+        });
+        setCommerciaux(unique.sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' })));
       }).catch(() => {});
   }, []);
 
@@ -447,8 +456,8 @@ const ProjetsList = () => {
               <div className="px-4 pb-4 pt-3 border-t border-slate-100 grid sm:grid-cols-3 gap-3">
                 {[
                   { lbl: 'Commercial', el: <select value={selectedCommercial} onChange={e => setSelectedCommercial(e.target.value)} className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] text-slate-700"><option value="">Tous</option>{commerciaux.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select> },
-                  { lbl: 'Créé après', el: <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] text-slate-700" /> },
-                  { lbl: 'Créé avant', el: <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] text-slate-700" /> },
+                  { lbl: 'Créé après', el: <input type="date" value={dateFrom} max={dateTo || undefined} onChange={e => { const v = e.target.value; setDateFrom(v); if (dateTo && v > dateTo) setDateTo(''); }} className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] text-slate-700" /> },
+                  { lbl: 'Créé avant', el: <input type="date" value={dateTo}   min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}   className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0062AF]/20 focus:border-[#0062AF] text-slate-700" /> },
                 ].map(({ lbl, el }) => (
                   <div key={lbl}>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1.5">{lbl}</label>

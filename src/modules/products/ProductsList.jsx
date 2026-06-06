@@ -59,12 +59,12 @@ const ProductsList = () => {
     const { canCreate, canEdit, canDelete } = usePermission(MODULE_CODES.STOCK);
     const [activeTab, setActiveTab] = useState('catalogue');
 
+    const PAGE_SIZE = 20;
     const [bootstrapping, setBootstrapping] = useState(true);
     const [loadingMore, setLoadingMore]     = useState(false);
     const [products, setProducts]           = useState([]);
-    const [page, setPage]                   = useState(1);
-    const [totalPages, setTotalPages]       = useState(1);
     const [totalCount, setTotalCount]       = useState(0);
+    const [currentPage, setCurrentPage]     = useState(1);
     const [stockFilterMeta, setStockFilterMeta] = useState({
         all:     { id: 'all',     label: 'Tous',    count: 0, visible: true },
         ok:      { id: 'ok',      label: 'Dispo',   count: 0, visible: true },
@@ -73,19 +73,15 @@ const ProductsList = () => {
     });
     const [searchTerm, setSearchTerm]   = useState('');
     const [viewMode, setViewMode]       = useState(isClient ? 'grid' : 'table');
-    const [filters, setFilters]         = useState({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
+    const [filters, setFilters]         = useState({ collection: '', price: '', stockStatus: 'all', marque: '' });
     const [showFilters, setShowFilters] = useState(false);
-    const LIMIT = 20;
-
-    const fetchProducts = useCallback(async (search = '', pageNum = 1) => {
-        if (pageNum === 1) setBootstrapping(true);
-        else setLoadingMore(true);
+    const fetchProducts = useCallback(async (search = '') => {
+        setBootstrapping(true);
         try {
-            const apiData = await axios.get('/products', { params: { search, sort: 'recent', limit: LIMIT, page: pageNum } }) || {};
+            const apiData = await axios.get('/products', { params: { search, sort: 'recent', limit: 10000, page: 1 } }) || {};
             const productData = apiData?.data || [];
             setProducts(Array.isArray(productData) ? productData : []);
-            setTotalPages(apiData?.pagination?.pages || Math.ceil((apiData?.pagination?.total || 0) / LIMIT) || 1);
-            setTotalCount(apiData?.pagination?.total || 0);
+            setTotalCount(apiData?.pagination?.total || (Array.isArray(productData) ? productData.length : 0));
             if (apiData?.meta?.stockFilters) {
                 setStockFilterMeta(apiData.meta.stockFilters);
                 const selected = apiData.meta.stockFilters?.[filters.stockStatus];
@@ -97,31 +93,18 @@ const ProductsList = () => {
         finally { setBootstrapping(false); setLoadingMore(false); }
     }, [filters.stockStatus]);
 
-    // Reset to page 1 on search change
     useEffect(() => {
-        setPage(1);
-        const t = setTimeout(() => fetchProducts(searchTerm, 1), 500);
+        setCurrentPage(1);
+        const t = setTimeout(() => fetchProducts(searchTerm), 500);
         return () => clearTimeout(t);
     }, [searchTerm]);
-
-    // Fetch when page changes
-    useEffect(() => {
-        if (page === 1) return;
-        fetchProducts(searchTerm, page);
-    }, [page]);
-
-    const goToPage = (p) => {
-        const clamped = Math.max(1, Math.min(totalPages, p));
-        setPage(clamped);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
     useEffect(() => {
         if (isClient) { setViewMode('grid'); setShowFilters(false); }
     }, [isClient]);
 
-    const handleFilterChange = (key, value) => setFilters(p => ({ ...p, [key]: value }));
-    const resetFilters = () => setFilters({ collection: '', priceMin: '', priceMax: '', stockStatus: 'all', marque: '' });
+    const handleFilterChange = (key, value) => { setFilters(p => ({ ...p, [key]: value })); setCurrentPage(1); };
+    const resetFilters = () => { setFilters({ collection: '', price: '', stockStatus: 'all', marque: '' }); setCurrentPage(1); };
 
     const exportToCSV = async () => {
         const toastId = toast.loading('Chargement de tous les produits…');
@@ -183,12 +166,12 @@ const ProductsList = () => {
 
     const applyFilters = useCallback((list) => list.filter(p => {
         const q = Number(p.Qte) || 0;
-        const price = Number(p.PrixVente) || 0;
+        const price = p.PrixVente != null ? Number(p.PrixVente) : null;
         const s = searchTerm.toLowerCase();
         const matchSearch = !s || p.CodArt?.toLowerCase().includes(s) || p.LibArt?.toLowerCase().includes(s) || p.Marque?.toLowerCase().includes(s);
         const matchColl   = !filters.collection || p.Collection === filters.collection;
         const matchBrand  = !filters.marque     || p.Marque === filters.marque;
-        const matchPrice  = price >= (filters.priceMin === '' ? 0 : +filters.priceMin) && price <= (filters.priceMax === '' ? Infinity : +filters.priceMax);
+        const matchPrice  = filters.price === '' || (price !== null && price <= +filters.price);
         let matchStock = true;
         if (filters.stockStatus === 'ok')      matchStock = q > 5;
         else if (filters.stockStatus === 'low') matchStock = q > 0 && q <= 5;
@@ -196,9 +179,20 @@ const ProductsList = () => {
         return matchSearch && matchColl && matchBrand && matchPrice && matchStock;
     }), [searchTerm, filters]);
 
-    const filteredProducts = useMemo(() => applyFilters(products), [applyFilters, products]);
+    const filteredProducts  = useMemo(() => applyFilters(products), [applyFilters, products]);
+    const totalPages        = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+    const pagedProducts     = useMemo(
+        () => filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+        [filteredProducts, currentPage]
+    );
 
-    const activeAdvancedCount = [filters.collection, filters.priceMin, filters.priceMax, filters.marque].filter(Boolean).length;
+    const goToPage = (p) => {
+        const clamped = Math.max(1, Math.min(totalPages, p));
+        setCurrentPage(clamped);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const activeAdvancedCount = [filters.collection, filters.price, filters.marque].filter(Boolean).length;
     const filteredValueTTC    = useMemo(() => filteredProducts.reduce((a, p) => a + (Number(p.PrixVente) || 0) * (Number(p.Qte) || 0), 0), [filteredProducts]);
     const stockHealthPct      = useMemo(() => filteredProducts.length ? +((filteredProducts.filter(p => (Number(p.Qte) || 0) > 5).length / filteredProducts.length) * 100).toFixed(1) : 0, [filteredProducts]);
     const ruptureCount        = useMemo(() => filteredProducts.filter(p => (Number(p.Qte) || 0) === 0).length, [filteredProducts]);
@@ -271,7 +265,7 @@ const ProductsList = () => {
 
                     <div className="flex flex-wrap items-center gap-2">
                         <button
-                            onClick={() => { setPage(1); fetchProducts(searchTerm, 1); }}
+                            onClick={() => fetchProducts(searchTerm)}
                             disabled={loadingMore}
                             className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/80 border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-white hover:border-slate-300 transition-all shadow-sm disabled:opacity-50"
                             title="Actualiser"
@@ -452,14 +446,9 @@ const ProductsList = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Prix min</label>
-                                    <input type="number" min="0" placeholder="0" value={filters.priceMin}
-                                        onChange={e => handleFilterChange('priceMin', e.target.value)} className={inputCls} />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Prix max</label>
-                                    <input type="number" min="0" placeholder="∞" value={filters.priceMax}
-                                        onChange={e => handleFilterChange('priceMax', e.target.value)} className={inputCls} />
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Prix max (TND)</label>
+                                    <input type="number" min="0" placeholder="∞" value={filters.price}
+                                        onChange={e => handleFilterChange('price', e.target.value)} className={inputCls} />
                                 </div>
                             </div>
                             <div className="flex justify-end mt-3">
@@ -482,7 +471,7 @@ const ProductsList = () => {
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Catalogue</span>
                     </div>
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 text-xs font-semibold">
-                        {totalCount} article{totalCount !== 1 ? 's' : ''}
+                        {totalItems}{totalItems !== totalCount && <span className="text-slate-400 font-normal"> / {totalCount}</span>} article{totalItems !== 1 ? 's' : ''}
                     </span>
                 </div>
 
@@ -503,7 +492,7 @@ const ProductsList = () => {
                     /* ── Grid view ── */
                     <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                         <AnimatePresence mode="popLayout">
-                            {filteredProducts.map((product, i) => {
+                            {pagedProducts.map((product, i) => {
                                 const badge = stockBadge(product);
                                 const showBadge = !isClient && stockFilterMeta?.[badge.key]?.visible !== false;
                                 const hasImg = !!product.urlimg;
@@ -524,6 +513,7 @@ const ProductsList = () => {
                                                     src={getImageUrl(product.urlimg)}
                                                     alt={product.LibArt}
                                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -614,7 +604,7 @@ const ProductsList = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 <AnimatePresence>
-                                    {filteredProducts.map((product, idx) => {
+                                    {pagedProducts.map((product, idx) => {
                                         const badge = stockBadge(product);
                                         const showBadge = stockFilterMeta?.[badge.key]?.visible !== false;
                                         return (
@@ -633,11 +623,18 @@ const ProductsList = () => {
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-none">
-                                                            {product.urlimg
-                                                                ? <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover" />
-                                                                : <div className="w-full h-full flex items-center justify-center"><PhotoIcon className="h-4 w-4 text-slate-300" /></div>
-                                                            }
+                                                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 flex-none relative">
+                                                            {product.urlimg ? (
+                                                                <>
+                                                                    <img src={getImageUrl(product.urlimg)} alt="" className="w-full h-full object-cover"
+                                                                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }} />
+                                                                    <div className="w-full h-full items-center justify-center absolute inset-0" style={{ display: 'none' }}>
+                                                                        <PhotoIcon className="h-4 w-4 text-slate-300" />
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center"><PhotoIcon className="h-4 w-4 text-slate-300" /></div>
+                                                            )}
                                                         </div>
                                                         <div>
                                                             <p className="text-sm font-semibold text-slate-700 group-hover:text-[#0062AF] transition-colors line-clamp-1">{product.LibArt}</p>
@@ -702,29 +699,29 @@ const ProductsList = () => {
             {totalPages > 1 && (
                 <div className="flex items-center justify-between px-2">
                     <p className="text-xs text-slate-400">
-                        Page {page} / {totalPages} · {totalCount} produits
+                        Page {currentPage} / {totalPages} · {filteredProducts.length} produit{filteredProducts.length !== 1 ? 's' : ''}
                     </p>
                     <div className="flex items-center gap-1">
-                        <button onClick={() => goToPage(page - 1)} disabled={page <= 1}
+                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}
                             className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition-all text-xs font-bold">
                             ‹
                         </button>
                         {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                             let p;
                             if (totalPages <= 7) p = i + 1;
-                            else if (page <= 4) p = i + 1;
-                            else if (page >= totalPages - 3) p = totalPages - 6 + i;
-                            else p = page - 3 + i;
+                            else if (currentPage <= 4) p = i + 1;
+                            else if (currentPage >= totalPages - 3) p = totalPages - 6 + i;
+                            else p = currentPage - 3 + i;
                             if (p < 1 || p > totalPages) return null;
                             return (
                                 <button key={p} onClick={() => goToPage(p)}
                                     className={clsx('h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all',
-                                        p === page ? 'bg-[#0062AF] text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                                        p === currentPage ? 'bg-[#0062AF] text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
                                     {p}
                                 </button>
                             );
                         })}
-                        <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages}
+                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}
                             className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition-all text-xs font-bold">
                             ›
                         </button>

@@ -22,6 +22,8 @@ import GmailConnectButton from './GmailConnectButton';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatRelativeDate, formatFileSize } from '../../utils/format';
 import axios from '../../app/axios';
+import useAuth from '../../hooks/useAuth';
+import usePermission from '../../hooks/usePermission';
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 const getInitials = (name) => {
@@ -37,6 +39,9 @@ const MessageInbox = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const { messages, loading, unreadCount, pagination } = useSelector((s) => s.messages);
+  const { isAdmin, isTechnicien } = useAuth();
+  const canSend = !isTechnicien;
+  const { canDelete: canDeleteMessage } = usePermission(2);
 
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [composeTo, setComposeTo]               = useState('');
@@ -52,11 +57,11 @@ const MessageInbox = () => {
   }, [dispatch, currentPage]);
 
   useEffect(() => {
-    if (location.state?.composeTo) {
+    if (canSend && location.state?.composeTo) {
       setComposeTo(location.state.composeTo);
       setShowComposeModal(true);
     }
-  }, [location.state]);
+  }, [location.state, canSend]);
 
   useEffect(() => {
     (async () => {
@@ -156,13 +161,15 @@ const MessageInbox = () => {
           >
             <ArrowPathIcon className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => setShowComposeModal(true)}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] shadow-sm transition-all"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Nouveau message
-          </button>
+          {canSend && (
+            <button
+              onClick={() => setShowComposeModal(true)}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] shadow-sm transition-all"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Nouveau message
+            </button>
+          )}
         </div>
       </div>
 
@@ -247,10 +254,10 @@ const MessageInbox = () => {
                   const senderName = message.sender?.USER_NAME || message.SenderName || `Utilisateur #${message.SenderID}`;
                   const isSelected = selectedMessage?.ID === message.ID;
                   return (
-                    <button
+                    <div
                       key={message.ID}
                       onClick={() => handleMessageClick(message)}
-                      className={`w-full text-left px-4 py-3.5 transition-all group relative ${
+                      className={`w-full text-left px-4 py-3.5 transition-all group relative cursor-pointer ${
                         isSelected
                           ? 'bg-[#0062AF]/5 border-l-[3px] border-[#0062AF]'
                           : !message.IsRead
@@ -284,7 +291,7 @@ const MessageInbox = () => {
                           </p>
                         </div>
 
-                        {/* Right indicators */}
+                        {/* Right side: indicators + delete */}
                         <div className="flex-none flex flex-col items-end gap-1.5 mt-0.5">
                           {!message.IsRead && (
                             <span className="h-2 w-2 rounded-full bg-[#0062AF] shadow-sm shadow-blue-400/50" />
@@ -292,9 +299,18 @@ const MessageInbox = () => {
                           {message.MessageDataSize > 0 && (
                             <PaperClipIcon className="h-3 w-3 text-slate-300" />
                           )}
+                          {(isAdmin || canDeleteMessage) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteMessage(message.ID); }}
+                              className="h-6 w-6 rounded-lg flex items-center justify-center text-rose-400 bg-rose-50 border border-rose-200 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all shadow-sm"
+                              title="Supprimer"
+                            >
+                              <TrashIcon className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -438,13 +454,15 @@ const MessageInbox = () => {
 
             {/* Actions footer */}
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center gap-2">
-              <button
-                onClick={handleReply}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] shadow-sm transition-all"
-              >
-                <PaperAirplaneIcon className="h-4 w-4" />
-                Répondre
-              </button>
+              {canSend && (
+                <button
+                  onClick={handleReply}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white bg-[#0062AF] hover:bg-[#004a85] shadow-sm transition-all"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                  Répondre
+                </button>
+              )}
               <button
                 onClick={() => handleMarkAsRead(selectedMessage.ID, selectedMessage.IsRead)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
@@ -455,13 +473,15 @@ const MessageInbox = () => {
                   <><EnvelopeOpenIcon className="h-4 w-4" /> Marquer lu</>
                 )}
               </button>
-              <button
-                onClick={() => handleDeleteMessage(selectedMessage.ID)}
-                className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100 transition-all"
-              >
-                <TrashIcon className="h-4 w-4" />
-                Supprimer
-              </button>
+              {(isAdmin || canDeleteMessage) && (
+                <button
+                  onClick={() => handleDeleteMessage(selectedMessage.ID)}
+                  className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100 transition-all"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  Supprimer
+                </button>
+              )}
             </div>
           </div>
 
@@ -496,16 +516,18 @@ const MessageInbox = () => {
         )}
       </div>
 
-      <ComposeEmailModal
-        isOpen={showComposeModal}
-        initialTo={composeTo}
-        onClose={() => { setShowComposeModal(false); setComposeTo(''); }}
-        onSuccess={() => {
-          setShowComposeModal(false);
-          setComposeTo('');
-          dispatch(fetchMessages({ page: 1, limit: 10 }));
-        }}
-      />
+      {canSend && (
+        <ComposeEmailModal
+          isOpen={showComposeModal}
+          initialTo={composeTo}
+          onClose={() => { setShowComposeModal(false); setComposeTo(''); }}
+          onSuccess={() => {
+            setShowComposeModal(false);
+            setComposeTo('');
+            dispatch(fetchMessages({ page: 1, limit: 10 }));
+          }}
+        />
+      )}
     </div>
   );
 };

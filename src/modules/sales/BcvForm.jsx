@@ -96,7 +96,7 @@ const BcvForm = () => {
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [commercials, setCommercials] = useState([]);
     const [loadingCommercials, setLoadingCommercials] = useState(false);
-    const { user, isAdmin, isCommercial, isAgent } = useAuth();
+    const { user, isAdmin, isCommercial, isAgent, isClient } = useAuth();
 
     const toggleItemExpanded = (tempId) => {
         setExpandedItems(prev => ({
@@ -397,10 +397,25 @@ const BcvForm = () => {
         }
     }, [isEdit, isCommercial, isAdmin, isAgent, user, formData.CodRepres]);
 
+    // Auto-sélectionner le client connecté quand le rôle est Client
+    useEffect(() => {
+        if (!isEdit && isClient && clients.length > 0 && !formData.CodTiers) {
+            handleClientSelect(clients[0].CodTiers);
+        }
+    }, [isClient, clients, isEdit]);
+
     // Fetch clients from database
     useEffect(() => {
         const fetchClients = async () => {
             try {
+                // Client role: fetch only own tiers via /tiers/me (no permission required)
+                if (isClient) {
+                    const res = await axiosInstance.get('/tiers/me');
+                    const row = res?.data?.data || res?.data;
+                    if (row?.CodTiers) setClients([row]);
+                    return;
+                }
+
                 const limit = 1000;
                 let page = 1;
                 let hasNext = true;
@@ -446,7 +461,7 @@ const BcvForm = () => {
             }
         };
         fetchClients();
-    }, []);
+    }, [isClient]);
 
     // Close client dropdown when clicking outside
     useEffect(() => {
@@ -1529,6 +1544,27 @@ const BcvForm = () => {
                                             <h2 className="text-sm font-semibold text-slate-700">Client</h2>
                                         </div>
                                         <div className="p-6 space-y-4">
+                                            {isClient ? (
+                                                /* Client connecté : champ verrouillé, sélection automatique */
+                                                <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                                                    <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                        <UserIcon className="h-4 w-4 text-blue-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        {loadingClients || !formData.CodTiers ? (
+                                                            <div className="h-4 w-40 bg-blue-100 rounded animate-pulse" />
+                                                        ) : (
+                                                            <>
+                                                                <p className="text-sm font-bold text-blue-800">{formData.LibTiers}</p>
+                                                                <p className="text-[10px] font-mono text-blue-500">{formData.CodTiers}</p>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full border border-blue-200">
+                                                        Sélectionné automatiquement
+                                                    </span>
+                                                </div>
+                                            ) : (
                                             <div className="relative" ref={clientDropdownRef}>
                                                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Rechercher un client *</label>
                                                 <div className="relative">
@@ -1577,6 +1613,7 @@ const BcvForm = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                            )}
 
                                             {formData.CodTiers && (
                                                 <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
