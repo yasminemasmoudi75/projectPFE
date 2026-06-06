@@ -173,11 +173,12 @@ exports.getAllPermissions = async (req, res) => {
     }
 
     const allPermissions = await sequelize.query(`
-      SELECT 
+      SELECT
         ProfileUser as role,
         CodMod as moduleCode,
         LibMod as moduleName,
         Actif as isActive,
+        FiltreRepres as filtreRepres,
         canAdd,
         canEdit,
         canDelt,
@@ -219,7 +220,7 @@ exports.updatePermissions = async (req, res) => {
       return res.status(403).json({ status: 'error', message: 'Accès réservé aux administrateurs' });
     }
 
-    const { role, moduleCode, isActive, canAdd, canEdit, canDelete, canValid, canExport } = req.body;
+    const { role, moduleCode, isActive, canAdd, canEdit, canDelete, canValid, canExport, filtreRepres } = req.body;
 
     if (!role || moduleCode == null) {
       return res.status(400).json({ status: 'error', message: 'role et moduleCode sont requis' });
@@ -227,23 +228,25 @@ exports.updatePermissions = async (req, res) => {
 
     await sequelize.query(`
       UPDATE TabAWProfileAccess
-      SET Actif    = :isActive,
-          canAdd   = :canAdd,
-          canEdit  = :canEdit,
-          canDelt  = :canDelete,
-          canValid = :canValid,
-          CanImp   = :canExport
+      SET Actif        = :isActive,
+          canAdd       = :canAdd,
+          canEdit      = :canEdit,
+          canDelt      = :canDelete,
+          canValid     = :canValid,
+          CanImp       = :canExport,
+          FiltreRepres = :filtreRepres
       WHERE ProfileUser = :role AND CodMod = :moduleCode
     `, {
       replacements: {
         role,
-        moduleCode: parseInt(moduleCode),
-        isActive:  isActive  ? 1 : 0,
-        canAdd:    canAdd    ? 1 : 0,
-        canEdit:   canEdit   ? 1 : 0,
-        canDelete: canDelete ? 1 : 0,
-        canValid:  canValid  ? 1 : 0,
-        canExport: canExport ? 1 : 0,
+        moduleCode:   parseInt(moduleCode),
+        isActive:     isActive     ? 1 : 0,
+        canAdd:       canAdd       ? 1 : 0,
+        canEdit:      canEdit      ? 1 : 0,
+        canDelete:    canDelete    ? 1 : 0,
+        canValid:     canValid     ? 1 : 0,
+        canExport:    canExport    ? 1 : 0,
+        filtreRepres: filtreRepres ? 1 : 0,
       },
       type: QueryTypes.UPDATE
     });

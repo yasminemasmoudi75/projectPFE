@@ -306,23 +306,40 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
       return {};
     }
 
-    const directCodTiers = user?.CodTiers || user?.codTiers || null;
+    // Module 31 (Reclamations): ALWAYS filter by CUser (claim creator's identity).
+    // This matches the getById ownership check (CUser === userEmail) and works regardless
+    // of whether the client has a CodTiers. Claims might be created without CodTiers
+    // (e.g. if /tiers/me fails), so CodTiers-based filtering is unreliable here.
+    if (moduleKey === '31') {
+      const identities = [user?.EmailPro, user?.LoginName, user?.FullName].filter(Boolean);
+      if (identities.length > 0) {
+        return {
+          [Op.and]: [{ [Op.or]: identities.map(id => ({ CUser: id })) }]
+        };
+      }
+      return { [Op.and]: [sequelize.literal('1 = 0')] };
+    }
+
+    // For other modules: filter by CodTiers (company-scoped data)
+    // Use getDataValue for Sequelize instances (set via setDataValue in auth middleware)
+    const directCodTiers = user?.getDataValue?.('CodTiers') || user?.CodTiers || user?.codTiers || null;
     if (directCodTiers) {
       return { CodTiers: directCodTiers };
     }
 
     const userEmail = user?.EmailPro || user?.LoginName || user?.email;
-    if (!userEmail) return { [Op.and]: [sequelize.literal('1 = 0')] };
 
-    // Find the client's CodTiers by matching email as fallback
-    const clientRow = await sequelize.query(`
-      SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))
-    `, { replacements: { email: userEmail }, type: QueryTypes.SELECT });
+    // Find the client's CodTiers by matching email in TabTiers
+    if (userEmail) {
+      const clientRow = await sequelize.query(`
+        SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))
+      `, { replacements: { email: userEmail }, type: QueryTypes.SELECT });
 
-    const codTiers = clientRow[0]?.CodTiers;
-    if (!codTiers) return { [Op.and]: [sequelize.literal('1 = 0')] };
+      const codTiers = clientRow[0]?.CodTiers;
+      if (codTiers) return { CodTiers: codTiers };
+    }
 
-    return { CodTiers: codTiers };
+    return { [Op.and]: [sequelize.literal('1 = 0')] };
   }
 
   const moduleKey = String(moduleCode);

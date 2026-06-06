@@ -266,7 +266,29 @@ exports.getAll = async (req, res, next) => {
         }
 
         if (TechnicienID && TechnicienID !== 'all') {
-            where.TechnicienID = TechnicienID;
+            const parsedNodeId = Number(TechnicienID);
+            // UCS_USERS.UserID ≠ Sec_Users.UserID (two different tables).
+            // assign-technician stores Sec_Users.UserID in TabReclamation.TechnicienID,
+            // so we must resolve the same ID here before filtering.
+            let resolvedSecId = parsedNodeId;
+            const secDirect = await sequelize.query(
+                `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE UserID = :userId`,
+                { replacements: { userId: parsedNodeId }, type: QueryTypes.SELECT }
+            );
+            if (!secDirect.length) {
+                const nodeUser = await User.findByPk(parsedNodeId);
+                if (nodeUser) {
+                    const loginName = String(nodeUser.EmailPro || nodeUser.LoginName || '').trim().slice(0, 100);
+                    if (loginName) {
+                        const secByLogin = await sequelize.query(
+                            `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE LOWER(LoginName) = LOWER(:loginName)`,
+                            { replacements: { loginName }, type: QueryTypes.SELECT }
+                        );
+                        if (secByLogin.length) resolvedSecId = Number(secByLogin[0].UserID);
+                    }
+                }
+            }
+            where.TechnicienID = resolvedSecId;
         }
 
         if (CommercialID && CommercialID !== 'all') {
@@ -680,7 +702,21 @@ exports.remove = async (req, res, next) => {
     try {
         const rec = await findReclamationByPkSafe(req.params.id);
         if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
-        await rec.destroy();
+
+        const recId = rec.ID ?? rec.id;
+
+        // Nullify assigned technicien FK first to avoid SQL Server constraint errors
+        await sequelize.query(
+            `UPDATE TabReclamation SET TechnicienID = NULL, NomTechnicien = NULL WHERE ID = :id`,
+            { replacements: { id: recId }, type: QueryTypes.UPDATE }
+        );
+
+        // Use raw DELETE to bypass any Sequelize ORM quirks with associations
+        await sequelize.query(
+            `DELETE FROM TabReclamation WHERE ID = :id`,
+            { replacements: { id: recId }, type: QueryTypes.DELETE }
+        );
+
         res.json({ status: 'success', message: 'Réclamation supprimée' });
     } catch (err) {
         next(err);

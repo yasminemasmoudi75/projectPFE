@@ -6,72 +6,67 @@ const toExcelSerial = (d) => (d.getTime() / 86400000) + 25569;
 
 exports.getLogs = async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      limit = 50,
-      action,
-      userId,
-      search,
-      dateFrom,
-      dateTo
-    } = req.query;
+    const { page = 1, limit = 50, action, userId, search, dateFrom, dateTo } = req.query;
+    const lim    = parseInt(limit, 10);
+    const offset = (parseInt(page, 10) - 1) * lim;
 
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const where = {};
+    const conditions   = ['1=1'];
+    const replacements = {};
+    const dateRegex    = /^\d{4}-\d{2}-\d{2}$/;
 
     if (action && action !== 'ALL') {
-      where.Action = action;
+      conditions.push('Action = :action');
+      replacements.action = action;
     }
-
     if (userId) {
-      where.ID_Utilisateur = parseInt(userId, 10);
+      conditions.push('ID_Utilisateur = :userId');
+      replacements.userId = parseInt(userId, 10);
     }
-
     if (search) {
-      where[Op.or] = [
-        { LoginName: { [Op.like]: `%${search}%` } },
-        { FullName:  { [Op.like]: `%${search}%` } },
-        { IPAddress: { [Op.like]: `%${search}%` } }
-      ];
+      conditions.push('(LoginName LIKE :search OR FullName LIKE :search OR IPAddress LIKE :search)');
+      replacements.search = `%${search}%`;
+    }
+    // Dates : format YYYYMMDD non-ambigu en MSSQL, validé par regex
+    if (dateFrom && dateRegex.test(dateFrom)) {
+      conditions.push(`DateConnexion >= '${dateFrom.replace(/-/g, '')}'`);
+    }
+    if (dateTo && dateRegex.test(dateTo)) {
+      conditions.push(`DateConnexion < DATEADD(day, 1, CAST('${dateTo.replace(/-/g, '')}' AS DATE))`);
     }
 
-    if (dateFrom || dateTo) {
-      where.DateConnexion = {};
-      if (dateFrom) where.DateConnexion[Op.gte] = new Date(dateFrom);
-      if (dateTo) {
-        const end = new Date(dateTo);
-        end.setHours(23, 59, 59, 999);
-        where.DateConnexion[Op.lte] = end;
-      }
-    }
+    const whereClause = conditions.join(' AND ');
 
-    const { count, rows } = await LoginLog.findAndCountAll({
-      where,
-      order: [['DateConnexion', 'DESC']],
-      limit: parseInt(limit, 10),
-      offset
-    });
+    const [[{ total }]] = await sequelize.query(
+      `SELECT COUNT(*) AS total FROM UCS_LOGIN_LOGS WHERE ${whereClause}`,
+      { replacements }
+    );
 
-    // Stats rapides sur les 24 dernières heures (DATEADD évite le problème de format timezone JS/MSSQL)
-    const last24h = sequelize.literal('DATEADD(hour, -24, GETDATE())');
-    const [successToday, failedToday, logoutToday] = await Promise.all([
-      LoginLog.count({ where: { Action: 'LOGIN_SUCCESS', DateConnexion: { [Op.gte]: last24h } } }),
-      LoginLog.count({ where: { Action: 'LOGIN_FAILED',  DateConnexion: { [Op.gte]: last24h } } }),
-      LoginLog.count({ where: { Action: 'LOGOUT',        DateConnexion: { [Op.gte]: last24h } } })
-    ]);
+    const [rows] = await sequelize.query(
+      `SELECT ID_Log, ID_Utilisateur, LoginName, FullName, Role, Action, IPAddress, Details, DateConnexion
+       FROM UCS_LOGIN_LOGS
+       WHERE ${whereClause}
+       ORDER BY DateConnexion DESC
+       OFFSET ${offset} ROWS FETCH NEXT ${lim} ROWS ONLY`,
+      { replacements }
+    );
+
+    const [[statsRow]] = await sequelize.query(`
+      SELECT
+        SUM(CASE WHEN Action = 'LOGIN_SUCCESS' THEN 1 ELSE 0 END) AS successToday,
+        SUM(CASE WHEN Action = 'LOGIN_FAILED'  THEN 1 ELSE 0 END) AS failedToday,
+        SUM(CASE WHEN Action = 'LOGOUT'        THEN 1 ELSE 0 END) AS logoutToday,
+        COUNT(*) AS totalToday
+      FROM UCS_LOGIN_LOGS
+      WHERE DateConnexion >= DATEADD(hour, -24, GETDATE())
+    `);
 
     res.status(200).json({
       status: 'success',
-      count,
-      totalPages: Math.ceil(count / parseInt(limit, 10)),
+      count: total,
+      totalPages: Math.ceil(total / lim),
       currentPage: parseInt(page, 10),
       data: rows,
-      stats: {
-        successToday,
-        failedToday,
-        logoutToday,
-        totalToday: successToday + failedToday + logoutToday
-      }
+      stats: statsRow
     });
   } catch (error) {
     console.error('❌ Erreur getLogs:', error);

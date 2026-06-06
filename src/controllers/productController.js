@@ -3,10 +3,36 @@ const { randomUUID } = require('crypto');
 const { Op, QueryTypes, TableHints } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const { formatDateForMSSQL } = require('../utils/helpers');
 const filterService = require('../services/filterService');
 
 console.log('productController.js loaded');
+
+const UPLOAD_DIR = path.join(__dirname, '../../uploads/products');
+
+const downloadImageFromUrl = async (url) => {
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+                'Accept': 'image/*,*/*'
+            }
+        });
+        const contentType = response.headers['content-type'] || '';
+        if (!contentType.startsWith('image/')) return null;
+
+        const ext = contentType.split('/')[1]?.split(';')[0]?.replace('jpeg', 'jpg') || 'jpg';
+        const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+        fs.writeFileSync(path.join(UPLOAD_DIR, filename), response.data);
+        return `/uploads/products/${filename}`;
+    } catch {
+        return null;
+    }
+};
 
 const normalizeNumber = (value, fallback = 0) => {
     if (value === '' || value === null || value === undefined) return fallback;
@@ -125,7 +151,9 @@ exports.createProduct = async (req, res, next) => {
             Marque: Marque || null,
             LibFam: LibFam || null,
             LibFour: LibFour || null,
-            urlimg: req.file ? '/uploads/products/' + req.file.filename : (urlimg || null),
+            urlimg: req.file
+                ? '/uploads/products/' + req.file.filename
+                : (urlimg?.startsWith('http') ? (await downloadImageFromUrl(urlimg) || urlimg) : (urlimg || null)),
             imgArt: null,
             DateUser: now,
             LastDateUpdate: now,
@@ -251,6 +279,9 @@ exports.updateProduct = async (req, res) => {
                 }
             }
             updateData.urlimg = '/uploads/products/' + req.file.filename;
+        } else if (updateData.urlimg?.startsWith('http')) {
+            const downloaded = await downloadImageFromUrl(updateData.urlimg);
+            if (downloaded) updateData.urlimg = downloaded;
         }
 
         delete updateData.imgArt;
