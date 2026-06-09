@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Popover, Transition } from '@headlessui/react';
-import { BellIcon, CheckIcon, CheckCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon, CalendarIcon, LifebuoyIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { BellIcon, CheckIcon, CheckCircleIcon, XCircleIcon, ArrowTopRightOnSquareIcon, XMarkIcon, CalendarIcon, LifebuoyIcon, DocumentTextIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -21,7 +21,7 @@ const NotificationBell = () => {
 
   const normalizeNotification = (notification) => {
     let payload = null;
-    if (['TRANSFORM_REQUEST', 'BCV_CREATED', 'TRANSFORM_DECISION', 'ACTIVITY_REMINDER', 'ACTIVITY_OVERDUE', 'MEETING_INVITE', 'CLAIM_CREATED', 'DOC_CREATED'].includes(notification.Type)) {
+    if (['TRANSFORM_REQUEST', 'BCV_CREATED', 'TRANSFORM_DECISION', 'ACTIVITY_REMINDER', 'ACTIVITY_OVERDUE', 'MEETING_INVITE', 'CLAIM_CREATED', 'DOC_CREATED', 'INTERVENTION_ADDED'].includes(notification.Type)) {
       try { payload = JSON.parse(notification.Message); } catch (_) {}
     }
     return {
@@ -573,6 +573,58 @@ const NotificationBell = () => {
                           </p>
                         </div>
                         <span className={clsx('mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0', notification.read ? 'bg-slate-200' : 'bg-sky-500')} />
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDelete(notification.id, e)}
+                      className="absolute top-2 right-2 h-5 w-5 flex items-center justify-center rounded text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                      title="Supprimer"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : notification.type === 'INTERVENTION_ADDED' && notification.payload ? (
+                  <div
+                    key={notification.id}
+                    className={clsx(
+                      'relative rounded-xl border p-3 mb-1 group',
+                      !notification.read ? 'bg-indigo-50/60 border-indigo-200' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={async () => {
+                        await handleMarkRead(notification.id);
+                        navigate(`/claims/${notification.payload.claimId}?tab=interventions`);
+                      }}
+                    >
+                      <div className="flex items-start gap-3 pr-5">
+                        <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                          <WrenchScrewdriverIcon className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-indigo-800 group-hover:text-indigo-600 transition-colors">
+                            {notification.title}
+                          </p>
+                          {notification.payload.technicien && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Technicien : <span className="font-medium">{notification.payload.technicien}</span>
+                            </p>
+                          )}
+                          {notification.payload.objet && (
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{notification.payload.objet}</p>
+                          )}
+                          <p className="mt-1 text-[11px] font-medium text-indigo-500 flex items-center gap-1">
+                            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                            Valider l'intervention →
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {notification.date ? new Date(notification.date).toLocaleString('fr-FR') : ''}
+                          </p>
+                        </div>
+                        <span className={clsx('mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0', notification.read ? 'bg-slate-200' : 'bg-indigo-500')} />
                       </div>
                     </button>
                     <button

@@ -12,6 +12,8 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate } from '../../utils/format';
 import toast from 'react-hot-toast';
 import api from '@app/axios';
+import useAuth from '../../hooks/useAuth';
+import SignatureBlock from '../../components/signature/SignatureBlock';
 
 const fmt3 = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
@@ -20,6 +22,7 @@ const BlvDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentBlv: blv, loading, error } = useSelector((state) => state.blv);
+  const { isAdmin, isCommercial, isClient } = useAuth();
 
   const transport = useMemo(() => {
     if (blv?.DesChauff) return { nom: blv.DesChauff, tel: blv.CodChauff || '' };
@@ -43,11 +46,14 @@ const BlvDetail = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `bl_${blv.Prfx || 'BL'}${blv.Nf}.pdf`);
+      link.download = `bl_${blv.Prfx || 'BL'}${blv.Nf}.pdf`;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
       toast.success('PDF généré avec succès');
     } catch (err) {
       console.error('PDF error:', err);
@@ -264,8 +270,19 @@ const BlvDetail = () => {
             </div>
           </div>
 
+          <SignatureBlock
+            signatureLabel="Signature du responsable"
+            counterLabel="Signature de réception client"
+            canSign={isAdmin || isCommercial}
+            apiPath={`/blv/${id}/signature`}
+            initialSig={blv?.SignatureData || null}
+            canCounterSign={isClient}
+            counterApiPath={`/blv/${id}/client-signature`}
+            initialCounterSig={blv?.ClientSignatureData || null}
+          />
+
           {/* Footer */}
-          <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+          <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
             <p className="text-[11px] text-slate-300 font-medium">NexusCRM — Document généré automatiquement</p>
             <p className="text-[11px] text-slate-300 font-medium">{ref} · {formatDate(blv.DatUser)}</p>
           </div>

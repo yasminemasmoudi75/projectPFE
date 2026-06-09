@@ -25,7 +25,10 @@ const ClaimInterventionForm = () => {
         resultat: '',
         actionType: 'Diagnostic',
         durationMin: '',
-        nextStep: ''
+        nextStep: '',
+        montantPieces: '',
+        fraisDeplacement: '',
+        montantMO: '',
     });
 
     useEffect(() => {
@@ -86,6 +89,9 @@ const ClaimInterventionForm = () => {
                 technicienID: isAdmin ? form.technicienID : (user?.UserID || claim?.TechnicienID),
                 description: `${form.description || claim?.Objet || 'Action'}${details ? `\n${details}` : ''}`,
                 resultat: form.reportMode === 'with-report' ? form.resultat : 'Sans rapport détaillé',
+                montantPieces:    Number(form.montantPieces)    || 0,
+                fraisDeplacement: Number(form.fraisDeplacement) || 0,
+                montantMO:        Number(form.montantMO)        || 0,
             };
 
             const res = await axios.post(`/reclamations/${id}/interventions`, payload);
@@ -243,6 +249,59 @@ const ClaimInterventionForm = () => {
                                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                             />
                         </Field>
+
+                        {/* ── Coûts d'intervention ── */}
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                                Coûts d&apos;intervention (pour génération facture SAV)
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <Field label="Pièces (DT)">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.001"
+                                        value={form.montantPieces}
+                                        onChange={(e) => onChange('montantPieces', e.target.value)}
+                                        placeholder="0.000"
+                                        className="w-full rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                                    />
+                                </Field>
+                                <Field label="Déplacement (DT)">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.001"
+                                        value={form.fraisDeplacement}
+                                        onChange={(e) => onChange('fraisDeplacement', e.target.value)}
+                                        placeholder="0.000"
+                                        className="w-full rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                                    />
+                                </Field>
+                                <Field label="Main d&apos;oeuvre (DT)">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.001"
+                                        value={form.montantMO}
+                                        onChange={(e) => onChange('montantMO', e.target.value)}
+                                        placeholder="0.000"
+                                        className="w-full rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                                    />
+                                </Field>
+                            </div>
+                            {(Number(form.montantPieces) + Number(form.fraisDeplacement) + Number(form.montantMO)) > 0 && (
+                                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-amber-100 border border-amber-200">
+                                    <span className="text-xs font-bold text-amber-800">Total HT</span>
+                                    <span className="text-sm font-black text-amber-900">
+                                        {(Number(form.montantPieces) + Number(form.fraisDeplacement) + Number(form.montantMO)).toFixed(3)} DT
+                                    </span>
+                                </div>
+                            )}
+                            <p className="text-[10px] text-amber-600">
+                                Ces montants permettront à l&apos;admin de générer la facture SAV automatiquement.
+                            </p>
+                        </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 pt-2">
                             <button

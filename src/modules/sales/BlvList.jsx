@@ -100,7 +100,7 @@ const BlvList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: 'all',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -135,14 +135,14 @@ const BlvList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
+    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'all' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filteredBlv = useMemo(() => (blv || []).filter((item) => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      if (!(`${item.Prfx}${item.Nf}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
+      if (!(`${item.Prfx ?? ''}${item.Nf ?? ''}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
     }
     const amount = item.TotTTC || 0;
     if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
@@ -576,7 +576,7 @@ const BlvList = () => {
                         {/* Actions */}
                         <td className="px-5 py-3.5">
                           <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {(isAdminUser || canEdit) && (
+                            {canEdit && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/blv/edit/${item.Guid}`); }}
                                 title="Modifier"

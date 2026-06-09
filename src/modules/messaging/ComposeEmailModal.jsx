@@ -38,6 +38,7 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
   const [aiError, setAiError]                 = useState(null);
   const [aiResponse, setAiResponse]           = useState(null);
   const [reformulating, setReformulating]     = useState(false);
+  const [reformulateNote, setReformulateNote] = useState(null); // { type: 'success'|'warn', text }
 
   // Recipient search state
   const [showSearch, setShowSearch]           = useState(false);
@@ -61,11 +62,13 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
     setSearchQuery('');
     setSearchResults([]);
     setError(null);
+    setReformulateNote(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'message') setReformulateNote(null);
   };
 
   const handleAttachmentChange = (e) => {
@@ -170,12 +173,25 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
   const handleReformulate = async () => {
     if (!formData.message.trim()) return;
     setReformulating(true);
+    setReformulateNote(null);
     try {
       const res = await axios.post('/ia/reformulate-email', { text: formData.message });
-      const payload = res?.data || res;
-      if (payload?.corrected) setFormData((prev) => ({ ...prev, message: payload.corrected }));
-    } catch {
-      alert('Erreur lors de la correction du texte.');
+      // L'intercepteur axios retourne response.data directement
+      // Backend renvoie { status, data: { corrected, source } }
+      const data = res?.data ?? res;
+      const corrected = data?.corrected ?? null;
+      if (corrected) {
+        setFormData((prev) => ({ ...prev, message: corrected }));
+        setReformulateNote(
+          data?.source === 'local'
+            ? { type: 'warn', text: 'IA indisponible — reformulation de base appliquée.' }
+            : { type: 'success', text: 'Texte reformulé par l\'IA.' }
+        );
+      } else {
+        setReformulateNote({ type: 'error', text: 'Réponse vide du serveur, veuillez réessayer.' });
+      }
+    } catch (err) {
+      setReformulateNote({ type: 'error', text: `Erreur : ${err?.message || 'connexion impossible'}` });
     } finally {
       setReformulating(false);
     }
@@ -375,6 +391,15 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess, initialTo = '' }) => {
                     }
                   </button>
                 </div>
+                {reformulateNote && (
+                  <p className={`text-[10px] mt-1 font-medium ${
+                    reformulateNote.type === 'success' ? 'text-emerald-600'
+                    : reformulateNote.type === 'warn'  ? 'text-amber-500'
+                    : 'text-red-500'
+                  }`}>
+                    {reformulateNote.text}
+                  </p>
+                )}
               </Field>
 
               {/* Pièce jointe */}

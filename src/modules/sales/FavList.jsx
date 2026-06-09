@@ -100,7 +100,7 @@ const FavList = () => {
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     search: '', minAmount: '', maxAmount: '',
-    minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine',
+    minProbability: '', dateFrom: '', dateTo: '', commercial: 'all', type: 'all',
   });
   const [showFilters, setShowFilters] = useState(false);
   const [commercials, setCommercials] = useState([]);
@@ -137,14 +137,20 @@ const FavList = () => {
 
   const handleFilterChange = (key, value) => setFilters((p) => ({ ...p, [key]: value }));
   const resetFilters = () =>
-    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: (isClientUser || isAgentUser) ? 'all' : 'mine' });
+    setFilters({ search: '', minAmount: '', maxAmount: '', minProbability: '', dateFrom: '', dateTo: '', commercial: 'all', type: 'all' });
   const activeFiltersCount = Object.values(filters).filter((v) => v !== 'all' && v !== '').length;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filteredFav = useMemo(() => (fav || []).filter((item) => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      if (!(`${item.Prfx}${item.Nf}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
+      if (!(`${item.Prfx ?? ''}${item.Nf ?? ''}`.toLowerCase().includes(q) || (item.LibTiers || '').toLowerCase().includes(q))) return false;
+    }
+    if (filters.type !== 'all') {
+      const remarq = (item.Remarq || '').toLowerCase();
+      const isSav = remarq.startsWith('sav -') || remarq.startsWith('ticket sav');
+      if (filters.type === 'sav' && !isSav) return false;
+      if (filters.type === 'normale' && isSav) return false;
     }
     const amount = item.TotTTC || 0;
     if (filters.minAmount && amount < parseFloat(filters.minAmount)) return false;
@@ -376,6 +382,30 @@ const FavList = () => {
             />
           </div>
 
+          {/* Type filter pills */}
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+            {[
+              { value: 'all', label: 'Toutes' },
+              { value: 'normale', label: 'Normale' },
+              { value: 'sav', label: 'SAV' },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => handleFilterChange('type', value)}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap',
+                  filters.type === value
+                    ? value === 'sav'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Advanced filters toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -530,7 +560,12 @@ const FavList = () => {
                         {/* Status bar */}
                         <td className="px-5 py-3.5 relative">
                           <div className={clsx('absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity rounded-r', cfg.bar)} />
-                          <div className="font-semibold text-blue-700 text-sm">{item.Prfx}{item.Nf}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-blue-700 text-sm">{item.Prfx}{item.Nf}</span>
+                            {(item.Remarq || '').toLowerCase().startsWith('sav -') || (item.Remarq || '').toLowerCase().startsWith('ticket sav') ? (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-bold rounded uppercase tracking-wide">SAV</span>
+                            ) : null}
+                          </div>
                           <div className="flex items-center gap-1 mt-0.5">
                             <CalendarIcon className="h-3 w-3 text-slate-300" />
                             <span className="text-[10px] text-slate-400">{formatDate(item.DatUser)}</span>
@@ -578,7 +613,7 @@ const FavList = () => {
                         {/* Actions */}
                         <td className="px-5 py-3.5">
                           <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {(isAdminUser || canEdit) && (
+                            {canEdit && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/fav/edit/${item.Guid}`); }}
                                 title="Modifier"

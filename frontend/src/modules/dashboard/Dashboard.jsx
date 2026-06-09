@@ -143,6 +143,11 @@ const Dashboard = () => {
           if (isExpectedAuthFailure(error) || isForbidden(error)) {
             return fallback;
           }
+          const status = error?.response?.status;
+          if (status >= 500) {
+            console.warn('Erreur serveur ignorée pour le dashboard:', error?.response?.data?.message || error.message);
+            return fallback;
+          }
           throw error;
         }
       };

@@ -23,6 +23,7 @@ import { formatDate, formatCurrency } from '../../utils/format';
 import api from '@app/axios';
 import toast from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
+import SignatureBlock from '../../components/signature/SignatureBlock';
 
 const fmt3 = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
@@ -41,7 +42,7 @@ const BcvDetail = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { currentBcv: bcv, loading, error } = useSelector((s) => s.bcv);
-    const { isAdmin, isCommercial } = useAuth();
+    const { isAdmin, isCommercial, isClient } = useAuth();
     const [showDriverForm, setShowDriverForm] = useState(false);
     const [isTransferring, setIsTransferring] = useState(false);
     const [isRequesting, setIsRequesting] = useState(false);
@@ -78,11 +79,14 @@ const BcvDetail = () => {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `bc_${bcv.Prfx || 'BC'}${bcv.Nf}.pdf`);
+            link.download = `bc_${bcv.Prfx || 'BC'}${bcv.Nf}.pdf`;
+            link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
-            link.parentNode.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            setTimeout(() => {
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }, 100);
             toast.success('PDF généré avec succès');
         } catch (err) {
             console.error('PDF error:', err);
@@ -440,7 +444,14 @@ const BcvDetail = () => {
                         </div>
                     </div>
 
-                    <p className="pt-6 border-t border-slate-50 text-center text-[10px] text-slate-300 uppercase tracking-[0.2em]">
+                    <SignatureBlock
+                        signatureLabel="Signature du responsable"
+                        canSign={isAdmin || isCommercial}
+                        apiPath={`/bcv/${id}/signature`}
+                        initialSig={bcv?.SignatureData || null}
+                    />
+
+                    <p className="mt-8 pt-6 border-t border-slate-50 text-center text-[10px] text-slate-300 uppercase tracking-[0.2em]">
                         NexusCRM Suite — Document Officiel
                     </p>
                 </div>

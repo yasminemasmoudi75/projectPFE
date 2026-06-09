@@ -78,7 +78,8 @@ const ClaimForm = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [clients, setClients] = useState([]);
-  const isClientUser = user?.UserRole?.toLowerCase() === 'client';
+  const isClientUser   = user?.UserRole?.toLowerCase() === 'client';
+  const isTechnicien   = user?.UserRole?.toLowerCase() === 'technicien';
   const [step, setStep]       = useState(isClientUser ? 2 : 1);
   const [searchClient, setSearchClient] = useState('');
 
@@ -351,7 +352,22 @@ const ClaimForm = () => {
                   <SummaryRow label="Type"     value={formData.TypeReclamation} />
                   <SummaryRow label="Priorité" value={formData.Priorite} />
                   <SummaryRow label="Objet"    value={formData.Objet} />
+                  {isTechnicien && (
+                    <SummaryRow
+                      label="Technicien"
+                      value={`${user?.FullName || user?.LoginName || 'Vous'} (auto-assigné)`}
+                    />
+                  )}
                 </div>
+
+                {isTechnicien && (
+                  <div className="mt-3 flex items-start gap-3 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-2xl">
+                    <CheckCircleIcon className="h-4 w-4 text-indigo-500 flex-none mt-0.5" />
+                    <p className="text-xs text-indigo-700">
+                      Vous serez automatiquement affecté comme technicien responsable de cette réclamation.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

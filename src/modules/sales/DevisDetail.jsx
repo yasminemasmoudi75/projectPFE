@@ -10,6 +10,8 @@ import {
   DocumentTextIcon,
   CalendarDaysIcon,
   MapPinIcon,
+  PencilSquareIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { fetchDevisById, validateDevis, convertDevis } from './devisSlice';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
@@ -17,6 +19,7 @@ import { formatDate } from '../../utils/format';
 import toast from 'react-hot-toast';
 import api from '@app/axios';
 import useAuth from '../../hooks/useAuth';
+import SignaturePad from '../../components/signature/SignaturePad';
 
 const fmt3 = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
@@ -37,10 +40,41 @@ const DevisDetail = () => {
   const [isConverting, setIsConverting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [showSignPad, setShowSignPad] = useState(false);
+  const [signature, setSignature] = useState(null);
+  const [savingSig, setSavingSig] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(fetchDevisById(id));
   }, [dispatch, id]);
+
+  useEffect(() => {
+    if (devis?.SignatureData) setSignature(devis.SignatureData);
+  }, [devis?.SignatureData]);
+
+  const handleSaveSignature = async (dataUrl) => {
+    try {
+      setSavingSig(true);
+      await api.patch(`/devis/${id}/signature`, { signatureData: dataUrl });
+      setSignature(dataUrl);
+      setShowSignPad(false);
+      toast.success('Signature enregistrée');
+    } catch {
+      toast.error('Erreur lors de l\'enregistrement de la signature');
+    } finally {
+      setSavingSig(false);
+    }
+  };
+
+  const handleDeleteSignature = async () => {
+    try {
+      await api.delete(`/devis/${id}/signature`);
+      setSignature(null);
+      toast.success('Signature supprimée');
+    } catch {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
 
   const handleValidate = async () => {
     if (isValidating) return;
@@ -85,11 +119,14 @@ const DevisDetail = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `devis_${devis.Prfx || 'DV'}${devis.Nf}.pdf`);
+      link.download = `devis_${devis.Prfx || 'DV'}${devis.Nf}.pdf`;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
       toast.success('PDF généré avec succès');
     } catch (err) {
       console.error('PDF error:', err);
@@ -127,6 +164,9 @@ const DevisDetail = () => {
 
   return (
     <div className="animate-fade-in space-y-5 max-w-5xl mx-auto pb-16">
+      {showSignPad && (
+        <SignaturePad onSave={handleSaveSignature} onClose={() => setShowSignPad(false)} />
+      )}
 
       {/* ── Page Header ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
@@ -183,7 +223,13 @@ const DevisDetail = () => {
                 </button>
               )
             )}
-            {(isAdmin || isCommercial) && <div className="h-7 w-px bg-slate-200 mx-1 hidden sm:block" />}
+            {(isAdmin || isCommercial) && (
+              <button onClick={() => setShowSignPad(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium text-[#0062AF] bg-[#e8f1f9] border border-blue-200 hover:bg-[#d0e5f5] rounded-xl transition-all shadow-sm">
+                <PencilSquareIcon className="h-4 w-4" />
+                {signature ? 'Modifier signature' : 'Signer'}
+              </button>
+            )}
             <button onClick={handleDownloadPDF}
               className="flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 rounded-xl transition-all shadow-sm">
               <PrinterIcon className="h-4 w-4 text-slate-400" />
@@ -317,8 +363,47 @@ const DevisDetail = () => {
             </div>
           </div>
 
+          {/* Signature du responsable */}
+          <div className="mt-10 pt-8 border-t border-slate-100">
+            <div className="flex items-start gap-8">
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Signature du responsable
+                </p>
+                {signature ? (
+                  <div className="relative group inline-block">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                      <img src={signature} alt="Signature" className="h-20 max-w-[220px] object-contain" />
+                    </div>
+                    {(isAdmin || isCommercial) && (
+                      <button onClick={handleDeleteSignature}
+                        className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full bg-rose-500 text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Supprimer">
+                        <TrashIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => (isAdmin || isCommercial) && setShowSignPad(true)}
+                    className={`w-48 h-20 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center ${(isAdmin || isCommercial) ? 'cursor-pointer hover:border-[#0062AF]/50 hover:bg-[#f0f7ff] transition-colors' : ''}`}>
+                    <div className="text-center">
+                      <PencilSquareIcon className="h-5 w-5 text-slate-300 mx-auto mb-1" />
+                      <p className="text-[10px] text-slate-400">{(isAdmin || isCommercial) ? 'Cliquer pour signer' : 'Non signé'}</p>
+                    </div>
+                  </div>
+                )}
+                {(isAdmin || isCommercial) && signature && (
+                  <button onClick={() => setShowSignPad(true)} className="mt-2 text-[10px] text-[#0062AF] hover:underline font-medium">
+                    Modifier la signature
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Footer */}
-          <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+          <div className="pt-6 border-t border-slate-50 flex items-center justify-between mt-8">
             <p className="text-[11px] text-slate-300 font-medium">NexusCRM — Document généré automatiquement</p>
             <p className="text-[11px] text-slate-300 font-medium">{ref} · {formatDate(devis.DatUser)}</p>
           </div>

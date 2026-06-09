@@ -26,5 +26,9 @@ export default defineConfig({
       junit: './reports/junit-front.xml',
     },
     css: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: { singleFork: true },
+    },
   },
 });

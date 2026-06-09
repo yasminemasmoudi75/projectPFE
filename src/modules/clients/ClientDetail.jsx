@@ -133,7 +133,7 @@ const ClientDetail = () => {
             if (!client?.CodTiers) return;
             setLoadingDevis(true);
             try {
-                const response = await axios.get('/devis', { params: { codTiers: client.CodTiers, limit: 50 } });
+                const response = await axios.get('/devis', { params: { CodTiers: client.CodTiers, limit: 50 } });
                 const data = response.data?.data || response.data || [];
                 setClientDevis(Array.isArray(data) ? data : []);
             } catch {
@@ -840,16 +840,26 @@ const ClientDetail = () => {
                                             </div>
                                         ) : (
                                             <>
-                                                {clientDevis.map((devis) => {
-                                                    const ref = devis.NumDevis || devis.Num || devis.id || '—';
-                                                    const date = devis.DateDevis || devis.Date || devis.date;
-                                                    const montant = Number(devis.MontantTTC || devis.montant || 0);
-                                                    const statut = devis.Statut || devis.statut || '—';
-                                                    const isValide = statut === 'Validé' || statut === 'Accepté';
+                                                {clientDevis.map((devis, idx) => {
+                                                    const ref     = devis.Prfx
+                                                        ? `${devis.Prfx}${devis.Nf}`
+                                                        : devis.Nf
+                                                        ? String(devis.Nf)
+                                                        : `#${idx + 1}`;
+                                                    const date    = devis.DatUser || devis.DatCreateUser;
+                                                    const montant = Number(devis.TotTTC || 0);
+                                                    const isValide    = devis.Valid === true;
+                                                    const isConverti  = devis.bTransf === true;
+                                                    const statutLabel = isConverti ? 'Converti' : isValide ? 'Validé' : 'En attente';
+                                                    const statutStyle = isConverti
+                                                        ? 'bg-violet-100 text-violet-700 border-violet-200'
+                                                        : isValide
+                                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                                        : 'bg-slate-100 text-slate-500 border-slate-200';
                                                     return (
                                                         <div
-                                                            key={devis.IDDevis || devis.id || ref}
-                                                            onClick={() => navigate(`/devis/${devis.IDDevis || devis.id}`)}
+                                                            key={devis.Guid || `devis-${idx}`}
+                                                            onClick={() => navigate(`/devis/${devis.Guid}`)}
                                                             className="flex items-center gap-3.5 p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:border-[#0062AF]/20 hover:bg-[#e0f0ff]/30 hover:shadow-sm transition-all group cursor-pointer"
                                                         >
                                                             <div className="h-9 w-9 bg-[#e0f0ff] rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#0062AF] transition-all">
@@ -858,8 +868,8 @@ const ClientDetail = () => {
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center gap-2 mb-0.5">
                                                                     <span className="text-sm font-bold text-slate-800 font-mono group-hover:text-[#0062AF] transition-colors">{ref}</span>
-                                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${isValide ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                                                        {statut}
+                                                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${statutStyle}`}>
+                                                                        {statutLabel}
                                                                     </span>
                                                                 </div>
                                                                 <p className="text-[10px] text-slate-400">{date ? formatDate(date) : '—'}</p>
@@ -1123,7 +1133,7 @@ const ClientDetail = () => {
                                                 </div>
 
                                                 {/* Liste des factures */}
-                                                {clientInvoices.map((invoice) => {
+                                                {clientInvoices.map((invoice, idx) => {
                                                     const total     = Number(invoice.TotTTC    || 0);
                                                     const paid      = Number(invoice.MntCredit || 0);
                                                     const remaining = Math.max(total - paid, 0);
@@ -1132,7 +1142,7 @@ const ClientDetail = () => {
                                                     const isPartial = paid > 0 && remaining > 0;
                                                     return (
                                                         <div
-                                                            key={invoice.Guid || invoice.Nf}
+                                                            key={invoice.Guid || invoice.Nf || `inv-${idx}`}
                                                             onClick={() => navigate(`/fav/${invoice.Guid}`)}
                                                             className="flex items-start gap-3.5 p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:border-[#0062AF]/20 hover:bg-[#e0f0ff]/30 hover:shadow-sm transition-all group cursor-pointer"
                                                         >

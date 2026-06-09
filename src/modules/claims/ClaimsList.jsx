@@ -86,27 +86,16 @@ const ClaimsList = () => {
         assignedTo: rec.NomTechnicien || 'Non assigné', assignedToId: rec.TechnicienID || null,
       });
 
-      const filterForTech = (list) => {
-        if (!isTechnicien) return list;
-        const techId = user?.UserID;
-        const normalize = (v) => String(v || '').trim().toLowerCase();
-        const names = [user?.FullName, user?.LoginName, user?.EmailPro].map(normalize).filter(Boolean);
-        return list.filter(c =>
-          c.assignedToId === techId || String(c.assignedToId) === String(techId) ||
-          names.includes(normalize(c.assignedTo))
-        );
-      };
-
       if (payload?.data) {
         const raw = Array.isArray(payload.data) ? payload.data : [];
-        const mapped = filterForTech(raw.map(mapItem));
+        const mapped = raw.map(mapItem);
         setClaims(mapped);
         setTotalItems(payload.pagination?.total ?? mapped.length);
         setTotalPages(payload.pagination?.pages ?? 0);
         setCurrentPage(payload.pagination?.page ?? 1);
       } else {
         const raw = Array.isArray(payload) ? payload : [];
-        const mapped = filterForTech(raw.map(mapItem));
+        const mapped = raw.map(mapItem);
         setClaims(mapped);
         setTotalItems(mapped.length);
         setTotalPages(1);
@@ -117,7 +106,7 @@ const ClaimsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isTechnicien, isClient, user?.UserID]);
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, priorityFilter, technicianFilter, dateFilter, isClient]);
 
   const fetchTechniciens = useCallback(async () => {
     try {

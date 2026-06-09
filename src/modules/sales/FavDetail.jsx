@@ -12,12 +12,15 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import { formatDate } from '../../utils/format';
 import toast from 'react-hot-toast';
 import api from '@app/axios';
+import useAuth from '../../hooks/useAuth';
+import SignatureBlock from '../../components/signature/SignatureBlock';
 
 const fmt3 = (n) => (n || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 const FavDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin, isCommercial, isClient } = useAuth();
   const dispatch = useDispatch();
   const { currentFav: fav, loading, error } = useSelector((state) => state.fav);
 
@@ -28,23 +31,24 @@ const FavDetail = () => {
 
   const handleDownloadPDF = async () => {
     if (!fav) return;
+    const toastId = toast.loading('Génération du PDF…');
     try {
       const response = await api.get(`/fav/${id}/pdf`, { responseType: 'blob' });
       const blob = response.data instanceof Blob
         ? response.data
         : new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `facture_${fav.Prfx || 'FAC'}${fav.Nf}.pdf`);
+      link.download = `facture_${fav.Prfx || 'FAC'}${fav.Nf}.pdf`;
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('PDF généré avec succès');
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      toast.success('PDF téléchargé', { id: toastId });
     } catch (err) {
       console.error('PDF error:', err);
-      toast.error('Erreur lors de la génération du PDF');
+      toast.error('Erreur lors de la génération du PDF', { id: toastId });
     }
   };
 
@@ -243,8 +247,19 @@ const FavDetail = () => {
             </div>
           </div>
 
+          <SignatureBlock
+            signatureLabel="Signature du responsable"
+            counterLabel="Cachet & Signature client"
+            canSign={isAdmin || isCommercial}
+            apiPath={`/fav/${id}/signature`}
+            initialSig={fav?.SignatureData || null}
+            canCounterSign={isClient}
+            counterApiPath={`/fav/${id}/client-signature`}
+            initialCounterSig={fav?.ClientSignatureData || null}
+          />
+
           {/* Footer */}
-          <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+          <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
             <p className="text-[11px] text-slate-300 font-medium">NexusCRM — Document généré automatiquement</p>
             <p className="text-[11px] text-slate-300 font-medium">{ref} · {formatDate(fav.DatUser)}</p>
           </div>

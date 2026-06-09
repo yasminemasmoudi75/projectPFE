@@ -185,8 +185,8 @@ const SidebarContent = () => {
     // Admin convenience: show module even if it has no DB row yet (dev/setup scenario)
     if (role === 'admin' && !p) return true;
 
-    // Client convenience: always show their own document modules (devis/BCV/BLV/FAV)
-    const CLIENT_DOC_CODES = [4, 5, 6, 7];
+    // Client convenience: always show their own document modules (devis/BCV/BLV/FAV) + SAV
+    const CLIENT_DOC_CODES = [4, 5, 6, 7, 31];
     if (role === 'client' && CLIENT_DOC_CODES.includes(Number(item.moduleCode))) return true;
 
     return p?.isActive === true || p?.isActive === 1;

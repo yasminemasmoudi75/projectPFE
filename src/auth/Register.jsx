@@ -23,10 +23,15 @@ const registerSchema = z.object({
   fullName: z.string().min(3, 'Le nom complet doit avoir au moins 3 caractères'),
   email: z.string().email('Email invalide'),
   telephone: z.string()
-    .min(8, 'Numéro invalide')
-    .regex(/^[0-9+\s\-()]{8,15}$/, 'Numéro de téléphone invalide'),
+    .length(8, 'Le numéro de téléphone doit contenir exactement 8 chiffres')
+    .regex(/^[0-9]{8}$/, 'Le numéro de téléphone doit contenir exactement 8 chiffres'),
   gouvernorat: z.string().min(1, 'Veuillez sélectionner un gouvernorat'),
-  password: z.string().min(6, 'Le mot de passe doit avoir au moins 6 caractères'),
+  password: z.string()
+    .min(8, 'Le mot de passe doit avoir au moins 8 caractères')
+    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
+    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
+    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre')
+    .regex(/[@$!%*?&]/, 'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&)'),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas',
@@ -52,10 +57,9 @@ const Register = () => {
         Password: data.password,
         FullName: data.fullName,
         EmailPro: data.email,
-        Telephone: data.telephone,
+        TelPro: data.telephone,
         Gouvernorat: data.gouvernorat,
         UserRole: 'User',
-        DateNaissance: '1990-01-01',
       });
       toast.success('Compte créé avec succès !', {
         style: { borderRadius: '14px', background: '#0062AF', color: '#fff', fontWeight: '700' },
@@ -135,7 +139,8 @@ const Register = () => {
                 {...register('telephone')}
                 type="tel"
                 autoComplete="tel"
-                placeholder="+216 XX XXX XXX"
+                placeholder="12345678"
+              maxLength={8}
                 className={inputCls(errors.telephone)}
               />
             </div>

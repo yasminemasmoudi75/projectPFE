@@ -24,6 +24,7 @@ const mockUseSelector   = vi.fn();
 const mockUseAuth       = vi.fn();
 const mockUsePermission = vi.fn();
 const mockUseParams     = vi.fn();
+const mockNavigate      = vi.fn();
 const mockGet           = vi.fn();
 const mockPost          = vi.fn();
 const mockPatch         = vi.fn();
@@ -37,7 +38,7 @@ vi.mock('react-redux', async (imp) => ({
 vi.mock('react-router-dom', async (imp) => ({
   ...(await imp()),
   useParams:   () => mockUseParams(),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
 }));
 
 vi.mock('react-hot-toast', () => ({
@@ -266,8 +267,10 @@ describe('T23 — Validation BLV — stock suffisant', () => {
 
     renderWithRouter(<BlvDetail />);
 
-    await waitFor(() => screen.getByText(/BLV-005|Pharma Plus/), { timeout: 3000 });
-    expect(screen.getByText(/BLV-005|Pharma Plus/)).toBeInTheDocument();
+    await waitFor(
+      () => expect(screen.getAllByText(/BLV-005|Pharma Plus/).length).toBeGreaterThan(0),
+      { timeout: 3000 }
+    );
   });
 });
 
@@ -317,7 +320,7 @@ describe('T26 — Règlement partiel (600 TND / 1 200 TND)', () => {
       if (url.includes('banques'))    return Promise.resolve({ data: [] });
       return Promise.resolve({ data: [] });
     });
-    mockPost.mockResolvedValue({ data: { status: 'success' } });
+    mockPost.mockResolvedValue({ data: { data: { id: 1, Statut: 'Partiellement payé' } } });
 
     renderWithRouter(
       <ReglemForm isOpen={true} onClose={vi.fn()} onSuccess={vi.fn()} />
@@ -325,6 +328,10 @@ describe('T26 — Règlement partiel (600 TND / 1 200 TND)', () => {
 
     await waitFor(() => screen.getByText('Créer un Règlement'), { timeout: 3000 });
 
+    // Remplir le code client (requis par la validation)
+    fireEvent.change(screen.getByPlaceholderText('Code client'), {
+      target: { name: 'codTiers', value: 'CLI-001' },
+    });
     fireEvent.change(screen.getByPlaceholderText('0.000'), {
       target: { name: 'montantGlobal', value: '600' },
     });
@@ -334,7 +341,7 @@ describe('T26 — Règlement partiel (600 TND / 1 200 TND)', () => {
     else fireEvent.click(screen.getByRole('button', { name: /Créer le règlement/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Règlement créé/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Règlement créé avec succès/i)).toBeInTheDocument(),
       { timeout: 3000 }
     );
   });
@@ -456,7 +463,7 @@ describe('T31 — Tableau de bord Commercial — objectifs', () => {
       });
       if (url.includes('objectifs')) return Promise.resolve({
         data: [{ ID_Objectif: 1, TypeObjectif: 'CA Mensuel',
-                 Valeur_Cible: 50000, Valeur_Realisee: 32000,
+                 MontantCible: 50000, Montant_Realise_Actuel: 32000,
                  Periode: '2026-04', Statut: 'actif',
                  commercial: { FullName: 'Ahmed Ben Ali' } }],
       });
@@ -465,8 +472,9 @@ describe('T31 — Tableau de bord Commercial — objectifs', () => {
 
     renderWithRouter(<Objectifs />);
 
+    // Le composant affiche les grandes valeurs au format "50.0k TND"
     await waitFor(() =>
-      expect(screen.getByText(/50\s?000|50000/)).toBeInTheDocument(),
+      expect(screen.getByText(/50\.0k/)).toBeInTheDocument(),
       { timeout: 3000 }
     );
   });

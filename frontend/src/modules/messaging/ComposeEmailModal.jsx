@@ -159,11 +159,20 @@ const ComposeEmailModal = ({ isOpen, onClose, onSuccess }) => {
     if (!formData.message.trim()) return;
     setReformulating(true);
     try {
-      const response = await axios.post('/ia/reformulate-email', { text: formData.message });
-      const payload = response?.data || response;
-      if (payload?.corrected) setFormData(prev => ({ ...prev, message: payload.corrected }));
-    } catch {
-      alert('Erreur lors de la correction du texte.');
+      // L'intercepteur axios retourne response.data directement
+      // Backend renvoie { status: 'success', data: { corrected: '...' } }
+      // Donc res = { status, data: { corrected } } → on lit res.data.corrected
+      const res = await axios.post('/ia/reformulate-email', { text: formData.message });
+      const corrected = res?.data?.corrected ?? res?.corrected ?? null;
+      if (corrected) {
+        setFormData(prev => ({ ...prev, message: corrected }));
+      } else {
+        console.warn('[REFORMULATE] réponse vide:', JSON.stringify(res));
+        alert('Réponse vide du serveur. Vérifiez la console F12.');
+      }
+    } catch (err) {
+      console.error('[REFORMULATE] erreur:', err?.response?.status, err?.response?.data, err?.message);
+      alert(`Erreur reformulation: ${err?.response?.status || ''} ${err?.message || 'Connexion impossible'}`);
     } finally {
       setReformulating(false);
     }
