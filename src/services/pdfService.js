@@ -56,6 +56,7 @@ class PDFService {
         y = this._drawMetaAndClient(doc, data, y);
         y = this._drawArticlesTable(doc, data.details || [], y);
         y = this._drawTotals(doc, data, y);
+        y = this._drawSignatureSection(doc, data, docType, y);
         this._drawFooter(doc, data);
     }
 
@@ -351,6 +352,38 @@ class PDFService {
             .text('TND', PAGE_W - MARGIN - 2, y + 10, { align: 'right', lineBreak: false });
 
         return y + 40;
+    }
+
+    // ─────────────────────────────────────────────
+    // Signature section — only rendered when a signature exists
+    // ─────────────────────────────────────────────
+    static _drawSignatureSection(doc, data, docType, y) {
+        const sigData = data.SignatureData || null;
+        if (!sigData) return y; // nothing to draw
+
+        const label = 'SIGNATURE DU RESPONSABLE';
+        const boxW  = CONTENT_W / 2 - 12;
+        const boxH  = 72;
+
+        y += 16;
+        doc.rect(MARGIN, y, CONTENT_W, 0.5).fill(SLATE_200);
+        y += 12;
+
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(SLATE_400)
+            .text(label, MARGIN, y, { characterSpacing: 0.8 });
+        y += 10;
+
+        try {
+            const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
+            const imgBuf = Buffer.from(base64, 'base64');
+            doc.roundedRect(MARGIN, y, boxW, boxH, 4).fill('#f8fafc');
+            doc.image(imgBuf, MARGIN + 8, y + 6, { fit: [boxW - 16, boxH - 12], align: 'center', valign: 'center' });
+            doc.roundedRect(MARGIN, y, boxW, boxH, 4).stroke(SLATE_200);
+        } catch {
+            doc.roundedRect(MARGIN, y, boxW, boxH, 4).dash(4, { space: 3 }).stroke(SLATE_200).undash();
+        }
+
+        return y + boxH + 16;
     }
 
     // ─────────────────────────────────────────────

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const blvController = require('../controllers/blvController');
 const { protect } = require('../middleware/auth');
-const { checkPermission, MODULES } = require('../middleware/checkPermissions');
+const { checkPermission, checkSignaturePermission, MODULES } = require('../middleware/checkPermissions');
 
 router.use(protect);
 
@@ -16,5 +16,9 @@ router.post('/', checkPermission(MODULES.LIVRAISONS, 'create'), blvController.cr
 router.patch('/:id/validate', checkPermission(MODULES.LIVRAISONS, 'update'), blvController.validateBlv);
 router.put('/:id', checkPermission(MODULES.LIVRAISONS, 'update'), blvController.updateBlv);
 router.delete('/:id', checkPermission(MODULES.LIVRAISONS, 'delete'), blvController.deleteBlv);
+router.patch('/:id/signature', checkSignaturePermission(MODULES.LIVRAISONS), blvController.saveSignatureBlv);
+router.delete('/:id/signature', checkSignaturePermission(MODULES.LIVRAISONS), blvController.deleteSignatureBlv);
+router.patch('/:id/client-signature', checkSignaturePermission(MODULES.LIVRAISONS), blvController.saveClientSignatureBlv);
+router.delete('/:id/client-signature', checkSignaturePermission(MODULES.LIVRAISONS), blvController.deleteClientSignatureBlv);
 
 module.exports = router;

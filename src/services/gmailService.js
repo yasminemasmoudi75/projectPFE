@@ -1,20 +1,10 @@
 const { getGmailClientForUser } = require('./gmailAuthService');
 const { Message, User, GmailOAuthTokens, sequelize } = require('../models');
 
-const formatDateForSql = (date) => {
-  if (!date || Number.isNaN(new Date(date).getTime())) {
-    return null;
-  }
-
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+const parseDateSafe = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
 };
 
 /**
@@ -304,7 +294,13 @@ const syncEmailsFromGmail = async (userId) => {
         const from = headers.find((h) => h.name === 'From')?.value || 'Unknown';
         const to = headers.find((h) => h.name === 'To')?.value || 'Unknown';
         const subject = headers.find((h) => h.name === 'Subject')?.value || '(No Subject)';
-        const date = headers.find((h) => h.name === 'Date')?.value || new Date().toISOString();
+
+        // internalDate = Unix timestamp ms (toujours propre), fallback sur le header Date
+        const internalDate = messageDetail.data.internalDate;
+        const dateRaw = headers.find((h) => h.name === 'Date')?.value;
+        const sendingDate = internalDate
+          ? new Date(parseInt(internalDate, 10))
+          : (parseDateSafe(dateRaw) || new Date());
 
         const fromEmail = parseEmailAddress(from);
         const toEmail = parseEmailAddress(to);
@@ -314,7 +310,6 @@ const syncEmailsFromGmail = async (userId) => {
         const isUnread = Array.isArray(messageDetail.data.labelIds)
           ? messageDetail.data.labelIds.includes('UNREAD')
           : false;
-        const sendingDateSql = formatDateForSql(new Date(date));
 
         let senderID = null;
         let recipientID = null;
@@ -339,7 +334,7 @@ const syncEmailsFromGmail = async (userId) => {
           Subject: subject,
           MessageText: body,
           MessageUnicodeText: body,
-          SendingDate: sendingDateSql || sequelize.literal('GETDATE()'),
+          SendingDate: sendingDate,
           Delivered: true,
           StatusRead: !isUnread,
           GmailMessageID: gmailMessageId,

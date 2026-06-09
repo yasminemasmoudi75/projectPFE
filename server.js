@@ -71,6 +71,31 @@ app.locals.models = models;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // MIGRATION DES COLONNES MANQUANTES (TabBlvm / TabFavm)
+    // ═══════════════════════════════════════════════════════════════════════
+    try {
+      console.log('🔄 Vérification des colonnes DB manquantes...');
+      const { QueryTypes } = require('sequelize');
+      const columnMigrations = [
+        // TabBlvm
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBlvm' AND COLUMN_NAME='StockDecremente') ALTER TABLE TabBlvm ADD StockDecremente BIT NOT NULL DEFAULT 0`,
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBlvm' AND COLUMN_NAME='SignatureData') ALTER TABLE TabBlvm ADD SignatureData NVARCHAR(MAX) NULL`,
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBlvm' AND COLUMN_NAME='ClientSignatureData') ALTER TABLE TabBlvm ADD ClientSignatureData NVARCHAR(MAX) NULL`,
+        // TabFavm
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='StockDecremente') ALTER TABLE TabFavm ADD StockDecremente BIT NOT NULL DEFAULT 0`,
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='SourceBlvGuid') ALTER TABLE TabFavm ADD SourceBlvGuid UNIQUEIDENTIFIER NULL`,
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='SignatureData') ALTER TABLE TabFavm ADD SignatureData NVARCHAR(MAX) NULL`,
+        `IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='ClientSignatureData') ALTER TABLE TabFavm ADD ClientSignatureData NVARCHAR(MAX) NULL`,
+      ];
+      for (const sql of columnMigrations) {
+        await sequelize.query(sql, { type: QueryTypes.RAW });
+      }
+      console.log('✅ Colonnes DB vérifiées/créées avec succès');
+    } catch (migrationError) {
+      console.warn('⚠️ Erreur migration colonnes DB:', migrationError.message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // INITIALISATION EMAIL D'AUTHENTIFICATION CLIENT (SMTP DÉDIÉ)
     // ═══════════════════════════════════════════════════════════════════════
     console.log('\n🔐 ═══════════════════════════════════════════════════════════');

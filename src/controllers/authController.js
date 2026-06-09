@@ -92,6 +92,7 @@ exports.register = async (req, res, next) => {
       EmailPro,
       UserRole,
       TelPro,
+      Gouvernorat,
       Poste,
       Departement,
       DateNaissance
@@ -151,6 +152,7 @@ exports.register = async (req, res, next) => {
       FullName,
       EmailPro,
       TelPro,
+      Gouvernorat: Gouvernorat || null,
       PosteOccupe: Poste,
       Departement,
       DateNaissance: DateNaissance || null,

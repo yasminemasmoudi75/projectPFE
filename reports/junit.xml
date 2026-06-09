@@ -1,82 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Tests CRM — Nexus" tests="12" failures="7" errors="0" time="1.559">
-  <testsuite name="Projets, Catalogue &amp; SAV" errors="0" failures="7" skipped="0" timestamp="2026-06-03T22:55:01" time="1.525" tests="12">
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T01 — Création d&apos;un projet client → Projet créé, avancement 0 %" time="0.055">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: 201
-Received: 400
-    at Object.toBe (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:34:24)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+<testsuites name="Tests CRM — Nexus" tests="12" failures="0" errors="0" time="12.262">
+  <testsuite name="Documents Commerciaux, Règlements &amp; Tableaux de Bord" errors="0" failures="0" skipped="0" timestamp="2026-06-07T18:32:56" time="12.225" tests="12">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T20 — Définition objectif commercial → Enregistré et visible dans le tableau de bord" time="0.103">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T02 — Projet avec date dépassée → statut &quot;En retard&quot; calculé" time="0.001">
-      <failure>Error: expect(received).toBeDefined()
-
-Received: undefined
-    at Object.toBeDefined (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:55:29)
-    at Promise.then.completed (D:\pfe\pfe2\backend\node_modules\jest-circus\build\utils.js:298:28)
-    at new Promise (&lt;anonymous&gt;)
-    at callAsyncCircusFn (D:\pfe\pfe2\backend\node_modules\jest-circus\build\utils.js:231:10)
-    at _callCircusTest (D:\pfe\pfe2\backend\node_modules\jest-circus\build\run.js:316:40)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at _runTest (D:\pfe\pfe2\backend\node_modules\jest-circus\build\run.js:252:3)
-    at _runTestsForDescribeBlock (D:\pfe\pfe2\backend\node_modules\jest-circus\build\run.js:126:9)
-    at _runTestsForDescribeBlock (D:\pfe\pfe2\backend\node_modules\jest-circus\build\run.js:121:9)
-    at run (D:\pfe\pfe2\backend\node_modules\jest-circus\build\run.js:71:3)
-    at runAndTransformResultsToJestFormat (D:\pfe\pfe2\backend\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapterInit.js:122:21)
-    at jestAdapter (D:\pfe\pfe2\backend\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapter.js:79:19)
-    at runTestInternal (D:\pfe\pfe2\backend\node_modules\jest-runner\build\runTest.js:367:16)
-    at runTest (D:\pfe\pfe2\backend\node_modules\jest-runner\build\runTest.js:444:34)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T21 — Création devis multi-lignes → Total HT calculé, statut « En attente »" time="1.937">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T03 — Création d&apos;un produit dans le catalogue → Produit visible" time="0.012">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: 201
-Received: 400
-    at Object.toBe (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:96:24)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T22 — Conversion devis → BCV généré, lié à la source, aucun stock modifié" time="0.225">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T04 — Catalogue accessible en lecture (GET /products → 200)" time="1.001">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T23 — Validation BLV stock suffisant → Stock décrémenté, stockDecremente = true" time="0.259">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T05 — Alerte stock bas → produits sous le seuil détectés" time="0.018">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: true
-Received: false
-    at Object.toBe (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:131:42)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T24 — FAV depuis BLV validé → Validée, stock NON décrémenté une 2ᵉ fois" time="1.837">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T06 — Création d&apos;une réclamation → Statut &quot;Ouverte&quot;, référence générée" time="0.014">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T25 — Portail client → Devis, BCV, BLV, Factures accessibles avec statuts" time="0.131">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T07 — Affectation réclamation à technicien → Statut &quot;Affectée&quot;" time="0.012">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: 200
-Received: 400
-    at Object.toBe (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:175:24)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T26 — Règlement partiel (50 %) → Statut « Partiellement payé »" time="2.535">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T08 — Création réclamation pour MedEquip → Visible dans le tableau admin" time="0.029">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T27 — Règlement intégral (100 %) → Statut « Payé »" time="3.234">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T09 — Soumission réclamation portail client → Visible admin statut &quot;Ouverte&quot;" time="0.036">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T28 — Facture en retard → Identifiée avec ancienneté ≥ 35 jours" time="0.518">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T11 — Mise à jour statut réclamation : En cours → Résolu" time="0.02">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: 200
-Received: 400
-    at Object.toBe (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:253:24)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T29 — Export statistiques → Données CA, top clients et top commerciaux disponibles" time="0.086">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T12 — Ajout note d&apos;intervention → Enregistrée avec horodatage" time="0.011">
-      <failure>Error: expect(received).toContain(expected) // indexOf
-
-Expected value: 400
-Received array: [200, 201]
-    at Object.toContain (D:\pfe\pfe2\backend\tests\SAV_Projets_Tests.test.js:274:24)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T30 — Tableau de bord Admin → Alertes stock rupture et projets en retard" time="0.028">
     </testcase>
-    <testcase classname="Projets, Catalogue &amp; SAV" name="T13 — Mise à jour statut activité (Kanban) : Planifié → En cours" time="0.033">
+    <testcase classname="Documents Commerciaux, Règlements &amp; Tableaux de Bord" name="T31 — Tableau de bord commercial → Taux d&apos;atteinte calculé, progression et alertes" time="0.026">
     </testcase>
   </testsuite>
 </testsuites>

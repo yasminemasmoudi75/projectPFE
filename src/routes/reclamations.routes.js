@@ -45,47 +45,18 @@ const allowTechnicianOnOwnClaimOrUpdatePermission = (req, res, next) => {
 		const userId = req.user?.id || req.user?.UserID;
 		const claimId = req.params.id;
 		const access = await resolveUserAccess(userId, req.user?.UserRole);
-		
-		// If admin, apply standard update permission check
+
+		// Admin : vérification standard par permission
 		if (access?.normalizedRole === 'admin') {
 			return checkPermission(RECLAMATIONS_MODULE, 'update')(req, res, next);
 		}
-		
-		// If technician, check if claim is assigned to them
+
+		// Technicien : autoriser directement — le contrôleur vérifie le rôle et l'assignation
 		if (access?.normalizedRole === 'technicien') {
-			try {
-				const claims = await sequelize.query(
-					`SELECT TechnicienID, NomTechnicien FROM TabReclamation WHERE ID = :id`,
-					{ replacements: { id: claimId }, type: QueryTypes.SELECT }
-				);
-
-				if (claims && claims[0]) {
-					const claimTechnicienId = claims[0].TechnicienID;
-					const claimTechnicienName = String(claims[0].NomTechnicien || '').trim().toLowerCase();
-					const userFullName = String(req.user?.FullName || '').trim().toLowerCase();
-					const userLogin = String(req.user?.LoginName || '').trim().toLowerCase();
-					const userEmail = String(req.user?.EmailPro || '').trim().toLowerCase();
-
-					const idMatch = claimTechnicienId === userId || claimTechnicienId == userId;
-					const nameMatch = Boolean(
-						claimTechnicienName && (
-							claimTechnicienName === userFullName ||
-							claimTechnicienName === userLogin ||
-							claimTechnicienName === userEmail
-						)
-					);
-
-					if (idMatch || nameMatch) {
-						return next(); // Technician owns this claim
-					}
-				}
-			} catch (dbError) {
-				// If query fails, fall through to permission check
-				console.error('Error checking claim assignment:', dbError);
-			}
+			return next();
 		}
-		
-		// Otherwise, apply standard update permission check
+
+		// Autres rôles : vérification standard par permission
 		return checkPermission(RECLAMATIONS_MODULE, 'update')(req, res, next);
 	})().catch((error) => {
 		return res.status(500).json({
@@ -100,6 +71,9 @@ const allowTechnicianOnOwnClaimOrUpdatePermission = (req, res, next) => {
 // Routes de consultation (tous les utilisateurs authentifiés)
 router.get('/my-claims', allowClientOrReadPermission, ctrl.getMyMyClaims);
 router.post('/:id/interventions', allowTechnicianOnOwnClaimOrUpdatePermission, ctrl.addIntervention);
+router.patch('/:id/interventions/:numbt/validate', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.validateSingleIntervention);
+router.get('/:id/facture/pdf', allowClientOrReadPermission, ctrl.generateSavFacturePDF);
+router.get('/:id/fav', allowClientOrReadPermission, ctrl.getFavData);
 router.get('/technician/:technicienID', checkPermission(RECLAMATIONS_MODULE, 'read'), ctrl.getTechnicianReclamations);
 
 // Routes générales (après les routes spécifiques)
@@ -112,6 +86,7 @@ router.put('/:id', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.update);
 router.patch('/:id/statut', allowTechnicianOnOwnClaimOrUpdatePermission, ctrl.updateStatus);
 router.patch('/:id/assign-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.assignTechnician);
 router.patch('/:id/remove-technician', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.removeTechnicianAssignment);
+router.patch('/:id/validate-intervention', checkPermission(RECLAMATIONS_MODULE, 'update'), ctrl.validateAndGenerateInvoice);
 router.delete('/:id', checkPermission(RECLAMATIONS_MODULE, 'delete'), ctrl.remove);
 
 module.exports = router;

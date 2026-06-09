@@ -77,6 +77,31 @@ const Reclamation = sequelize.define('TabReclamation', {
         type: DataTypes.TEXT,
         allowNull: true,
         field: 'Solution'
+    },
+    MontantPieces: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'MontantPieces'
+    },
+    FraisDeplacement: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'FraisDeplacement'
+    },
+    MontantMO: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'MontantMO'
+    },
+    MontantTotal: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        field: 'MontantTotal'
+    },
+    NumFacture: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'NumFacture'
     }
 }, {
     tableName: 'TabReclamation',

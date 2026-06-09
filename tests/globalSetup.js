@@ -37,6 +37,16 @@ module.exports = async () => {
   const { token } = res.data.data;
   const userId = res.data.data.user?.UserID;
 
+  // Garantir que l'admin a les permissions nécessaires pour les tests (canAdd/canEdit/canDelt sur modules BLV=6, FAV=7)
+  const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+  for (const moduleCode of [6, 7]) {
+    await api.put(
+      '/permissions/update',
+      { role: 'admin', moduleCode, isActive: true, canAdd: true, canEdit: true, canDelete: true },
+      authHeader
+    ).catch(() => {});
+  }
+
   fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token, userId }));
-  console.log(`\n✅ [globalSetup] Admin connecté (UserID: ${userId})\n`);
+  console.log(`\n✅ [globalSetup] Admin connecté (UserID: ${userId}) — permissions BLV/FAV activées\n`);
 };

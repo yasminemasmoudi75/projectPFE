@@ -31,5 +31,7 @@ router.get('/:id/pdf', checkPermission(MODULES.BCV, 'read'), bcvController.gener
 router.post('/:id/transfer', bcvController.transferBcv);
 // POST /api/bcv/:id/request-transfer — commercial demande la transformation
 router.post('/:id/request-transfer', checkPermission(MODULES.BCV, 'read'), bcvController.requestTransfer);
+router.patch('/:id/signature', protect, bcvController.saveSignatureBcv);
+router.delete('/:id/signature', checkPermission(MODULES.BCV, 'update'), bcvController.deleteSignatureBcv);
 
 module.exports = router;

@@ -778,3 +778,85 @@ exports.generateFavPDF = async (req, res, next) => {
         next(error);
     }
 };
+
+// ─── SIGNATURE FAV ────────────────────────────────────────────────────────────
+exports.saveSignatureFav = async (req, res, next) => {
+    try {
+        const { signatureData } = req.body;
+        if (!signatureData || !String(signatureData).startsWith('data:image/'))
+            return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+
+        await sequelize.query(`
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='SignatureData')
+            ALTER TABLE TabFavm ADD SignatureData NVARCHAR(MAX) NULL
+        `, { type: QueryTypes.RAW });
+
+        const fav = await FavMaster.findOne({ where: { Guid: req.params.id } });
+        if (!fav) return res.status(404).json({ status: 'error', message: 'Facture introuvable' });
+
+        await sequelize.query(`UPDATE TabFavm SET SignatureData=:sig WHERE Guid=:guid`,
+            { replacements: { sig: signatureData, guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature enregistrée' });
+    } catch (error) { console.error('❌ saveSignatureFav:', error); next(error); }
+};
+
+exports.deleteSignatureFav = async (req, res, next) => {
+    try {
+        const fav = await FavMaster.findOne({ where: { Guid: req.params.id } });
+        if (!fav) return res.status(404).json({ status: 'error', message: 'Facture introuvable' });
+
+        await sequelize.query(`UPDATE TabFavm SET SignatureData=NULL WHERE Guid=:guid`,
+            { replacements: { guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature supprimée' });
+    } catch (error) { console.error('❌ deleteSignatureFav:', error); next(error); }
+};
+
+// ─── SIGNATURE CLIENT FAV ─────────────────────────────────────────────────────
+exports.saveClientSignatureFav = async (req, res, next) => {
+    try {
+        const { signatureData } = req.body;
+        if (!signatureData || !String(signatureData).startsWith('data:image/'))
+            return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+
+        await sequelize.query(`
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabFavm' AND COLUMN_NAME='ClientSignatureData')
+            ALTER TABLE TabFavm ADD ClientSignatureData NVARCHAR(MAX) NULL
+        `, { type: QueryTypes.RAW });
+
+        const normalizedRole = String(req.user?.UserRole || '').trim().toLowerCase();
+        const codTiers = req.user?.getDataValue?.('CodTiers') || req.user?.CodTiers || null;
+        const where = { Guid: req.params.id };
+        if (normalizedRole === 'client' && codTiers) {
+            where.CodTiers = codTiers;
+        }
+
+        const fav = await FavMaster.findOne({ where });
+        if (!fav) return res.status(404).json({ status: 'error', message: 'Facture introuvable ou accès refusé' });
+
+        await sequelize.query(`UPDATE TabFavm SET ClientSignatureData=:sig WHERE Guid=:guid`,
+            { replacements: { sig: signatureData, guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature client enregistrée' });
+    } catch (error) { console.error('❌ saveClientSignatureFav:', error); next(error); }
+};
+
+exports.deleteClientSignatureFav = async (req, res, next) => {
+    try {
+        const normalizedRole = String(req.user?.UserRole || '').trim().toLowerCase();
+        const codTiers = req.user?.getDataValue?.('CodTiers') || req.user?.CodTiers || null;
+        const where = { Guid: req.params.id };
+        if (normalizedRole === 'client' && codTiers) {
+            where.CodTiers = codTiers;
+        }
+
+        const fav = await FavMaster.findOne({ where });
+        if (!fav) return res.status(404).json({ status: 'error', message: 'Facture introuvable ou accès refusé' });
+
+        await sequelize.query(`UPDATE TabFavm SET ClientSignatureData=NULL WHERE Guid=:guid`,
+            { replacements: { guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature client supprimée' });
+    } catch (error) { console.error('❌ deleteClientSignatureFav:', error); next(error); }
+};

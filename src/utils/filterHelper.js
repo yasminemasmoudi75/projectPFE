@@ -306,16 +306,31 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
       return {};
     }
 
-    // Module 31 (Reclamations): ALWAYS filter by CUser (claim creator's identity).
-    // This matches the getById ownership check (CUser === userEmail) and works regardless
-    // of whether the client has a CodTiers. Claims might be created without CodTiers
-    // (e.g. if /tiers/me fails), so CodTiers-based filtering is unreliable here.
+    // Module 31 (Reclamations): show claims the client created (CUser) OR claims
+    // created on their behalf by admin/tech (CodTiers match via TabTiers.Email).
     if (moduleKey === '31') {
       const identities = [user?.EmailPro, user?.LoginName, user?.FullName].filter(Boolean);
+      const userEmail = user?.EmailPro || user?.LoginName || user?.email;
+
+      let clientCodTiers = user?.getDataValue?.('CodTiers') || user?.CodTiers || null;
+      if (!clientCodTiers && userEmail) {
+        const clientRow = await sequelize.query(
+          `SELECT TOP 1 CodTiers FROM TabTiers WHERE LOWER(LTRIM(RTRIM(COALESCE(Email, '')))) = LOWER(LTRIM(RTRIM(:email)))`,
+          { replacements: { email: userEmail }, type: QueryTypes.SELECT }
+        );
+        clientCodTiers = clientRow[0]?.CodTiers || null;
+      }
+
+      const orConditions = [];
       if (identities.length > 0) {
-        return {
-          [Op.and]: [{ [Op.or]: identities.map(id => ({ CUser: id })) }]
-        };
+        orConditions.push({ [Op.or]: identities.map(id => ({ CUser: id })) });
+      }
+      if (clientCodTiers) {
+        orConditions.push({ CodTiers: clientCodTiers });
+      }
+
+      if (orConditions.length > 0) {
+        return { [Op.or]: orConditions };
       }
       return { [Op.and]: [sequelize.literal('1 = 0')] };
     }
@@ -561,6 +576,14 @@ const buildModuleScopeFilter = async (moduleCode, user = {}, query = {}) => {
   // Reclamations/SAV
   if (moduleKey === '31' || moduleKey === '51') {
     if (normalizedRole === 'admin') return {};
+
+    // Technicien : voit uniquement les réclamations qui lui sont assignées (par NomTechnicien)
+    if (normalizedRole === 'technicien') {
+      const names = [user?.FullName, user?.LoginName, user?.EmailPro].filter(Boolean);
+      if (names.length === 0) return { [Op.and]: [sequelize.literal('1 = 0')] };
+      console.log(`   🔍 [filterHelper] Module ${moduleKey}: Technicien filtering by NomTechnicien in`, names);
+      return { [Op.or]: names.map(n => ({ NomTechnicien: n })) };
+    }
 
     const filtreRepresEnabled = await getFiltreRepresEnabled(moduleCode, normalizedRole);
     if (!filtreRepresEnabled) {

@@ -152,6 +152,11 @@ const BcvMaster = sequelize.define('TabBcvm', {
         type: DataTypes.STRING(10),
         allowNull: true,
         field: 'CodDev'
+    },
+    SignatureData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        field: 'SignatureData'
     }
 }, {
     tableName: 'TabBcvm',

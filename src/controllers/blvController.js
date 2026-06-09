@@ -707,3 +707,85 @@ exports.generateBlvPDF = async (req, res, next) => {
         next(error);
     }
 };
+
+// ─── SIGNATURE BLV ────────────────────────────────────────────────────────────
+exports.saveSignatureBlv = async (req, res, next) => {
+    try {
+        const { signatureData } = req.body;
+        if (!signatureData || !String(signatureData).startsWith('data:image/'))
+            return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+
+        await sequelize.query(`
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBlvm' AND COLUMN_NAME='SignatureData')
+            ALTER TABLE TabBlvm ADD SignatureData NVARCHAR(MAX) NULL
+        `, { type: QueryTypes.RAW });
+
+        const blv = await BlvMaster.findOne({ where: { Guid: req.params.id } });
+        if (!blv) return res.status(404).json({ status: 'error', message: 'Bon de livraison introuvable' });
+
+        await sequelize.query(`UPDATE TabBlvm SET SignatureData=:sig WHERE Guid=:guid`,
+            { replacements: { sig: signatureData, guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature enregistrée' });
+    } catch (error) { console.error('❌ saveSignatureBlv:', error); next(error); }
+};
+
+exports.deleteSignatureBlv = async (req, res, next) => {
+    try {
+        const blv = await BlvMaster.findOne({ where: { Guid: req.params.id } });
+        if (!blv) return res.status(404).json({ status: 'error', message: 'Bon de livraison introuvable' });
+
+        await sequelize.query(`UPDATE TabBlvm SET SignatureData=NULL WHERE Guid=:guid`,
+            { replacements: { guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature supprimée' });
+    } catch (error) { console.error('❌ deleteSignatureBlv:', error); next(error); }
+};
+
+// ─── SIGNATURE CLIENT BLV ─────────────────────────────────────────────────────
+exports.saveClientSignatureBlv = async (req, res, next) => {
+    try {
+        const { signatureData } = req.body;
+        if (!signatureData || !String(signatureData).startsWith('data:image/'))
+            return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+
+        await sequelize.query(`
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBlvm' AND COLUMN_NAME='ClientSignatureData')
+            ALTER TABLE TabBlvm ADD ClientSignatureData NVARCHAR(MAX) NULL
+        `, { type: QueryTypes.RAW });
+
+        const normalizedRole = String(req.user?.UserRole || '').trim().toLowerCase();
+        const isClient = normalizedRole === 'client';
+        const where = { Guid: req.params.id };
+        if (isClient && req.user?.CodTiers) {
+            where.CodTiers = req.user.CodTiers;
+        }
+
+        const blv = await BlvMaster.findOne({ where });
+        if (!blv) return res.status(404).json({ status: 'error', message: 'Bon de livraison introuvable ou accès refusé' });
+
+        await sequelize.query(`UPDATE TabBlvm SET ClientSignatureData=:sig WHERE Guid=:guid`,
+            { replacements: { sig: signatureData, guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature client enregistrée' });
+    } catch (error) { console.error('❌ saveClientSignatureBlv:', error); next(error); }
+};
+
+exports.deleteClientSignatureBlv = async (req, res, next) => {
+    try {
+        const normalizedRole = String(req.user?.UserRole || '').trim().toLowerCase();
+        const isClient = normalizedRole === 'client';
+        const where = { Guid: req.params.id };
+        if (isClient && req.user?.CodTiers) {
+            where.CodTiers = req.user.CodTiers;
+        }
+
+        const blv = await BlvMaster.findOne({ where });
+        if (!blv) return res.status(404).json({ status: 'error', message: 'Bon de livraison introuvable ou accès refusé' });
+
+        await sequelize.query(`UPDATE TabBlvm SET ClientSignatureData=NULL WHERE Guid=:guid`,
+            { replacements: { guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature client supprimée' });
+    } catch (error) { console.error('❌ deleteClientSignatureBlv:', error); next(error); }
+};

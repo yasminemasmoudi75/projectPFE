@@ -3,6 +3,9 @@ const TabDI = require('../models/TabDI');
 const TabBT = require('../models/TabBT');
 const { User, Tiers, sequelize } = require('../models');
 const { Op, TableHints, QueryTypes } = require('sequelize');
+const TabSociete = require('../models/TabSociete');
+const FavMaster = require('../models/FavMaster');
+const PDFService  = require('../services/pdfService');
 
 const { resolveUserAccess } = require('../utils/userAccess');
 const { notifyAdmins, createNotifications } = require('../utils/notificationUtils');
@@ -184,8 +187,8 @@ const fetchInterventionsForReclamation = async (reclamation) => {
                     datbt: bt.DatCreate || bt.DatBT,
                     technicien: bt.CodInterv || null,
                     resultat: bt.Resultat || null,
-                    encours: bt.BTEncours,
-                    clotured: bt.BTClotured,
+                    encours: Boolean(bt.BTEncours),
+                    clotured: Boolean(bt.BTClotured),
                     descPanne: bt.DescPanne,
                 }
                 : null,
@@ -381,10 +384,25 @@ exports.getById = async (req, res, next) => {
         if (isClient) {
             const userEmail = String(req.user?.EmailPro || '').toLowerCase();
             const userLogin = String(req.user?.LoginName || '').toLowerCase();
+
+            // 1) Propriétaire direct (a créé la réclamation)
             const claimOwner = String(rec.CUser || '').toLowerCase();
             const isOwner = claimOwner && (claimOwner === userEmail || claimOwner === userLogin);
 
-            if (!isOwner) {
+            // 2) Réclamation rattachée au CodTiers du client (créée par admin/tech)
+            let isTiersMatch = false;
+            if (!isOwner && rec.CodTiers) {
+                const clientTiersRows = await sequelize.query(
+                    `SELECT TOP 1 t.CodTiers
+                     FROM TabTiers t
+                     WHERE LOWER(t.Email) = LOWER(:email)`,
+                    { replacements: { email: userEmail }, type: QueryTypes.SELECT }
+                );
+                const clientCodTiers = clientTiersRows[0]?.CodTiers;
+                isTiersMatch = !!(clientCodTiers && clientCodTiers === rec.CodTiers);
+            }
+
+            if (!isOwner && !isTiersMatch) {
                 return res.status(403).json({
                     status: 'error',
                     message: 'Accès refusé à cette réclamation'
@@ -480,6 +498,33 @@ exports.create = async (req, res, next) => {
                     status: 'error',
                     message: 'Client introuvable pour ce CodTiers'
                 });
+            }
+        }
+
+        // Auto-assignation : si l'auteur est technicien, il est affecté automatiquement
+        const access = await resolveUserAccess(req.user?.id || req.user?.UserID, req.user?.UserRole);
+        if (access?.normalizedRole === 'technicien' && !payload.TechnicienID) {
+            const ucsUserId = req.user?.id || req.user?.UserID;
+            const loginName = String(req.user?.EmailPro || req.user?.LoginName || `user${ucsUserId}`).trim().slice(0, 100);
+            const fullName  = String(req.user?.FullName || req.user?.LoginName || 'Technicien').trim().slice(0, 255);
+
+            const secById = await sequelize.query(
+                `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE UserID = :userId`,
+                { replacements: { userId: ucsUserId }, type: QueryTypes.SELECT }
+            );
+            let secId = secById.length ? Number(secById[0].UserID) : null;
+
+            if (!secId) {
+                const secByLogin = await sequelize.query(
+                    `SELECT TOP 1 UserID FROM dbo.Sec_Users WHERE LOWER(LoginName) = LOWER(:loginName)`,
+                    { replacements: { loginName }, type: QueryTypes.SELECT }
+                );
+                if (secByLogin.length) secId = Number(secByLogin[0].UserID);
+            }
+
+            if (secId) {
+                payload.TechnicienID = secId;
+                payload.NomTechnicien = truncateString(fullName, MAX_LENGTHS.NomTechnicien);
             }
         }
 
@@ -999,29 +1044,52 @@ exports.addIntervention = async (req, res, next) => {
             return res.status(404).json({ status: 'error', message: 'Technicien non trouvé' });
         }
 
-        const note = normalizeString(req.body?.resultat || req.body?.commentaire || req.body?.description || '');
-        const description = truncateString(req.body?.description || rec.Objet, 250);
-        const demandeur = truncateString(rec.LibTiers || '', 250);
+        // DescPanne doit TOUJOURS être rec.Objet pour que fetchInterventionsForReclamation le retrouve
+        const descPanne    = truncateString(rec.Objet || '', 250);
+        const demandeur    = truncateString(rec.LibTiers || '', 250);
+        const customNote   = truncateString(req.body?.description || '', 250);
+        const note         = normalizeString(req.body?.resultat || req.body?.commentaire || '');
         const codIntervRaw = truncateString(technician.LoginName || technician.EmailPro || '', 10);
         const { nextNumDI, nextNumBT } = await getNextInterventionNumbers();
 
-        const safeDescription = (description || '').replace(/'/g, "''");
-        const safeDemandeur = (demandeur || '').replace(/'/g, "''");
-        const safeNote = (note || '').replace(/'/g, "''");
-        const safeCodInterv = (codIntervRaw || '').replace(/'/g, "''");
+        const safeDescPanne  = (descPanne  || '').replace(/'/g, "''");
+        const safeDemandeur  = (demandeur  || '').replace(/'/g, "''");
+        const safeNote       = (note       || '').replace(/'/g, "''");
+        const safeCustomNote = (customNote || '').replace(/'/g, "''");
+        const safeCodInterv  = (codIntervRaw || '').replace(/'/g, "''");
 
+        // Comment = description personnalisée du technicien
+        // Resultat = rapport/compte-rendu
         const sql = `
             DECLARE @NewIDDI UNIQUEIDENTIFIER = NEWID();
             DECLARE @NewIDBT UNIQUEIDENTIFIER = NEWID();
 
             INSERT INTO TabDI (IDDI, NumDI, DatDI, DescPanne, Demandeur, DatCreate, CodServ, Comment)
-            VALUES (@NewIDDI, ${nextNumDI}, GETDATE(), '${safeDescription}', '${safeDemandeur}', GETDATE(), 'SAV', '${safeNote}');
+            VALUES (@NewIDDI, ${nextNumDI}, GETDATE(), '${safeDescPanne}', '${safeDemandeur}', GETDATE(), 'SAV', '${safeCustomNote}');
 
             INSERT INTO TabBT (IDBT, NumBT, DatBT, NumDI, IDDI, CodInterv, DescPanne, DatCreate, Demandeur, Resultat, BTEncours, BTClotured, CodServ)
-            VALUES (@NewIDBT, ${nextNumBT}, GETDATE(), ${nextNumDI}, @NewIDDI, '${safeCodInterv}', '${safeDescription}', GETDATE(), '${safeDemandeur}', '${safeNote}', 1, 0, 'SAV');
+            VALUES (@NewIDBT, ${nextNumBT}, GETDATE(), ${nextNumDI}, @NewIDDI, '${safeCodInterv}', '${safeDescPanne}', GETDATE(), '${safeDemandeur}', '${safeNote}', 1, 0, 'SAV');
         `;
 
         await sequelize.query(sql);
+
+        // Sauvegarder les coûts d'intervention dans la réclamation
+        const montantPieces    = Number(req.body?.montantPieces)    || 0;
+        const fraisDeplacement = Number(req.body?.fraisDeplacement) || 0;
+        const montantMO        = Number(req.body?.montantMO)        || 0;
+        const montantTotal     = montantPieces + fraisDeplacement + montantMO;
+
+        if (montantTotal > 0) {
+            const cols = await getReclamationColumns();
+            if (cols.has('MontantPieces')) {
+                await sequelize.query(
+                    `UPDATE TabReclamation
+                     SET MontantPieces = :mp, FraisDeplacement = :fd, MontantMO = :mo, MontantTotal = :mt
+                     WHERE ID = :id`,
+                    { replacements: { mp: montantPieces, fd: fraisDeplacement, mo: montantMO, mt: montantTotal, id: rec.ID } }
+                );
+            }
+        }
 
         if (String(rec.Statut || '').toLowerCase() === 'ouvert') {
             await rec.update({ Statut: 'En cours' });
@@ -1031,6 +1099,26 @@ exports.addIntervention = async (req, res, next) => {
             include: [{ association: 'technicien', attributes: ['UserID', 'FullName', 'LoginName', 'EmailPro'] }]
         });
         const interventions = await fetchInterventionsForReclamation(updated);
+
+        // Notifier les admins d'une nouvelle intervention à valider (fire-and-forget)
+        const { getActiveAdminIds } = require('../utils/notificationUtils');
+        getActiveAdminIds().then((adminIds) => {
+            if (adminIds.length) {
+                const techName = technician.FullName || technician.LoginName || 'Technicien';
+                createNotifications(
+                    adminIds,
+                    `Nouvelle intervention à valider — ${rec.NumTicket || ''}`,
+                    JSON.stringify({
+                        _type: 'INTERVENTION_ADDED',
+                        claimId: rec.ID,
+                        numTicket: rec.NumTicket,
+                        technicien: techName,
+                        objet: rec.Objet || ''
+                    }),
+                    'INFO'
+                );
+            }
+        }).catch(() => {});
 
         res.status(201).json({
             status: 'success',
@@ -1042,6 +1130,137 @@ exports.addIntervention = async (req, res, next) => {
         });
     } catch (err) {
         console.error('❌ addIntervention reclamation:', err);
+        next(err);
+    }
+};
+
+// ─── VALIDATE / REJECT A SINGLE INTERVENTION ──────────────────────────────────
+exports.validateSingleIntervention = async (req, res, next) => {
+    try {
+        const { id: claimId, numbt } = req.params;
+        const action = String(req.body?.action || 'validate').toLowerCase();
+
+        const rec = await findReclamationByPkSafe(claimId);
+        if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
+
+        if (action === 'validate') {
+            await sequelize.query(
+                `UPDATE TabBT SET BTClotured = 1, BTEncours = 0 WHERE NumBT = :numbt`,
+                { replacements: { numbt: Number(numbt) } }
+            );
+        } else {
+            await sequelize.query(
+                `UPDATE TabBT SET BTEncours = 0, BTClotured = 0, Resultat = 'Rejeté par admin' WHERE NumBT = :numbt`,
+                { replacements: { numbt: Number(numbt) } }
+            );
+        }
+
+        const updated    = await findReclamationByPkSafe(claimId);
+        const interventions = await fetchInterventionsForReclamation(updated);
+
+        res.json({
+            status: 'success',
+            message: action === 'validate' ? 'Intervention validée' : 'Intervention rejetée',
+            data: { ...updated.toJSON(), interventions }
+        });
+    } catch (err) {
+        console.error('❌ validateSingleIntervention:', err);
+        next(err);
+    }
+};
+
+// ─── VALIDATE INTERVENTION & GENERATE FAV AUTOMATICALLY ───────────────────────
+exports.validateAndGenerateInvoice = async (req, res, next) => {
+    try {
+        const rec = await findReclamationByPkSafe(req.params.id);
+        if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
+
+        // Vérifier que les colonnes coûts existent
+        const cols = await getReclamationColumns();
+        if (!cols.has('MontantPieces')) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Colonnes de coûts manquantes. Exécutez la migration SQL d\'abord.'
+            });
+        }
+
+        if (cols.has('NumFacture') && rec.NumFacture) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Une facture existe déjà pour cette réclamation (N°${rec.NumFacture})`
+            });
+        }
+
+        const montantPieces    = Number(rec.MontantPieces    || 0);
+        const fraisDeplacement = Number(rec.FraisDeplacement || 0);
+        const montantMO        = Number(rec.MontantMO        || 0);
+        const totHT            = montantPieces + fraisDeplacement + montantMO;
+
+        if (totHT <= 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Aucun montant renseigné. Le technicien doit saisir les coûts avant validation.'
+            });
+        }
+
+        const TVA    = 0.19;
+        const totTva = Math.round(totHT * TVA * 1000) / 1000;
+        const totTTC = Math.round((totHT + totTva) * 1000) / 1000;
+
+        // Calculer le prochain numéro de facture
+        const [maxNfRows] = await sequelize.query('SELECT ISNULL(MAX(Nf), 0) AS maxNf FROM TabFavm');
+        const nextNf = (maxNfRows[0]?.maxNf || 0) + 1;
+
+        const now    = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const cuser  = String(req.user?.LoginName || req.user?.EmailPro || 'admin').slice(0, 50);
+        const remarq = `SAV - ${rec.NumTicket || rec.ID}`.slice(0, 255);
+        const libTiers = String(rec.LibTiers || '').slice(0, 100);
+        const codTiers = String(rec.CodTiers || '').slice(0, 20);
+
+        // 1 — Créer la facture maître (FavMaster)
+        const [guidResult] = await sequelize.query(
+            `DECLARE @g UNIQUEIDENTIFIER = NEWID();
+             INSERT INTO TabFavm (Guid, Nf, CodTiers, LibTiers, TotHT, TotTva, TotTTC, Valid, StockDecremente, DatUser, MDate, CUser, Remarq)
+             VALUES (@g, :nf, :codTiers, :libTiers, :totHT, :totTva, :totTTC, 0, 0, :now, :now, :cuser, :remarq);
+             SELECT CAST(@g AS VARCHAR(36)) AS guid;`,
+            {
+                replacements: { nf: nextNf, codTiers, libTiers, totHT, totTva, totTTC, now, cuser, remarq },
+                type: QueryTypes.SELECT
+            }
+        );
+        const favGuid = guidResult?.guid;
+
+        // 2 — Créer les lignes de détail (FavDetail)
+        const lignes = [
+            { codArt: 'SAV-PIECES', libArt: 'Pièces et matériaux',  puHT: montantPieces    },
+            { codArt: 'SAV-DEPL',   libArt: 'Frais de déplacement', puHT: fraisDeplacement },
+            { codArt: 'SAV-MO',     libArt: "Main d'oeuvre",         puHT: montantMO        },
+        ].filter(l => l.puHT > 0);
+
+        for (const ligne of lignes) {
+            const mntTva = Math.round(ligne.puHT * TVA * 1000) / 1000;
+            await sequelize.query(
+                `INSERT INTO TabFavd (Guid, CodArt, LibArt, Qt, PuHT, MntTVA, NF)
+                 VALUES (:guid, :codArt, :libArt, 1, :puHT, :mntTva, :nf)`,
+                { replacements: { guid: favGuid, codArt: ligne.codArt, libArt: ligne.libArt.slice(0, 255), puHT: ligne.puHT, mntTva, nf: nextNf } }
+            ).catch(() => {}); // FK sur CodArt ignorée si l'article n'existe pas
+        }
+
+        // 3 — Lier la facture à la réclamation
+        if (cols.has('NumFacture')) {
+            await sequelize.query(
+                `UPDATE TabReclamation SET NumFacture = :nf, Statut = 'Résolu' WHERE ID = :id`,
+                { replacements: { nf: String(nextNf), id: rec.ID } }
+            );
+        }
+
+        res.json({
+            status: 'success',
+            message: `Facture SAV N°${nextNf} générée automatiquement`,
+            data: { numFacture: nextNf, guid: favGuid, totHT, totTva, totTTC }
+        });
+    } catch (err) {
+        console.error('❌ validateAndGenerateInvoice:', err);
         next(err);
     }
 };
@@ -1134,5 +1353,75 @@ exports.getMyMyClaims = async (req, res, next) => {
     } catch (err) {
         console.error('❌ getMyMyClaims:', err);
         next(err);
+    }
+};
+
+// ─── GÉNÉRATION PDF FACTURE SAV ───────────────────────────────────────────────
+exports.generateSavFacturePDF = async (req, res, next) => {
+    try {
+        const rec = await findReclamationByPkSafe(req.params.id);
+        if (!rec) return res.status(404).json({ status: 'error', message: 'Réclamation non trouvée' });
+        if (!rec.NumFacture) return res.status(400).json({ status: 'error', message: 'Aucune facture SAV générée pour cette réclamation' });
+
+        const ht  = Number(rec.MontantTotal    || 0);
+        const tva = +(ht * 0.19).toFixed(3);
+        const ttc = +(ht + tva).toFixed(3);
+
+        const details = [
+            { CodArt: 'SAV-PCS', LibArt: 'Pièces détachées',    Qt: 1, PuHT: Number(rec.MontantPieces    || 0), MntHT: Number(rec.MontantPieces    || 0), Tva: 19 },
+            { CodArt: 'SAV-DEP', LibArt: 'Frais de déplacement', Qt: 1, PuHT: Number(rec.FraisDeplacement || 0), MntHT: Number(rec.FraisDeplacement || 0), Tva: 19 },
+            { CodArt: 'SAV-MO',  LibArt: "Main d'oeuvre",         Qt: 1, PuHT: Number(rec.MontantMO       || 0), MntHT: Number(rec.MontantMO       || 0), Tva: 19 },
+        ].filter(d => d.MntHT > 0);
+
+        const docData = {
+            Prfx: '',
+            Nf: rec.NumFacture,
+            DatUser: rec.DateOuverture || new Date(),
+            LibTiers: rec.LibTiers || rec.CodTiers || '—',
+            Remarq: `Ticket SAV : ${rec.NumTicket || ''}  —  ${rec.Objet || ''}`,
+            TotHT:  ht,
+            TotTva: tva,
+            TotRem: 0,
+            TotTTC: ttc,
+            details,
+        };
+
+        const soc = await TabSociete.findOne().catch(() => null);
+        const pdfBuffer = await PDFService.generateCommercialPDF(docData, soc, 'FACTURE SAV');
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=facture_SAV_${rec.NumFacture}.pdf`);
+        res.send(pdfBuffer);
+    } catch (err) {
+        console.error('❌ generateSavFacturePDF:', err);
+        next(err);
+    }
+};
+
+exports.getFavData = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const rec = await Reclamation.findByPk(id, { attributes: ['ID', 'NumFacture'] });
+        if (!rec?.NumFacture) {
+            return res.status(404).json({ status: 'error', message: 'Aucune facture SAV pour cette réclamation' });
+        }
+        const fav = await FavMaster.findOne({
+            where: { Nf: rec.NumFacture },
+            attributes: ['Guid', 'SignatureData', 'ClientSignatureData'],
+        });
+        if (!fav) {
+            return res.status(404).json({ status: 'error', message: 'Facture introuvable en base' });
+        }
+        return res.json({
+            status: 'success',
+            data: {
+                guid: fav.Guid,
+                signatureData: fav.SignatureData || null,
+                clientSignatureData: fav.ClientSignatureData || null,
+            },
+        });
+    } catch (err) {
+        console.error('❌ getFavData:', err);
+        return res.status(500).json({ status: 'error', message: err.message });
     }
 };

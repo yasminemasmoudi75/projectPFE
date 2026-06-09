@@ -164,6 +164,16 @@ const BlvMaster = sequelize.define('TabBlvm', {
         allowNull: false,
         defaultValue: false,
         field: 'StockDecremente'
+    },
+    SignatureData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        field: 'SignatureData'
+    },
+    ClientSignatureData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        field: 'ClientSignatureData'
     }
 }, {
     tableName: 'TabBlvm',

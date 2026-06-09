@@ -1026,7 +1026,7 @@ exports.generateDevisPDF = async (req, res, next) => {
     const soc = await TabSociete.findOne();
 
     // 3. Générer le PDF via le service
-    const pdfBuffer = await PDFService.generateCommercialPDF(devis, soc, 'DEVIS');
+    const pdfBuffer = await PDFService.generateCommercialPDF(devis.toJSON(), soc, 'DEVIS');
 
     // 4. Envoyer le PDF
     res.setHeader('Content-Type', 'application/pdf');
@@ -1124,6 +1124,61 @@ exports.getMyDevis = async (req, res, next) => {
     res.json(filterHelper.formatPaginatedResponse(rows, count, page, limit));
   } catch (error) {
     console.error('❌ Error getMyDevis:', error);
+    next(error);
+  }
+};
+
+// ─── SIGNATURE DEVIS ──────────────────────────────────────────────────────────
+exports.saveSignature = async (req, res, next) => {
+  try {
+    const { QueryTypes } = require('sequelize');
+    const { id } = req.params;
+    const { signatureData } = req.body;
+
+    if (!signatureData || !String(signatureData).startsWith('data:image/')) {
+      return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+    }
+
+    // Add column if it doesn't exist yet
+    await sequelize.query(`
+      IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = 'TabDevm' AND COLUMN_NAME = 'SignatureData'
+      )
+      ALTER TABLE TabDevm ADD SignatureData NVARCHAR(MAX) NULL
+    `, { type: QueryTypes.RAW });
+
+    const devis = await DevisMaster.findOne({ where: { Guid: id } });
+    if (!devis) return res.status(404).json({ status: 'error', message: 'Devis introuvable' });
+
+    await sequelize.query(
+      `UPDATE TabDevm SET SignatureData = :sig WHERE Guid = :guid`,
+      { replacements: { sig: signatureData, guid: id }, type: QueryTypes.UPDATE }
+    );
+
+    res.json({ status: 'success', message: 'Signature enregistrée' });
+  } catch (error) {
+    console.error('❌ Error saveSignature:', error);
+    next(error);
+  }
+};
+
+exports.deleteSignature = async (req, res, next) => {
+  try {
+    const { QueryTypes } = require('sequelize');
+    const { id } = req.params;
+
+    const devis = await DevisMaster.findOne({ where: { Guid: id } });
+    if (!devis) return res.status(404).json({ status: 'error', message: 'Devis introuvable' });
+
+    await sequelize.query(
+      `UPDATE TabDevm SET SignatureData = NULL WHERE Guid = :guid`,
+      { replacements: { guid: id }, type: QueryTypes.UPDATE }
+    );
+
+    res.json({ status: 'success', message: 'Signature supprimée' });
+  } catch (error) {
+    console.error('❌ Error deleteSignature:', error);
     next(error);
   }
 };

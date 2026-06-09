@@ -1053,3 +1053,37 @@ exports.deleteBcv = async (req, res, next) => {
         next(error);
     }
 };
+
+// ─── SIGNATURE BCV ────────────────────────────────────────────────────────────
+exports.saveSignatureBcv = async (req, res, next) => {
+    try {
+        const { signatureData } = req.body;
+        if (!signatureData || !String(signatureData).startsWith('data:image/'))
+            return res.status(400).json({ status: 'error', message: 'Données de signature invalides' });
+
+        await sequelize.query(`
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='TabBcvm' AND COLUMN_NAME='SignatureData')
+            ALTER TABLE TabBcvm ADD SignatureData NVARCHAR(MAX) NULL
+        `, { type: QueryTypes.RAW });
+
+        const bcv = await BcvMaster.findOne({ where: { Guid: req.params.id } });
+        if (!bcv) return res.status(404).json({ status: 'error', message: 'Bon de commande introuvable' });
+
+        await sequelize.query(`UPDATE TabBcvm SET SignatureData=:sig WHERE Guid=:guid`,
+            { replacements: { sig: signatureData, guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature enregistrée' });
+    } catch (error) { console.error('❌ saveSignatureBcv:', error); next(error); }
+};
+
+exports.deleteSignatureBcv = async (req, res, next) => {
+    try {
+        const bcv = await BcvMaster.findOne({ where: { Guid: req.params.id } });
+        if (!bcv) return res.status(404).json({ status: 'error', message: 'Bon de commande introuvable' });
+
+        await sequelize.query(`UPDATE TabBcvm SET SignatureData=NULL WHERE Guid=:guid`,
+            { replacements: { guid: req.params.id }, type: QueryTypes.UPDATE });
+
+        res.json({ status: 'success', message: 'Signature supprimée' });
+    } catch (error) { console.error('❌ deleteSignatureBcv:', error); next(error); }
+};

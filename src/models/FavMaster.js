@@ -158,6 +158,16 @@ const FavMaster = sequelize.define('TabFavm', {
         type: DataTypes.UUID,
         allowNull: true,
         field: 'SourceBlvGuid'
+    },
+    SignatureData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        field: 'SignatureData'
+    },
+    ClientSignatureData: {
+        type: DataTypes.TEXT('long'),
+        allowNull: true,
+        field: 'ClientSignatureData'
     }
 }, {
     tableName: 'TabFavm',

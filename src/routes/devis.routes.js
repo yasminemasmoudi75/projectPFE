@@ -18,6 +18,8 @@ router.put('/:id', checkPermission(MODULES.DEVIS, 'update'), devisController.upd
 router.patch('/:id/validate', checkPermission(MODULES.DEVIS, 'update'), devisController.validateDevis);
 router.patch('/:id/convert', checkPermission(MODULES.DEVIS, 'update'), devisController.convertDevis);
 router.post('/:id/request-convert', checkPermission(MODULES.DEVIS, 'read'), devisController.requestConvert);
+router.patch('/:id/signature', checkPermission(MODULES.DEVIS, 'update'), devisController.saveSignature);
+router.delete('/:id/signature', checkPermission(MODULES.DEVIS, 'update'), devisController.deleteSignature);
 router.delete('/:id', checkPermission(MODULES.DEVIS, 'delete'), devisController.deleteDevis);
 
 module.exports = router;

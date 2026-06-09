@@ -210,7 +210,34 @@ const MODULES = {
   ACTIVITES: 45
 };
 
+/**
+ * Middleware dédié à la signature (BLV / FAV).
+ * - Admin : toujours autorisé (la signature est séparée de la modification du contenu)
+ * - Autres rôles : nécessitent la permission 'read' sur le module
+ */
+const checkSignaturePermission = (moduleCode) => {
+  return async (req, res, next) => {
+    try {
+      const { resolveUserAccess } = require('../utils/userAccess');
+      const userId = req.user?.id || req.user?.UserID;
+      if (!userId) {
+        return res.status(401).json({ status: 'error', message: 'Non authentifié' });
+      }
+      const access = await resolveUserAccess(userId, req.user?.UserRole);
+      if (access.normalizedRole === 'admin') {
+        return next();
+      }
+      // Pour les autres rôles, déléguer à checkPermission 'read'
+      return checkPermission(moduleCode, 'read')(req, res, next);
+    } catch (error) {
+      console.error('Erreur checkSignaturePermission:', error);
+      return res.status(500).json({ status: 'error', message: 'Erreur vérification permission signature' });
+    }
+  };
+};
+
 module.exports = {
   checkPermission,
+  checkSignaturePermission,
   MODULES
 };

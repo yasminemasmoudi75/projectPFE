@@ -172,130 +172,366 @@ exports.analyzeSatisfaction = async (req, res) => {
 };
 
 exports.generateEmail = async (req, res) => {
-  try {
-    const { prompt } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ status: 'error', message: 'Le prompt est requis.' });
-    }
-
-    const systemPrompt = `Tu es un assistant de rédaction email professionnel intégré dans un CRM (Nexus CRM) pour une entreprise tunisienne.
-Tu aides les commerciaux et admins à rédiger des emails professionnels en français adaptés au contexte commercial : relances, devis, factures, propositions commerciales, réclamations, remerciements.
-Quand l'utilisateur décrit ce qu'il veut, génère directement :
-- Objet : [sujet de l'email]
-- Corps : [contenu complet de l'email]
-Sois professionnel, concis et adapté au contexte tunisien. Ne donne pas d'introduction, renvoie juste l'Objet et le Corps comme demandé.`;
-
-    // Utilisation d'une API gratuite (Pollinations AI) qui ne nécessite aucune clé API !
-    const axios = require('axios');
-    const response = await axios.post(
-      'https://text.pollinations.ai/',
-      {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        model: 'openai',
-        seed: Math.floor(Math.random() * 1000000)
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 20000 // 20 secondes max
-      }
-    );
-
-    // Parsing de la réponse
-    const replyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-
-    let objet = '';
-    let corps = '';
-
-    const objetMatch = replyText.match(/(?:-?\s*\**Objet\**\s*:|\**Sujet\**\s*:)\s*(.*?)(?=\n|$)/is);
-    const corpsMatch = replyText.match(/(?:-?\s*\**Corps\**\s*:|\**Message\**\s*:)\s*([\s\S]*)/is);
-
-    if (objetMatch) objet = objetMatch[1].trim();
-    if (corpsMatch) corps = corpsMatch[1].trim();
-
-    if (!objet && !corps) {
-      corps = replyText.trim();
-      objet = 'Nouveau message (Généré par IA)';
-    }
-
-    objet = objet.replace(/^["*]+|["*]+$/g, '');
-
-    return res.json({ status: 'success', data: { objet, corps } });
-
-  } catch (error) {
-    console.error('[AI EMAIL API ERROR] Fallback to mock:', error.message);
-    
-    // FALLBACK DE SECOURS (Si l'API gratuite plante ou bloque, on simule la réponse pour que le PFE fonctionne toujours !)
-    let objet = "Suite à notre échange";
-    let corps = "Bonjour,\n\nJe vous contacte suite à notre dernier échange.\n\nCordialement,";
-    const userPrompt = (req.body && req.body.prompt) ? req.body.prompt.toLowerCase() : '';
-
-    if (userPrompt.includes('relance') || userPrompt.includes('facture') || userPrompt.includes('impayé')) {
-      objet = "Relance : Facture en attente de paiement";
-      corps = "Bonjour,\n\nSauf erreur ou omission de notre part, nous n'avons pas encore reçu le règlement concernant notre dernière facture.\n\nPourriez-vous vérifier l'état de ce paiement de votre côté ?\n\nSi le paiement a déjà été effectué, veuillez ignorer cet email.\n\nCordialement,\nL'équipe Commerciale";
-    } else if (userPrompt.includes('devis') || userPrompt.includes('proposition')) {
-      objet = "Votre proposition commerciale personnalisée";
-      corps = "Bonjour,\n\nSuite à notre récente discussion, j'ai le plaisir de vous transmettre en pièce jointe notre devis détaillé correspondant à vos besoins.\n\nJe reste à votre entière disposition pour échanger sur cette proposition et l'ajuster si nécessaire.\n\nBien cordialement,\nL'équipe Commerciale";
-    } else if (userPrompt.includes('réclamation') || userPrompt.includes('problème') || userPrompt.includes('excuse')) {
-      objet = "Concernant votre récente réclamation";
-      corps = "Bonjour,\n\nNous avons bien pris en compte votre retour et nous vous présentons nos excuses pour le désagrément occasionné.\n\nNotre équipe technique analyse actuellement la situation pour résoudre ce problème dans les plus brefs délais. Nous vous tiendrons informé de l'avancement très rapidement.\n\nMerci de votre patience.\n\nCordialement,\nLe Service Client";
-    } else if (userPrompt.includes('merci') || userPrompt.includes('remerciement')) {
-      objet = "Remerciements pour votre confiance";
-      corps = "Bonjour,\n\nJe tenais personnellement à vous remercier pour la confiance que vous accordez à notre entreprise.\n\nC'est un réel plaisir de collaborer avec vous sur ce projet.\n\nÀ très bientôt,\nL'équipe Commerciale";
-    }
-
-    return res.json({ status: 'success', data: { objet, corps } });
+  const { prompt } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ status: 'error', message: 'Le prompt est requis.' });
   }
+
+  const systemPrompt = `Tu es un assistant de rédaction email professionnel intégré dans un CRM (Nexus CRM) pour une entreprise tunisienne.
+Tu aides les commerciaux et admins à rédiger des emails professionnels en français adaptés au contexte commercial.
+Réponds UNIQUEMENT avec ce format JSON (sans markdown) :
+{"objet":"<sujet email court>","corps":"<contenu complet de l'email>"}`;
+
+  const axiosLib = require('axios');
+
+  // --- Groq (principal) ---
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+  if (GROQ_KEY) {
+    try {
+      const groqRes = await axiosLib.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.5,
+          max_tokens: 1024,
+          response_format: { type: 'json_object' }
+        },
+        {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+          timeout: 15000
+        }
+      );
+      const parsed = JSON.parse(groqRes.data?.choices?.[0]?.message?.content || '{}');
+      if (parsed.objet && parsed.corps) {
+        return res.json({ status: 'success', data: { objet: parsed.objet, corps: parsed.corps } });
+      }
+    } catch (groqErr) {
+      console.error('[GROQ GENERATE ERROR]:', groqErr.message);
+    }
+  }
+
+  // --- Fallback mock ---
+  console.warn('[GENERATE EMAIL] Fallback mock utilisé');
+  let objet = "Suite à notre échange";
+  let corps = "Bonjour,\n\nJe vous contacte suite à notre dernier échange.\n\nCordialement,";
+  const p = prompt.toLowerCase();
+  if (p.includes('relance') || p.includes('facture') || p.includes('impayé')) {
+    objet = "Relance : Facture en attente de paiement";
+    corps = "Bonjour,\n\nSauf erreur de notre part, nous n'avons pas encore reçu le règlement de notre dernière facture.\n\nPourriez-vous vérifier l'état de ce paiement ?\n\nCordialement,\nL'équipe Commerciale";
+  } else if (p.includes('rdv') || p.includes('rendez-vous') || p.includes('rendezvous')) {
+    objet = "Confirmation de rendez-vous";
+    corps = "Bonjour,\n\nJe me permets de vous contacter afin de convenir d'un rendez-vous à votre convenance pour discuter de notre collaboration.\n\nDans l'attente de votre retour,\n\nCordialement,\nL'équipe Commerciale";
+  } else if (p.includes('devis') || p.includes('proposition')) {
+    objet = "Votre proposition commerciale";
+    corps = "Bonjour,\n\nSuite à notre récente discussion, veuillez trouver ci-joint notre devis détaillé.\n\nNous restons disponibles pour tout ajustement.\n\nBien cordialement,\nL'équipe Commerciale";
+  }
+  return res.json({ status: 'success', data: { objet, corps } });
 };
 
 exports.reformulateEmail = async (req, res) => {
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ status: 'error', message: 'Le texte est requis.' });
+  }
+
+  const localReformulate = (raw) => {
+    let out = raw.trim();
+    out = out.charAt(0).toUpperCase() + out.slice(1);
+    if (!/[.!?]$/.test(out)) out += '.';
+    const lower = out.toLowerCase();
+    const hasGreeting = lower.includes('bonjour') || lower.includes('madame') || lower.includes('monsieur') || lower.includes('cher');
+    const hasClosing = lower.includes('cordialement') || lower.includes('sincèrement') || lower.includes('bien à vous') || lower.includes('salutations');
+    if (!hasGreeting && !hasClosing) {
+      out = `Bonjour,\n\n${out}\n\nCordialement.`;
+    } else if (hasGreeting && !hasClosing) {
+      out = `${out}\n\nCordialement.`;
+    }
+    return out;
+  };
+
+  const axiosLib = require('axios');
+  const systemPrompt = `Tu es un assistant correcteur orthographique et reformulateur professionnel pour un CRM d'entreprise tunisienne.
+L'utilisateur te fournit un texte brut ou un brouillon d'email.
+Corrige les fautes d'orthographe et de grammaire, améliore la formulation pour la rendre professionnelle, garde le sens original.
+Ne fournis aucune explication, retourne uniquement le texte corrigé.`;
+
+  // --- 1. Groq (principal — gratuit sans carte bancaire) ---
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+  if (GROQ_KEY) {
+    try {
+      const groqRes = await axiosLib.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: text }
+          ],
+          temperature: 0.3,
+          max_tokens: 1024
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GROQ_KEY}`
+          },
+          timeout: 15000
+        }
+      );
+      const corrected = groqRes.data?.choices?.[0]?.message?.content?.trim();
+      if (corrected) {
+        return res.json({ status: 'success', data: { corrected, source: 'ai' } });
+      }
+    } catch (groqErr) {
+      console.error('[GROQ REFORMULATE ERROR]:', groqErr.message);
+    }
+  }
+
+  // --- 2. Fallback : Pollinations (sans clé) ---
+  const payload = {
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: text }
+    ],
+    model: 'openai',
+    seed: Math.floor(Math.random() * 1000000)
+  };
+
+  const tryPollinations = () => axiosLib.post(
+    'https://text.pollinations.ai/',
+    payload,
+    { headers: { 'Content-Type': 'application/json' }, timeout: 10000 }
+  );
+
+  const extractText = (data) => {
+    if (typeof data === 'string') return data;
+    if (data?.choices?.[0]?.message?.content) return data.choices[0].message.content;
+    if (data?.text) return data.text;
+    if (data?.content) return data.content;
+    return null;
+  };
+
   try {
-    const { text } = req.body;
-    if (!text) {
-      return res.status(400).json({ status: 'error', message: 'Le texte est requis.' });
+    let response;
+    try {
+      response = await tryPollinations();
+    } catch (firstErr) {
+      if (firstErr.response?.status === 429) {
+        await new Promise((r) => setTimeout(r, 2000));
+        response = await tryPollinations();
+      } else {
+        throw firstErr;
+      }
     }
 
-    const systemPrompt = `Tu es un assistant correcteur orthographique et reformulateur professionnel pour un CRM d'entreprise tunisienne.
-L'utilisateur te fournit un texte brut ou un brouillon d'email.
-Ton rôle est de corriger les fautes d'orthographe, de grammaire, et d'améliorer la formulation pour la rendre professionnelle, tout en gardant le sens original.
-Ne fournis aucune explication, ne dis pas bonjour, retourne uniquement le texte corrigé et reformulé.`;
+    const raw = extractText(response.data);
+    if (!raw) throw new Error('Empty response from Pollinations');
 
-    const axios = require('axios');
-    const response = await axios.post(
-      'https://text.pollinations.ai/',
-      {
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text }
-        ],
-        model: 'openai',
-        seed: Math.floor(Math.random() * 1000000)
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 20000
-      }
-    );
-
-    const replyText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-    let corrected = replyText.replace(/^["*]+|["*]+$/g, '').trim();
-
-    return res.json({ status: 'success', data: { corrected } });
+    const corrected = raw.replace(/^["*`]+|["*`]+$/g, '').trim() || localReformulate(text);
+    return res.json({ status: 'success', data: { corrected, source: 'ai' } });
 
   } catch (error) {
     console.error('[AI REFORMULATE ERROR]:', error.message);
-    // Fallback de secours minimal si l'API plante
-    return res.json({ 
-      status: 'success', 
-      data: { 
-        corrected: text + "\n\n(Note: Le service de correction AI est momentanément indisponible.)" 
-      } 
+    return res.json({
+      status: 'success',
+      data: { corrected: localReformulate(text), source: 'local' }
     });
   }
 };
 
+// ── Détection d'intention par mots-clés (robuste, pas de regex complexe) ───
+function detectChatIntent(message) {
+  const m = message.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // supprimer accents
+    .trim();
 
+  const hasWord = (...words) => words.some(w => m.includes(w));
+
+  const isCreate  = hasWord('creer', 'créer', 'nouveau', 'nouvelle', 'ajouter', 'ajoute',
+    'faire', 'ouvrir', 'crée', 'cree', 'new', 'add', 'create');
+  const isDevis   = hasWord('devis');
+  const isClient  = hasWord('client', 'tiers', 'societe', 'société');
+  const isClaim   = hasWord('reclamation', 'reclamations', 'sav', 'ticket');
+  const isActivite = hasWord('activite', 'activites', 'rdv', 'rendez-vous', 'rendez vous');
+  const isProjet  = hasWord('projet', 'projets');
+  const isObjectif = hasWord('objectif', 'objectifs');
+  const isFacture = hasWord('facture', 'factures', 'fav');
+  const isBcv     = hasWord('bon de commande', 'bcv', 'commande');
+
+  const isUnpaid  = hasWord('impaye', 'impayee', 'impayees', 'non paye', 'non payee',
+    'pas paye', 'pas payee', 'non regle', 'pas regle', 'reste a payer', 'a regler');
+  const isPending = hasWord('attente', 'non converti', 'pas converti', 'ouvert', 'en cours', 'brouillon');
+
+  // ── Intents de CRÉATION (navigation directe) ───────────────────────────
+  if (isCreate && isDevis)    return { type: 'navigate', path: '/devis/new',     label: 'Créer un devis',      reply: "Je vous emmène vers la création d'un nouveau **devis** !" };
+  if (isCreate && isClient)   return { type: 'navigate', path: '/clients/new',   label: 'Ajouter un client',   reply: "Je vous emmène vers l'ajout d'un nouveau **client** !" };
+  if (isCreate && isClaim)    return { type: 'navigate', path: '/claims/new',    label: 'Ouvrir une réclamation', reply: "Je vous emmène vers la création d'une **réclamation** !" };
+  if (isCreate && isActivite) return { type: 'navigate', path: '/activites/new', label: 'Créer une activité',  reply: "Je vous emmène vers la création d'une **activité** !" };
+  if (isCreate && isProjet)   return { type: 'navigate', path: '/projets/new',   label: 'Créer un projet',     reply: "Je vous emmène vers la création d'un nouveau **projet** !" };
+  if (isCreate && isObjectif) return { type: 'navigate', path: '/objectifs/new', label: 'Créer un objectif',   reply: "Je vous emmène vers la création d'un **objectif** !" };
+  if (isCreate && isBcv)      return { type: 'navigate', path: '/bcv/new',       label: 'Créer un bon de commande', reply: "Je vous emmène vers la création d'un **bon de commande** !" };
+
+  // ── Intents de NAVIGATION (liste / page) ───────────────────────────────
+  if (!isCreate && isDevis && hasWord('liste', 'voir les', 'page', 'aller', 'ouvrir', 'acceder'))
+    return { type: 'navigate', path: '/devis', label: 'Aller aux devis', reply: "Je vous emmène vers la liste des **devis** !" };
+  if (!isCreate && isClient && hasWord('liste', 'voir les', 'page', 'aller', 'acceder'))
+    return { type: 'navigate', path: '/clients', label: 'Aller aux clients', reply: "Je vous emmène vers la liste des **clients** !" };
+  if (!isCreate && isClaim && hasWord('liste', 'voir les', 'page', 'aller', 'acceder'))
+    return { type: 'navigate', path: '/claims', label: 'Aller aux réclamations', reply: "Je vous emmène vers la liste des **réclamations** !" };
+
+  // ── Intents BDD (données réelles) ──────────────────────────────────────
+  const clientMatch = m.match(/(?:\bde\b|\bdu\b|\bpour\b|\bd[e']\s)([a-z0-9\s\-_\.]+)$/);
+  const client = clientMatch ? clientMatch[1].replace(/\s+$/, '') : null;
+
+  if (isUnpaid && isFacture && client) return { type: 'unpaid_invoices_client', client };
+  if (isUnpaid && (isFacture || !isDevis)) return { type: 'unpaid_invoices' };
+  if (isDevis && client && !isPending && !isUnpaid) return { type: 'devis_client', client };
+  if (isDevis && isPending) return { type: 'pending_devis' };
+  if (isDevis && hasWord('liste', 'montre', 'affiche', 'donne', 'voir', 'tout', 'dernier', 'recent', 'show'))
+    return { type: 'list_devis' };
+
+  return null;
+}
+
+// ── Accès navigation par rôle ────────────────────────────────────────────────
+const NAV_ACCESS = {
+  // path → rôles autorisés (null = tous)
+  '/devis/new':      ['admin', 'commercial', 'agent'],
+  '/clients/new':    ['admin', 'commercial', 'agent'],
+  '/claims/new':     ['admin', 'commercial', 'agent', 'technicien'],
+  '/activites/new':  ['admin', 'commercial', 'agent'],
+  '/projets/new':    ['admin', 'commercial', 'agent'],
+  '/objectifs/new':  ['admin', 'commercial'],
+  '/bcv/new':        ['admin', 'commercial', 'agent'],
+  '/devis':          ['admin', 'commercial', 'agent'],
+  '/clients':        ['admin', 'commercial', 'agent'],
+  '/claims':         ['admin', 'commercial', 'agent', 'technicien'],
+};
+
+function canNavigate(path, user) {
+  const { normalizeRole } = require('../utils/userAccess');
+  const allowed = NAV_ACCESS[path];
+  if (!allowed) return true; // pas de restriction définie
+  const role = normalizeRole(user?.UserRole || '');
+  return allowed.includes(role);
+}
+
+// ── Exécution de l'intention via le service sécurisé ────────────────────────
+async function executeChatIntent(intent, user) {
+  const chatbotData = require('../services/chatbotDataService');
+  const { normalizeRole } = require('../utils/userAccess');
+
+  // ── Navigation directe ───────────────────────────────────────────────────
+  if (intent.type === 'navigate') {
+    if (!canNavigate(intent.path, user)) {
+      const role = normalizeRole(user?.UserRole || '');
+      return {
+        reply: `⛔ Désolé, votre rôle (**${user?.UserRole || role}**) ne vous permet pas d'accéder à cette page.`,
+      };
+    }
+    return {
+      reply: intent.reply,
+      action: { type: 'navigate', path: intent.path, label: intent.label },
+    };
+  }
+
+  // ── Requêtes BDD : toutes passent par chatbotDataService (rôle filtré) ───
+  if (intent.type === 'list_devis')             return chatbotData.getRecentDevis(user);
+  if (intent.type === 'pending_devis')          return chatbotData.getPendingDevis(user);
+  if (intent.type === 'devis_client')           return chatbotData.getDevisByClient(user, intent.client);
+  if (intent.type === 'unpaid_invoices')        return chatbotData.getUnpaidInvoices(user);
+  if (intent.type === 'unpaid_invoices_client') return chatbotData.getUnpaidInvoices(user, intent.client);
+
+  return null;
+}
+
+exports.chat = async (req, res) => {
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ status: 'error', message: 'Message requis.' });
+  }
+
+  const user = req.user;
+
+  // ── 1. Détection d'intention BDD (prioritaire sur le LLM) ──────────────
+  try {
+    const intent = detectChatIntent(message);
+    if (intent) {
+      const result = await executeChatIntent(intent, user);
+      if (result) {
+        return res.json({ status: 'success', data: result });
+      }
+    }
+  } catch (intentErr) {
+    console.error('[CHAT INTENT ERROR]:', intentErr.message, intentErr.stack);
+    return res.json({
+      status: 'success',
+      data: { reply: `⚠️ Erreur lors de la recherche : ${intentErr.message}` },
+    });
+  }
+
+  // ── 2. LLM Groq pour les questions générales ───────────────────────────
+  const { normalizeRole: normRole } = require('../utils/userAccess');
+  const userRole = normRole(user?.UserRole || '');
+  const userName = user?.FullName || user?.LoginName || '';
+
+  const roleContext = {
+    admin:      'Tu parles à un administrateur. Il a accès à toutes les données.',
+    commercial: 'Tu parles à un commercial. Il gère ses propres clients, devis et factures.',
+    agent:      'Tu parles à un(e) agent(e)/secrétaire. Il/elle gère les opérations administratives.',
+    technicien: 'Tu parles à un technicien SAV. Son domaine est les réclamations et interventions techniques.',
+    client:     'Tu parles à un client externe. Il peut consulter ses propres factures et devis.',
+  }[userRole] || 'Tu parles à un utilisateur du CRM.';
+
+  const systemPrompt = `Tu es NexusAI, l'assistant intelligent du CRM Nexus pour une entreprise tunisienne de distribution B2B.
+Tu réponds en français, de manière concise et professionnelle.
+${roleContext}${userName ? ` L'utilisateur s'appelle ${userName}.` : ''}
+Tu aides avec : devis, clients, réclamations, objectifs de vente, planning, et conseils CRM.
+Si tu ne sais pas quelque chose de spécifique aux données de l'entreprise, propose une suggestion utile.`;
+
+  const axiosLib = require('axios');
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+
+  if (GROQ_KEY) {
+    try {
+      const groqRes = await axiosLib.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message }
+          ],
+          temperature: 0.6,
+          max_tokens: 512
+        },
+        {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+          timeout: 15000
+        }
+      );
+      const reply = groqRes.data?.choices?.[0]?.message?.content?.trim();
+      if (reply) {
+        return res.json({ status: 'success', data: { reply } });
+      }
+    } catch (err) {
+      console.error('[GROQ CHAT ERROR]:', err.message);
+    }
+  }
+
+  // ── 3. Fallback local ──────────────────────────────────────────────────
+  const m = message.toLowerCase();
+  let reply = "Je suis NexusAI, votre assistant CRM. Posez-moi une question sur vos ventes, clients ou activités.";
+  if (m.includes('devis')) reply = "Pour gérer vos devis, rendez-vous dans le module **Devis**. Vous pouvez créer, modifier et transformer un devis en bon de commande (BCV) en un clic.";
+  else if (m.includes('client') || m.includes('relance')) reply = "Pour relancer un client, consultez le module **Clients** et vérifiez les devis en attente ou les factures impayées dans **Règlements**.";
+  else if (m.includes('réclamation') || m.includes('sav')) reply = "Les réclamations sont gérées dans le module **SAV**. Un technicien peut être affecté directement depuis la fiche réclamation.";
+  else if (m.includes('objectif')) reply = "Vos objectifs de vente (CA, visites, contacts) sont suivis dans le module **Objectifs** avec des barres de progression en temps réel.";
+  else if (m.includes('stock')) reply = "La gestion du stock est disponible dans le module **Produits**. Les alertes stock critique apparaissent sur le tableau de bord admin.";
+
+  return res.json({ status: 'success', data: { reply } });
+};
