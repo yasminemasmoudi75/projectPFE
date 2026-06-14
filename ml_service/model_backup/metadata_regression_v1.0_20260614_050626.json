@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "model_type": "GradientBoostingRegressor",
+  "task": "regression",
+  "target": "variation_pct",
+  "mae_pct": 79.52,
+  "r2_score": -0.219,
+  "cv_r2_mean": -0.146,
+  "features": [
+    "Population",
+    "Indice_Achat",
+    "Nb_Hopitaux",
+    "Nb_Laboratoires",
+    "Trimestre",
+    "Annee",
+    "CA_HT_prev",
+    "NbBL"
+  ],
+  "n_samples": 98,
+  "gouvernorats": [
+    "ARIANA",
+    "BEJA",
+    "BEN_AROUS",
+    "BIZERTE",
+    "GABES",
+    "GAFSA",
+    "KAIROUAN",
+    "MANOUBA",
+    "MONASTIR",
+    "NABEUL",
+    "SFAX",
+    "SOUSSE",
+    "TUNIS",
+    "ZAGHOUAN"
+  ],
+  "date_created": "2026-05-30T16:34:25.921997"
+}

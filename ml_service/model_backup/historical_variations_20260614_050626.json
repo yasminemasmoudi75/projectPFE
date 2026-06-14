@@ -1,0 +1,474 @@
+{
+  "generated_at": "2026-05-30T16:36:17.640017",
+  "description": "Variations % CA réelles depuis BDD AA (médiane par région/trimestre)",
+  "by_region_trimestre": {
+    "ARIANA": {
+      "1": {
+        "median_variation": 183.1,
+        "mean_variation": 183.1,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 183.1,
+        "max": 183.1
+      },
+      "2": {
+        "median_variation": -97.9,
+        "mean_variation": -97.9,
+        "std_variation": 1.0,
+        "nb_periodes": 2,
+        "min": -98.9,
+        "max": -96.9
+      },
+      "3": {
+        "median_variation": 168.6,
+        "mean_variation": 168.6,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 168.6,
+        "max": 168.6
+      },
+      "4": {
+        "median_variation": 25.5,
+        "mean_variation": 25.5,
+        "std_variation": 0.7,
+        "nb_periodes": 2,
+        "min": 24.9,
+        "max": 26.2
+      }
+    },
+    "BEJA": {
+      "4": {
+        "median_variation": 70.8,
+        "mean_variation": 70.8,
+        "std_variation": 150.1,
+        "nb_periodes": 2,
+        "min": -79.3,
+        "max": 220.8
+      }
+    },
+    "BEN_AROUS": {
+      "1": {
+        "median_variation": 119.0,
+        "mean_variation": 80.5,
+        "std_variation": 117.5,
+        "nb_periodes": 3,
+        "min": -78.8,
+        "max": 201.2
+      },
+      "2": {
+        "median_variation": -67.2,
+        "mean_variation": -47.4,
+        "std_variation": 44.2,
+        "nb_periodes": 5,
+        "min": -93.0,
+        "max": 26.3
+      },
+      "3": {
+        "median_variation": -70.8,
+        "mean_variation": -10.7,
+        "std_variation": 121.0,
+        "nb_periodes": 4,
+        "min": -99.2,
+        "max": 197.9
+      },
+      "4": {
+        "median_variation": -40.4,
+        "mean_variation": -22.9,
+        "std_variation": 59.5,
+        "nb_periodes": 3,
+        "min": -85.4,
+        "max": 57.2
+      }
+    },
+    "BIZERTE": {
+      "1": {
+        "median_variation": -24.6,
+        "mean_variation": -19.9,
+        "std_variation": 41.5,
+        "nb_periodes": 4,
+        "min": -66.6,
+        "max": 36.1
+      },
+      "2": {
+        "median_variation": -91.2,
+        "mean_variation": -91.2,
+        "std_variation": 4.6,
+        "nb_periodes": 2,
+        "min": -95.8,
+        "max": -86.5
+      },
+      "3": {
+        "median_variation": -20.5,
+        "mean_variation": -16.4,
+        "std_variation": 43.8,
+        "nb_periodes": 3,
+        "min": -67.9,
+        "max": 39.2
+      },
+      "4": {
+        "median_variation": -24.3,
+        "mean_variation": 23.0,
+        "std_variation": 98.7,
+        "nb_periodes": 3,
+        "min": -67.1,
+        "max": 160.4
+      }
+    },
+    "GABES": {
+      "1": {
+        "median_variation": 71.7,
+        "mean_variation": 71.7,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 71.7,
+        "max": 71.7
+      },
+      "2": {
+        "median_variation": -25.7,
+        "mean_variation": -31.8,
+        "std_variation": 50.5,
+        "nb_periodes": 3,
+        "min": -96.5,
+        "max": 26.8
+      },
+      "3": {
+        "median_variation": 101.6,
+        "mean_variation": 101.6,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 101.6,
+        "max": 101.6
+      },
+      "4": {
+        "median_variation": 214.9,
+        "mean_variation": 214.9,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 214.9,
+        "max": 214.9
+      }
+    },
+    "GAFSA": {
+      "1": {
+        "median_variation": -40.0,
+        "mean_variation": -40.0,
+        "std_variation": 51.0,
+        "nb_periodes": 2,
+        "min": -91.0,
+        "max": 11.0
+      },
+      "2": {
+        "median_variation": 172.0,
+        "mean_variation": 172.0,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 172.0,
+        "max": 172.0
+      },
+      "3": {
+        "median_variation": 19.6,
+        "mean_variation": 19.6,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 19.6,
+        "max": 19.6
+      },
+      "4": {
+        "median_variation": -21.6,
+        "mean_variation": -21.6,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": -21.6,
+        "max": -21.6
+      }
+    },
+    "KAIROUAN": {
+      "4": {
+        "median_variation": -88.5,
+        "mean_variation": -88.5,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": -88.5,
+        "max": -88.5
+      }
+    },
+    "MANOUBA": {
+      "1": {
+        "median_variation": -26.0,
+        "mean_variation": -26.0,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": -26.0,
+        "max": -26.0
+      },
+      "2": {
+        "median_variation": -57.3,
+        "mean_variation": -57.3,
+        "std_variation": 15.2,
+        "nb_periodes": 2,
+        "min": -72.6,
+        "max": -42.1
+      },
+      "4": {
+        "median_variation": -26.7,
+        "mean_variation": -17.9,
+        "std_variation": 62.7,
+        "nb_periodes": 3,
+        "min": -89.9,
+        "max": 63.0
+      }
+    },
+    "MONASTIR": {
+      "1": {
+        "median_variation": -55.6,
+        "mean_variation": -55.6,
+        "std_variation": 12.9,
+        "nb_periodes": 2,
+        "min": -68.5,
+        "max": -42.8
+      },
+      "2": {
+        "median_variation": -90.9,
+        "mean_variation": 31.2,
+        "std_variation": 178.8,
+        "nb_periodes": 3,
+        "min": -99.6,
+        "max": 284.0
+      },
+      "3": {
+        "median_variation": -96.8,
+        "mean_variation": -32.4,
+        "std_variation": 93.2,
+        "nb_periodes": 3,
+        "min": -99.7,
+        "max": 99.4
+      },
+      "4": {
+        "median_variation": 48.9,
+        "mean_variation": 42.1,
+        "std_variation": 67.3,
+        "nb_periodes": 3,
+        "min": -43.5,
+        "max": 120.9
+      }
+    },
+    "NABEUL": {
+      "1": {
+        "median_variation": -67.8,
+        "mean_variation": -67.8,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": -67.8,
+        "max": -67.8
+      },
+      "2": {
+        "median_variation": 16.9,
+        "mean_variation": 16.9,
+        "std_variation": 14.9,
+        "nb_periodes": 2,
+        "min": 2.0,
+        "max": 31.8
+      },
+      "3": {
+        "median_variation": -14.8,
+        "mean_variation": -14.8,
+        "std_variation": 27.2,
+        "nb_periodes": 2,
+        "min": -42.0,
+        "max": 12.5
+      },
+      "4": {
+        "median_variation": 1.5,
+        "mean_variation": 1.5,
+        "std_variation": 66.2,
+        "nb_periodes": 2,
+        "min": -64.7,
+        "max": 67.7
+      }
+    },
+    "SFAX": {
+      "1": {
+        "median_variation": 4.5,
+        "mean_variation": 35.2,
+        "std_variation": 126.5,
+        "nb_periodes": 4,
+        "min": -94.4,
+        "max": 226.3
+      },
+      "2": {
+        "median_variation": -26.5,
+        "mean_variation": 24.3,
+        "std_variation": 121.5,
+        "nb_periodes": 5,
+        "min": -95.5,
+        "max": 191.8
+      },
+      "3": {
+        "median_variation": -4.1,
+        "mean_variation": 38.7,
+        "std_variation": 132.3,
+        "nb_periodes": 3,
+        "min": -97.6,
+        "max": 217.9
+      },
+      "4": {
+        "median_variation": -95.7,
+        "mean_variation": -80.4,
+        "std_variation": 24.4,
+        "nb_periodes": 3,
+        "min": -99.5,
+        "max": -45.9
+      }
+    },
+    "SOUSSE": {
+      "1": {
+        "median_variation": -98.5,
+        "mean_variation": -98.5,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": -98.5,
+        "max": -98.5
+      },
+      "2": {
+        "median_variation": 31.2,
+        "mean_variation": 31.2,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 31.2,
+        "max": 31.2
+      },
+      "3": {
+        "median_variation": -25.0,
+        "mean_variation": -25.0,
+        "std_variation": 37.8,
+        "nb_periodes": 2,
+        "min": -62.8,
+        "max": 12.8
+      }
+    },
+    "TUNIS": {
+      "1": {
+        "median_variation": -91.3,
+        "mean_variation": -77.4,
+        "std_variation": 25.6,
+        "nb_periodes": 3,
+        "min": -99.4,
+        "max": -41.5
+      },
+      "2": {
+        "median_variation": -91.7,
+        "mean_variation": -91.7,
+        "std_variation": 1.9,
+        "nb_periodes": 2,
+        "min": -93.5,
+        "max": -89.8
+      },
+      "3": {
+        "median_variation": -85.2,
+        "mean_variation": -17.9,
+        "std_variation": 125.1,
+        "nb_periodes": 4,
+        "min": -99.5,
+        "max": 198.3
+      },
+      "4": {
+        "median_variation": 21.3,
+        "mean_variation": 21.3,
+        "std_variation": 8.4,
+        "nb_periodes": 2,
+        "min": 12.9,
+        "max": 29.7
+      }
+    },
+    "ZAGHOUAN": {
+      "1": {
+        "median_variation": 155.5,
+        "mean_variation": 155.5,
+        "std_variation": 0.0,
+        "nb_periodes": 1,
+        "min": 155.5,
+        "max": 155.5
+      },
+      "3": {
+        "median_variation": -45.0,
+        "mean_variation": -45.0,
+        "std_variation": 55.0,
+        "nb_periodes": 2,
+        "min": -99.9,
+        "max": 10.0
+      }
+    }
+  },
+  "by_region_global": {
+    "ARIANA": {
+      "median_variation": 25.5,
+      "mean_variation": 34.5,
+      "nb_periodes": 6
+    },
+    "BEJA": {
+      "median_variation": 70.8,
+      "mean_variation": 70.8,
+      "nb_periodes": 2
+    },
+    "BEN_AROUS": {
+      "median_variation": -67.2,
+      "mean_variation": -7.1,
+      "nb_periodes": 15
+    },
+    "BIZERTE": {
+      "median_variation": -38.2,
+      "mean_variation": -20.2,
+      "nb_periodes": 12
+    },
+    "GABES": {
+      "median_variation": 49.2,
+      "mean_variation": 48.8,
+      "nb_periodes": 6
+    },
+    "GAFSA": {
+      "median_variation": 11.0,
+      "mean_variation": 18.0,
+      "nb_periodes": 5
+    },
+    "KAIROUAN": {
+      "median_variation": -88.5,
+      "mean_variation": -88.5,
+      "nb_periodes": 1
+    },
+    "MANOUBA": {
+      "median_variation": -34.4,
+      "mean_variation": -32.4,
+      "nb_periodes": 6
+    },
+    "MONASTIR": {
+      "median_variation": -43.5,
+      "mean_variation": 1.0,
+      "nb_periodes": 11
+    },
+    "NABEUL": {
+      "median_variation": 2.0,
+      "mean_variation": -8.6,
+      "nb_periodes": 7
+    },
+    "SFAX": {
+      "median_variation": -45.9,
+      "mean_variation": 9.2,
+      "nb_periodes": 15
+    },
+    "SOUSSE": {
+      "median_variation": -25.0,
+      "mean_variation": -29.3,
+      "nb_periodes": 4
+    },
+    "TUNIS": {
+      "median_variation": -89.8,
+      "mean_variation": -40.4,
+      "nb_periodes": 11
+    },
+    "ZAGHOUAN": {
+      "median_variation": 10.0,
+      "mean_variation": 21.9,
+      "nb_periodes": 3
+    }
+  }
+}

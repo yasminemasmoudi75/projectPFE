@@ -1,0 +1,194 @@
+[
+  {
+    "Region_Inferred":"ARIANA",
+    "N_Ventes":189,
+    "Score_HAUSSE":0.3835,
+    "Percentile":0.0833333333,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"BEJA",
+    "N_Ventes":73,
+    "Score_HAUSSE":0.4091,
+    "Percentile":0.625,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"BEN_AROUS",
+    "N_Ventes":94,
+    "Score_HAUSSE":0.4406,
+    "Percentile":1.0,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"BIZERTE",
+    "N_Ventes":164,
+    "Score_HAUSSE":0.4058,
+    "Percentile":0.5,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"GABES",
+    "N_Ventes":95,
+    "Score_HAUSSE":0.3912,
+    "Percentile":0.125,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"GAFSA",
+    "N_Ventes":79,
+    "Score_HAUSSE":0.4085,
+    "Percentile":0.5833333333,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"JENDOUBA",
+    "N_Ventes":119,
+    "Score_HAUSSE":0.4124,
+    "Percentile":0.7083333333,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"KAIROUAN",
+    "N_Ventes":169,
+    "Score_HAUSSE":0.4126,
+    "Percentile":0.75,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"KASSERINE",
+    "N_Ventes":92,
+    "Score_HAUSSE":0.4158,
+    "Percentile":0.7916666667,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"KEBILI",
+    "N_Ventes":133,
+    "Score_HAUSSE":0.4026,
+    "Percentile":0.2916666667,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"LE_KEF",
+    "N_Ventes":126,
+    "Score_HAUSSE":0.4037,
+    "Percentile":0.375,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"MAHDIA",
+    "N_Ventes":101,
+    "Score_HAUSSE":0.4057,
+    "Percentile":0.4583333333,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"MANOUBA",
+    "N_Ventes":59,
+    "Score_HAUSSE":0.3974,
+    "Percentile":0.2083333333,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"MEDENINE",
+    "N_Ventes":142,
+    "Score_HAUSSE":0.3953,
+    "Percentile":0.1666666667,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"MONASTIR",
+    "N_Ventes":66,
+    "Score_HAUSSE":0.4032,
+    "Percentile":0.3333333333,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"NABEUL",
+    "N_Ventes":118,
+    "Score_HAUSSE":0.3997,
+    "Percentile":0.25,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"SFAX",
+    "N_Ventes":129,
+    "Score_HAUSSE":0.4082,
+    "Percentile":0.5416666667,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"SIDI_BOUZID",
+    "N_Ventes":176,
+    "Score_HAUSSE":0.4234,
+    "Percentile":0.875,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"SILIANA",
+    "N_Ventes":84,
+    "Score_HAUSSE":0.4053,
+    "Percentile":0.4166666667,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  },
+  {
+    "Region_Inferred":"SOUSSE",
+    "N_Ventes":92,
+    "Score_HAUSSE":0.4239,
+    "Percentile":0.9166666667,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"TATAOUINE",
+    "N_Ventes":703,
+    "Score_HAUSSE":0.4271,
+    "Percentile":0.9583333333,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"TOZEUR",
+    "N_Ventes":83,
+    "Score_HAUSSE":0.4214,
+    "Percentile":0.8333333333,
+    "Recommendation":"AUGMENTER",
+    "Action_Plan":"Renforcer les équipes sur le terrain, augmenter le stock de sécurité de 25%."
+  },
+  {
+    "Region_Inferred":"TUNIS",
+    "N_Ventes":443,
+    "Score_HAUSSE":0.3597,
+    "Percentile":0.0416666667,
+    "Recommendation":"RÉDUIRE",
+    "Action_Plan":"Réallouer les ressources vers les gouvernorats à plus haut potentiel."
+  },
+  {
+    "Region_Inferred":"ZAGHOUAN",
+    "N_Ventes":66,
+    "Score_HAUSSE":0.4101,
+    "Percentile":0.6666666667,
+    "Recommendation":"MAINTENIR",
+    "Action_Plan":"Stabiliser la logistique, maintenir la couverture commerciale active."
+  }
+]
