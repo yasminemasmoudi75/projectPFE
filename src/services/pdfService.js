@@ -56,7 +56,7 @@ class PDFService {
         y = this._drawMetaAndClient(doc, data, y);
         y = this._drawArticlesTable(doc, data.details || [], y);
         y = this._drawTotals(doc, data, y);
-        y = this._drawSignatureSection(doc, data, docType, y);
+        y = this._drawSignatureSection(doc, data, soc, docType, y);
         this._drawFooter(doc, data);
     }
 
@@ -355,35 +355,43 @@ class PDFService {
     }
 
     // ─────────────────────────────────────────────
-    // Signature section — only rendered when a signature exists
+    // Signature par-dessus le cachet — une seule image
     // ─────────────────────────────────────────────
-    static _drawSignatureSection(doc, data, docType, y) {
-        const sigData = data.SignatureData || null;
-        if (!sigData) return y; // nothing to draw
+    static _drawSignatureSection(doc, data, soc, docType, y) {
+        const sigData   = data.SignatureData || null;
+        const cachetBuf = soc?.CACHET ? Buffer.from(soc.CACHET) : null;
 
-        const label = 'SIGNATURE DU RESPONSABLE';
-        const boxW  = CONTENT_W / 2 - 12;
-        const boxH  = 72;
+        if (!sigData && !cachetBuf) return y;
+
+        const imgX = MARGIN;
+        const imgY = y + 28;
+        const imgW = 160;
+        const imgH = 130;
 
         y += 16;
         doc.rect(MARGIN, y, CONTENT_W, 0.5).fill(SLATE_200);
         y += 12;
 
         doc.font('Helvetica-Bold').fontSize(7).fillColor(SLATE_400)
-            .text(label, MARGIN, y, { characterSpacing: 0.8 });
-        y += 10;
+            .text('SIGNATURE DU RESPONSABLE', MARGIN, y, { characterSpacing: 0.8 });
 
-        try {
-            const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
-            const imgBuf = Buffer.from(base64, 'base64');
-            doc.roundedRect(MARGIN, y, boxW, boxH, 4).fill('#f8fafc');
-            doc.image(imgBuf, MARGIN + 8, y + 6, { fit: [boxW - 16, boxH - 12], align: 'center', valign: 'center' });
-            doc.roundedRect(MARGIN, y, boxW, boxH, 4).stroke(SLATE_200);
-        } catch {
-            doc.roundedRect(MARGIN, y, boxW, boxH, 4).dash(4, { space: 3 }).stroke(SLATE_200).undash();
+        // 1. Cachet en dessous
+        if (cachetBuf) {
+            try {
+                doc.image(cachetBuf, imgX, imgY, { fit: [imgW, imgH], align: 'center', valign: 'center' });
+            } catch { /* cachet invalide */ }
         }
 
-        return y + boxH + 16;
+        // 2. Signature par-dessus
+        if (sigData) {
+            try {
+                const base64 = sigData.replace(/^data:image\/\w+;base64,/, '');
+                const imgBuf = Buffer.from(base64, 'base64');
+                doc.image(imgBuf, imgX, imgY, { fit: [imgW, imgH], align: 'center', valign: 'center' });
+            } catch { /* signature invalide */ }
+        }
+
+        return imgY + imgH + 16;
     }
 
     // ─────────────────────────────────────────────

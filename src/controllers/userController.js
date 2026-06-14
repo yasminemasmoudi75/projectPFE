@@ -182,7 +182,8 @@ exports.createUser = async (req, res, next) => {
       FullName,
       EmailPro,
       Gouvernorat: gouvernoratId,
-      DateNaissance: sanitizeDate(DateNaissance)
+      DateNaissance: sanitizeDate(DateNaissance),
+      MustChangePassword: true
     }, { transaction });
 
     await upsertUserAccess(newUser.UserID, selectedRole, {

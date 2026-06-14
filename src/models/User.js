@@ -80,6 +80,12 @@ const User = sequelize.define('User', {
       return value == null ? true : value;
     }
   },
+  MustChangePassword: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'MustChangePassword'
+  },
   RefreshToken: {
     type: DataTypes.VIRTUAL
   }

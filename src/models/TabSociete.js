@@ -39,6 +39,10 @@ const TabSociete = sequelize.define('TabSociete', {
         type: DataTypes.BLOB('long'),
         field: 'LOGO'
     },
+    CACHET: {
+        type: DataTypes.BLOB('long'),
+        field: 'CACHET'
+    },
     TVA_INTRACOM: {
         type: DataTypes.STRING(20),
         field: 'TVA_INTRACOM'
