@@ -25,6 +25,7 @@ const useAuth = () => {
     isAuthenticated,
     loading,
     logout: handleLogout,
+    mustChangePassword: !!user?.MustChangePassword,
     isAdmin: ['admin', 'administrateur'].includes(normalizeRole(user?.UserRole)),
     isCommercial: ['commercial', 'commerciale'].includes(normalizeRole(user?.UserRole)),
     isAgent: ['agent'].includes(normalizeRole(user?.UserRole)),

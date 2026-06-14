@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import ChatbotWidget from '../components/ui/ChatbotWidget';
+import NotificationReminder from '../components/notifications/NotificationReminder';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,6 +39,9 @@ const DashboardLayout = () => {
 
         {/* Chatbot */}
         <ChatbotWidget />
+
+        {/* Rappel notifications au login */}
+        <NotificationReminder />
 
         {/* Footer */}
         <footer className="border-t border-slate-200/60 bg-white/60 backdrop-blur-sm">

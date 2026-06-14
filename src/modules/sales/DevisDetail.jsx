@@ -43,6 +43,7 @@ const DevisDetail = () => {
   const [showSignPad, setShowSignPad] = useState(false);
   const [signature, setSignature] = useState(null);
   const [savingSig, setSavingSig] = useState(false);
+  const [cachet, setCachet] = useState(null);
 
   useEffect(() => {
     if (id) dispatch(fetchDevisById(id));
@@ -51,6 +52,12 @@ const DevisDetail = () => {
   useEffect(() => {
     if (devis?.SignatureData) setSignature(devis.SignatureData);
   }, [devis?.SignatureData]);
+
+  useEffect(() => {
+    api.get('/societe').then((res) => {
+      if (res.data?.data?.CACHET) setCachet(res.data.data.CACHET);
+    }).catch(() => {});
+  }, []);
 
   const handleSaveSignature = async (dataUrl) => {
     try {
@@ -363,43 +370,59 @@ const DevisDetail = () => {
             </div>
           </div>
 
-          {/* Signature du responsable */}
+          {/* Signature + Cachet — superposés comme une seule image */}
           <div className="mt-10 pt-8 border-t border-slate-100">
-            <div className="flex items-start gap-8">
-              <div className="flex-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  Signature du responsable
-                </p>
-                {signature ? (
-                  <div className="relative group inline-block">
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                      <img src={signature} alt="Signature" className="h-20 max-w-[220px] object-contain" />
-                    </div>
-                    {(isAdmin || isCommercial) && (
-                      <button onClick={handleDeleteSignature}
-                        className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full bg-rose-500 text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Supprimer">
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    )}
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+              Signature du responsable
+            </p>
+
+            <div className="relative group inline-block" style={{ width: 200, height: 160 }}>
+              {/* Cachet en dessous */}
+              {cachet && (
+                <img
+                  src={cachet}
+                  alt="Cachet société"
+                  className="absolute inset-0 w-full h-full object-contain opacity-85"
+                  style={{ zIndex: 1 }}
+                />
+              )}
+
+              {/* Signature par-dessus */}
+              {signature ? (
+                <img
+                  src={signature}
+                  alt="Signature"
+                  className="absolute inset-0 w-full h-full object-contain"
+                  style={{ zIndex: 2 }}
+                />
+              ) : (
+                <div
+                  onClick={() => (isAdmin || isCommercial) && setShowSignPad(true)}
+                  className={`absolute inset-0 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-xl ${(isAdmin || isCommercial) ? 'cursor-pointer hover:border-[#0062AF]/50 hover:bg-[#f0f7ff] transition-colors' : ''}`}
+                  style={{ zIndex: 2 }}>
+                  <div className="text-center">
+                    <PencilSquareIcon className="h-5 w-5 text-slate-300 mx-auto mb-1" />
+                    <p className="text-[10px] text-slate-400">{(isAdmin || isCommercial) ? 'Cliquer pour signer' : 'Non signé'}</p>
                   </div>
-                ) : (
-                  <div
-                    onClick={() => (isAdmin || isCommercial) && setShowSignPad(true)}
-                    className={`w-48 h-20 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center ${(isAdmin || isCommercial) ? 'cursor-pointer hover:border-[#0062AF]/50 hover:bg-[#f0f7ff] transition-colors' : ''}`}>
-                    <div className="text-center">
-                      <PencilSquareIcon className="h-5 w-5 text-slate-300 mx-auto mb-1" />
-                      <p className="text-[10px] text-slate-400">{(isAdmin || isCommercial) ? 'Cliquer pour signer' : 'Non signé'}</p>
-                    </div>
-                  </div>
-                )}
-                {(isAdmin || isCommercial) && signature && (
-                  <button onClick={() => setShowSignPad(true)} className="mt-2 text-[10px] text-[#0062AF] hover:underline font-medium">
-                    Modifier la signature
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Bouton supprimer signature */}
+              {(isAdmin || isCommercial) && signature && (
+                <button onClick={handleDeleteSignature}
+                  className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center rounded-full bg-rose-500 text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ zIndex: 3 }}
+                  title="Supprimer signature">
+                  <TrashIcon className="h-3 w-3" />
+                </button>
+              )}
             </div>
+
+            {(isAdmin || isCommercial) && signature && (
+              <button onClick={() => setShowSignPad(true)} className="mt-2 block text-[10px] text-[#0062AF] hover:underline font-medium">
+                Modifier la signature
+              </button>
+            )}
           </div>
 
           {/* Footer */}

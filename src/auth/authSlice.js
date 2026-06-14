@@ -141,6 +141,9 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    passwordChanged: (state) => {
+      if (state.user) state.user.MustChangePassword = false;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -216,6 +219,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAccessToken, clearAuthState, clearError } = authSlice.actions;
+export const { setAccessToken, clearAuthState, clearError, passwordChanged } = authSlice.actions;
 export default authSlice.reducer;
 
